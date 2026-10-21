@@ -1,0 +1,93 @@
+import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { env } from "./env";
+
+/**
+ * Media storage. The MVP stores files on local disk under DATA_DIR/uploads;
+ * the interface is kept small so an S3-compatible driver can slot in later.
+ */
+export interface StoredObject {
+  key: string;
+  size: number;
+}
+
+export type MediaKind = "video" | "image";
+
+const IMAGE_TYPES: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
+
+const VIDEO_TYPES: Record<string, string> = {
+  "video/webm": "webm",
+  "video/mp4": "mp4",
+  "video/quicktime": "mov",
+  "video/ogg": "ogv",
+};
+
+export const MIME_BY_EXT: Record<string, string> = Object.fromEntries(
+  [...Object.entries(IMAGE_TYPES), ...Object.entries(VIDEO_TYPES)].map(([m, e]) => [e, m]),
+);
+
+/** Sniffs the real container type from magic bytes; never trust the client. */
+export function sniffMime(head: Uint8Array): string | null {
+  const b = head;
+  const ascii = (start: number, len: number) =>
+    String.fromCharCode(...b.subarray(start, start + len));
+  if (b[0] === 0x89 && ascii(1, 3) === "PNG") return "image/png";
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
+  if (ascii(0, 4) === "RIFF" && ascii(8, 4) === "WEBP") return "image/webp";
+  if (ascii(0, 4) === "GIF8") return "image/gif";
+  if (b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3) return "video/webm";
+  if (ascii(4, 4) === "ftyp") {
+    return ascii(8, 2) === "qt" ? "video/quicktime" : "video/mp4";
+  }
+  if (ascii(0, 4) === "OggS") return "video/ogg";
+  return null;
+}
+
+export class UploadError extends Error {}
+
+/** Validates and writes an uploaded file, returning its storage key. */
+export async function saveUpload(file: File, kind: MediaKind): Promise<StoredObject & { mime: string }> {
+  const limit = kind === "video" ? env.maxVideoBytes : env.maxImageBytes;
+  if (file.size === 0) throw new UploadError(`The ${kind} file is empty`);
+  if (file.size > limit) {
+    throw new UploadError(`The ${kind} file is larger than ${Math.round(limit / 1024 / 1024)} MB`);
+  }
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const mime = sniffMime(bytes.subarray(0, 16));
+  const allowed = kind === "video" ? VIDEO_TYPES : IMAGE_TYPES;
+  if (!mime || !(mime in allowed)) {
+    throw new UploadError(
+      kind === "video"
+        ? "Unsupported video format (use WebM, MP4, MOV or Ogg)"
+        : "Unsupported image format (use PNG, JPEG, WebP or GIF)",
+    );
+  }
+  const key = `${kind}s/${crypto.randomUUID()}.${allowed[mime]}`;
+  const target = resolveKey(key);
+  await fs.promises.mkdir(path.dirname(target), { recursive: true });
+  await fs.promises.writeFile(target, bytes);
+  return { key, size: bytes.byteLength, mime };
+}
+
+/** Maps a storage key to a path, refusing anything that escapes the uploads dir. */
+export function resolveKey(key: string) {
+  if (!/^(videos|images)\/[0-9a-f-]{36}\.[a-z0-9]{2,5}$/.test(key)) {
+    throw new UploadError("Invalid media key");
+  }
+  return path.join(env.uploadsDir, key);
+}
+
+export async function deleteObject(key: string | null | undefined) {
+  if (!key) return;
+  await fs.promises.rm(resolveKey(key), { force: true });
+}
+
+export function mediaUrl(key: string | null | undefined, base = "") {
+  return key ? `${base}/api/media/${key}` : null;
+}
