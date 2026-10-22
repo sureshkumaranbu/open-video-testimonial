@@ -18,6 +18,31 @@ async function session(req: Request, ctx: Ctx) {
   return getUpload(id, req.headers.get("x-upload-token"));
 }
 
+async function readCapped(req: Request, max: number) {
+  const parts: Uint8Array[] = [];
+  let size = 0;
+  if (req.body) {
+    const reader = req.body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > max) {
+        await reader.cancel().catch(() => undefined);
+        return null;
+      }
+      parts.push(value);
+    }
+  }
+  const out = new Uint8Array(size);
+  let at = 0;
+  for (const p of parts) {
+    out.set(p, at);
+    at += p.byteLength;
+  }
+  return out;
+}
+
 export async function GET(req: Request, ctx: Ctx) {
   const upload = await session(req, ctx);
   if (!upload) return jsonError(404, "Upload not found or expired");
@@ -35,7 +60,9 @@ export async function PUT(req: Request, ctx: Ctx) {
   if (!Number.isSafeInteger(offset) || offset < 0) return jsonError(400, "Missing or invalid offset");
   const declared = Number(req.headers.get("content-length") || 0);
   if (declared > CHUNK_MAX_BYTES) return jsonError(413, "Chunk too large");
-  const bytes = new Uint8Array(await req.arrayBuffer());
+  // Count while reading: a chunked request has no Content-Length to check.
+  const bytes = await readCapped(req, CHUNK_MAX_BYTES);
+  if (!bytes) return jsonError(413, "Chunk too large");
   try {
     return Response.json({ offset: await appendChunk(upload, offset, bytes) });
   } catch (err) {

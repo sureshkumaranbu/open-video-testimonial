@@ -329,6 +329,10 @@ export function createImportTarget(manifest: ImportManifest, opts: { slug?: stri
     questions: p.questions,
     maxVideoSeconds: p.maxVideoSeconds,
     consentText: p.consentText,
+    inviteSubject: p.inviteSubject,
+    inviteMessage: p.inviteMessage,
+    reminderDays: p.reminderDays,
+    thankYouEmail: p.thankYouEmail,
   });
 }
 

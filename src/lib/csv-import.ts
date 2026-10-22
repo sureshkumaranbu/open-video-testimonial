@@ -1,8 +1,12 @@
 import crypto from "node:crypto";
-import dns from "node:dns/promises";
+import dnsCallback from "node:dns";
+import http from "node:http";
+import https from "node:https";
 import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
+import { Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb, schema } from "@/db";
@@ -223,52 +227,93 @@ export function importCsv(
 
 // ------------------------------------------------------------ fetching media
 
-function isPrivate(ip: string) {
-  if (net.isIPv4(ip)) {
-    const [a, b] = ip.split(".").map(Number);
-    return (
-      a === 0 || a === 10 || a === 127 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) ||
-      (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || a >= 224
-    );
-  }
-  const v6 = ip.toLowerCase();
-  if (v6.startsWith("::ffff:")) return isPrivate(v6.slice(7));
-  return v6 === "::1" || v6 === "::" || v6.startsWith("fc") || v6.startsWith("fd") || v6.startsWith("fe80");
+// Loopback, private, link-local, carrier-grade NAT, benchmarking, multicast and
+// reserved ranges, plus IPv4-mapped/NAT64 IPv6 (which can point back at them).
+// Separate lists: a BlockList checks IPv4 addresses against IPv6 rules as
+// mapped addresses, so one list with ::ffff:0:0/96 would block every IPv4 address.
+const BLOCKED_V4 = new net.BlockList();
+const BLOCKED_V6 = new net.BlockList();
+for (const [net4, bits] of [
+  ["0.0.0.0", 8], ["10.0.0.0", 8], ["100.64.0.0", 10], ["127.0.0.0", 8], ["169.254.0.0", 16],
+  ["172.16.0.0", 12], ["192.0.0.0", 24], ["192.168.0.0", 16], ["198.18.0.0", 15], ["224.0.0.0", 3],
+] as const) BLOCKED_V4.addSubnet(net4, bits, "ipv4");
+for (const [net6, bits] of [
+  ["::", 127], ["::ffff:0:0", 96], ["64:ff9b::", 96], ["fc00::", 7], ["fe80::", 10], ["ff00::", 8],
+] as const) BLOCKED_V6.addSubnet(net6, bits, "ipv6");
+
+export function isPrivateAddress(ip: string) {
+  const family = net.isIP(ip);
+  if (!family) return true;
+  return family === 4 ? BLOCKED_V4.check(ip, "ipv4") : BLOCKED_V6.check(ip, "ipv6");
+}
+
+class PrivateAddressError extends PermanentJobError {}
+
+/**
+ * DNS lookup for outgoing requests that refuses private addresses. Checking
+ * inside the connection's own lookup (rather than resolving separately first)
+ * means a DNS answer can't change between the check and the connect.
+ */
+const guardedLookup: net.LookupFunction = (hostname, options, callback) => {
+  dnsCallback.lookup(hostname, { ...options, all: true }, (err, addresses) => {
+    if (err) return callback(err, "", 4);
+    const list = addresses as dnsCallback.LookupAddress[];
+    const bad = list.find((a) => isPrivateAddress(a.address));
+    if (bad || list.length === 0) {
+      return callback(new PrivateAddressError(`Refusing to fetch from a private address (${hostname})`), "", 4);
+    }
+    if ((options as { all?: boolean }).all) return (callback as unknown as (e: null, a: dnsCallback.LookupAddress[]) => void)(null, list);
+    callback(null, list[0].address, list[0].family);
+  });
+};
+
+function get(url: URL, timeoutMs: number) {
+  return new Promise<http.IncomingMessage>((resolve, reject) => {
+    const client = url.protocol === "https:" ? https : http;
+    const req = client.get(url, { lookup: env.importAllowPrivateUrls ? undefined : guardedLookup, timeout: timeoutMs }, resolve);
+    req.on("timeout", () => req.destroy(new Error(`No response from ${url.host}`)));
+    req.on("error", reject);
+  });
 }
 
 /**
- * Downloads a public file to disk with a size cap. Addresses on private
- * networks are refused (a CSV from elsewhere shouldn't make the server
- * fetch internal URLs) unless IMPORT_ALLOW_PRIVATE_URLS=true.
+ * Downloads a public file to disk with a size cap, following up to 5
+ * redirects. Private-network addresses are refused (a CSV from elsewhere
+ * shouldn't make the server fetch internal URLs) unless
+ * IMPORT_ALLOW_PRIVATE_URLS=true.
  */
 export async function downloadPublic(url: string, dest: string, maxBytes: number) {
   let current = new URL(url);
-  for (let hop = 0; hop < 5; hop++) {
+  for (let hop = 0; hop < 6; hop++) {
     if (current.protocol !== "http:" && current.protocol !== "https:") throw new PermanentJobError("Only http(s) URLs");
-    if (!env.importAllowPrivateUrls) {
-      const host = current.hostname.replace(/^\[|\]$/g, "");
-      const addresses = net.isIP(host) ? [host] : (await dns.lookup(host, { all: true })).map((a) => a.address);
-      if (addresses.some(isPrivate)) throw new PermanentJobError(`Refusing to fetch from a private address (${current.host})`);
+    // IP literals skip DNS, so check them here.
+    const literal = current.hostname.replace(/^\[|\]$/g, "");
+    if (!env.importAllowPrivateUrls && net.isIP(literal) && isPrivateAddress(literal)) {
+      throw new PrivateAddressError(`Refusing to fetch from a private address (${current.host})`);
     }
-    const res = await fetch(current, { redirect: "manual", signal: AbortSignal.timeout(120_000) });
-    if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
-      current = new URL(res.headers.get("location")!, current);
+    const res = await get(current, 120_000);
+    const location = res.headers.location;
+    if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && location) {
+      res.resume();
+      current = new URL(location, current);
       continue;
     }
-    if (!res.ok || !res.body) throw new Error(`HTTP ${res.status} for ${current.host}`);
-    const declared = Number(res.headers.get("content-length") || 0);
-    if (declared > maxBytes) throw new PermanentJobError("File too large");
-    const out = fs.createWriteStream(dest);
-    let size = 0;
-    try {
-      for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
-        size += chunk.length;
-        if (size > maxBytes) throw new PermanentJobError("File too large");
-        if (!out.write(chunk)) await new Promise<void>((r) => out.once("drain", () => r()));
-      }
-    } finally {
-      await new Promise<void>((r) => out.end(() => r()));
+    if (res.statusCode !== 200) {
+      res.resume();
+      throw new Error(`HTTP ${res.statusCode} for ${current.host}`);
     }
+    if (Number(res.headers["content-length"] || 0) > maxBytes) {
+      res.destroy();
+      throw new PermanentJobError("File too large");
+    }
+    let size = 0;
+    const cap = new Transform({
+      transform(chunk: Buffer, _enc, done) {
+        size += chunk.length;
+        done(size > maxBytes ? new PermanentJobError("File too large") : null, chunk);
+      },
+    });
+    await pipeline(res, cap, fs.createWriteStream(dest));
     return size;
   }
   throw new PermanentJobError("Too many redirects");

@@ -3,7 +3,7 @@ import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import type { Project, Webhook, WebhookEvent } from "@/db/schema";
 import { projectToApi, toApi } from "./api-shape";
-import { enqueue, PermanentJobError } from "./jobs";
+import { enqueue } from "./jobs";
 import type { TestimonialWithTags } from "./testimonials";
 
 const { webhooks, webhookDeliveries, projects } = schema;
@@ -111,6 +111,14 @@ export async function deliver(deliveryId: string, final: boolean) {
   if (!d) return;
   const hook = db.select().from(webhooks).where(eq(webhooks.id, d.webhookId)).get();
   if (!hook) return;
+  if (!hook.active) {
+    // Paused after this was queued: record it and stop retrying.
+    db.update(webhookDeliveries)
+      .set({ status: "failed", error: "Not sent: the webhook is paused" })
+      .where(eq(webhookDeliveries.id, d.id))
+      .run();
+    return;
+  }
   const started = Date.now();
   let status: number | null = null;
   let text = "";
@@ -149,11 +157,7 @@ export async function deliver(deliveryId: string, final: boolean) {
     })
     .where(eq(webhookDeliveries.id, d.id))
     .run();
-  if (!ok) {
-    // A disabled or deleted endpoint isn't worth retrying.
-    if (!hook.active) throw new PermanentJobError(error!);
-    throw new Error(error!);
-  }
+  if (!ok) throw new Error(error!);
 }
 
 /** Queues another attempt for a delivery, keeping its history. */

@@ -189,7 +189,7 @@ With email set up:
 
 - **Requests** sends invitations, with reminders after the days you choose (default 3 and 7).
 - Every email has an unsubscribe link and one-click unsubscribe headers.
-- People who give their email get a **receipt** with their private withdrawal link. You can turn this off per project.
+- People who respond to a request get a **receipt** with their private withdrawal link, sent to the address you invited. You can turn this off per project. The open collection page never sends email, so it can't be used to send mail from your server to arbitrary addresses.
 
 Without email, Requests still makes personal links for you to send yourself.
 
@@ -280,7 +280,7 @@ The iframe option is `/embed/<slug>?theme=dark`. It posts its height to the pare
 
 - Public pages, the widget and the iframe never include email addresses, consent records or unapproved testimonials.
 - Every testimonial stores which consent wording the person saw (versioned, with a SHA-256 hash), what they agreed to, and when. If you change what someone wrote, it's marked **Edited after consent** and logged.
-- People can withdraw using the private link shown after they submit (and in the receipt email). Withdrawing unpublishes the testimonial, and it can't be approved again.
+- People can withdraw using the private link shown after they submit (and, for requested testimonials, in the receipt email). Withdrawing unpublishes the testimonial, and it can't be approved again.
 - IP addresses are not stored, unless you turn on `CONSENT_IP_HASH`, which stores a keyed hash.
 - You are the data controller for what you collect. Exports contain personal data, so store them securely.
 

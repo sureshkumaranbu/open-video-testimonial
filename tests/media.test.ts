@@ -141,6 +141,17 @@ describe.skipIf(!hasFfmpeg())("video processing (needs ffmpeg)", () => {
     for (const key of [done.videoKey, done.videoOriginalKey, done.posterKey]) expect(exists(key)).toBe(false);
   });
 
+  it("converts videos that were skipped while ffmpeg was missing, once it's there", async () => {
+    process.env.FFMPEG_PATH = "/nonexistent/ffmpeg";
+    const t = await videoTestimonial();
+    await queueVideoProcessing(t.id);
+    expect(getTestimonial(t.id)!.mediaStatus).toBe("skipped");
+    delete process.env.FFMPEG_PATH; // "installed" without restarting
+    expect(await queueUnprocessedVideos()).toBe(1);
+    await runDueJobs();
+    expect(getTestimonial(t.id)!.mediaStatus).toBe("ready");
+  });
+
   it("queues videos uploaded before the pipeline existed", async () => {
     const t = await videoTestimonial();
     expect(getTestimonial(t.id)!.mediaStatus).toBe("none");

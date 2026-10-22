@@ -15,7 +15,7 @@ import { PUT as putChunk } from "@/app/api/uploads/[id]/route";
 import { POST as submit } from "@/app/api/projects/[slug]/testimonials/route";
 import { getDb, schema } from "@/db";
 import { listConsentEvents } from "@/lib/consent";
-import { detectMapping, guessOrigin, parseRating } from "@/lib/csv-import";
+import { detectMapping, downloadPublic, guessOrigin, isPrivateAddress, parseRating } from "@/lib/csv-import";
 import { parseCsv, toCsv } from "@/lib/csv";
 import { env } from "@/lib/env";
 import { runDueJobs } from "@/lib/jobs";
@@ -247,6 +247,23 @@ describe("export", () => {
     expect(res.status).toBe(400);
     expect((await res.json()).error).toMatch(/no plaudit\.json/);
     expect(getProjectBySlug("acme-2")).toBeNull();
+  });
+});
+
+describe("private address checks", () => {
+  it("blocks private, loopback, mapped and NAT64 addresses", () => {
+    for (const ip of ["127.0.0.1", "10.1.2.3", "172.20.0.1", "192.168.1.1", "169.254.169.254", "100.64.0.1", "198.18.0.1", "0.0.0.0", "::1", "::", "::ffff:7f00:1", "::ffff:127.0.0.1", "64:ff9b::7f00:1", "fd00::1", "fe80::1", "not-an-ip"]) {
+      expect(isPrivateAddress(ip), ip).toBe(true);
+    }
+    for (const ip of ["93.184.216.34", "1.1.1.1", "2606:4700:4700::1111"]) expect(isPrivateAddress(ip), ip).toBe(false);
+  });
+
+  it("refuses literal and DNS-resolved private hosts when downloading", async () => {
+    const dest = path.join(ctx.dir, "dl");
+    await expect(downloadPublic("http://[::ffff:127.0.0.1]:9/x", dest, 1000)).rejects.toThrow(/private address/);
+    await expect(downloadPublic("http://127.0.0.1:9/x", dest, 1000)).rejects.toThrow(/private address/);
+    // "localhost" resolves to loopback; the connection's own lookup refuses it.
+    await expect(downloadPublic("http://localhost:9/x", dest, 1000)).rejects.toThrow(/private address/);
   });
 });
 

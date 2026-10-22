@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { env } from "./env";
 import { enqueue, PermanentJobError } from "./jobs";
@@ -43,12 +43,16 @@ let available: Promise<boolean> | null = null;
 /** Whether ffmpeg and ffprobe can be run. Cached for the life of the process. */
 export function ffmpegAvailable() {
   if (!env.mediaProcessing) return Promise.resolve(false);
+  // Only a success is remembered, so installing ffmpeg later works without a restart.
   available ??= Promise.all([
     run(env.ffmpegPath, ["-hide_banner", "-version"], 10_000),
     run(env.ffprobePath, ["-hide_banner", "-version"], 10_000),
   ]).then(
     () => true,
-    () => false,
+    () => {
+      available = null;
+      return false;
+    },
   );
   return available;
 }
@@ -229,7 +233,7 @@ export async function queueUnprocessedVideos() {
   const rows = getDb()
     .select({ id: testimonials.id })
     .from(testimonials)
-    .where(and(isNotNull(testimonials.videoKey), eq(testimonials.mediaStatus, "none")))
+    .where(and(isNotNull(testimonials.videoKey), inArray(testimonials.mediaStatus, ["none", "skipped"])))
     .all();
   for (const r of rows) await queueVideoProcessing(r.id);
   return rows.length;

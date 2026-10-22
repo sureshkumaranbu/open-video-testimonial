@@ -221,14 +221,28 @@ describe("requests", () => {
     expect(getRequest(body.created[0].id)!.status).toBe("waiting");
   });
 
-  it("emails a receipt with the withdrawal link, unless the owner turned it off", async () => {
+  it("emails a receipt with the withdrawal link to people who came through a request link", async () => {
+    // The open form never sends email, so it can't be used to mail arbitrary addresses.
+    await submit(
+      submitRequest("acme", submissionForm({ name: "Eve", email: "victim@example.com", text: "Hi", consent: "on" })),
+      params({ slug: "acme" }),
+    );
+    await runDueJobs();
+    expect(inbox).toHaveLength(0);
+
+    const { body } = await ask("ada@example.com", false);
     const res = await submit(
-      submitRequest("acme", submissionForm({ name: "Ada", email: "ada@example.com", text: "Hi", consent: "on" })),
+      submitRequest(
+        "acme",
+        // Even if they type another address, the receipt goes to the invited one.
+        submissionForm({ name: "Ada", email: "other@example.com", text: "Hi", consent: "on", requestToken: requestToken(body.created[0].id) }),
+      ),
       params({ slug: "acme" }),
     );
     const { withdrawUrl } = await res.json();
     await runDueJobs();
     expect(inbox).toHaveLength(1);
+    expect(inbox[0].to).toBe("ada@example.com");
     const mail = await simpleParser(inbox[0].raw);
     expect(mail.subject).toBe("Thanks for your testimonial for Acme");
     expect(mail.text).toContain(withdrawUrl);
@@ -238,8 +252,9 @@ describe("requests", () => {
       params({ id: projectId }),
     );
     expect(getProjectById(projectId)!.thankYouEmail).toBe(false);
+    const second = await ask("bo@example.com", false);
     await submit(
-      submitRequest("acme", submissionForm({ name: "Bo", email: "bo@example.com", text: "Hi", consent: "on" })),
+      submitRequest("acme", submissionForm({ name: "Bo", text: "Hi", consent: "on", requestToken: requestToken(second.body.created[0].id) })),
       params({ slug: "acme" }),
     );
     await runDueJobs();

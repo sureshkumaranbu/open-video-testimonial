@@ -356,7 +356,7 @@ function EmailSettings({ project, defaults }: { project: Project; defaults: Prop
         </label>
         <label className="check">
           <input type="checkbox" name="thankYouEmail" defaultChecked={project.thankYouEmail} />
-          Email people a receipt with their private withdrawal link after they submit
+          Email people who respond to a request a receipt with their private withdrawal link
         </label>
         <div className="row">
           <button type="submit">Save email settings</button>

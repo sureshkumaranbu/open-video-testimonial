@@ -277,6 +277,30 @@ describe("webhooks", () => {
     expect(hits).toHaveLength(6);
   });
 
+  it("pausing or rotating keeps the endpoint's project and events", async () => {
+    const other = createProject({ name: "Other", slug: "other" });
+    const hook = await newHook({ projectId: other.id, events: ["testimonial.approved"] });
+    const patch = async (body: unknown) =>
+      (await (await patchHook(admin(`/api/admin/webhooks/${hook.id}`, body, "PATCH"), params({ id: hook.id }))).json()).webhook;
+    let w = await patch({ active: false });
+    expect(w).toMatchObject({ projectId: other.id, events: '["testimonial.approved"]', active: false });
+    w = await patch({ rotateSecret: true });
+    expect(w).toMatchObject({ projectId: other.id, events: '["testimonial.approved"]', active: false });
+    expect(w.secret).not.toBe(hook.secret);
+    const bad = await patchHook(admin(`/api/admin/webhooks/${hook.id}`, { projectId: "nope" }, "PATCH"), params({ id: hook.id }));
+    expect(bad.status).toBe(400);
+  });
+
+  it("doesn't send deliveries queued before the endpoint was paused", async () => {
+    const hook = await newHook();
+    await customerSubmits();
+    await patchHook(admin(`/api/admin/webhooks/${hook.id}`, { active: false }, "PATCH"), params({ id: hook.id }));
+    await runDueJobs();
+    expect(hits).toHaveLength(0);
+    const [d] = (await (await deliveriesRoute(admin(`/api/admin/webhooks/${hook.id}/deliveries`), params({ id: hook.id }))).json()).deliveries;
+    expect(d).toMatchObject({ status: "failed", error: "Not sent: the webhook is paused" });
+  });
+
   it("only accepts http(s) endpoints", async () => {
     for (const url of ["ftp://example.com/x", "javascript:alert(1)", "not a url"]) {
       expect((await createHookRoute(admin("/api/admin/webhooks", { url }))).status).toBe(400);

@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { eq, lte } from "drizzle-orm";
+import { and, eq, gt, lte } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import type { Upload, UploadKind } from "@/db/schema";
 import { env } from "./env";
@@ -24,6 +24,17 @@ const hash = (token: string) => crypto.createHash("sha256").update(token).digest
 function partPath(id: string) {
   if (!/^[0-9a-f-]{36}$/.test(id)) throw new UploadError("Invalid upload id");
   return path.join(env.tmpDir, `${id}.part`);
+}
+
+/** How many unfinished public uploads one project may have at once. */
+export const MAX_OPEN_UPLOADS_PER_PROJECT = 50;
+
+export function openUploadCount(projectId: string) {
+  return getDb()
+    .select({ id: uploads.id })
+    .from(uploads)
+    .where(and(eq(uploads.projectId, projectId), gt(uploads.expiresAt, new Date())))
+    .all().length;
 }
 
 export function createUpload(kind: UploadKind, opts: { projectId?: string; maxBytes: number }) {
@@ -82,6 +93,8 @@ async function doAppend(id: string, offset: number, bytes: Uint8Array) {
   const row = getDb().select().from(uploads).where(eq(uploads.id, id)).get();
   if (!row) throw new UploadError("Upload not found");
   if (bytes.byteLength > CHUNK_MAX_BYTES) throw new UploadError("Chunk too large");
+  // Claimed or abandoned while this request was waiting: don't recreate the file.
+  if (!fs.existsSync(partPath(id))) throw new UploadError("Upload not found");
   if (offset !== row.received) throw new OffsetMismatch(row.received);
   if (row.received + bytes.byteLength > row.maxBytes) {
     await discardUpload(id);
@@ -103,6 +116,8 @@ export async function discardUpload(id: string) {
  * moves it into the uploads directory. The session is consumed either way.
  */
 export async function claimUpload(upload: Upload, kind: MediaKind) {
+  // Wait for any append still writing to this upload.
+  await locks.get(upload.id)?.catch(() => undefined);
   const file = partPath(upload.id);
   try {
     if (upload.received === 0) throw new UploadError(`The ${kind} file is empty`);

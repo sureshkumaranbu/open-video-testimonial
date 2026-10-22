@@ -7,14 +7,23 @@ import { newSecret, parseEvents } from "./webhooks";
 
 const { webhooks } = schema;
 
-export const webhookSchema = z.object({
+// No defaults here: a partial update must only touch the fields it names.
+const webhookFields = z.object({
   url: z
     .url({ protocol: /^https?$/, error: "Use an http:// or https:// URL" })
     .max(2000),
-  events: z.array(z.enum(WEBHOOK_EVENTS)).max(WEBHOOK_EVENTS.length).default([]),
-  projectId: z.string().max(64).nullable().default(null),
-  active: z.boolean().default(true),
+  events: z.array(z.enum(WEBHOOK_EVENTS)).max(WEBHOOK_EVENTS.length),
+  projectId: z.string().max(64).nullable(),
+  active: z.boolean(),
 });
+
+export const webhookSchema = webhookFields.extend({
+  events: webhookFields.shape.events.default([]),
+  projectId: webhookFields.shape.projectId.default(null),
+  active: webhookFields.shape.active.default(true),
+});
+
+export const webhookPatchSchema = webhookFields.partial().extend({ rotateSecret: z.boolean().optional() });
 
 export function listWebhooks() {
   return getDb()
@@ -45,8 +54,10 @@ export function createWebhook(input: z.infer<typeof webhookSchema>) {
     .get();
 }
 
-export function updateWebhook(id: string, patch: Partial<z.infer<typeof webhookSchema>> & { rotateSecret?: boolean }) {
-  const { events, rotateSecret, ...rest } = patch;
+export function updateWebhook(id: string, patch: z.infer<typeof webhookPatchSchema>) {
+  const { events, rotateSecret, ...given } = patch;
+  // Only keys present in the request are written.
+  const rest = Object.fromEntries(Object.entries(given).filter(([, v]) => v !== undefined));
   return (
     getDb()
       .update(webhooks)

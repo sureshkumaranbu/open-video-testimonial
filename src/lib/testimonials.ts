@@ -50,6 +50,10 @@ export function createProject(input: {
   questions?: string;
   maxVideoSeconds?: number;
   consentText?: string;
+  inviteSubject?: string;
+  inviteMessage?: string;
+  reminderDays?: string;
+  thankYouEmail?: boolean;
 }): Project {
   return getDb()
     .insert(projects)
@@ -65,6 +69,10 @@ export function createProject(input: {
       questions: input.questions ?? DEFAULT_QUESTIONS.join("\n"),
       maxVideoSeconds: input.maxVideoSeconds,
       consentText: input.consentText,
+      inviteSubject: input.inviteSubject,
+      inviteMessage: input.inviteMessage,
+      reminderDays: input.reminderDays,
+      thankYouEmail: input.thankYouEmail,
     })
     .returning()
     .get();

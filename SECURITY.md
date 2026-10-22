@@ -42,6 +42,9 @@ Please report security problems privately. Use GitHub's **Report a vulnerability
 - The embed widget renders inside Shadow DOM and inserts user text only with `textContent`, never as HTML.
 - Exported CSV cells that could run as spreadsheet formulas are neutralised.
 - Public pages and feeds never include email addresses, consent records or unapproved testimonials.
+- The public form never triggers email. Receipts go only to addresses the owner invited.
+- Public uploads are read with a byte limit, even when there's no `Content-Length`, and each project may have at most 50 unfinished uploads at a time.
+- **CSV media downloads** refuse private, loopback, link-local and similar addresses. That includes IPv4-mapped IPv6 and NAT64. The check runs inside the connection's own DNS lookup, so DNS rebinding can't get round it.
 
 ## Known limitations
 

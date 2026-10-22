@@ -273,8 +273,14 @@ export function unsubscribe(r: TestimonialRequest) {
 
 export const THANK_YOU_JOB = "email.thank-you";
 
-/** After a submission: a receipt with the private withdrawal link. */
-export function queueThankYou(project: Project, to: string | undefined, withdrawUrl: string) {
+/**
+ * After a submission that came through a personal request link: a receipt
+ * with the private withdrawal link, sent to the address the owner invited.
+ * Open-form submissions get no email, so the public form can't be used to
+ * send mail from the owner's server to arbitrary addresses.
+ */
+export function queueThankYou(project: Project, request: TestimonialRequest | null, withdrawUrl: string) {
+  const to = request?.email;
   if (!to || !project.thankYouEmail || !emailEnabled()) return false;
   enqueue(THANK_YOU_JOB, { projectId: project.id, to, withdrawUrl }, { maxAttempts: 4 });
   return true;

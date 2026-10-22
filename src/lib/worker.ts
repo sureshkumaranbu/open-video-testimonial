@@ -45,7 +45,8 @@ export function registerJobs() {
   });
   registerPeriodic("requests.reminders", 5 * 60 * 1000, () => queueDueReminders());
   registerPeriodic("uploads.cleanup", 60 * 60 * 1000, () => cleanupExpiredUploads());
-  registerPeriodic("media.backfill", 24 * 60 * 60 * 1000, () => queueUnprocessedVideos());
+  // Hourly: converts older videos, and ones uploaded while ffmpeg was missing.
+  registerPeriodic("media.backfill", 60 * 60 * 1000, () => queueUnprocessedVideos());
 }
 
 export function startBackgroundWorker() {

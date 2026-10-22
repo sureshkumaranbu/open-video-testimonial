@@ -102,7 +102,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ slug: string }
     });
     if (fromRequest) markResponded(fromRequest, testimonial.id);
     emitTestimonialEvent("testimonial.created", getTestimonial(testimonial.id));
-    queueThankYou(project, input.email, withdrawUrl(withdrawToken));
+    queueThankYou(project, fromRequest, withdrawUrl(withdrawToken));
     if (storedVideo) await queueVideoProcessing(testimonial.id);
     return Response.json(
       { ok: true, id: testimonial.id, message: project.thankYouMessage, withdrawUrl: withdrawUrl(withdrawToken) },

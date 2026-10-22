@@ -8,7 +8,8 @@ import { getDb, schema } from "@/db";
 import { env } from "@/lib/env";
 import { pickMimeType, prefersMp4, ResumableUpload } from "@/lib/resumable-upload";
 import { createProject, getTestimonial, updateProject } from "@/lib/testimonials";
-import { cleanupExpiredUploads } from "@/lib/uploads";
+import { resetRateLimits } from "@/lib/rate-limit";
+import { cleanupExpiredUploads, MAX_OPEN_UPLOADS_PER_PROJECT } from "@/lib/uploads";
 import { params, PNG_BYTES, submissionForm, submitRequest, useTempDataDir, WEBM_BYTES } from "./helpers";
 
 let ctx: ReturnType<typeof useTempDataDir>;
@@ -83,6 +84,39 @@ describe("resumable upload API", () => {
     const replay = await chunk(id, token, 0, WEBM_BYTES.subarray(0, 8));
     expect(replay.status).toBe(409);
     expect((await replay.json()).offset).toBe(8);
+  });
+
+  it("stops reading a body without Content-Length once it passes the chunk limit", async () => {
+    const { id, token } = await (await start()).json();
+    let sent = 0;
+    const endless = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        sent += 1024 * 1024;
+        controller.enqueue(new Uint8Array(1024 * 1024));
+        if (sent > 64 * 1024 * 1024) controller.close();
+      },
+    });
+    const res = await PUT(
+      new Request(`http://localhost/api/uploads/${id}?offset=0`, {
+        method: "PUT",
+        body: endless,
+        headers: { ...IP, "x-upload-token": token },
+        duplex: "half",
+      } as RequestInit),
+      params({ id }),
+    );
+    expect(res.status).toBe(413);
+    expect(sent).toBeLessThan(16 * 1024 * 1024); // gave up early instead of buffering it all
+    expect((await (await status(id, token)).json()).offset).toBe(0);
+  });
+
+  it("caps how many unfinished uploads a project can have", async () => {
+    for (let i = 0; i < MAX_OPEN_UPLOADS_PER_PROJECT; i++) {
+      resetRateLimits();
+      expect((await start()).status).toBe(201);
+    }
+    resetRateLimits();
+    expect((await start()).status).toBe(429);
   });
 
   it("refuses requests without the right token", async () => {

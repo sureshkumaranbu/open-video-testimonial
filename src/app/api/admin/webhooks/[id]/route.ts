@@ -1,5 +1,6 @@
 import { jsonError, requireAdmin } from "@/lib/http";
-import { deleteWebhook, updateWebhook, webhookSchema } from "@/lib/webhook-admin";
+import { getProjectById } from "@/lib/testimonials";
+import { deleteWebhook, updateWebhook, webhookPatchSchema } from "@/lib/webhook-admin";
 import { firstIssue } from "@/lib/validation";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -7,10 +8,10 @@ type Ctx = { params: Promise<{ id: string }> };
 export async function PATCH(req: Request, ctx: Ctx) {
   const denied = requireAdmin(req);
   if (denied) return denied;
-  const body = await req.json().catch(() => null);
-  const parsed = webhookSchema.partial().safeParse(body);
+  const parsed = webhookPatchSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonError(400, firstIssue(parsed.error));
-  const hook = updateWebhook((await ctx.params).id, { ...parsed.data, rotateSecret: body?.rotateSecret === true });
+  if (parsed.data.projectId && !getProjectById(parsed.data.projectId)) return jsonError(400, "Unknown project");
+  const hook = updateWebhook((await ctx.params).id, parsed.data);
   if (!hook) return jsonError(404, "Webhook not found");
   return Response.json({ webhook: hook });
 }
