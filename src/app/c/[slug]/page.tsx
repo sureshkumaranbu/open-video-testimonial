@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Icon } from "@/components/Icon";
-import { getProjectBySlug } from "@/lib/testimonials";
+import { getProjectBySlug, projectQuestions } from "@/lib/testimonials";
 import { accentStyle } from "@/lib/theme";
 import { CollectForm } from "./CollectForm";
 
@@ -17,6 +17,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function CollectPage({ params }: Props) {
   const project = getProjectBySlug((await params).slug);
   if (!project) notFound();
+  const questions = projectQuestions(project);
   return (
     <div className="collect" style={accentStyle(project.accentColor)}>
       <aside className="collect-intro">
@@ -29,9 +30,9 @@ export default async function CollectPage({ params }: Props) {
           </div>
           <h1>{project.prompt}</h1>
           <ul className="tips" aria-label="Ideas for what to say">
-            <li>What were things like before?</li>
-            <li>What changed for you?</li>
-            <li>Who would you recommend it to?</li>
+            {questions.map((q, i) => (
+              <li key={i}>{q}</li>
+            ))}
           </ul>
         </div>
         <p className="fine">
@@ -46,6 +47,8 @@ export default async function CollectPage({ params }: Props) {
             name: project.name,
             allowVideo: project.allowVideo,
             allowText: project.allowText,
+            questions,
+            maxVideoSeconds: project.maxVideoSeconds,
           }}
         />
       </main>

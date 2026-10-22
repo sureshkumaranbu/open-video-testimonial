@@ -33,17 +33,14 @@ async function openProject(page: Page) {
   await expect(page.getByRole("heading", { name: "Acme Analytics" })).toBeVisible();
 }
 
-/** Resolves once the <video> has loaded data and playback advances. */
+/** Resolves once the <video> plays (videos with a poster don't preload). */
 async function expectVideoPlays(video: Locator) {
   await video.scrollIntoViewIfNeeded();
-  await expect
-    .poll(() => video.evaluate((v: HTMLVideoElement) => v.readyState), { timeout: 15_000 })
-    .toBeGreaterThanOrEqual(1);
-  expect(await video.evaluate((v: HTMLVideoElement) => v.error)).toBeNull();
   await video.evaluate((v: HTMLVideoElement) => {
     v.muted = true;
     return v.play();
   });
+  expect(await video.evaluate((v: HTMLVideoElement) => v.error)).toBeNull();
   await expect
     .poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime), { timeout: 15_000 })
     .toBeGreaterThan(0);

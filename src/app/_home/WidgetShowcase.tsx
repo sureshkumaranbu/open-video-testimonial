@@ -28,7 +28,16 @@ const SAMPLES: PublicTestimonial[] = [
     avatarUrl: null,
     rating: VIDEO_SAMPLE.rating,
     text: VIDEO_SAMPLE.quote,
-    video: { url: VIDEO_SAMPLE.sources[0].src, mime: VIDEO_SAMPLE.sources[0].type },
+    // The poster is passed separately so it can load lazily.
+    video: {
+      url: VIDEO_SAMPLE.sources[0].src,
+      mime: VIDEO_SAMPLE.sources[0].type,
+      poster: null,
+      width: VIDEO_SAMPLE.width,
+      height: VIDEO_SAMPLE.height,
+      durationMs: null,
+      sources: [],
+    },
     tags: [],
     createdAt: "2026-01-01T00:00:00.000Z",
   },

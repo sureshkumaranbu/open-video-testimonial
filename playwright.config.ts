@@ -44,6 +44,8 @@ export default defineConfig({
           ADMIN_EMAIL: E2E_ADMIN.email,
           ADMIN_PASSWORD: E2E_ADMIN.password,
           NEXT_TELEMETRY_DISABLED: "1",
+          // Run background jobs (video conversion, email, webhooks) promptly.
+          JOBS_POLL_MS: "300",
         },
       },
 });

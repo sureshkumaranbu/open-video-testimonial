@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { Project, TestimonialStatus } from "@/db/schema";
+import type { MediaStatus, Project, TestimonialStatus } from "@/db/schema";
 import { Icon } from "@/components/Icon";
 import { Avatar, Stars } from "@/components/TestimonialCard";
 import { accentStyle } from "@/lib/theme";
@@ -18,6 +18,10 @@ type AdminTestimonial = {
   avatarKey: string | null;
   videoKey: string | null;
   videoMime: string | null;
+  posterKey: string | null;
+  videoOriginalKey: string | null;
+  mediaStatus: MediaStatus;
+  mediaError: string | null;
   createdAt: string;
   tags: string[];
 };
@@ -78,6 +82,14 @@ export function Dashboard({ project: initial, publicUrl }: { project: Project; p
     void load();
   }, [load]);
 
+  // Refresh while videos are being converted so the result shows up by itself.
+  const processing = all.some((t) => t.mediaStatus === "queued" || t.mediaStatus === "processing");
+  useEffect(() => {
+    if (!processing) return;
+    const id = setInterval(() => void load(), 3000);
+    return () => clearInterval(id);
+  }, [processing, load]);
+
   const counts = {
     pending: all.filter((t) => t.status === "pending").length,
     approved: all.filter((t) => t.status === "approved").length,
@@ -89,6 +101,15 @@ export function Dashboard({ project: initial, publicUrl }: { project: Project; p
   async function update(id: string, patch: Record<string, unknown>) {
     try {
       await api(`/api/admin/testimonials/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+      await load();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function reprocess(id: string) {
+    try {
+      await api(`/api/admin/testimonials/${id}/reprocess`, { method: "POST" });
       await load();
     } catch (err) {
       setError((err as Error).message);
@@ -176,6 +197,7 @@ export function Dashboard({ project: initial, publicUrl }: { project: Project; p
               t={t}
               onUpdate={(patch) => update(t.id, patch)}
               onDelete={() => remove(t.id)}
+              onReprocess={() => reprocess(t.id)}
             />
           ))}
         </section>
@@ -189,14 +211,22 @@ export function Dashboard({ project: initial, publicUrl }: { project: Project; p
   );
 }
 
+const MEDIA_NOTE: Partial<Record<MediaStatus, string>> = {
+  queued: "Converting video…",
+  processing: "Converting video…",
+  skipped: "ffmpeg isn't installed, so the original file is served as uploaded. Some browsers may not play it.",
+};
+
 function TestimonialRow({
   t,
   onUpdate,
   onDelete,
+  onReprocess,
 }: {
   t: AdminTestimonial;
   onUpdate: (patch: Record<string, unknown>) => void;
   onDelete: () => void;
+  onReprocess: () => void;
 }) {
   const [name, setName] = useState(t.authorName);
   const [tags, setTags] = useState(t.tags.join(", "));
@@ -229,9 +259,29 @@ function TestimonialRow({
       </div>
 
       {t.videoKey && (
-        <video controls preload="metadata" playsInline>
-          <source src={`/api/media/${t.videoKey}`} type={t.videoMime ?? undefined} />
+        <video
+          controls
+          preload={t.posterKey ? "none" : "metadata"}
+          playsInline
+          poster={t.posterKey ? `/api/media/${t.posterKey}` : undefined}
+          key={t.videoKey}
+        >
+          <source src={`/api/media/${t.videoKey}`} type={t.mediaStatus === "ready" ? 'video/mp4; codecs="avc1.640028, mp4a.40.2"' : (t.videoMime ?? undefined)} />
+          {t.videoOriginalKey && t.videoOriginalKey !== t.videoKey && <source src={`/api/media/${t.videoOriginalKey}`} />}
         </video>
+      )}
+      {t.videoKey && MEDIA_NOTE[t.mediaStatus] && (
+        <p className="muted small" data-testid="media-status" data-status={t.mediaStatus}>
+          {MEDIA_NOTE[t.mediaStatus]}
+        </p>
+      )}
+      {t.videoKey && t.mediaStatus === "failed" && (
+        <div className="row small" data-testid="media-status" data-status="failed">
+          <span className="error-text">Video conversion failed: {t.mediaError ?? "unknown error"}. The original file is still served.</span>
+          <button type="button" className="secondary small" onClick={onReprocess}>
+            Try again
+          </button>
+        </div>
       )}
       {t.rating ? <Stars rating={t.rating} /> : null}
       {t.text && <p className="quote" style={{ fontSize: "var(--text-lg)" }}>{t.text}</p>}
@@ -404,6 +454,8 @@ function SettingsPanel({ project, onSaved }: { project: Project; onSaved: (p: Pr
           accentColor: form.get("accentColor"),
           allowText: form.get("allowText") === "on",
           allowVideo: form.get("allowVideo") === "on",
+          questions: form.get("questions"),
+          maxVideoSeconds: Number(form.get("maxVideoSeconds")),
         }),
       });
       onSaved(saved);
@@ -435,6 +487,16 @@ function SettingsPanel({ project, onSaved }: { project: Project; onSaved: (p: Pr
         <label>
           Thank-you message
           <input type="text" name="thankYouMessage" defaultValue={project.thankYouMessage} required />
+        </label>
+        <label>
+          <span>
+            Questions <span className="hint">(one per line; shown beside the form and over the camera)</span>
+          </span>
+          <textarea name="questions" rows={4} defaultValue={project.questions} maxLength={1200} />
+        </label>
+        <label>
+          Longest video (seconds)
+          <input type="number" name="maxVideoSeconds" min={15} max={600} step={5} defaultValue={project.maxVideoSeconds} required />
         </label>
         <label className="row" style={{ flexDirection: "row", alignItems: "center", gap: "var(--space-3)" }}>
           <input type="color" name="accentColor" defaultValue={project.accentColor} />

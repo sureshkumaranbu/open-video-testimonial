@@ -51,15 +51,7 @@ export function sniffMime(head: Uint8Array): string | null {
 
 export class UploadError extends Error {}
 
-/** Validates and writes an uploaded file, returning its storage key. */
-export async function saveUpload(file: File, kind: MediaKind): Promise<StoredObject & { mime: string }> {
-  const limit = kind === "video" ? env.maxVideoBytes : env.maxImageBytes;
-  if (file.size === 0) throw new UploadError(`The ${kind} file is empty`);
-  if (file.size > limit) {
-    throw new UploadError(`The ${kind} file is larger than ${Math.round(limit / 1024 / 1024)} MB`);
-  }
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  const mime = sniffMime(bytes.subarray(0, 16));
+function checkType(mime: string | null, kind: MediaKind) {
   const allowed = kind === "video" ? VIDEO_TYPES : IMAGE_TYPES;
   if (!mime || !(mime in allowed)) {
     throw new UploadError(
@@ -68,11 +60,52 @@ export async function saveUpload(file: File, kind: MediaKind): Promise<StoredObj
         : "Unsupported image format (use PNG, JPEG, WebP or GIF)",
     );
   }
-  const key = `${kind}s/${crypto.randomUUID()}.${allowed[mime]}`;
+  return { mime, ext: allowed[mime] };
+}
+
+/** A fresh storage key such as `videos/<uuid>.mp4`. */
+export function newKey(kind: MediaKind, ext: string) {
+  return `${kind}s/${crypto.randomUUID()}.${ext}`;
+}
+
+/** Validates and writes an uploaded file, returning its storage key. */
+export async function saveUpload(file: File, kind: MediaKind): Promise<StoredObject & { mime: string }> {
+  const limit = kind === "video" ? env.maxVideoBytes : env.maxImageBytes;
+  if (file.size === 0) throw new UploadError(`The ${kind} file is empty`);
+  if (file.size > limit) {
+    throw new UploadError(`The ${kind} file is larger than ${Math.round(limit / 1024 / 1024)} MB`);
+  }
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const { mime, ext } = checkType(sniffMime(bytes.subarray(0, 16)), kind);
+  const key = newKey(kind, ext);
   const target = resolveKey(key);
   await fs.promises.mkdir(path.dirname(target), { recursive: true });
   await fs.promises.writeFile(target, bytes);
   return { key, size: bytes.byteLength, mime };
+}
+
+/** Stores a file that is already on disk (a finished upload or an import). */
+export async function saveFile(
+  source: string,
+  mime: string | null,
+  kind: MediaKind,
+  opts: { move?: boolean } = {},
+): Promise<StoredObject & { mime: string }> {
+  const checked = checkType(mime, kind);
+  const key = newKey(kind, checked.ext);
+  const target = resolveKey(key);
+  await fs.promises.mkdir(path.dirname(target), { recursive: true });
+  if (opts.move) {
+    await fs.promises.rename(source, target).catch(async (err: NodeJS.ErrnoException) => {
+      if (err.code !== "EXDEV") throw err;
+      await fs.promises.copyFile(source, target);
+      await fs.promises.rm(source, { force: true });
+    });
+  } else {
+    await fs.promises.copyFile(source, target);
+  }
+  const { size } = await fs.promises.stat(target);
+  return { key, size, mime: checked.mime };
 }
 
 /** Maps a storage key to a path, refusing anything that escapes the uploads dir. */

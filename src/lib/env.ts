@@ -36,4 +36,24 @@ export const env = {
   get cookieSecure() {
     return process.env.COOKIE_SECURE === "true";
   },
+  get tmpDir() {
+    return path.join(/*turbopackIgnore: true*/ this.dataDir, "tmp");
+  },
+  /** ffmpeg/ffprobe binaries. Set MEDIA_PROCESSING=off to serve uploads untouched. */
+  get ffmpegPath() {
+    return process.env.FFMPEG_PATH || "ffmpeg";
+  },
+  get ffprobePath() {
+    return process.env.FFPROBE_PATH || "ffprobe";
+  },
+  get mediaProcessing() {
+    return process.env.MEDIA_PROCESSING !== "off";
+  },
+  /** The background worker runs inside the server process unless turned off. */
+  get workerEnabled() {
+    return process.env.JOBS_WORKER !== "off";
+  },
+  get jobsPollMs() {
+    return Math.max(Number(process.env.JOBS_POLL_MS || 2000), 100);
+  },
 };

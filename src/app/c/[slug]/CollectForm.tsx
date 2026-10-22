@@ -2,10 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/Icon";
-import { VideoRecorder } from "./VideoRecorder";
+import { type RecordedVideo, VideoRecorder } from "./VideoRecorder";
 
 type Props = {
-  project: { slug: string; name: string; allowVideo: boolean; allowText: boolean };
+  project: {
+    slug: string;
+    name: string;
+    allowVideo: boolean;
+    allowText: boolean;
+    questions: string[];
+    maxVideoSeconds: number;
+  };
 };
 
 type Mode = "text" | "video";
@@ -80,7 +87,7 @@ function PhotoPicker() {
 export function CollectForm({ project }: Props) {
   const [mode, setMode] = useState<Mode>(project.allowText ? "text" : "video");
   const [rating, setRating] = useState(0);
-  const [video, setVideo] = useState<Blob | null>(null);
+  const [video, setVideo] = useState<RecordedVideo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<string | null>(null);
@@ -96,11 +103,15 @@ export function CollectForm({ project }: Props) {
         setError("Record or upload a video before sending.");
         return;
       }
-      const ext = video.type.includes("mp4") ? "mp4" : video.type.includes("quicktime") ? "mov" : "webm";
-      form.set("video", video, `testimonial.${ext}`);
     }
     setSubmitting(true);
     try {
+      if (mode === "video" && video) {
+        // Usually already done: the video uploads while it records.
+        const { id, token } = await video.upload.finish();
+        form.set("videoUpload", id);
+        form.set("videoUploadToken", token);
+      }
       const res = await fetch(`/api/projects/${project.slug}/testimonials`, {
         method: "POST",
         body: form,
@@ -169,7 +180,12 @@ export function CollectForm({ project }: Props) {
             />
           </label>
         ) : (
-          <VideoRecorder onChange={setVideo} />
+          <VideoRecorder
+            slug={project.slug}
+            questions={project.questions}
+            maxSeconds={project.maxVideoSeconds}
+            onChange={setVideo}
+          />
         )}
       </section>
 
@@ -224,7 +240,7 @@ export function CollectForm({ project }: Props) {
         </p>
       )}
       <button type="submit" className="accent lg block" disabled={submitting}>
-        {submitting ? "Sending…" : "Submit testimonial"}
+        {submitting ? (mode === "video" ? "Finishing upload…" : "Sending…") : "Submit testimonial"}
       </button>
     </form>
   );

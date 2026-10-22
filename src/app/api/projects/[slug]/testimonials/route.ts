@@ -1,5 +1,7 @@
 import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { queueVideoProcessing } from "@/lib/media";
 import { deleteObject, saveUpload, UploadError } from "@/lib/storage";
+import { claimUpload, getUpload } from "@/lib/uploads";
 import { createTestimonial, getProjectBySlug } from "@/lib/testimonials";
 import { firstIssue, submissionSchema } from "@/lib/validation";
 import { jsonError } from "@/lib/http";
@@ -42,9 +44,19 @@ export async function POST(req: Request, ctx: { params: Promise<{ slug: string }
   const input = parsed.data;
 
   const video = project.allowVideo ? fileField(form, "video") : null;
+  // A video sent earlier through the resumable upload API.
+  const uploadId = project.allowVideo ? form.get("videoUpload") : null;
+  let upload = null;
+  if (typeof uploadId === "string" && uploadId) {
+    const token = form.get("videoUploadToken");
+    upload = getUpload(uploadId, typeof token === "string" ? token : null);
+    if (!upload || upload.kind !== "video" || upload.projectId !== project.id) {
+      return jsonError(400, "The video upload has expired. Please upload it again.");
+    }
+  }
   const avatar = fileField(form, "avatar");
   const text = project.allowText ? input.text : undefined;
-  if (!text && !video) {
+  if (!text && !video && !upload) {
     return jsonError(
       400,
       project.allowVideo && project.allowText
@@ -57,7 +69,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ slug: string }
 
   const saved: string[] = [];
   try {
-    const storedVideo = video ? await saveUpload(video, "video") : null;
+    const storedVideo = upload
+      ? await claimUpload(upload, "video")
+      : video
+        ? await saveUpload(video, "video")
+        : null;
     if (storedVideo) saved.push(storedVideo.key);
     const storedAvatar = avatar ? await saveUpload(avatar, "image") : null;
     if (storedAvatar) saved.push(storedAvatar.key);
@@ -69,6 +85,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ slug: string }
       videoMime: storedVideo?.mime,
       avatarKey: storedAvatar?.key,
     });
+    if (storedVideo) await queueVideoProcessing(testimonial.id);
     return Response.json(
       { ok: true, id: testimonial.id, message: project.thankYouMessage },
       { status: 201 },

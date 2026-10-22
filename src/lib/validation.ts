@@ -50,6 +50,20 @@ export const projectSchema = z.object({
     .optional(),
   allowVideo: z.boolean().optional(),
   allowText: z.boolean().optional(),
+  /** One prompt per line, at most 8 lines. */
+  questions: z
+    .string()
+    .max(1200)
+    .transform((v) =>
+      v
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .slice(0, 8)
+        .join("\n"),
+    )
+    .optional(),
+  maxVideoSeconds: z.number().int().min(15).max(600).optional(),
 });
 
 export const projectUpdateSchema = projectSchema.partial().omit({ slug: true });

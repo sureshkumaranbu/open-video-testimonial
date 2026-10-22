@@ -87,6 +87,12 @@
     return new URL(url, base).href;
   }
 
+  // Portrait phone videos get a taller frame instead of a thin landscape crop.
+  function ratio(v) {
+    if (!v.width || !v.height) return "16 / 10";
+    return String(Math.min(Math.max(v.width / v.height, 0.75), 1.78));
+  }
+
   function card(t, accent) {
     var c = el("article", "c");
     c.setAttribute("data-testimonial-id", t.id);
@@ -94,12 +100,17 @@
       var frame = el("div", "v");
       var v = el("video");
       v.controls = true;
-      v.preload = "metadata";
+      v.preload = t.video.poster ? "none" : "metadata";
+      if (t.video.poster) v.poster = abs(t.video.poster);
+      v.style.aspectRatio = ratio(t.video);
       v.setAttribute("playsinline", "");
-      var src = el("source");
-      src.src = abs(t.video.url);
-      src.type = t.video.mime;
-      v.appendChild(src);
+      var sources = t.video.sources && t.video.sources.length ? t.video.sources : [{ url: t.video.url, type: t.video.mime }];
+      sources.forEach(function (s) {
+        var src = el("source");
+        src.src = abs(s.url);
+        src.type = s.type;
+        v.appendChild(src);
+      });
       frame.appendChild(v);
       c.appendChild(frame);
     }
