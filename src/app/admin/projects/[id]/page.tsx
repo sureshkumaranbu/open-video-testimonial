@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { env } from "@/lib/env";
 import { requireAdminPage } from "@/lib/server-session";
 import { getProjectById } from "@/lib/testimonials";
-import { LogoutButton } from "../../AdminForms";
+import { AppBar } from "../../AppBar";
 import { Dashboard } from "./Dashboard";
 
 export const dynamic = "force-dynamic";
@@ -15,14 +14,11 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   if (!project) notFound();
 
   return (
-    <main className="container stack">
-      <div className="topbar">
-        <Link href="/admin" className="brand">
-          ← Plaudit
-        </Link>
-        <LogoutButton />
-      </div>
-      <Dashboard project={project} publicUrl={env.publicUrl} />
-    </main>
+    <>
+      <AppBar trail={[{ href: "/admin", label: "Projects" }, { label: project.name }]} />
+      <main className="container">
+        <Dashboard project={project} publicUrl={env.publicUrl} />
+      </main>
+    </>
   );
 }

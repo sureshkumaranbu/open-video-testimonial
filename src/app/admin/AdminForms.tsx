@@ -2,17 +2,19 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Icon } from "@/components/Icon";
 
 export function LogoutButton() {
   return (
     <button
       type="button"
-      className="secondary"
+      className="ghost small"
       onClick={async () => {
         await fetch("/api/admin/logout", { method: "POST" });
         window.location.href = "/admin/login";
       }}
     >
+      <Icon name="logout" />
       Sign out
     </button>
   );
@@ -32,10 +34,12 @@ export function NewProjectForm() {
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setBusy(true);
     const res = await fetch("/api/admin/projects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -43,15 +47,19 @@ export function NewProjectForm() {
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setError(body.error || "Could not create project");
+      setError(body.error || "The project wasn't created. Try a different link slug.");
+      setBusy(false);
       return;
     }
     router.push(`/admin/projects/${body.project.id}`);
   }
 
   return (
-    <form className="card stack" onSubmit={onSubmit}>
-      <h2 style={{ margin: 0 }}>New project</h2>
+    <form className="card stack" onSubmit={onSubmit} style={{ borderStyle: "dashed", boxShadow: "none" }}>
+      <div className="stack" style={{ gap: "var(--space-1)" }}>
+        <h2>New project</h2>
+        <p className="muted small">One project per product or brand. Each gets its own collection link.</p>
+      </div>
       <label>
         Name
         <input
@@ -66,7 +74,9 @@ export function NewProjectForm() {
         />
       </label>
       <label>
-        Link slug
+        <span>
+          Link slug <span className="hint">(lowercase letters, numbers and dashes)</span>
+        </span>
         <input
           type="text"
           value={slug}
@@ -79,9 +89,15 @@ export function NewProjectForm() {
           placeholder="acme"
         />
       </label>
-      {error && <p className="error">{error}</p>}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
       <div>
-        <button type="submit">Create project</button>
+        <button type="submit" disabled={busy}>
+          {busy ? "Creating…" : "Create project"}
+        </button>
       </div>
     </form>
   );

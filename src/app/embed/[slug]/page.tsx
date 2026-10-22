@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { TestimonialGrid } from "@/components/TestimonialCard";
 import { getProjectBySlug, listPublicTestimonials } from "@/lib/testimonials";
-import { parseTheme } from "@/lib/theme";
+import { accentStyle, parseTheme } from "@/lib/theme";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +38,7 @@ export default async function EmbedPage({ params, searchParams }: Props) {
       data-theme={parseTheme(theme)}
       data-slug={project.slug}
       className="embed-body"
-      style={{ ["--accent" as string]: project.accentColor }}
+      style={accentStyle(project.accentColor)}
     >
       <style>{`html,body{background:transparent!important;margin:0}`}</style>
       <div className="container">

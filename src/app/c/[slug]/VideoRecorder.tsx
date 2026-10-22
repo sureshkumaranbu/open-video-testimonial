@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Icon } from "@/components/Icon";
 
 const MAX_SECONDS = 120;
 const MIME_CANDIDATES = [
@@ -65,7 +66,7 @@ export function VideoRecorder({ onChange }: { onChange: (video: Blob | null) => 
         }
       });
     } catch {
-      setError("We couldn't access your camera. Check permissions, or upload a video file instead.");
+      setError("Your camera is blocked. Allow camera access in your browser, or upload a video file instead.");
     }
   }
 
@@ -112,53 +113,75 @@ export function VideoRecorder({ onChange }: { onChange: (video: Blob | null) => 
     setState("recorded");
   }
 
-  return (
-    <div className="stack" data-testid="video-recorder">
-      {state === "previewing" || state === "recording" ? (
-        <video ref={liveRef} className="recorder-preview" muted playsInline aria-label="Camera preview" />
-      ) : null}
-      {state === "recorded" && playbackUrl ? (
-        <video src={playbackUrl} controls playsInline aria-label="Your recording" />
-      ) : null}
+  const clock = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  const live = state === "previewing" || state === "recording";
 
-      <div className="row">
-        {state === "idle" && (
-          <button type="button" onClick={openCamera}>
-            🎥 Record with camera
-          </button>
-        )}
-        {state === "previewing" && (
-          <button type="button" onClick={startRecording}>
-            ● Start recording
-          </button>
-        )}
-        {state === "recording" && (
-          <button type="button" onClick={stopRecording}>
-            ■ Stop ({MAX_SECONDS - seconds}s left)
-          </button>
-        )}
-        {state === "recorded" && (
-          <button type="button" className="secondary" onClick={reset}>
-            Record again
-          </button>
-        )}
-        {state !== "recording" && (
-          <label className="button secondary" style={{ flexDirection: "row", fontWeight: 600 }}>
-            Upload a video
-            <input
-              type="file"
-              accept="video/*"
-              onChange={onFile}
-              data-testid="video-file"
-              style={{ display: "none" }}
-            />
-          </label>
-        )}
+  return (
+    <div className="recorder" data-testid="video-recorder">
+      {state === "recorded" && playbackUrl ? (
+        <div className="recorder-playback">
+          <video src={playbackUrl} controls playsInline aria-label="Your recording" />
+        </div>
+      ) : (
+        <div className="recorder-stage">
+          {live && <video ref={liveRef} muted playsInline aria-label="Camera preview" />}
+          {state === "recording" && <span className="rec-pill live">REC {clock(seconds)}</span>}
+          {state === "previewing" && <span className="rec-pill">Ready</span>}
+          {state === "idle" && (
+            <div className="recorder-empty">
+              <button type="button" className="rec-button" onClick={openCamera}>
+                Record with camera
+              </button>
+              <p>Up to {MAX_SECONDS / 60} minutes. Say your name, then what changed for you.</p>
+            </div>
+          )}
+          {live && (
+            <div className="recorder-controls">
+              {state === "previewing" ? (
+                <button type="button" className="rec-button" onClick={startRecording}>
+                  Start recording
+                </button>
+              ) : (
+                <button type="button" className="rec-button stop" onClick={stopRecording}>
+                  Stop · {clock(MAX_SECONDS - seconds)} left
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="recorder-bar">
+        <span className="muted small">
+          {state === "recorded" ? "Play it back before you send it." : "Prefer a file you already have?"}
+        </span>
+        <div className="row" style={{ gap: "var(--space-2)" }}>
+          {state === "recorded" && (
+            <button type="button" className="secondary small" onClick={reset}>
+              <Icon name="undo" />
+              Record again
+            </button>
+          )}
+          {state !== "recording" && (
+            <label className="button secondary small" style={{ flexDirection: "row" }}>
+              <Icon name="upload" />
+              Upload a video
+              <input
+                type="file"
+                accept="video/*"
+                onChange={onFile}
+                data-testid="video-file"
+                style={{ display: "none" }}
+              />
+            </label>
+          )}
+        </div>
       </div>
-      <p className="muted small" style={{ margin: 0 }}>
-        Up to {MAX_SECONDS / 60} minutes. Tip: say your name and what changed for you.
-      </p>
-      {error && <p className="error">{error}</p>}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

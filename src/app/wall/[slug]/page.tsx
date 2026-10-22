@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { TestimonialGrid } from "@/components/TestimonialCard";
+import { Stars, TestimonialGrid } from "@/components/TestimonialCard";
 import { getProjectBySlug, listPublicTestimonials } from "@/lib/testimonials";
-import { parseTheme } from "@/lib/theme";
+import { accentStyle, parseTheme } from "@/lib/theme";
 
 export const dynamic = "force-dynamic";
 
@@ -24,23 +24,31 @@ export default async function WallPage({ params, searchParams }: Props) {
   const project = getProjectBySlug(slug);
   if (!project) notFound();
   const items = listPublicTestimonials(project.id, { tag: tag?.toLowerCase() });
+  const rated = items.filter((t) => t.rating);
+  const average = rated.length ? rated.reduce((sum, t) => sum + (t.rating ?? 0), 0) / rated.length : 0;
 
   return (
-    <div
-      data-theme={parseTheme(theme)}
-      style={{ background: "var(--bg)", minHeight: "100vh", ["--accent" as string]: project.accentColor }}
-    >
-      <main className="container stack">
-        <header className="stack" style={{ textAlign: "center", gap: 6 }}>
-          <h1 style={{ margin: 0 }}>What people say about {project.name}</h1>
-          <p className="muted" style={{ margin: 0 }}>
-            {items.length} {items.length === 1 ? "testimonial" : "testimonials"}
-          </p>
+    <div className="wall-page" data-theme={parseTheme(theme)} style={accentStyle(project.accentColor)}>
+      <main className="container">
+        <header className="wall-head">
           <div>
-            <Link className="button" href={`/c/${project.slug}`}>
-              Share your own
-            </Link>
+            <h1>What people say about {project.name}</h1>
+            <div className="wall-meta">
+              {rated.length > 0 && (
+                <>
+                  <Stars rating={Math.round(average)} label={`Average rating ${average.toFixed(1)} out of 5`} />
+                  <strong style={{ color: "var(--ink)" }}>{average.toFixed(1)}</strong>
+                  <span aria-hidden>·</span>
+                </>
+              )}
+              <span>
+                {items.length} {items.length === 1 ? "testimonial" : "testimonials"}
+              </span>
+            </div>
           </div>
+          <Link className="button accent lg" href={`/c/${project.slug}`}>
+            Share your own
+          </Link>
         </header>
         <TestimonialGrid items={items} />
       </main>

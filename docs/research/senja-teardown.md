@@ -1,6 +1,6 @@
 # Senja teardown (clean-room research notes)
 
-_Researched 2026-10-21 from a Claude Code cloud session._
+_Researched 2026-10-21 from a Claude Code cloud session. Updated 2026-10-22 with a local REA run against senja.io's public pages (see "Local REA run" below); findings from that run are tagged *(observed)*._
 
 This document describes how Senja (senja.io), a paid testimonial-collection SaaS, appears to work, so that we can specify an open-source alternative. It covers **behaviour and architecture only, in our own words**. No Senja source code, CSS, copy, logos, icons or images were copied into this repository, and none of it is used in the product. Short identifiers such as API field names, endpoint paths, hostnames and HTML attribute names are quoted where they describe an interface.
 
@@ -56,13 +56,29 @@ Because the target was unreachable, we used these sources instead:
 
 Anything we reasoned out ourselves is tagged *(inferred)*.
 
+### Local REA run (2026-10-22)
+
+The cloud block does not apply on a local machine, so the planned captures were re-run there with REA 6.7.0 (`capture_browser_scenario`, headless Chromium 141 launched by REA). Scope stayed the same: public pages only, no account, no sign-in, nothing typed or submitted.
+
+| Capture | What was recorded |
+|---|---|
+| `https://senja.io/` (Senja's own homepage, which embeds six of its own widgets) | Every network request; response bodies up to ~1 MB; request bodies; frames |
+| One public collection form (`/p/<project>/r/<shortcode>`) linked from that homepage | Accessibility tree of the welcome step, then of the next step after one click on the start button. Stopped there. |
+
+The six widget scripts and the analytics beacon were then read offline from the exported Evidence bundle. Findings are tagged *(observed)*. Limits of this run:
+- One site, six widgets, one form. Other widget designs and form settings were not exercised.
+- Response bodies are what Playwright's response API returned, which REA notes may not be byte-identical to the wire.
+- The form was not taken past the "text or video" choice, so the recorder, upload limits and submit request were not observed.
+
 ---
 
 ## 2. Feature map
 
 ### Collecting testimonials
 
-**Collection forms**: hosted per project at `senja.io/p/<project>/r/<shortcode>` *(code)*.
+**Collection forms**: hosted per project at `senja.io/p/<project>/r/<shortcode>` *(code)*. The form app is a SvelteKit build (`/_pages-app/immutable/...` chunks); the marketing site around it is Astro *(observed)*. The observed flow *(observed)*:
+1. **Welcome step**: heading, short intro message, an optional intro video from the form owner (thumbnail plus play button), a primary "start" button, and an optional reward teaser line.
+2. **Prompt step**: the owner's guiding questions as a bullet list, then two choices: record a video (with a small secondary button beside it, likely the upload/alternative option) or write a text testimonial.
 - The customer picks **text or video** and gives a **1–5 star rating**.
 - Contact fields are name, email, avatar, job title/tagline, company, website and company logo. The "about you / company" fields can each be switched on and made required.
 - Custom "additional fields" end up in a free-form `customer_custom_data` object *(code + search)*.
@@ -145,6 +161,19 @@ Anything we reasoned out ourselves is tagged *(inferred)*.
 | Author | `customer_name` (required), `customer_email`, `customer_tagline` (role line), `customer_company`, `customer_username`, `customer_url`, `customer_avatar`, `customer_company_logo`, `customer_custom_data{}` |
 | Media | `video_url`, `thumbnail_url`, `media[]` of `{url, type: image\|video, alt?}`, `video{duration, aspect_ratio, hls_url, mp4_urls{low,medium,high}, transcript}` |
 
+**Testimonial, as inlined into public widget scripts** *(observed)*. This is a different shape from the REST API above:
+
+| Group | Fields |
+|---|---|
+| Identity | `id`, `project_id`, `asset_id` |
+| Content | `type`, `text`, `html` (pre-rendered), `rating`, `lang`, `translations[]`, `date`, `created_at`, `vanity_metrics.outcome` (a short headline result) |
+| Origin | `source` |
+| Author | nested `customer` object: `id`, `name`, `avatar`, `tagline`, `company`, `company_logo`, `position`, `url`, `integrations{}`, `email_md5` |
+| Media | `media[]`, `media_asset` (§6) |
+| Grouping | `collection_items[]` (`collection_id`, `review_id`, `added_manually`), `form_responses[]` (multi-part answers; the renderer can split one testimonial into several cards, one per response) |
+
+Note the public widget payload includes an `email_md5` field for the author (null in the items we saw). An MD5 of an email address is a well-known way to look up Gravatar profiles and can be reversed for common addresses, so **our public endpoints should not expose any email-derived value**.
+
 **Other entities** *(inferred from URLs, the `/links` endpoint and help topics)*:
 - **Project**: slug, brand kit, custom domain, API key. Plans limit how many you can have.
 - **Form**: questions, design, consent step, company fields, thank-you/reward pages, follow-up email sequence, short public link.
@@ -188,17 +217,34 @@ Customer sites use one of three snippet shapes *(code, from public GitHub repos)
 2. **Placeholder plus generic loader.** The same placeholder, but with a single static loader script that scans the page for placeholders. The React/Next/Svelte guides use this and inject the script in an effect hook.
 3. **Legacy iframe.** An iframe pointing at the widget host, plus a third-party auto-resize helper script that grows the iframe to its content height.
 
-Hosts involved:
+Hosts involved *(observed unless noted)*:
 
 | Host | Role |
 |---|---|
-| widget host | Widget runtime and iframe pages |
-| static host | Generic loader and the rich-snippet script |
-| CDN host | Avatars and optimised media |
-| analytics host | Widget-view beacon. Privacy-tracker datasets flag it for some fingerprinting-adjacent API use. |
-| API host | REST |
+| `widget.senja.io` | Per-widget scripts at `/widget/<widget-uuid>/platform.js`, the rich-snippet script at `/rich-snippet/<project-uuid>.js`, the iframe resize helper, and an on-demand copy of an HLS player library |
+| `cdn.senja.io` | Avatars and uploaded media, resized on the fly via `width`, `height` and `format=webp` query parameters |
+| `image.mux.com` / `stream.mux.com` | Video thumbnails, animated WebP previews and HLS streams (see §6) |
+| `ik.imagekit.io` | Some additional images |
+| `analytics.senja.io` | Widget beacon (below) |
+| static host | Generic loader *(code; not seen on this page)* |
+| API host | REST *(code)* |
 
-*(inferred)* The widget fetches its configuration and approved testimonials from the widget host at runtime, and renders client-side. We could not observe the exact data request because the hosts were blocked.
+**There is no separate data request.** *(observed)* Each `platform.js` is a self-contained bundle (235 KB to 1 MB in the six we captured) made of:
+- the widget renderer, compiled from Svelte;
+- the widget record, inlined as JSON: `id`, `name`, `type`, `project_id`, `source`, `source_collection_id`, `updated_at`, `filters` (here always `{type: "curated", review_ids: [...]}`), `testimonial_arrangement` (`sort`, plus `order.positions` and `pinned` maps keyed by testimonial id), `config` (`version`, `design`, `customCss`, `showAttribution`, `autoSwapTranslations`, `sectionFilters`), and a `project` block with its brand kit, CTA and prompt;
+- the selected testimonials, inlined as a JSON array (shape in §3).
+
+So the widget host bakes a fresh script per widget, presumably whenever the widget or its testimonials change, and a visitor's browser makes one script request and renders entirely client-side. *(inferred)* That makes widgets cacheable at the CDN and fast, at the cost of a large payload for bigger walls.
+
+**Design types seen** *(observed)*: `card_wall`, `avatars`, `avatars_pro`, `company_logos`, `toast` (popup) and `single_video`. Each widget's script appears to contain only the renderer for its own design. `config.design` carries per-design settings such as columns, max reviews, gap, card font/layout/border/shadow/radius, colour set, truncation and "read more" text, CTA text/URL, and a centred/avatars-count option for the avatar strip.
+
+**Rendering modes** *(observed)*: with `data-mode="shadow"` the script attaches an open Shadow DOM root and injects the widget styles plus the owner's `customCss` into it. Otherwise it renders into the page.
+
+**Analytics beacon** *(observed)*: the script tracks visibility and sends `POST https://analytics.senja.io/widget` with a JSON body of `load_session_id`, `widget_id`, `version`, `action` (`view` when the widget first becomes visible; `powered_by_click` when the attribution badge is clicked), `visitor_id`, `timestamp`, and a stringified `payload` with `page`, `host`, `design` type and `powered_by_enabled` (country is also referenced in the code). Both ids are random UUIDs generated in the browser.
+
+**Rich snippet** *(observed)*: a tiny script that builds a schema.org `Product` object with an `AggregateRating` (best/worst rating, average, review count, hard-coded into the script at build time). If the page already has a JSON-LD block of a compatible `@type` (Product, Organization, Service, …) it merges the rating into that block and replaces it; otherwise it appends a new JSON-LD script to `<head>`.
+
+**Other third-party scripts on Senja's own homepage** (marketing site, not part of the widget): PostHog (self-hosted under a Senja subdomain, with session recording and surveys), Segment, Google Analytics/Ads, Meta pixel, Sentry, Pirsch, RightMessage, FirstPromoter and Cloudflare Web Analytics *(observed)*.
 
 ## 6. How video works
 
@@ -208,8 +254,13 @@ Hosts involved:
   - extracts a **thumbnail**
   - records **duration and aspect ratio**
   - produces a **speech-to-text transcript**
-- **Playback**: in the vendor's own player inside widgets and walls *(search)*.
-- **Limits**: length and size limits are unclear. Sources conflict between "no cap", 2–5 minutes, and 500 MB *(search)*.
+- **Hosting and playback run on Mux** *(observed)*. Each video testimonial carries a `media_asset` whose `metadata` is a Mux asset record: `status`, `duration`, `aspect_ratio`, `tracks`, `playback_ids` (each with a `policy`), `static_renditions`, `mp4_support`, `normalize_audio`, `encoding_tier`, `resolution_tier`, `max_resolution_tier`, `max_stored_resolution`, `max_stored_frame_rate`, `upload_id` and `ingest_type`.
+  - The widget picks the playback id whose policy is `public` and streams `https://stream.mux.com/<playback-id>.m3u8` (capped with `max_resolution=720p` in the single-video player).
+  - Thumbnails come from `image.mux.com/<playback-id>/thumbnail.jpg|webp`, and hover/preview animations from `animated.webp?width=…`.
+  - An HLS player library is lazy-loaded from the widget host only when a video is shown; Safari can play HLS natively.
+- **Captions and transcript** *(observed)*: `media_asset.captions` holds both an `srt` caption file and a plain `transcript`; the player reads the SRT for subtitles.
+- **"Moments"** *(observed fields)*: `moments_analyzed_at`, `moments_version`, `no_moments_reason`, plus `original_asset_id`/`original_asset` and `modified_start_seconds`, which suggests AI-picked highlight clips and trimmed edits derived from an original upload *(inferred)*.
+- **Limits**: length and size limits are still unknown; sources conflict between "no cap", 2–5 minutes, and 500 MB *(search)*. Not observed, because the recorder was not opened.
 - **Imports**: imported videos are pulled server-side from a URL *(code)*.
 
 ---
@@ -222,18 +273,24 @@ Hosts involved:
 4. **Video**: the MVP stores the original upload and streams it with HTTP Range support. Next steps are server-side transcoding (ffmpeg) for MP4/HLS and posters, then transcription with a pluggable speech-to-text model (e.g. Whisper).
 5. **API and webhooks**: a token-authenticated REST API and HMAC-signed webhooks are cheap to add and unlock Zapier/n8n/Activepieces integrations.
 6. **No volume caps or branding locks**: these are the vendor's main paywall levers, and a self-hosted tool has no reason to impose them.
+7. **Widget data delivery** *(from the local REA run)*: the vendor inlines the data into a per-widget script, which means one request and easy CDN caching. Our MVP's script + JSON endpoint is simpler to build and keeps data fresh without a rebuild step. Good next step: add strong `ETag`/`Cache-Control` headers on the widget JSON, and optionally pre-render a per-widget static bundle later if payload size becomes an issue.
+8. **Video pipeline target**: the vendor's stack (HLS with public playback ids, poster thumbnails, animated previews, SRT captions and a transcript, a 720p cap in small players) is a good roadmap for our self-hosted ffmpeg + Whisper path, without a paid video host.
+9. **Privacy defaults**: no analytics beacon, no visitor ids, and no email-derived fields (such as `email_md5`) in any public payload.
+10. **Rich snippets**: emitting schema.org `AggregateRating` and merging it into an existing Product/Organization JSON-LD block is small and worth adding.
 
-## 8. Open questions (blocked by network policy)
+## 8. Open questions
 
-- The exact widget data request and response, and the widget config schema.
-- The full widget style list and theming options.
+Answered by the local REA run (2026-10-22):
+- ~~The exact widget data request and response, and the widget config schema.~~ No separate request; data is inlined in the per-widget script (§5).
+- ~~What the rich-snippet script emits.~~ schema.org `AggregateRating`, merged into an existing JSON-LD block (§5).
+- ~~What the analytics beacon collects.~~ See §5.
+- Partly: **widget styles**. Six design types observed (§5); the full list needs more widgets.
+
+Still open:
+- The full widget style list and every theming option.
 - The consent field shape.
-- What the rich-snippet script emits.
-- What the analytics beacon collects.
-- Video size and length limits, and accepted formats.
+- Video size and length limits, accepted formats, and the submit request (would need going past the "text or video" step without submitting, or a test form on our own account).
 - Webhook retry behaviour.
-
-All of these could be answered by re-running the REA captures once `senja.io` is allowlisted.
 
 ## 9. Suspicious content encountered
 
@@ -243,6 +300,8 @@ All of these could be answered by re-running the REA captures once `senja.io` is
 Nothing was executed from any downloaded package, and no install scripts were run.
 
 ## 10. Sources
+
+**Local REA captures (2026-10-22)**: `capture_browser_scenario` runs against `https://senja.io/` and one public collection form linked from it; Evidence exported with `export_evidence_bundle` and read offline. Not committed: it contains third parties' public testimonials.
 
 **Packages, read locally**:
 - npm `@activepieces/piece-senja` 0.2.1

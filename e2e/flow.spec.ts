@@ -162,7 +162,7 @@ test("wall of love shows only approved testimonials and videos play", async ({ p
     if (r.url().includes("/api/media/") && r.status() >= 400) mediaErrors.push(`${r.status()} ${r.url()}`);
   });
   await page.goto(`/wall/${SLUG}?theme=dark`);
-  expect(await page.getByText("Ada L.").evaluate((el) => getComputedStyle(el).color)).toBe("rgb(236, 239, 237)");
+  expect(await page.getByText("Ada L.").evaluate((el) => getComputedStyle(el).color)).toBe("rgb(238, 240, 246)");
   await page.goto(`/wall/${SLUG}`);
   const cards = page.locator("article.testimonial");
   await expect(cards).toHaveCount(3);
@@ -229,7 +229,7 @@ test.describe("embeds on a third-party page", () => {
       const color = await widget.getByText("Ada L.").evaluate((el) => getComputedStyle(el).color);
       expect(color).not.toBe("rgb(255, 0, 0)");
       const bg = await cards.first().evaluate((el) => getComputedStyle(el).backgroundColor);
-      expect(bg).toBe(theme === "dark" ? "rgb(27, 31, 30)" : "rgb(255, 255, 255)");
+      expect(bg).toBe(theme === "dark" ? "rgb(23, 27, 43)" : "rgb(255, 255, 255)");
       await expectVideoPlays(widget.locator("video").first());
       await widget.locator("video").first().evaluate((v: HTMLVideoElement) => v.pause());
       await page.evaluate(() => window.scrollTo(0, 0));
@@ -251,7 +251,7 @@ test.describe("embeds on a third-party page", () => {
     expect(themeAttr).toBe("dark");
     // Text must use the dark theme's light foreground, not the page default.
     expect(await frame.getByText("Ada L.").evaluate((el) => getComputedStyle(el).color)).toBe(
-      "rgb(236, 239, 237)",
+      "rgb(238, 240, 246)",
     );
     await shot(page, "embed-iframe-dark");
   });

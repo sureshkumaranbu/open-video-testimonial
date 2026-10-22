@@ -32,22 +32,49 @@
   var theme = ds.theme === "dark" || ds.theme === "auto" ? ds.theme : "light";
   var layout = ds.layout === "list" ? "list" : "grid";
 
+  // Same palette as the app (see src/app/globals.css), scoped to the shadow root.
+  var DARK = "--card:#171b2b;--text:#eef0f6;--muted:#a4abbd;--border:#262c40;--star-off:#343b52;--shadow:none";
   var CSS =
     ":host{all:initial;display:block}" +
-    ".w{--bg:transparent;--card:#fff;--text:#1c1f1e;--muted:#5d6662;--border:#e2e4df;--star:#d97706;" +
-    "font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;line-height:1.5;color:var(--text);background:var(--bg)}" +
-    ".w.dark{--card:#1b1f1e;--text:#ecefed;--muted:#9aa5a0;--border:#2c3230}" +
-    "@media (prefers-color-scheme:dark){.w.auto{--card:#1b1f1e;--text:#ecefed;--muted:#9aa5a0;--border:#2c3230}}" +
-    ".grid{columns:3 280px;column-gap:16px}.list{display:flex;flex-direction:column;gap:16px;max-width:720px;margin:0 auto}" +
-    ".c{break-inside:avoid;margin:0 0 16px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px;box-sizing:border-box}" +
+    ".w{--card:#fff;--text:#161b2e;--muted:#545c70;--border:#e3e6ec;--star:#f2a93b;--star-off:#dfe2e8;--stage:#0d1020;" +
+    "--shadow:0 1px 0 rgb(22 27 46/.04),0 1px 3px rgb(22 27 46/.06);" +
+    "font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;line-height:1.55;color:var(--text);-webkit-font-smoothing:antialiased}" +
+    ".w.dark{" + DARK + "}" +
+    "@media (prefers-color-scheme:dark){.w.auto{" + DARK + "}}" +
+    ".grid{columns:3 280px;column-gap:20px}.list{display:flex;flex-direction:column;gap:16px;max-width:720px;margin:0 auto}" +
+    ".c{break-inside:avoid;margin:0 0 20px;background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);padding:20px;display:flex;flex-direction:column;gap:16px;box-sizing:border-box}" +
     ".list .c{margin:0}" +
-    "p{margin:0;white-space:pre-wrap;font-size:15px}" +
-    ".s{color:var(--star);letter-spacing:1px}.s i{font-style:normal;opacity:.25}" +
-    ".a{display:flex;gap:10px;align-items:center}" +
-    ".av{width:40px;height:40px;border-radius:50%;object-fit:cover;flex:none;display:grid;place-items:center;font-weight:700;color:#fff}" +
-    ".n{font-weight:600;font-size:15px}.m{color:var(--muted);font-size:13px}" +
-    "video{width:100%;border-radius:10px;background:#000;display:block}" +
-    ".e{color:var(--muted);font-size:14px}";
+    ".v{margin:-20px -20px 0;padding:6px 6px 0}" +
+    "video{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:12px;background:var(--stage);display:block}" +
+    "p{margin:0;white-space:pre-wrap;font-family:'Newsreader','Iowan Old Style','Palatino Linotype',Georgia,serif;font-size:18px;line-height:1.5;letter-spacing:-.005em}" +
+    ".q:before{content:'\\201C';display:block;font-family:Georgia,serif;font-size:52px;line-height:.6;height:22px;color:var(--accent)}" +
+    ".s{display:inline-flex;gap:2px;color:var(--star)}.s svg{width:16px;height:16px;display:block}.s .o{color:var(--star-off)}" +
+    ".a{display:flex;gap:12px;align-items:center;padding-top:16px;border-top:1px solid var(--border)}" +
+    ".av{width:40px;height:40px;border-radius:50%;object-fit:cover;flex:none;display:grid;place-items:center;font-weight:700;font-size:14px;box-shadow:0 0 0 2px var(--card),0 0 0 3px var(--border)}" +
+    ".n{font-weight:600;font-size:14px}.m{color:var(--muted);font-size:13px}" +
+    ".e{color:var(--muted);font-size:14px;text-align:center;padding:32px;border:1px dashed var(--border);border-radius:18px}";
+
+  var STAR = "M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z";
+  function starIcon(on) {
+    var ns = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("fill", "currentColor");
+    svg.setAttribute("aria-hidden", "true");
+    if (!on) svg.setAttribute("class", "o");
+    var path = document.createElementNS(ns, "path");
+    path.setAttribute("d", STAR);
+    svg.appendChild(path);
+    return svg;
+  }
+
+  function onAccent(hex) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+    if (!m) return "#fff";
+    var n = parseInt(m[1], 16);
+    var lum = 0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255);
+    return lum > 160 ? "#161b2e" : "#fff";
+  }
 
   function el(tag, cls, text) {
     var node = document.createElement(tag);
@@ -64,6 +91,7 @@
     var c = el("article", "c");
     c.setAttribute("data-testimonial-id", t.id);
     if (t.video) {
+      var frame = el("div", "v");
       var v = el("video");
       v.controls = true;
       v.preload = "metadata";
@@ -72,15 +100,17 @@
       src.src = abs(t.video.url);
       src.type = t.video.mime;
       v.appendChild(src);
-      c.appendChild(v);
+      frame.appendChild(v);
+      c.appendChild(frame);
     }
     if (t.rating) {
-      var s = el("div", "s", "★".repeat(t.rating));
+      var s = el("div", "s");
+      s.setAttribute("role", "img");
       s.setAttribute("aria-label", t.rating + " out of 5 stars");
-      s.appendChild(el("i", null, "★".repeat(5 - t.rating)));
+      for (var i = 1; i <= 5; i++) s.appendChild(starIcon(i <= t.rating));
       c.appendChild(s);
     }
-    if (t.text) c.appendChild(el("p", null, t.text));
+    if (t.text) c.appendChild(el("p", t.video ? null : "q", t.text));
 
     var a = el("div", "a");
     var av;
@@ -92,6 +122,7 @@
     } else {
       av = el("span", "av", (t.name || "?").trim().charAt(0).toUpperCase());
       av.style.background = accent;
+      av.style.color = onAccent(accent);
     }
     a.appendChild(av);
     var who = el("div");
@@ -120,6 +151,7 @@
     })
     .then(function (data) {
       var accent = (data.project && data.project.accentColor) || "#0f766e";
+      wrap.style.setProperty("--accent", accent);
       if (!data.testimonials.length) {
         wrap.appendChild(el("div", "e", "No testimonials yet."));
         return;
