@@ -36,7 +36,16 @@ async function fillAndSubmit(page: Page, name: string) {
   await expect(page.getByRole("status").filter({ hasText: /thank you/i })).toBeVisible();
 }
 
+async function serverHasFfmpeg(api: APIRequestContext) {
+  return (await (await api.get("/api/admin/system")).json()).ffmpeg as boolean;
+}
+
+/**
+ * Waits for the worker to finish with the video. With ffmpeg that means a
+ * converted MP4 ("ready"); a server without it serves the original ("skipped").
+ */
 async function waitForProcessed(api: APIRequestContext, projectId: string, name: string) {
+  const expected = (await serverHasFfmpeg(api)) ? "ready" : "skipped";
   let row: Record<string, unknown> | undefined;
   await expect
     .poll(
@@ -47,7 +56,7 @@ async function waitForProcessed(api: APIRequestContext, projectId: string, name:
       },
       { timeout: 60_000 },
     )
-    .toBe("ready");
+    .toBe(expected);
   return row!;
 }
 
@@ -104,9 +113,13 @@ test("records with a countdown and on-screen questions, uploading while it recor
   expect(body).not.toContain('name="video"');
 
   const row = await waitForProcessed(p.api, p.id, "Rita Recorder");
-  expect(row.videoMime).toBe("video/mp4");
-  expect(row.posterKey).toMatch(/^images\/.+\.jpg$/);
-  expect(row.videoWidth).toBeGreaterThan(0);
+  if (row.mediaStatus === "ready") {
+    expect(row.videoMime).toBe("video/mp4");
+    expect(row.posterKey).toMatch(/^images\/.+\.jpg$/);
+    expect(row.videoWidth).toBeGreaterThan(0);
+  } else {
+    expect(row.videoMime).toBe("video/webm"); // served as recorded
+  }
 });
 
 test("an upload survives dropped requests and resumes", async ({ page, baseURL }) => {
@@ -233,6 +246,7 @@ test("without MediaRecorder it falls back to the camera app and uploads", async 
 
 test("the dashboard shows conversion progress, then the poster", async ({ page, baseURL }) => {
   const p = await project(baseURL!, "Poster Co");
+  test.skip(!(await serverHasFfmpeg(p.api)), "this server has no ffmpeg (image built with INSTALL_FFMPEG=false)");
   await page.goto(`/c/${p.slug}`);
   await page.getByRole("button", { name: "Video" }).click();
   await page.getByTestId("video-file").setInputFiles(path.join(FIXTURES, "sample.webm"));
