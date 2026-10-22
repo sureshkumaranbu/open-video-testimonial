@@ -1,0 +1,249 @@
+import crypto from "node:crypto";
+import { and, desc, eq, inArray } from "drizzle-orm";
+import { getDb, schema } from "@/db";
+import type { Project, Testimonial, TestimonialStatus } from "@/db/schema";
+import { deleteObject, mediaUrl } from "./storage";
+
+const { projects, testimonials, tags, testimonialTags } = schema;
+
+export const DEFAULT_PROMPT = "How has our product helped you? We'd love to hear your story.";
+export const DEFAULT_THANK_YOU = "Thank you! Your testimonial has been received.";
+
+// ---------------------------------------------------------------- projects
+
+export function listProjects() {
+  return getDb().select().from(projects).orderBy(desc(projects.createdAt)).all();
+}
+
+export function getProjectBySlug(slug: string) {
+  return getDb().select().from(projects).where(eq(projects.slug, slug)).get() ?? null;
+}
+
+export function getProjectById(id: string) {
+  return getDb().select().from(projects).where(eq(projects.id, id)).get() ?? null;
+}
+
+export function createProject(input: {
+  name: string;
+  slug: string;
+  prompt?: string;
+  thankYouMessage?: string;
+  accentColor?: string;
+  allowVideo?: boolean;
+  allowText?: boolean;
+}): Project {
+  return getDb()
+    .insert(projects)
+    .values({
+      id: crypto.randomUUID(),
+      name: input.name,
+      slug: input.slug,
+      prompt: input.prompt ?? DEFAULT_PROMPT,
+      thankYouMessage: input.thankYouMessage ?? DEFAULT_THANK_YOU,
+      accentColor: input.accentColor,
+      allowVideo: input.allowVideo,
+      allowText: input.allowText,
+    })
+    .returning()
+    .get();
+}
+
+export function updateProject(
+  id: string,
+  patch: Partial<Pick<Project, "name" | "prompt" | "thankYouMessage" | "accentColor" | "allowVideo" | "allowText">>,
+) {
+  return getDb().update(projects).set(patch).where(eq(projects.id, id)).returning().get() ?? null;
+}
+
+// ------------------------------------------------------------ testimonials
+
+export interface NewTestimonial {
+  name: string;
+  email?: string;
+  title?: string;
+  company?: string;
+  rating?: number;
+  text?: string;
+  avatarKey?: string;
+  videoKey?: string;
+  videoMime?: string;
+}
+
+export function createTestimonial(projectId: string, input: NewTestimonial): Testimonial {
+  const now = new Date();
+  return getDb()
+    .insert(testimonials)
+    .values({
+      id: crypto.randomUUID(),
+      projectId,
+      status: "pending",
+      authorName: input.name,
+      authorEmail: input.email ?? null,
+      authorTitle: input.title ?? null,
+      authorCompany: input.company ?? null,
+      rating: input.rating ?? null,
+      text: input.text ?? null,
+      avatarKey: input.avatarKey ?? null,
+      videoKey: input.videoKey ?? null,
+      videoMime: input.videoMime ?? null,
+      consentAt: now,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .returning()
+    .get();
+}
+
+export type TestimonialWithTags = Testimonial & { tags: string[] };
+
+function attachTags(rows: Testimonial[]): TestimonialWithTags[] {
+  if (rows.length === 0) return [];
+  const links = getDb()
+    .select({ testimonialId: testimonialTags.testimonialId, name: tags.name })
+    .from(testimonialTags)
+    .innerJoin(tags, eq(tags.id, testimonialTags.tagId))
+    .where(
+      inArray(
+        testimonialTags.testimonialId,
+        rows.map((r) => r.id),
+      ),
+    )
+    .all();
+  const byId = new Map<string, string[]>();
+  for (const l of links) {
+    byId.set(l.testimonialId, [...(byId.get(l.testimonialId) ?? []), l.name]);
+  }
+  return rows.map((r) => ({ ...r, tags: (byId.get(r.id) ?? []).sort() }));
+}
+
+export function listTestimonials(
+  projectId: string,
+  opts: { status?: TestimonialStatus; tag?: string; limit?: number } = {},
+): TestimonialWithTags[] {
+  const db = getDb();
+  const conditions = [eq(testimonials.projectId, projectId)];
+  if (opts.status) conditions.push(eq(testimonials.status, opts.status));
+  if (opts.tag) {
+    const tagged = db
+      .select({ id: testimonialTags.testimonialId })
+      .from(testimonialTags)
+      .innerJoin(tags, eq(tags.id, testimonialTags.tagId))
+      .where(and(eq(tags.projectId, projectId), eq(tags.name, opts.tag)));
+    conditions.push(inArray(testimonials.id, tagged));
+  }
+  let query = db
+    .select()
+    .from(testimonials)
+    .where(and(...conditions))
+    .orderBy(desc(testimonials.createdAt))
+    .$dynamic();
+  if (opts.limit) query = query.limit(opts.limit);
+  return attachTags(query.all());
+}
+
+export function getTestimonial(id: string): TestimonialWithTags | null {
+  const row = getDb().select().from(testimonials).where(eq(testimonials.id, id)).get();
+  return row ? attachTags([row])[0] : null;
+}
+
+export function countByStatus(projectId: string) {
+  const counts: Record<TestimonialStatus, number> = { pending: 0, approved: 0, rejected: 0 };
+  const rows = getDb()
+    .select({ status: testimonials.status })
+    .from(testimonials)
+    .where(eq(testimonials.projectId, projectId))
+    .all();
+  for (const r of rows) counts[r.status]++;
+  return counts;
+}
+
+export function listProjectTags(projectId: string) {
+  return getDb()
+    .select({ name: tags.name })
+    .from(tags)
+    .where(eq(tags.projectId, projectId))
+    .orderBy(tags.name)
+    .all()
+    .map((t) => t.name);
+}
+
+export function updateTestimonial(
+  id: string,
+  patch: {
+    status?: TestimonialStatus;
+    authorName?: string;
+    authorTitle?: string | null;
+    authorCompany?: string | null;
+    tags?: string[];
+  },
+): TestimonialWithTags | null {
+  const db = getDb();
+  const existing = db.select().from(testimonials).where(eq(testimonials.id, id)).get();
+  if (!existing) return null;
+  const { tags: tagNames, ...fields } = patch;
+  db.transaction((tx) => {
+    tx.update(testimonials)
+      .set({ ...fields, updatedAt: new Date() })
+      .where(eq(testimonials.id, id))
+      .run();
+    if (tagNames) {
+      const unique = [...new Set(tagNames.map((t) => t.trim().toLowerCase()).filter(Boolean))];
+      tx.delete(testimonialTags).where(eq(testimonialTags.testimonialId, id)).run();
+      for (const name of unique) {
+        tx.insert(tags)
+          .values({ id: crypto.randomUUID(), projectId: existing.projectId, name })
+          .onConflictDoNothing()
+          .run();
+        const tag = tx
+          .select()
+          .from(tags)
+          .where(and(eq(tags.projectId, existing.projectId), eq(tags.name, name)))
+          .get()!;
+        tx.insert(testimonialTags).values({ testimonialId: id, tagId: tag.id }).run();
+      }
+    }
+  });
+  return getTestimonial(id);
+}
+
+export async function deleteTestimonial(id: string) {
+  const row = getDb().delete(testimonials).where(eq(testimonials.id, id)).returning().get();
+  if (!row) return false;
+  await Promise.all([deleteObject(row.avatarKey), deleteObject(row.videoKey)]);
+  return true;
+}
+
+// ---------------------------------------------------------------- public
+
+/** The only shape that leaves the server for public pages and widgets. */
+export interface PublicTestimonial {
+  id: string;
+  name: string;
+  title: string | null;
+  company: string | null;
+  avatarUrl: string | null;
+  rating: number | null;
+  text: string | null;
+  video: { url: string; mime: string } | null;
+  tags: string[];
+  createdAt: string;
+}
+
+export function toPublic(t: TestimonialWithTags): PublicTestimonial {
+  return {
+    id: t.id,
+    name: t.authorName,
+    title: t.authorTitle,
+    company: t.authorCompany,
+    avatarUrl: mediaUrl(t.avatarKey),
+    rating: t.rating,
+    text: t.text,
+    video: t.videoKey ? { url: mediaUrl(t.videoKey)!, mime: t.videoMime ?? "video/webm" } : null,
+    tags: t.tags,
+    createdAt: t.createdAt.toISOString(),
+  };
+}
+
+export function listPublicTestimonials(projectId: string, opts: { tag?: string; limit?: number } = {}) {
+  return listTestimonials(projectId, { ...opts, status: "approved" }).map(toPublic);
+}
