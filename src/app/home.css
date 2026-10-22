@@ -433,13 +433,59 @@
   gap: var(--space-6);
 }
 
-.demo-record blockquote {
-  margin: 0;
+.demo-record {
+  gap: var(--space-4);
+  justify-content: flex-start;
+}
+
+/* The "camera": poster image first, the looping clip fades in on top once it plays. */
+.demo-camera {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #0b0e1a;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+
+.demo-camera img,
+.demo-camera video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.demo-camera video {
+  opacity: 0;
+  transition: opacity 400ms var(--ease-out);
+}
+
+.demo-camera[data-playing="true"] video {
+  opacity: 1;
+}
+
+.demo-camera .rec-pill {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  z-index: 1;
+}
+
+.demo-subtitle {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 1;
+  padding: var(--space-8) var(--space-4) var(--space-3);
+  background: linear-gradient(to top, rgb(0 0 0 / 0.72), rgb(0 0 0 / 0));
+  color: #ffffff;
   font-family: var(--font-voice);
-  font-size: clamp(1.4rem, 1.1rem + 1.2vw, 2rem);
-  line-height: 1.3;
-  letter-spacing: -0.01em;
-  max-width: 24ch;
+  font-size: clamp(0.95rem, 0.85rem + 0.4vw, 1.15rem);
+  line-height: 1.35;
+  text-align: center;
+  text-wrap: balance;
 }
 
 .wave.live i {
@@ -503,13 +549,36 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: var(--rec);
-  color: #ffffff;
-  font-weight: 700;
-  font-size: var(--text-sm);
+  object-fit: cover;
+  background: #e3e6ec;
   flex: none;
+}
+
+/* A sample person's face (see _home/Face.tsx). */
+.face {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--paper-2);
+  flex: none;
+}
+
+.sample-author {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  line-height: 1.3;
+}
+
+.sample-author > span {
+  display: grid;
+}
+
+.sample-author > span > span {
+  color: var(--ink-2);
+  font-size: var(--text-xs);
 }
 
 .demo-badge {
@@ -872,12 +941,6 @@
   padding: 2px 8px;
 }
 
-.voice-who {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--ink-2);
-}
-
 .voices-caption {
   text-align: center;
   padding-top: var(--space-4);
@@ -886,10 +949,36 @@
 
 /* ---------- Video testimonials ---------- */
 
-.video-cards {
+/* Wall of video cards near the top: three columns of cards, videos and text mixed. */
+.video-wall {
+  padding-top: var(--space-12);
+}
+
+.wall-mosaic {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-5);
+  align-items: start;
+}
+
+.wall-col {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.wall-quote {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+}
+
+.wall-quote .quote {
+  margin: 0;
+  font-size: 1.0625rem;
 }
 
 .video-card {
@@ -911,16 +1000,6 @@
 .video-card .quote {
   margin: 0;
   font-size: 1.0625rem;
-}
-
-.video-card-author {
-  display: grid;
-  font-size: var(--text-sm);
-}
-
-.video-card-author span {
-  color: var(--ink-2);
-  font-size: var(--text-xs);
 }
 
 .sample-video {
@@ -1121,12 +1200,28 @@
   animation: fade-up 480ms calc(var(--i) * 110ms + 120ms) var(--ease-out) both;
 }
 
-.how-dot {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+.how-ask {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.how-ask .face,
+.how-row .face,
+.how-tile .face {
   background: rgb(255 255 255 / 0.2);
-  flex: none;
+}
+
+.how-who {
+  flex: 1;
+  display: grid;
+  gap: 6px;
+  font-size: var(--text-sm);
+}
+
+.how-who .how-field {
+  height: 8px;
+  width: 70%;
 }
 
 .how-pane code {
@@ -1144,14 +1239,57 @@
   gap: var(--space-3);
 }
 
-.how-tiles span {
+.how-tile {
+  position: relative;
   height: 64px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
   border-radius: var(--radius-md);
   background: #ffffff;
+  overflow: hidden;
   opacity: 0.92;
 }
 
-.how-pane.on .how-tiles span {
+.how-tile .how-field {
+  height: 8px;
+  background: #e3e6ec;
+}
+
+.how-tile.video {
+  padding: 0;
+  background: #0b0e1a;
+}
+
+.how-tile.video img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.how-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #ffffff;
+  color: #161b2e;
+  transform: translate3d(-50%, -50%, 0);
+}
+
+.how-play .icon {
+  width: 12px;
+  height: 12px;
+  margin-left: 2px;
+}
+
+.how-pane.on .how-tile {
   animation: pop 520ms calc(var(--i) * 100ms + 150ms) var(--ease-out) both;
 }
 
@@ -1239,8 +1377,33 @@
   background: radial-gradient(120% 90% at 20% 0%, #2a3150 0%, var(--stage) 60%);
 }
 
-.art-record .rec-pill {
-  align-self: center;
+.art-record {
+  position: relative;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: var(--space-3);
+}
+
+.art-record .art-poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 30% 30%;
+}
+
+.art-record::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgb(11 14 26 / 0.7), rgb(11 14 26 / 0) 60%);
+}
+
+.art-record .rec-pill,
+.art-record .wave {
+  position: relative;
+  z-index: 1;
 }
 
 .art-queue {
@@ -1260,8 +1423,19 @@
   border: 1px solid var(--line);
 }
 
+.art-row {
+  gap: 8px;
+}
+
+.art-row .face {
+  width: 22px;
+  height: 22px;
+}
+
 .art-row i {
-  width: 50%;
+  flex: 1;
+  max-width: 50%;
+  margin-right: auto;
   height: 7px;
   border-radius: 4px;
   background: var(--line-strong);
@@ -1284,10 +1458,13 @@
   border-radius: 8px;
   background: var(--surface);
   border: 1px solid var(--line);
+  overflow: hidden;
 }
 
-.art-wall span:nth-child(3n + 1) {
-  background: color-mix(in srgb, var(--rec) 18%, var(--surface));
+.art-wall .face {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
 }
 
 .motion-ready .bento-tile.is-in .art-wall span {
@@ -1582,8 +1759,11 @@
     opacity: 1;
   }
   .bento,
-  .video-cards {
-    grid-template-columns: minmax(0, 1fr);
+  .wall-mosaic {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .wall-col {
+    display: contents;
   }
   .bento-tile.wide {
     grid-column: auto;
@@ -1614,6 +1794,9 @@
   }
   .voice {
     width: 280px;
+  }
+  .wall-mosaic {
+    grid-template-columns: minmax(0, 1fr);
   }
   .showcase-stage {
     padding: var(--space-4);

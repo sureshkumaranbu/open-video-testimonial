@@ -2,10 +2,19 @@ import Link from "next/link";
 import { Fragment } from "react";
 import { Icon } from "@/components/Icon";
 import { Stars } from "@/components/TestimonialCard";
+import { Face } from "./_home/Face";
 import { HeroDemo } from "./_home/HeroDemo";
 import { HomeMotion, MOTION_BOOT } from "./_home/HomeMotion";
 import { SampleVideo } from "./_home/SampleVideo";
-import { SAMPLE_VIDEOS } from "./_home/samples";
+import {
+  byId,
+  CREDITS_URL,
+  PEOPLE,
+  SAMPLE_DISCLAIMER,
+  SAMPLE_QUOTES,
+  type SamplePerson,
+  type SampleVideoTestimonial,
+} from "./_home/samples";
 import { StickySteps } from "./_home/StickySteps";
 import { WidgetShowcase } from "./_home/WidgetShowcase";
 import "./home.css";
@@ -16,16 +25,27 @@ const HEADLINE = "Let your customers say it for you.";
 
 const PLATFORMS = ["WordPress", "Webflow", "Framer", "Shopify", "Ghost", "Squarespace", "Wix", "Next.js", "Plain HTML"];
 
-// Invented examples, always shown with a visible "Sample" label and caption.
-const VOICES = [
-  { who: "Priya, café owner", text: "Customers filmed thirty-second clips at the till. Best menu we ever printed." },
-  { who: "Tom, freelance designer", text: "One link in my invoice email and the testimonials started arriving." },
-  { who: "Ines, course creator", text: "Students record on their phones. I approve over coffee." },
-  { who: "Sam, agency lead", text: "We embed a different tag per client page. Zero CSS fights." },
-  { who: "Noor, SaaS founder", text: "Self-hosted means our customer list stays ours." },
-  { who: "Kofi, yoga studio", text: "The dark theme matched our site without touching a line of code." },
-  { who: "Lena, photographer", text: "Video testimonials convert better than my portfolio does." },
-  { who: "Raj, indie hacker", text: "Docker compose up, done. Took less time than reading a pricing page." },
+// Fictional quotes paired with stock faces, always shown with a visible
+// "Sample" label and caption (see samples.ts).
+const VOICES = SAMPLE_QUOTES;
+
+// The wall near the top: video cards with short text cards between them,
+// in three columns that collapse on small screens.
+type WallItem = { video: SampleVideoTestimonial } | { person: SamplePerson; rating: number; text: string };
+const WALL: WallItem[][] = [
+  [
+    { video: byId("maya") },
+    { person: PEOPLE.theo, rating: 5, text: "Clients see real faces before they book a call. That changed everything." },
+  ],
+  [
+    { person: PEOPLE.ken, rating: 5, text: "Our first video testimonial was live twenty minutes after install." },
+    { video: byId("daniel") },
+    { person: PEOPLE.leila, rating: 4, text: "Two of my students recorded straight from their phones the same evening." },
+  ],
+  [
+    { video: byId("grace") },
+    { person: PEOPLE.jordan, rating: 5, text: "Short, honest clips from members do more than any ad I've run." },
+  ],
 ];
 
 const FEATURES = [
@@ -90,11 +110,43 @@ function Wave({ live }: { live?: boolean }) {
   );
 }
 
+function Author({ person }: { person: SamplePerson }) {
+  return (
+    <div className="sample-author">
+      <Face person={person} />
+      <span>
+        <strong>{person.name}</strong>
+        <span>
+          {person.role}, {person.company}
+        </span>
+      </span>
+    </div>
+  );
+}
+
+function VideoCard({ v, d }: { v: SampleVideoTestimonial; d: number }) {
+  return (
+    <article className="video-card" data-sample-card data-reveal style={{ ["--d" as string]: d }}>
+      <SampleVideo sample={v} label={`sample video testimonial from ${v.name} (fictional)`} />
+      <div className="video-card-body">
+        <div className="row spread">
+          <Stars rating={v.rating} />
+          <span className="voice-tag">Sample</span>
+        </div>
+        <p className="quote">{v.quote}</p>
+        <Author person={v} />
+      </div>
+    </article>
+  );
+}
+
 function FeatureArt({ k }: { k: (typeof FEATURES)[number]["key"] }) {
   switch (k) {
     case "record":
       return (
         <div className="art art-record">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="art-poster" src={byId("maya").poster} alt="" width={960} height={600} loading="lazy" decoding="async" />
           <span className="rec-pill live">REC 00:18</span>
           <Wave live />
         </div>
@@ -102,8 +154,15 @@ function FeatureArt({ k }: { k: (typeof FEATURES)[number]["key"] }) {
     case "queue":
       return (
         <div className="art art-queue">
-          {["approved", "pending", "rejected"].map((s, i) => (
+          {(
+            [
+              [PEOPLE.grace, "approved"],
+              [PEOPLE.ken, "pending"],
+              [PEOPLE.jordan, "rejected"],
+            ] as const
+          ).map(([p, s], i) => (
             <span key={s} className="art-row" style={{ ["--i" as string]: i }}>
+              <Face person={p} size={22} />
               <i />
               <span className={`demo-badge ${s}`}>{s[0].toUpperCase() + s.slice(1)}</span>
             </span>
@@ -113,8 +172,10 @@ function FeatureArt({ k }: { k: (typeof FEATURES)[number]["key"] }) {
     case "wall":
       return (
         <div className="art art-wall">
-          {[0, 1, 2, 3, 4, 5].map((i) => (
-            <span key={i} style={{ ["--i" as string]: i }} />
+          {[PEOPLE.maya, PEOPLE.daniel, PEOPLE.grace, PEOPLE.theo, PEOPLE.leila, PEOPLE.ken].map((p, i) => (
+            <span key={p.id} style={{ ["--i" as string]: i }}>
+              <Face person={p} size={44} />
+            </span>
           ))}
         </div>
       );
@@ -238,8 +299,52 @@ export default function Home() {
               </span>
             </div>
             <HeroDemo />
-            <p className="demo-note">Illustrative demo with sample content.</p>
+            <p className="demo-note">Illustrative demo. Stock footage; the name and quote are fictional.</p>
           </div>
+        </section>
+
+        <section
+          id="videos"
+          className="container section video-wall"
+          data-testid="section-videos"
+          aria-labelledby="videos-title"
+        >
+          <div className="section-head" data-reveal>
+            <span className="kicker">Video testimonials</span>
+            <h2 id="videos-title">Faces and voices, not just five stars.</h2>
+            <p className="muted">
+              Customers record a short clip from their phone or laptop. You get a wall like this for your site.
+            </p>
+          </div>
+          <div className="wall-mosaic">
+            {WALL.map((col, c) => (
+              <div key={c} className="wall-col">
+                {col.map((item, i) =>
+                  "video" in item ? (
+                    <VideoCard key={item.video.id} v={item.video} d={c + i} />
+                  ) : (
+                    <article
+                      key={item.person.id}
+                      className="wall-quote"
+                      data-sample-card
+                      data-reveal
+                      style={{ ["--d" as string]: c + i }}
+                    >
+                      <div className="row spread">
+                        <Stars rating={item.rating} />
+                        <span className="voice-tag">Sample</span>
+                      </div>
+                      <p className="quote">{item.text}</p>
+                      <Author person={item.person} />
+                    </article>
+                  ),
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="voices-caption muted xsmall" data-testid="video-sample-caption">
+            {SAMPLE_DISCLAIMER} <a href={CREDITS_URL}>Credits</a>
+          </p>
         </section>
 
         <section className="band platforms" data-testid="section-platforms" aria-labelledby="platforms-title">
@@ -279,10 +384,10 @@ export default function Home() {
                 {[0, 1].map((copy) => (
                   <ul key={copy} className="marquee-set" aria-hidden={copy === 1 ? true : undefined}>
                     {row.map((v) => (
-                      <li key={v.who} className="voice">
+                      <li key={v.id} className="voice" data-sample-card={copy === 0 ? "" : undefined}>
                         <span className="voice-tag">Sample</span>
                         <p className="quote">{v.text}</p>
-                        <span className="voice-who">{v.who}</span>
+                        <Author person={v} />
                       </li>
                     ))}
                   </ul>
@@ -291,46 +396,7 @@ export default function Home() {
             </div>
           ))}
           <p className="container voices-caption muted xsmall" data-testid="sample-caption">
-            Sample testimonials for illustration. Not real customers.
-          </p>
-        </section>
-
-        <section
-          id="videos"
-          className="container section video-strip"
-          data-testid="section-videos"
-          aria-labelledby="videos-title"
-        >
-          <div className="section-head" data-reveal>
-            <span className="kicker">Video testimonials</span>
-            <h2 id="videos-title">Faces and voices, not just five stars.</h2>
-            <p className="muted">
-              Customers record straight from the browser. This is how a video card looks on your site.
-            </p>
-          </div>
-          <div className="video-cards">
-            {SAMPLE_VIDEOS.map((v, i) => (
-              <article key={v.id} className="video-card" data-reveal style={{ ["--d" as string]: i }}>
-                <SampleVideo sample={v} label={`sample video testimonial from ${v.name} (fictional)`} />
-                <div className="video-card-body">
-                  <div className="row spread">
-                    <Stars rating={v.rating} />
-                    <span className="voice-tag">Sample</span>
-                  </div>
-                  <p className="quote">{v.quote}</p>
-                  <div className="video-card-author">
-                    <strong>{v.name}</strong>
-                    <span>
-                      {v.role}, {v.company} · fictional
-                    </span>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-          <p className="voices-caption muted xsmall" data-testid="video-sample-caption">
-            Sample testimonials for illustration. The people and companies are fictional, and the clips are
-            synthetic placeholders, not real recordings.
+            {SAMPLE_DISCLAIMER}
           </p>
         </section>
 

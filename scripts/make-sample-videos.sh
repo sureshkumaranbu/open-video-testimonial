@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# Generates the placeholder "sample video testimonial" clips used on the home
-# page. They are synthetic on purpose: an animated voice waveform over a soft
-# generated tone, clearly labelled as a sample with no real person in them.
+# Offline fallback: generates placeholder "sample video testimonial" clips
+# with no real person in them (an animated voice waveform over a soft
+# generated tone, labelled as a sample). The home page now uses licensed
+# stock footage instead (see docs/CREDITS.md); writing to public/samples
+# replaces those clips, so pass another output directory to keep them.
 # Requires ffmpeg with libx264, libvpx-vp9, libopus and drawtext (libfreetype).
 #
 #   scripts/make-sample-videos.sh [output-dir]   (default: public/samples)
