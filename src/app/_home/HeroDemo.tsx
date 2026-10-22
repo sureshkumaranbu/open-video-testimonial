@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
+import { SAMPLE_VIDEOS } from "./samples";
+
+const SAMPLE = SAMPLE_VIDEOS[0];
 
 const STEPS = [
   { key: "record", label: "Recording" },
@@ -13,6 +16,19 @@ export const STEP_MS = 3600;
 
 // Bar heights for the animated voice waveform.
 const WAVE = [8, 14, 22, 12, 26, 18, 10, 20, 28, 16, 9, 18, 24, 12, 7, 15, 22, 11, 6, 13, 19, 9];
+
+/** Static poster of the sample clip with a play glyph (the demo is a mock). */
+function DemoThumb() {
+  return (
+    <span className="demo-thumb" data-testid="demo-video-thumb">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={SAMPLE.poster} alt="" width={SAMPLE.width} height={SAMPLE.height} decoding="async" />
+      <span className="demo-play">
+        <Icon name="play" />
+      </span>
+    </span>
+  );
+}
 
 /**
  * Auto-advancing demo of the core loop. Each step lasts STEP_MS; pausing
@@ -128,20 +144,25 @@ export function HeroDemo() {
             <div className="demo-card">
               <div className="demo-card-head">
                 <span className="demo-avatar" aria-hidden>
-                  J
+                  {SAMPLE.name[0]}
                 </span>
                 <div>
-                  <strong>Jordan</strong>
-                  <span>Studio owner</span>
+                  <strong>{SAMPLE.name}</strong>
+                  <span>
+                    {SAMPLE.role}, {SAMPLE.company}
+                  </span>
                 </div>
-                <span className="demo-badge pending">Pending</span>
+                <span className="demo-badge-swap">
+                  <span className="demo-badge pending">Pending</span>
+                  <span className="demo-badge approved">Approved</span>
+                </span>
               </div>
+              <DemoThumb />
               <div className="demo-stars" aria-hidden>
                 {[1, 2, 3, 4, 5].map((n) => (
                   <Icon key={n} name="star" />
                 ))}
               </div>
-              <p>&ldquo;Setup took ten minutes. Customers actually finish the form.&rdquo;</p>
               <div className="demo-actions">
                 <span className="demo-btn ghost">Reject</span>
                 <span className="demo-btn approve">
@@ -150,10 +171,7 @@ export function HeroDemo() {
                 </span>
               </div>
             </div>
-            <span className="demo-toast" role="presentation">
-              <Icon name="check" />
-              Approved
-            </span>
+
           </div>
         )}
 
@@ -170,15 +188,17 @@ export function HeroDemo() {
                 <span className="line w60" />
                 <span className="line w40" />
                 <div className="demo-landed">
+                  <DemoThumb />
                   <div className="demo-stars">
                     {[1, 2, 3, 4, 5].map((n) => (
                       <Icon key={n} name="star" />
                     ))}
                   </div>
-                  <p>&ldquo;Setup took ten minutes. Customers actually finish the form.&rdquo;</p>
+                  <p>&ldquo;{SAMPLE.quote}&rdquo;</p>
                   <div className="demo-landed-author">
-                    <span className="demo-avatar">J</span>
-                    <strong>Jordan</strong>
+                    <span className="demo-avatar">{SAMPLE.name[0]}</span>
+                    <strong>{SAMPLE.name}</strong>
+                    <span className="demo-sample">Sample</span>
                   </div>
                 </div>
                 <span className="line w80" />

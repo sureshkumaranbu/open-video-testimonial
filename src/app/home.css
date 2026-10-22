@@ -534,6 +534,46 @@
   color: #c0352d;
 }
 
+/* Pending -> Approved after the button press. The resting state is
+   "Approved", so reduced motion (no animation) shows the end result. */
+.demo-badge-swap {
+  display: grid;
+  justify-items: end;
+}
+
+.demo-badge-swap > * {
+  grid-area: 1 / 1;
+}
+
+.demo-badge-swap .pending {
+  opacity: 0;
+  animation: badge-out 300ms 1500ms var(--ease-out) both;
+}
+
+.demo-badge-swap .approved {
+  animation: badge-in 420ms 1500ms var(--ease-out) both;
+}
+
+@keyframes badge-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes badge-in {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .demo-stars {
   display: inline-flex;
   gap: 2px;
@@ -842,6 +882,134 @@
   text-align: center;
   padding-top: var(--space-4);
   padding-bottom: 0;
+}
+
+/* ---------- Video testimonials ---------- */
+
+.video-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-5);
+}
+
+.video-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+}
+
+.video-card-body {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+}
+
+.video-card .quote {
+  margin: 0;
+  font-size: 1.0625rem;
+}
+
+.video-card-author {
+  display: grid;
+  font-size: var(--text-sm);
+}
+
+.video-card-author span {
+  color: var(--ink-2);
+  font-size: var(--text-xs);
+}
+
+.sample-video {
+  position: relative;
+  width: 100%;
+  background: var(--stage);
+  overflow: hidden;
+}
+
+.sample-video video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.sample-play {
+  --btn-bg: #ffffff;
+  --btn-fg: #161b2e;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  transform: translate3d(-50%, -50%, 0);
+  box-shadow: 0 12px 30px -10px rgb(0 0 0 / 0.6);
+  transition: transform var(--dur-base) var(--ease-out);
+}
+
+.sample-play:hover:not(:disabled) {
+  --btn-bg: #ffffff;
+  transform: translate3d(-50%, -50%, 0) scale(1.06);
+}
+
+.sample-play .icon {
+  width: 26px;
+  height: 26px;
+  margin-left: 3px;
+}
+
+.demo-thumb {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--stage);
+}
+
+.demo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.demo-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #ffffff;
+  color: #161b2e;
+  transform: translate3d(-50%, -50%, 0);
+}
+
+.demo-play .icon {
+  width: 18px;
+  height: 18px;
+  margin-left: 2px;
+}
+
+.demo-sample {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #868d9e;
+  border: 1px solid #e3e6ec;
+  border-radius: var(--radius-pill);
+  padding: 1px 7px;
 }
 
 /* ---------- How it works (sticky) ---------- */
@@ -1413,7 +1581,8 @@
     padding: var(--space-6) 0;
     opacity: 1;
   }
-  .bento {
+  .bento,
+  .video-cards {
     grid-template-columns: minmax(0, 1fr);
   }
   .bento-tile.wide {
