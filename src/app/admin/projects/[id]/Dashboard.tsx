@@ -200,6 +200,12 @@ function TestimonialRow({
 }) {
   const [name, setName] = useState(t.authorName);
   const [tags, setTags] = useState(t.tags.join(", "));
+  const savedTags = t.tags.join(", ");
+  // Show what the server saved (tags are normalised to lowercase) after a save.
+  useEffect(() => {
+    setName(t.authorName);
+    setTags(savedTags);
+  }, [t.authorName, savedTags]);
   const avatarUrl = t.avatarKey ? `/api/media/${t.avatarKey}` : null;
   const dirty = name.trim() !== t.authorName || tags !== t.tags.join(", ");
   const byline = [t.authorTitle, t.authorCompany].filter(Boolean).join(", ");

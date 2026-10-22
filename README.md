@@ -4,6 +4,12 @@ Plaudit is a free, open-source and self-hostable app for collecting **video and 
 
 It has no testimonial caps, no forced branding and no third-party trackers, and it is MIT licensed.
 
+| Home page (desktop) | Home page (mobile) |
+|---|---|
+| ![Home page on desktop](docs/screenshots/home-desktop.png) | ![Home page on mobile](docs/screenshots/home-mobile.png) |
+
+[Full-length home page screenshot](docs/screenshots/home-full.png)
+
 | Collection page | Admin dashboard |
 |---|---|
 | ![Collection page](docs/screenshots/collection-page.png) | ![Admin dashboard](docs/screenshots/admin-dashboard.png) |
@@ -102,15 +108,25 @@ The iframe option is `/embed/<slug>?theme=dark`. It posts its height to the pare
 
 ```bash
 npm test            # Vitest: submission, moderation/auth, widget feed, media ranges
-npm run test:e2e    # Playwright: builds and starts the production server, then runs the full flow in Chromium
+npm run test:e2e    # Playwright: builds and starts the production server, then runs both browser suites in Chromium
+npm run test:all    # both of the above
 ```
 
-The end-to-end suite does the following:
-1. Creates a project.
-2. Submits a text testimonial, an uploaded video, and a video recorded with Chromium's fake camera.
-3. Approves some testimonials and rejects others.
-4. Checks that the wall only shows approved items and that the videos play.
-5. Embeds the script and iframe snippets on a page served from another origin, in light and dark themes.
+There are two Playwright suites:
+
+- `e2e/flow.spec.ts` is one end-to-end story:
+  1. Creates a project.
+  2. Submits a text testimonial, an uploaded video, and a video recorded with Chromium's fake camera.
+  3. Approves some testimonials and rejects others.
+  4. Checks that the wall only shows approved items and that the videos play.
+  5. Embeds the script and iframe snippets on a page served from another origin, in light and dark themes.
+- `e2e/coverage.spec.ts` covers every surface on its own:
+  - **Home page:** every section renders, the hero demo advances and its pause works, the sticky steps, marquee pausing, the FAQ, no horizontal overflow at 375px, reduced motion, and visible keyboard focus.
+  - **Admin:** sign-in, sign-out and redirects; creating projects and validating slugs; settings reaching the collection page (including button contrast on light brand colours).
+  - **Collection form:** every validation path, including bad or oversized avatars and the honeypot.
+  - **Moderation:** every action, with live counts.
+  - **Wall, widget and iframe options:** tag filtering, limit, layout, light/dark/auto themes, isolation from hostile host-page CSS, and empty states.
+  - **Copy buttons**, plus the public API's privacy, 404 and HTTP Range behaviour.
 
 To run the same suite against a running instance (for example `docker compose up`), set `E2E_BASE_URL=http://127.0.0.1:3000`. Its `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` must match that instance's admin credentials. Set `UPDATE_SCREENSHOTS=1` to refresh the images in `docs/screenshots/`.
 
