@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { adminApi, createProject, seed, signIn, useFreshIp } from "./helpers";
+import { adminApi, createProject, seed, shot, signIn, useFreshIp } from "./helpers";
 
 /** Export a project, import it back as a new one, and import a CSV with the column mapper. */
 
@@ -85,6 +85,7 @@ test("CSV import with the column mapper", async ({ page, baseURL }) => {
   await expect(preview.getByTestId("preview-row").first()).toContainText("5/5");
   await expect(preview).toContainText("line 4 (No text or video URL)");
   await preview.getByLabel(/Approve imported testimonials/).check();
+  await shot(page, "import-export", true);
   await preview.getByRole("button", { name: "Import 2 testimonials" }).click();
   await expect(page.getByRole("status")).toContainText("Imported 2 testimonials, skipped 1.");
 

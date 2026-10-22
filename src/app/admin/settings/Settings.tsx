@@ -224,7 +224,7 @@ function Webhooks({ events, projects }: { events: string[]; projects: { id: stri
       <div className="panel-body stack">
         <p className="muted small">
           Plaudit POSTs JSON to your URL when something happens. Each request is signed with the endpoint&apos;s secret
-          (<code>Plaudit-Signature</code> header) and failed deliveries are retried for about 9 hours. See docs/API.md
+          (<code>Plaudit-Signature</code> header) and failed deliveries are retried for about 3 hours. See docs/API.md
           for checking the signature.
         </p>
         <form

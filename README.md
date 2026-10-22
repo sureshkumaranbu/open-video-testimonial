@@ -2,84 +2,240 @@
 
 Plaudit is a free, open-source and self-hostable app for collecting **video and text testimonials**. Customers record a video or write a few lines on a hosted page. You approve the best ones, and they appear on your site through a single embed snippet.
 
-It has no testimonial caps, no forced branding and no third-party trackers, and it is MIT licensed.
+There are no testimonial caps, no per-email or per-minute fees, no forced branding and no third-party trackers. Your data stays on your server, and you can export all of it in one click. MIT licensed.
 
 | Home page (desktop) | Home page (mobile) |
 |---|---|
 | ![Home page on desktop](docs/screenshots/home-desktop.png) | ![Home page on mobile](docs/screenshots/home-mobile.png) |
 
-[Full-length home page screenshot](docs/screenshots/home-full.png)
-
 | Collection page | Admin dashboard |
 |---|---|
 | ![Collection page](docs/screenshots/collection-page.png) | ![Admin dashboard](docs/screenshots/admin-dashboard.png) |
+
+| Recording on a phone (questions on screen) | Requests and reminders |
+|---|---|
+| ![Recorder on a phone](docs/screenshots/recorder-mobile.png) | ![Requests screen](docs/screenshots/requests.png) |
 
 | Wall of love | Embedded widget (dark theme, on another site) |
 |---|---|
 | ![Wall of love](docs/screenshots/wall-of-love.png) | ![Embedded widget](docs/screenshots/embed-script-dark.png) |
 
+More: [settings (API keys and webhooks)](docs/screenshots/settings.png) · [import and export](docs/screenshots/import-export.png) · [full home page](docs/screenshots/home-full.png)
+
+## Contents
+
+- [Features](#features)
+- [Quick start with Docker](#quick-start-with-docker)
+- [Quick start with Node.js](#quick-start-with-nodejs)
+- [First steps](#first-steps)
+- [Configuration](#configuration)
+- [Optional features](#optional-features): [video conversion](#video-conversion-ffmpeg) · [email](#email-requests-reminders-and-receipts) · [transcripts](#transcripts-and-captions) · [API and webhooks](#api-and-webhooks)
+- [Embedding](#embedding)
+- [Backups, moving and upgrading](#backups-moving-and-upgrading)
+- [Privacy and consent](#privacy-and-consent)
+- [Troubleshooting](#troubleshooting)
+- [Development and tests](#development-and-tests)
+- [Project docs](#project-docs)
+
 ## Features
 
-- **Collection page** per project, at `/c/<slug>`, which asks for:
-  - a star rating
-  - a written testimonial, **or a video**: recorded in the browser (MediaRecorder) or uploaded
-  - name, email (kept private), role, company and photo
-  - a consent checkbox
-- **Dashboard**: approve, reject, tag or delete testimonials, and edit the display name. Also configure the collection page.
-- **Wall of love** at `/wall/<slug>`: a public grid of approved testimonials, with video playback, in light or dark.
-- **Embeds**:
-  - a single `<script>` tag that renders into Shadow DOM, so your site's CSS can't break it
-  - or an auto-resizing `<iframe>`
-  - light, dark or auto theme, and filtering by tag
-- **Self-hosted**: SQLite plus local disk, one Docker volume, `docker compose up`.
+**Collecting**
 
-## Quick start (Docker)
+- A collection page per project at `/c/<slug>`: star rating, a written testimonial **or a video**, name, private email, role, company, photo, and consent.
+- **A recorder that works on phones.**
+  - It records MP4 on Safari and iOS, and WebM elsewhere.
+  - There's a 3-2-1 countdown, and your questions stay on screen while people talk.
+  - On phones the stage is upright, and people can switch cameras.
+  - Recording stops cleanly at a time limit you choose.
+  - People can also use their phone's camera app, or upload a file.
+- **Uploads that survive bad connections.** Video uploads in small pieces while it records and resumes after a dropped connection. Big files never need a big request.
+- **Personal request links.** Paste a list or load a CSV. Each person gets a link that fills in their details. Invitations and reminders go out through your own email server, reminders stop when they reply, and there's one-click unsubscribe.
+
+**Managing**
+
+- A dashboard to approve, reject, tag, rename and delete testimonials, with live counts.
+- **Video conversion.** With ffmpeg, every video becomes a fast-start MP4 that plays in every browser, plus a poster image. The original is kept.
+- **Transcripts and captions.** Use a local speech-to-text program (such as whisper.cpp, so no audio leaves your server) or any OpenAI-compatible API. You can edit both, and "use transcript as quote" turns one into the written text.
+- **Consent ledger.** Your consent wording is versioned. Each testimonial records what was agreed to (website, plus optional social media), when, and with which wording. Edits you make afterwards are logged, and authors get a private link to withdraw.
+
+**Showing**
+
+- A wall of love at `/wall/<slug>`, light or dark.
+- **Embeds**: one `<script>` tag that renders into Shadow DOM, so your site's CSS can't break it, or an auto-resizing `<iframe>`. Light, dark or auto theme, grid or list, and filter by tag. Videos show posters, play in their own shape, and have captions on by default.
+
+**Connecting**
+
+- **REST API** with read-only or read-write keys, and an OpenAPI 3.1 description.
+- **Signed webhooks** for n8n, Zapier, Make and Activepieces, with retries and a delivery log.
+- **Import and export.** One .zip holds everything (data, consent history and media) and can be imported on any Plaudit server. There's also CSV import with a column mapper, for spreadsheets and exports from other testimonial tools.
+
+**Running**
+
+- SQLite plus local disk, one Docker volume, and `docker compose up`.
+- No telemetry and no outside calls, except the ones you configure: your SMTP server, your transcription service, your webhooks, and media URLs in CSVs you import.
+
+## Quick start with Docker
+
+You need Docker with the Compose plugin.
 
 ```bash
 git clone https://github.com/sureshkumaranbu/open-video-testimonial.git plaudit
 cd plaudit
-cp .env.example .env    # then edit ADMIN_EMAIL, ADMIN_PASSWORD, SESSION_SECRET, PUBLIC_URL
+cp .env.example .env
+```
+
+Open `.env` and set at least:
+
+- `ADMIN_EMAIL` and `ADMIN_PASSWORD`: your sign-in.
+- `SESSION_SECRET`: a long random string. `openssl rand -hex 32` makes one.
+- `PUBLIC_URL`: the address people will use, such as `http://localhost:3000` on your own computer.
+
+Then start it:
+
+```bash
 docker compose up -d --build
 ```
 
-1. Open <http://localhost:3000/admin> and sign in with `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
-2. Create a project.
-3. Share its collection link.
-4. Approve the testimonials that come in.
-5. Paste the embed snippet from the project page into your site.
+Open <http://localhost:3000/admin> and sign in. The image includes ffmpeg, so video conversion works out of the box.
 
-All data (the SQLite database and uploaded media) lives in the `plaudit-data` volume, mounted at `/data`. To back up, copy that volume.
+Everything (the SQLite database and uploaded media) lives in the `plaudit-data` Docker volume, mounted at `/data`.
 
-> **Production checklist**
-> - Set a long random `SESSION_SECRET` (`openssl rand -hex 32`).
-> - Set a strong `ADMIN_PASSWORD`.
-> - Put the app behind HTTPS (Caddy, Traefik, nginx…).
+> **Before you put it on the internet**
+> - Use a strong `ADMIN_PASSWORD` and a random `SESSION_SECRET`.
+> - Serve it over HTTPS behind a reverse proxy (Caddy, Traefik, nginx…).
 > - Set `PUBLIC_URL=https://your-domain` and `COOKIE_SECURE=true`.
-> - Make sure the proxy allows request bodies as large as `MAX_VIDEO_MB`.
+> - Uploads arrive in 8 MB pieces, so the default request-size limits of most proxies are fine. If you raise `MAX_VIDEO_MB`, nothing else needs changing.
 
-## Quick start (Node)
+## Quick start with Node.js
 
-You need Node.js 22.12 or newer.
+You need **Node.js 22.12 or newer**. **ffmpeg** is optional but recommended, for video conversion and transcripts:
+
+- macOS: `brew install ffmpeg`
+- Debian/Ubuntu: `sudo apt install ffmpeg`
+- Windows: `winget install ffmpeg`
 
 ```bash
-npm install
-cp .env.example .env    # edit values
+git clone https://github.com/sureshkumaranbu/open-video-testimonial.git plaudit
+cd plaudit
+npm ci
+cp .env.example .env   # set ADMIN_EMAIL, ADMIN_PASSWORD, SESSION_SECRET
 npm run build
-npm start               # http://localhost:3000
+npm start              # http://localhost:3000
 ```
 
-For development, run `npm run dev`. Environment variables are read from `.env` by Next.js.
+For development with hot reload, run `npm run dev` instead of build and start. Data goes to `./data` unless you set `DATA_DIR`.
+
+## First steps
+
+1. **Create a project** on the admin home page. A project is one product or brand, with its own link.
+2. **Adjust the collection page** in the project's settings: the question, the prompts shown while recording, the longest video, your brand colour, and the consent wording.
+3. **Share the link** `/c/<slug>`. You can paste it anywhere, or use **Requests** to send personal links by email.
+4. **Review.** New testimonials wait in *Pending*. Approve the ones you want to show.
+5. **Embed.** Copy the snippet from the **Share & embed** panel into your site.
 
 ## Configuration
 
+Every setting is an environment variable, read from `.env` (Node) or `docker-compose.yml` / `.env` (Docker). `.env.example` lists and explains all of them.
+
 | Variable | Default | Purpose |
 |---|---|---|
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | (none, required) | Owner sign-in for the dashboard |
-| `SESSION_SECRET` | (none, required) | Signs session cookies (16+ characters) |
-| `PUBLIC_URL` | `http://localhost:3000` | Used in share links and embed snippets |
-| `DATA_DIR` | `./data` (`/data` in Docker) | Holds the SQLite database and uploads |
-| `MAX_VIDEO_MB` / `MAX_IMAGE_MB` | `200` / `5` | Upload limits |
-| `COOKIE_SECURE` | `false` | Set to `true` behind HTTPS |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | none (required) | Owner sign-in for the dashboard |
+| `SESSION_SECRET` | none (required) | Signs session cookies and personal links. At least 16 characters. Changing it signs everyone out and invalidates old request links |
+| `PUBLIC_URL` | `http://localhost:3000` | Used in links, emails, embed snippets and the API |
+| `DATA_DIR` | `./data` (`/data` in Docker) | The SQLite database, uploads and temporary files |
+| `MAX_VIDEO_MB`, `MAX_IMAGE_MB` | `200`, `5` | Upload limits |
+| `COOKIE_SECURE` | `false` | Set `true` behind HTTPS |
+| `MEDIA_PROCESSING` | on | `off` serves videos exactly as uploaded |
+| `FFMPEG_PATH`, `FFPROBE_PATH` | `ffmpeg`, `ffprobe` | Where to find ffmpeg if it's not on `PATH` |
+| `SMTP_URL`, `SMTP_FROM` | unset | Your mail server, for requests, reminders and receipts ([details](#email-requests-reminders-and-receipts)) |
+| `MAIL_OUTBOX` | `false` | `true` writes emails to `DATA_DIR/mail-outbox` instead of sending them (for trying things out) |
+| `TRANSCRIBE_PROVIDER` | `off` | `command` or `openai` ([details](#transcripts-and-captions)) |
+| `TRANSCRIBE_COMMAND` | unset | For `command`: the program to run |
+| `TRANSCRIBE_API_URL`, `TRANSCRIBE_API_KEY`, `TRANSCRIBE_MODEL`, `TRANSCRIBE_LANGUAGE` | OpenAI defaults | For `openai` |
+| `CONSENT_IP_HASH` | `false` | `true` stores a keyed hash of the submitter's IP with each consent record |
+| `MAX_IMPORT_MB` | `10240` | Largest export archive accepted for import |
+| `IMPORT_ALLOW_PRIVATE_URLS` | `false` | Lets CSV imports download media from private-network addresses |
+| `JOBS_WORKER`, `JOBS_POLL_MS` | on, `2000` | The background worker (video conversion, email, webhooks) runs inside the server process |
+
+## Optional features
+
+Each of these is off, or degrades gracefully, until you set it up. **Settings → This server** in the dashboard shows what's on.
+
+### Video conversion (ffmpeg)
+
+With ffmpeg available (the Docker image has it), each uploaded video is converted in the background:
+
+- to MP4 (H.264/AAC), at most 1280 px on the long side, with fast start
+- a poster image is made
+- the duration and size are recorded
+
+Players then use the MP4, which plays everywhere including Safari, with the original as a fallback. Without ffmpeg, the original file is served and the dashboard explains why. Videos uploaded before ffmpeg was installed are converted automatically once it is.
+
+To build a smaller Docker image without ffmpeg, set `INSTALL_FFMPEG=false` in `.env` before building.
+
+### Email (requests, reminders and receipts)
+
+Plaudit sends plain-text email through **your own SMTP server**: your email provider, a transactional mail service, or your own server. That means no per-email cost and mail from your own domain.
+
+```bash
+SMTP_URL=smtps://user:password@smtp.example.com:465   # TLS (port 465)
+# or: smtp://user:password@smtp.example.com:587       # STARTTLS (port 587)
+SMTP_FROM="Acme <hello@acme.example>"
+```
+
+If the username or password contains special characters, URL-encode them (`@` becomes `%40`). Restart Plaudit after changing these.
+
+With email set up:
+
+- **Requests** sends invitations, with reminders after the days you choose (default 3 and 7).
+- Every email has an unsubscribe link and one-click unsubscribe headers.
+- People who give their email get a **receipt** with their private withdrawal link. You can turn this off per project.
+
+Without email, Requests still makes personal links for you to send yourself.
+
+To see emails without sending them, set `MAIL_OUTBOX=true`. Each message is written as an `.eml` file in `DATA_DIR/mail-outbox`, which any mail app can open.
+
+### Transcripts and captions
+
+Speech-to-text is off by default. Once a provider is set, each video is transcribed after conversion (ffmpeg is required). The result is shown as captions on every player and as a readable transcript, and you can edit both in the dashboard. You can also type a transcript or paste captions (WebVTT or SRT) by hand, with no provider at all.
+
+**Option A: a local program, with no audio leaving your server.** [whisper.cpp](https://github.com/ggml-org/whisper.cpp) is a good choice:
+
+```bash
+git clone https://github.com/ggml-org/whisper.cpp
+cd whisper.cpp
+cmake -B build && cmake --build build -j --config Release
+sh ./models/download-ggml-model.sh base.en      # about 150 MB; other sizes and languages are listed there
+```
+
+Then, in `.env`:
+
+```bash
+TRANSCRIBE_PROVIDER=command
+TRANSCRIBE_COMMAND="/path/to/whisper.cpp/build/bin/whisper-cli -m /path/to/whisper.cpp/models/ggml-base.en.bin -f {input} -ovtt -of {output} -np"
+```
+
+- Plaudit replaces `{input}` with a 16 kHz mono WAV file and `{output}` with a path. The program must write `{output}.vtt`.
+- The command is run directly, never through a shell.
+- With Docker, the program and model must be inside the container: mount them as a volume, or build your own image.
+
+**Option B: an OpenAI-compatible API.** This works with OpenAI itself (the audio is then sent to OpenAI) or with a self-hosted server that speaks the same API:
+
+```bash
+TRANSCRIBE_PROVIDER=openai
+TRANSCRIBE_API_URL=https://api.openai.com/v1
+TRANSCRIBE_API_KEY=sk-…
+TRANSCRIBE_MODEL=whisper-1
+```
+
+### API and webhooks
+
+Create API keys and webhooks under **Settings**. [`docs/API.md`](docs/API.md) covers:
+
+- the endpoints and the data format
+- the webhook events and retries
+- how to verify signatures, in Node.js and Python
+- connecting n8n
 
 ## Embedding
 
@@ -90,8 +246,6 @@ The project page in the dashboard generates both snippets for you.
 <script src="https://your-plaudit.example/widget.js" data-project="acme" data-theme="light" async></script>
 ```
 
-Optional attributes:
-
 | Attribute | Values |
 |---|---|
 | `data-theme` | `light`, `dark` or `auto` |
@@ -100,48 +254,97 @@ Optional attributes:
 | `data-limit` | Maximum number of testimonials to show |
 | `data-target` | CSS selector of an element to render into |
 
-The JSON behind the widget is at `GET /api/widget/<slug>`. It is CORS-enabled and contains public fields only.
+The JSON behind the widget is at `GET /api/widget/<slug>`. It is CORS-enabled and contains public fields only: never email addresses or consent records.
 
 The iframe option is `/embed/<slug>?theme=dark`. It posts its height to the parent page so the snippet can size the iframe to fit.
 
-## Tests
+## Backups, moving and upgrading
+
+- **Export a project.** Go to **Import & export → Download everything**. The .zip contains:
+  - `plaudit.json`: all data, including private fields and consent history
+  - `testimonials.csv`
+  - every video and photo
+- **Import it** on any Plaudit server from the admin home page (**Import a project**). It becomes a new project with everything restored. Imported requests never send email by themselves.
+- **Bring testimonials from elsewhere.** Go to **Import & export → Import testimonials from a CSV**. Columns are matched automatically and you can change the matches before importing. Videos and photos can be downloaded from URLs in the file.
+- **Whole-server backup.** Copy `DATA_DIR`, or the `plaudit-data` Docker volume, while Plaudit is stopped. For example:
+
+  ```bash
+  docker compose stop
+  docker run --rm -v plaudit_plaudit-data:/data -v "$PWD":/backup alpine tar czf /backup/plaudit-backup.tgz -C /data .
+  docker compose start
+  ```
+
+- **Upgrade.** Run `git pull`, then `docker compose up -d --build`, or `npm ci && npm run build` and restart. Database changes are applied automatically at start-up. Take a backup first.
+
+## Privacy and consent
+
+- Public pages, the widget and the iframe never include email addresses, consent records or unapproved testimonials.
+- Every testimonial stores which consent wording the person saw (versioned, with a SHA-256 hash), what they agreed to, and when. If you change what someone wrote, it's marked **Edited after consent** and logged.
+- People can withdraw using the private link shown after they submit (and in the receipt email). Withdrawing unpublishes the testimonial, and it can't be approved again.
+- IP addresses are not stored, unless you turn on `CONSENT_IP_HASH`, which stores a keyed hash.
+- You are the data controller for what you collect. Exports contain personal data, so store them securely.
+
+See [`SECURITY.md`](SECURITY.md) for how to report a vulnerability and what Plaudit does to stay safe.
+
+## Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `SESSION_SECRET must be set` on start | Put a value of 16 or more characters in `.env` |
+| Can't sign in | Check `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` (or the compose fallbacks) and restart. After 10 sign-in attempts within 15 minutes, wait for the window to pass |
+| Signed out straight away over plain HTTP | `COOKIE_SECURE=true` needs HTTPS. Set it to `false` for local use |
+| "ffmpeg isn't installed" in the dashboard | Install ffmpeg or set `FFMPEG_PATH`, restart, then press **Try again** on the video |
+| Camera blocked on the collection page | Browsers only allow cameras on `https://` or `localhost`. Serve Plaudit over HTTPS |
+| Emails don't arrive | **Requests** shows the delivery error for each person. Check `SMTP_URL` (port, TLS, URL-encoded password), and that `SMTP_FROM` is an address your server may send from |
+| Transcription failed | The dashboard shows the error. Run your `TRANSCRIBE_COMMAND` by hand with a WAV file to test it |
+| Links in emails point to localhost | Set `PUBLIC_URL` to your real address |
+
+## Development and tests
 
 ```bash
-npm test            # Vitest: submission, moderation/auth, widget feed, media ranges
-npm run test:e2e    # Playwright: builds and starts the production server, then runs both browser suites in Chromium
-npm run test:all    # both of the above
+npm run dev         # development server with hot reload
+npm run typecheck   # TypeScript
+npm test            # Vitest: unit and integration tests (ffmpeg tests are skipped without ffmpeg)
+npm run test:e2e    # Playwright: builds and starts the production server, then runs the browser suites in Chromium
+npm run test:all    # both
 ```
 
-There are two Playwright suites:
+The Playwright run starts the server with these settings, so every feature is tested end to end:
 
-- `e2e/flow.spec.ts` is one end-to-end story:
-  1. Creates a project.
-  2. Submits a text testimonial, an uploaded video, and a video recorded with Chromium's fake camera.
-  3. Approves some testimonials and rejects others.
-  4. Checks that the wall only shows approved items and that the videos play.
-  5. Embeds the script and iframe snippets on a page served from another origin, in light and dark themes.
-- `e2e/coverage.spec.ts` covers every surface on its own:
-  - **Home page:** every section renders, the hero demo advances and its pause works, the sticky steps, marquee pausing, the FAQ, no horizontal overflow at 375px, reduced motion, and visible keyboard focus.
-  - **Admin:** sign-in, sign-out and redirects; creating projects and validating slugs; settings reaching the collection page (including button contrast on light brand colours).
-  - **Collection form:** every validation path, including bad or oversized avatars and the honeypot.
-  - **Moderation:** every action, with live counts.
-  - **Wall, widget and iframe options:** tag filtering, limit, layout, light/dark/auto themes, isolation from hostile host-page CSS, and empty states.
-  - **Copy buttons**, plus the public API's privacy, 404 and HTTP Range behaviour.
+- `MAIL_OUTBOX=true`, so the tests can read the emails.
+- A stand-in for whisper.cpp ([`e2e/fixtures/fake-whisper.mjs`](e2e/fixtures/fake-whisper.mjs)), so transcripts run without a model.
 
-To run the same suite against a running instance (for example `docker compose up`), set `E2E_BASE_URL=http://127.0.0.1:3000`. Its `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` must match that instance's admin credentials. Set `UPDATE_SCREENSHOTS=1` to refresh the images in `docs/screenshots/`.
+| Suite | Covers |
+|---|---|
+| `e2e/flow.spec.ts` | The main story: create a project, then text, uploaded and recorded videos, moderation, the wall and embeds on another origin |
+| `e2e/coverage.spec.ts` | Every surface on its own: home page, admin, form validation, moderation, wall, widget and iframe options, copy buttons, API privacy |
+| `e2e/recorder.spec.ts` | Countdown, questions overlay, uploading while recording, dropped requests and resume, time limit, phone layout, the camera-app fallback, conversion and posters |
+| `e2e/captions.spec.ts` | Transcript to editing to captions on the wall and in the cross-origin widget |
+| `e2e/consent.spec.ts` | Consent wording, scopes, edit log, withdrawal |
+| `e2e/requests.spec.ts` | Invitation email, prefilled link, receipt, unsubscribe |
+| `e2e/api.spec.ts` | API keys against the REST API, signed webhooks |
+| `e2e/data.spec.ts` | Export, import as a new project, CSV import with the mapper |
+
+To test a running instance instead, for example `docker compose up`, set `E2E_BASE_URL=http://127.0.0.1:3000`. Its `E2E_ADMIN_EMAIL` and `E2E_ADMIN_PASSWORD` must match that instance's admin credentials. Tests that need the outbox, the stand-in transcriber or a local webhook receiver skip themselves when those aren't available. `UPDATE_SCREENSHOTS=1` refreshes the images in `docs/screenshots/`.
+
+**Project layout**
+
+| Path | Contents |
+|---|---|
+| `src/app/` | Pages and API routes (Next.js App Router) |
+| `src/lib/` | The logic: storage, uploads, jobs, media, transcription, consent, requests, email, webhooks, export/import, zip, csv |
+| `src/db/` | Drizzle schema. SQL migrations are in `drizzle/` |
+| `public/widget.js` | The embed script (plain JavaScript, no build step) |
+| `tests/` | Vitest. `e2e/` holds Playwright |
 
 ## Project docs
 
-- [`docs/SPEC.md`](docs/SPEC.md): the product spec, covering MVP scope and the roadmap.
-- [`docs/CREDITS.md`](docs/CREDITS.md): where the sample media on the home page comes from. The sample videos are synthetic placeholders made by `scripts/make-sample-videos.sh`.
-- [`docs/research/senja-teardown.md`](docs/research/senja-teardown.md): clean-room notes on how an existing commercial testimonial tool behaves, which informed the spec.
-
-## Stack
-
-- Next.js 16 (App Router) and TypeScript
-- SQLite via better-sqlite3 and Drizzle ORM, with migrations in `drizzle/`
-- Vitest and Playwright for tests
-- Docker
+- [`docs/API.md`](docs/API.md): REST API and webhooks.
+- [`docs/SPEC.md`](docs/SPEC.md): product spec, what's shipped, and the roadmap.
+- [`docs/research/feature-opportunities.md`](docs/research/feature-opportunities.md): the research behind the current features.
+- [`docs/research/senja-teardown.md`](docs/research/senja-teardown.md): clean-room notes on how an existing commercial tool behaves.
+- [`docs/CREDITS.md`](docs/CREDITS.md): where the sample media on the home page comes from.
+- [`CHANGELOG.md`](CHANGELOG.md), [`CONTRIBUTING.md`](CONTRIBUTING.md), [`SECURITY.md`](SECURITY.md).
 
 ## License
 

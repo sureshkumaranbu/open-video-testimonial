@@ -114,28 +114,36 @@ The behaviour is informed by the clean-room study in [`research/senja-teardown.m
 
 ---
 
+## Shipped after the MVP
+
+Built from the top-ranked proposals in [`research/feature-opportunities.md`](research/feature-opportunities.md):
+
+| Proposal | What shipped |
+|---|---|
+| P1 Mobile-first recorder + ffmpeg pipeline | Runtime codec choice (MP4 on Safari/iOS), 3-2-1 countdown, on-screen questions, portrait stage, camera switch, per-project length limit, "use camera app" fallback, resumable chunked uploads while recording, MP4 (H.264/AAC) conversion and posters in a background worker |
+| P2 Request links + reminders | Personal prefilled links, invitations and reminders through your own SMTP, one-click unsubscribe, "Requested" badge, receipt email |
+| P3 Export / import | One-zip export (JSON + CSV + media), import as a new project, CSV import with column mapping and optional media download |
+| P4 REST API + webhooks | `/api/v1` with read/write keys, OpenAPI 3.1, HMAC-signed webhooks with retries and a delivery log |
+| P5 Transcripts + captions | Pluggable speech-to-text (local command such as whisper.cpp, or an OpenAI-compatible API), editable transcript and WebVTT captions on every player |
+| P8 Consent ledger | Versioned consent wording, scopes, append-only history, "edited after consent", private withdrawal link |
+
 ## Later (prioritised)
 
 **P1: makes it a serious alternative**
 
-1. **Video processing pipeline.**
-   - An ffmpeg worker that transcodes to MP4 (H.264/AAC), which fixes Safari playback of WebM and adds real duration metadata to MediaRecorder output.
-   - Poster thumbnails.
-   - Optional HLS.
-   - Size and length enforcement after transcoding.
+1. ~~Video processing pipeline~~ (shipped). Optional HLS and trimming (research P9) remain.
 2. **S3-compatible storage driver** (AWS S3, Cloudflare R2, MinIO). Uploads go direct-to-bucket with presigned URLs to avoid proxying large videos.
 3. **Postgres option.** The Drizzle schema is portable; add a `DATABASE_URL` switch and a pg migration set.
 4. **More widget layouts**: carousel, auto-scrolling marquee, single testimonial, rating badge (average and count), and a popup/toast. Add per-widget saved configurations so snippets don't need many data attributes.
-5. **Email requests.** SMTP settings, an "invite customers" form (CSV or paste), a branded request email, and one reminder. Also a new-testimonial notification to the owner.
-6. **REST API with tokens** (list, get, create/import, update status and tags, delete) and **HMAC-signed webhooks** (`testimonial.created`, `.approved`, `.updated`, `.deleted`). This makes Zapier, n8n and Activepieces integrations possible.
-7. **Manual and CSV import.** Add a testimonial by hand, or bulk-import rows of name, rating, text and source URL.
-8. **SEO**: JSON-LD `Review` / `AggregateRating` on the wall page, and optionally emitted by the widget.
+5. ~~Email requests~~ (shipped). A new-testimonial notification to the owner (and Slack/Discord, research P10) remains.
+6. ~~REST API and webhooks~~ (shipped). Published n8n/Activepieces example workflows remain.
+7. ~~CSV import~~ (shipped). Adding a single testimonial by hand in the dashboard remains (the API can do it).
+8. **SEO**: JSON-LD `Review` / `AggregateRating` on the wall page, with an honest note about Google's self-serving-review policy.
 
 **P2**
 
 - Ordering (drag-and-drop or pin) on walls and widgets, and "featured" flags.
-- Form customisation: custom questions and fields, required toggles, logo upload, prefill from query string (`?name=&email=`), multiple forms per project, and granular consent options.
-- Speech-to-text transcripts (pluggable: local Whisper or an API) and captions on playback.
+- Form customisation: custom fields, required toggles, logo upload, multiple forms per project. (Custom questions, prefill from request links and granular consent shipped.)
 - Multiple users, invitations and roles. OAuth/OIDC sign-in.
 - Custom domains per project (documented reverse-proxy recipes).
 - Public single-testimonial pages and share images (OG cards).
@@ -143,9 +151,10 @@ The behaviour is informed by the clean-room study in [`research/senja-teardown.m
 - Privacy-friendly view counts (no cookies, aggregated).
 - Importers that use official APIs or exports where terms allow (Google Business, Trustpilot, Product Hunt, App Store).
 
-## Known limitations of the MVP
+## Known limitations
 
 - **Media access**: files are served by unguessable UUID URLs, but are not access-controlled, so a pending video is reachable by anyone who has its URL. Moving to per-request signed URLs for non-approved items is planned.
-- **WebM playback**: in-browser recordings are stored as recorded (usually WebM). Very old Safari versions can't play WebM until the transcoding pipeline exists. Chrome's WebM recordings also carry no duration header, so players show no total time.
-- **Single instance**: the rate limiter is in-memory, so one instance is assumed.
+- **Browser coverage**: automated tests run in Chromium only. The Safari/iOS recording path (MP4 MediaRecorder, camera-app capture) is implemented from documented behaviour and needs checking on real devices.
+- **Single instance**: the rate limiter and the background worker run in-process, so one instance is assumed.
 - **Single owner**: there are no teams.
+- **Transcription models aren't bundled**: you install whisper.cpp (or point at an API) yourself.

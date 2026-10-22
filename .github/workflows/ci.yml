@@ -21,6 +21,8 @@ jobs:
       - name: Install ffmpeg (video conversion tests)
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - run: npm ci
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=moderate
       - run: npm run typecheck
       - run: npm test
       - name: Install Playwright Chromium

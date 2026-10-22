@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
-import { adminApi, createProject, signIn, useFreshIp } from "./helpers";
+import { adminApi, createProject, shot, signIn, useFreshIp } from "./helpers";
 
 /**
  * Personal request links, invitation and reminder emails, unsubscribe and
@@ -119,6 +119,7 @@ test("invite, prefilled link, response, receipt and unsubscribe", async ({ page,
   const sam_row = page.getByTestId("request-row").filter({ hasText: "Sam Skip" });
   await expect(sam_row).toHaveAttribute("data-status", "unsubscribed");
   await expect(sam_row.getByRole("button", { name: /Send/ })).toHaveCount(0);
+  await shot(page, "requests");
 
   // Asking an unsubscribed person again is skipped.
   await page.getByRole("textbox", { name: /^People/ }).fill(sam);

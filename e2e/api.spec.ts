@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { expect, request as pwRequest, test } from "@playwright/test";
-import { adminApi, createProject, seed, signIn, useFreshIp } from "./helpers";
+import { adminApi, createProject, seed, shot, signIn, useFreshIp } from "./helpers";
 
 /** Settings: API keys used against the REST API, and signed webhooks. */
 
@@ -103,6 +103,7 @@ test("a webhook receives a signed test event and real events", async ({ page, ba
 
     await page.reload();
     await expect(page.getByTestId("webhook").filter({ hasText: url }).getByTestId("delivery")).toHaveCount(3);
+    await shot(page, "settings", true);
   } finally {
     await new Promise<void>((r) => receiver.close(() => r()));
   }

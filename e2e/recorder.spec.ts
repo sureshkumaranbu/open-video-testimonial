@@ -1,6 +1,6 @@
 import path from "node:path";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { adminApi, createProject, FIXTURES, signIn, useFreshIp } from "./helpers";
+import { adminApi, createProject, FIXTURES, shot, signIn, useFreshIp } from "./helpers";
 
 /**
  * The mobile-first recorder and the media pipeline: countdown, on-screen
@@ -191,7 +191,9 @@ test.describe("on a phone", () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
   test("offers the phone's camera app and records upright", async ({ page, baseURL }) => {
-    const p = await project(baseURL!, "Phone Co");
+    const p = await project(baseURL!, "Phone Co", {
+      questions: "What was hard before?\nWhat changed for you?\nWho should try it?",
+    });
     await page.goto(`/c/${p.slug}`);
     await page.getByRole("button", { name: "Video" }).click();
     const capture = page.getByTestId("video-capture");
@@ -204,6 +206,8 @@ test.describe("on a phone", () => {
     const box = await page.locator(".recorder-stage").boundingBox();
     expect(box!.height).toBeGreaterThan(box!.width);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+    await page.locator(".recorder-stage").scrollIntoViewIfNeeded();
+    await shot(page, "recorder-mobile");
 
     // A file from the camera app goes through the same resumable upload.
     await capture.setInputFiles(path.join(FIXTURES, "sample.webm"));

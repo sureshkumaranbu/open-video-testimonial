@@ -11,7 +11,7 @@ const { webhooks, webhookDeliveries, projects } = schema;
 /**
  * Signed webhooks for automation tools (n8n, Zapier, Make, Activepieces).
  * Each event becomes a delivery row plus a job; failed deliveries are retried
- * with backoff (about 30 s, 2 min, 8 min, 32 min, 2 h, 6 h) and every attempt is
+ * with backoff (about 30 s, 2 min, 8 min, 32 min and 2 h; 6 attempts) and every attempt is
  * visible in the dashboard.
  *
  * Signature: `Plaudit-Signature: t=<unix seconds>,v1=<hex>` where v1 is
