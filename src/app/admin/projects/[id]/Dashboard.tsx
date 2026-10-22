@@ -27,6 +27,9 @@ type AdminTestimonial = {
   captionsVtt: string | null;
   transcriptStatus: TranscriptStatus;
   transcriptError: string | null;
+  consentScopes: string;
+  editedAfterConsent: boolean;
+  withdrawnAt: string | null;
   createdAt: string;
   tags: string[];
 };
@@ -282,7 +285,18 @@ function TestimonialRow({
           </div>
         </div>
         <div className="row small" style={{ gap: "var(--space-2)" }}>
-          <span className={`badge ${t.status}`}>{t.status[0].toUpperCase() + t.status.slice(1)}</span>
+          {t.withdrawnAt ? (
+            <span className="badge rejected" data-testid="withdrawn-badge">
+              Withdrawn
+            </span>
+          ) : (
+            <span className={`badge ${t.status}`}>{t.status[0].toUpperCase() + t.status.slice(1)}</span>
+          )}
+          {t.editedAfterConsent && (
+            <span className="badge edited" title="You changed what the author wrote after they consented">
+              Edited after consent
+            </span>
+          )}
           <span className="muted xsmall">{timeAgo(t.createdAt)}</span>
         </div>
       </div>
@@ -345,8 +359,10 @@ function TestimonialRow({
         </button>
       </div>
 
+      <ConsentPanel t={t} />
+
       <div className="review-actions">
-        {t.status !== "approved" && (
+        {t.status !== "approved" && !t.withdrawnAt && (
           <button type="button" className="approve small" onClick={() => onUpdate({ status: "approved" })}>
             <Icon name="check" />
             Approve
@@ -358,7 +374,7 @@ function TestimonialRow({
             Reject
           </button>
         )}
-        {t.status !== "pending" && (
+        {t.status !== "pending" && !t.withdrawnAt && (
           <button type="button" className="ghost small" onClick={() => onUpdate({ status: "pending" })}>
             <Icon name="undo" />
             Move to pending
@@ -370,6 +386,87 @@ function TestimonialRow({
         </button>
       </div>
     </article>
+  );
+}
+
+type ConsentRecord = {
+  scopes: string[];
+  events: {
+    id: string;
+    type: "granted" | "edited" | "withdrawn" | "imported";
+    actor: string;
+    at: string;
+    text: string | null;
+    textHash: string | null;
+    scopes: string[] | null;
+    detail: string | null;
+  }[];
+};
+
+const EVENT_LABEL: Record<ConsentRecord["events"][number]["type"], string> = {
+  granted: "Consent given",
+  edited: "Edited",
+  withdrawn: "Withdrawn",
+  imported: "Imported",
+};
+const SCOPE_LABEL: Record<string, string> = { website: "website and marketing", social: "social media" };
+
+/** The append-only consent history, loaded when opened. */
+function ConsentPanel({ t }: { t: AdminTestimonial }) {
+  const [record, setRecord] = useState<ConsentRecord | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const scopes = (() => {
+    try {
+      return JSON.parse(t.consentScopes) as string[];
+    } catch {
+      return [];
+    }
+  })();
+
+  return (
+    <details
+      className="consent-panel"
+      data-testid="consent-panel"
+      onToggle={async (e) => {
+        if (!(e.currentTarget as HTMLDetailsElement).open) return;
+        try {
+          setRecord(await api<ConsentRecord>(`/api/admin/testimonials/${t.id}/consent`));
+        } catch (err) {
+          setError((err as Error).message);
+        }
+      }}
+    >
+      <summary>
+        Consent <span className="muted xsmall">· {scopes.map((s) => SCOPE_LABEL[s] ?? s).join(", ")}</span>
+      </summary>
+      {error && <p className="error-text small">{error}</p>}
+      {record && (
+        <ol className="consent-events">
+          {record.events.length === 0 && (
+            <li className="muted small">
+              Consent was given on {new Date(t.createdAt).toLocaleString()}, before the consent ledger existed, so the
+              exact wording wasn&apos;t recorded.
+            </li>
+          )}
+          {record.events.map((e) => (
+            <li key={e.id} data-type={e.type}>
+              <strong>{EVENT_LABEL[e.type]}</strong>{" "}
+              <span className="muted xsmall">
+                {new Date(e.at).toLocaleString()} · by {e.actor}
+              </span>
+              {e.scopes && <div className="small">For: {e.scopes.map((s) => SCOPE_LABEL[s] ?? s).join(", ")}</div>}
+              {e.detail && <div className="small">{e.detail}</div>}
+              {e.text && (
+                <blockquote className="small">
+                  &ldquo;{e.text}&rdquo;
+                  {e.textHash && <span className="muted xsmall"> (wording hash {e.textHash.slice(0, 12)})</span>}
+                </blockquote>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+    </details>
   );
 }
 
@@ -573,6 +670,7 @@ function SettingsPanel({ project, onSaved }: { project: Project; onSaved: (p: Pr
           allowVideo: form.get("allowVideo") === "on",
           questions: form.get("questions"),
           maxVideoSeconds: Number(form.get("maxVideoSeconds")),
+          consentText: form.get("consentText"),
         }),
       });
       onSaved(saved);
@@ -610,6 +708,16 @@ function SettingsPanel({ project, onSaved }: { project: Project; onSaved: (p: Pr
             Questions <span className="hint">(one per line; shown beside the form and over the camera)</span>
           </span>
           <textarea name="questions" rows={4} defaultValue={project.questions} maxLength={1200} />
+        </label>
+        <label>
+          <span>
+            Consent wording{" "}
+            <span className="hint">
+              (<code>{"{project}"}</code> is replaced with this project&apos;s name; leave it empty for the default. Each change is kept as
+              a new version, and every testimonial records the version it agreed to.)
+            </span>
+          </span>
+          <textarea name="consentText" rows={3} maxLength={1000} defaultValue={project.consentText} />
         </label>
         <label>
           Longest video (seconds)

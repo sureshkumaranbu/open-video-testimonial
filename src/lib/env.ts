@@ -77,6 +77,10 @@ export const env = {
   get transcribeCommand() {
     return process.env.TRANSCRIBE_COMMAND || "";
   },
+  /** Store a keyed hash of the submitter's IP with each consent record. Off by default. */
+  get consentIpHash() {
+    return process.env.CONSENT_IP_HASH === "true";
+  },
   get jobsPollMs() {
     return Math.max(Number(process.env.JOBS_POLL_MS || 2000), 100);
   },

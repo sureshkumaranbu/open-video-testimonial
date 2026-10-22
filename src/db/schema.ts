@@ -26,6 +26,8 @@ export const projects = sqliteTable("projects", {
   questions: text("questions").notNull().default(""),
   /** Recording length limit for the in-browser recorder. */
   maxVideoSeconds: integer("max_video_seconds").notNull().default(120),
+  /** Consent wording shown on the form; empty means the default. `{project}` is replaced. */
+  consentText: text("consent_text").notNull().default(""),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
 });
 
@@ -75,6 +77,13 @@ export const testimonials = sqliteTable(
     captionsVtt: text("captions_vtt"),
     transcriptStatus: text("transcript_status", { enum: TRANSCRIPT_STATUSES }).notNull().default("none"),
     transcriptError: text("transcript_error"),
+    /** JSON array of what the author agreed to, e.g. ["website","social"]. */
+    consentScopes: text("consent_scopes").notNull().default('["website"]'),
+    /** Set when the owner changes what the author wrote after they consented. */
+    editedAfterConsent: integer("edited_after_consent", { mode: "boolean" }).notNull().default(false),
+    /** Set when the author withdraws consent through their private link. */
+    withdrawnAt: integer("withdrawn_at", { mode: "timestamp_ms" }),
+    withdrawTokenHash: text("withdraw_token_hash"),
     consentAt: integer("consent_at", { mode: "timestamp_ms" }).notNull(),
     source: text("source").notNull().default("form"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
@@ -106,6 +115,54 @@ export const testimonialTags = sqliteTable(
       .references(() => tags.id, { onDelete: "cascade" }),
   },
   (t) => [primaryKey({ columns: [t.testimonialId, t.tagId] })],
+);
+
+/**
+ * Every consent wording a project has used. A submission records the exact
+ * version the person saw, so the wording can be shown later even if the
+ * owner has since changed it.
+ */
+export const consentVersions = sqliteTable(
+  "consent_versions",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    version: integer("version").notNull(),
+    text: text("text").notNull(),
+    /** SHA-256 of `text`, so a printed record can be matched to the wording. */
+    hash: text("hash").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+  },
+  (t) => [uniqueIndex("consent_versions_project_version_idx").on(t.projectId, t.version)],
+);
+
+export const CONSENT_EVENT_TYPES = ["granted", "edited", "withdrawn", "imported"] as const;
+export type ConsentEventType = (typeof CONSENT_EVENT_TYPES)[number];
+export const CONSENT_ACTORS = ["customer", "owner", "api", "import"] as const;
+
+/** Append-only consent history. Rows are only ever inserted. */
+export const consentEvents = sqliteTable(
+  "consent_events",
+  {
+    id: text("id").primaryKey(),
+    testimonialId: text("testimonial_id")
+      .notNull()
+      .references(() => testimonials.id, { onDelete: "cascade" }),
+    type: text("type", { enum: CONSENT_EVENT_TYPES }).notNull(),
+    actor: text("actor", { enum: CONSENT_ACTORS }).notNull(),
+    versionId: text("version_id").references(() => consentVersions.id, { onDelete: "set null" }),
+    /** The exact wording at the time (copied, so it survives later edits). */
+    text: text("text"),
+    textHash: text("text_hash"),
+    scopes: text("scopes"),
+    /** Keyed hash of the client IP, only when CONSENT_IP_HASH=true. */
+    ipHash: text("ip_hash"),
+    detail: text("detail"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+  },
+  (t) => [index("consent_events_testimonial_idx").on(t.testimonialId)],
 );
 
 export const JOB_STATUSES = ["queued", "running", "done", "failed"] as const;
@@ -153,4 +210,6 @@ export const uploads = sqliteTable("uploads", {
 export type Project = typeof projects.$inferSelect;
 export type Testimonial = typeof testimonials.$inferSelect;
 export type Job = typeof jobs.$inferSelect;
+export type ConsentVersion = typeof consentVersions.$inferSelect;
+export type ConsentEvent = typeof consentEvents.$inferSelect;
 export type Upload = typeof uploads.$inferSelect;

@@ -1862,3 +1862,56 @@ textarea.mono {
   font-family: var(--font-mono);
   font-size: var(--text-sm);
 }
+
+.withdraw {
+  padding-block: var(--space-16);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.withdraw-done {
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--ok-soft);
+  color: var(--ink);
+}
+
+.withdraw-note {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.badge.edited {
+  background: var(--warn-soft);
+  color: var(--ink);
+}
+.consent-panel summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+.consent-events {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-3) 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.consent-events li {
+  border-left: 3px solid var(--line-strong);
+  padding-left: var(--space-3);
+}
+.consent-events li[data-type="withdrawn"] {
+  border-color: var(--danger);
+}
+.consent-events blockquote {
+  margin: var(--space-1) 0 0;
+  color: var(--ink-2);
+}

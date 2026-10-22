@@ -1,6 +1,6 @@
 import { CaptionsError, normaliseCaptions } from "@/lib/captions";
 import { jsonError, requireAdmin } from "@/lib/http";
-import { deleteTestimonial, updateTestimonial } from "@/lib/testimonials";
+import { ConsentWithdrawnError, deleteTestimonial, updateTestimonial } from "@/lib/testimonials";
 import { firstIssue, testimonialUpdateSchema } from "@/lib/validation";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -24,7 +24,13 @@ export async function PATCH(req: Request, ctx: Ctx) {
       throw err;
     }
   }
-  const testimonial = updateTestimonial(id, patch);
+  let testimonial;
+  try {
+    testimonial = updateTestimonial(id, patch);
+  } catch (err) {
+    if (err instanceof ConsentWithdrawnError) return jsonError(409, err.message);
+    throw err;
+  }
   if (!testimonial) return jsonError(404, "Testimonial not found");
   return Response.json({ testimonial });
 }

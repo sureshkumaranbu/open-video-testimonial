@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Icon } from "@/components/Icon";
+import { currentConsentVersion } from "@/lib/consent";
 import { getProjectBySlug, projectQuestions } from "@/lib/testimonials";
 import { accentStyle } from "@/lib/theme";
 import { CollectForm } from "./CollectForm";
@@ -18,6 +19,7 @@ export default async function CollectPage({ params }: Props) {
   const project = getProjectBySlug((await params).slug);
   if (!project) notFound();
   const questions = projectQuestions(project);
+  const consent = currentConsentVersion(project);
   return (
     <div className="collect" style={accentStyle(project.accentColor)}>
       <aside className="collect-intro">
@@ -50,6 +52,7 @@ export default async function CollectPage({ params }: Props) {
             questions,
             maxVideoSeconds: project.maxVideoSeconds,
           }}
+          consent={{ versionId: consent.id, text: consent.text }}
         />
       </main>
     </div>

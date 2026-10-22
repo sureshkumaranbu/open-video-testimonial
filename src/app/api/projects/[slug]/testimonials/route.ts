@@ -1,4 +1,5 @@
 import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { grantConsent, withdrawUrl } from "@/lib/consent";
 import { queueVideoProcessing } from "@/lib/media";
 import { deleteObject, saveUpload, UploadError } from "@/lib/storage";
 import { claimUpload, getUpload } from "@/lib/uploads";
@@ -35,7 +36,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ slug: string }
   if (form.get("website")) return Response.json({ ok: true, message: project.thankYouMessage });
 
   const parsed = submissionSchema.safeParse(Object.fromEntries(
-    ["name", "email", "title", "company", "rating", "text", "consent"].map((k) => [
+    ["name", "email", "title", "company", "rating", "text", "consent", "consentSocial", "consentVersion"].map((k) => [
       k,
       typeof form.get(k) === "string" ? form.get(k) : undefined,
     ]),
@@ -85,9 +86,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ slug: string }
       videoMime: storedVideo?.mime,
       avatarKey: storedAvatar?.key,
     });
+    const withdrawToken = grantConsent({
+      testimonialId: testimonial.id,
+      project,
+      versionId: input.consentVersion,
+      scopes: input.consentSocial ? ["social"] : [],
+      actor: "customer",
+      ip: clientIp(req),
+    });
     if (storedVideo) await queueVideoProcessing(testimonial.id);
     return Response.json(
-      { ok: true, id: testimonial.id, message: project.thankYouMessage },
+      { ok: true, id: testimonial.id, message: project.thankYouMessage, withdrawUrl: withdrawUrl(withdrawToken) },
       { status: 201 },
     );
   } catch (err) {

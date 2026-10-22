@@ -27,6 +27,8 @@ export const submissionSchema = z.object({
     .transform((v) => (v === "" || v === undefined ? undefined : v)),
   text: optionalText(5000),
   consent: z.literal("on", { error: "Please tick the consent box so we can share your testimonial" }),
+  consentSocial: z.literal("on").optional(),
+  consentVersion: z.string().max(64).optional(),
 });
 
 export type SubmissionInput = z.infer<typeof submissionSchema>;
@@ -64,6 +66,8 @@ export const projectSchema = z.object({
     )
     .optional(),
   maxVideoSeconds: z.number().int().min(15).max(600).optional(),
+  /** Empty restores the default wording. */
+  consentText: z.string().trim().max(1000).optional(),
 });
 
 export const projectUpdateSchema = projectSchema.partial().omit({ slug: true });
@@ -76,6 +80,7 @@ export const testimonialUpdateSchema = z.object({
   authorTitle: z.string().trim().max(120).nullable().optional(),
   authorCompany: z.string().trim().max(120).nullable().optional(),
   text: z.string().trim().max(5000).nullable().optional(),
+  rating: z.number().int().min(1).max(5).nullable().optional(),
   transcript: z.string().trim().max(50_000).nullable().optional(),
   /** WebVTT or SRT; normalised to WebVTT before saving. */
   captionsVtt: z.string().max(200_000).nullable().optional(),

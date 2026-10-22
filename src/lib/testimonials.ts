@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import type { Project, Testimonial, TestimonialStatus } from "@/db/schema";
+import { CONSENTED_FIELDS, logConsentEvent } from "./consent";
 import { deleteObject, mediaUrl, MIME_BY_EXT } from "./storage";
 
 const { projects, testimonials, tags, testimonialTags } = schema;
@@ -47,6 +48,7 @@ export function createProject(input: {
   allowText?: boolean;
   questions?: string;
   maxVideoSeconds?: number;
+  consentText?: string;
 }): Project {
   return getDb()
     .insert(projects)
@@ -61,6 +63,7 @@ export function createProject(input: {
       allowText: input.allowText,
       questions: input.questions ?? DEFAULT_QUESTIONS.join("\n"),
       maxVideoSeconds: input.maxVideoSeconds,
+      consentText: input.consentText,
     })
     .returning()
     .get();
@@ -71,7 +74,15 @@ export function updateProject(
   patch: Partial<
     Pick<
       Project,
-      "name" | "prompt" | "thankYouMessage" | "accentColor" | "allowVideo" | "allowText" | "questions" | "maxVideoSeconds"
+      | "name"
+      | "prompt"
+      | "thankYouMessage"
+      | "accentColor"
+      | "allowVideo"
+      | "allowText"
+      | "questions"
+      | "maxVideoSeconds"
+      | "consentText"
     >
   >,
 ) {
@@ -191,6 +202,13 @@ export function listProjectTags(projectId: string) {
     .map((t) => t.name);
 }
 
+/** Thrown when someone tries to publish a testimonial its author withdrew. */
+export class ConsentWithdrawnError extends Error {
+  constructor() {
+    super("The author withdrew consent for this testimonial, so it can't be published again");
+  }
+}
+
 export function updateTestimonial(
   id: string,
   patch: {
@@ -201,16 +219,23 @@ export function updateTestimonial(
     text?: string | null;
     transcript?: string | null;
     captionsVtt?: string | null;
+    rating?: number | null;
     tags?: string[];
   },
+  opts: { actor?: "owner" | "api" } = {},
 ): TestimonialWithTags | null {
   const db = getDb();
   const existing = db.select().from(testimonials).where(eq(testimonials.id, id)).get();
   if (!existing) return null;
+  if (existing.withdrawnAt && patch.status && patch.status !== "rejected") throw new ConsentWithdrawnError();
   const { tags: tagNames, ...fields } = patch;
+  // Changing what the author wrote is allowed, but recorded.
+  const edited = CONSENTED_FIELDS.filter(
+    (f) => fields[f] !== undefined && (fields[f] ?? null) !== (existing[f] ?? null),
+  );
   db.transaction((tx) => {
     tx.update(testimonials)
-      .set({ ...fields, updatedAt: new Date() })
+      .set({ ...fields, ...(edited.length ? { editedAfterConsent: true } : {}), updatedAt: new Date() })
       .where(eq(testimonials.id, id))
       .run();
     if (tagNames) {
@@ -230,6 +255,14 @@ export function updateTestimonial(
       }
     }
   });
+  if (edited.length) {
+    logConsentEvent({
+      testimonialId: id,
+      type: "edited",
+      actor: opts.actor ?? "owner",
+      detail: `Changed after consent: ${edited.join(", ")}`,
+    });
+  }
   return getTestimonial(id);
 }
 
@@ -313,5 +346,7 @@ export function toPublic(t: TestimonialWithTags): PublicTestimonial {
 }
 
 export function listPublicTestimonials(projectId: string, opts: { tag?: string; limit?: number } = {}) {
-  return listTestimonials(projectId, { ...opts, status: "approved" }).map(toPublic);
+  return listTestimonials(projectId, { ...opts, status: "approved" })
+    .filter((t) => !t.withdrawnAt)
+    .map(toPublic);
 }
