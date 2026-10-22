@@ -198,6 +198,9 @@ export function updateTestimonial(
     authorName?: string;
     authorTitle?: string | null;
     authorCompany?: string | null;
+    text?: string | null;
+    transcript?: string | null;
+    captionsVtt?: string | null;
     tags?: string[];
   },
 ): TestimonialWithTags | null {
@@ -258,6 +261,9 @@ export interface PublicTestimonial {
     durationMs: number | null;
     /** Every playable copy, best first, for <source> elements. */
     sources: { url: string; type: string }[];
+    /** WebVTT captions, if there are any. */
+    captionsUrl: string | null;
+    transcript: string | null;
   } | null;
   tags: string[];
   createdAt: string;
@@ -297,6 +303,8 @@ export function toPublic(t: TestimonialWithTags): PublicTestimonial {
           height: t.videoHeight,
           durationMs: t.videoDurationMs,
           sources: videoSources(t),
+          captionsUrl: t.captionsVtt ? `/api/captions/${t.id}` : null,
+          transcript: t.transcript,
         }
       : null,
     tags: t.tags,

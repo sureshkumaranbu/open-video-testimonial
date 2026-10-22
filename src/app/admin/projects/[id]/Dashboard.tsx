@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { MediaStatus, Project, TestimonialStatus } from "@/db/schema";
+import type { MediaStatus, Project, TestimonialStatus, TranscriptStatus } from "@/db/schema";
+import type { SystemStatus } from "@/lib/system";
 import { Icon } from "@/components/Icon";
 import { Avatar, Stars } from "@/components/TestimonialCard";
 import { accentStyle } from "@/lib/theme";
@@ -22,6 +23,10 @@ type AdminTestimonial = {
   videoOriginalKey: string | null;
   mediaStatus: MediaStatus;
   mediaError: string | null;
+  transcript: string | null;
+  captionsVtt: string | null;
+  transcriptStatus: TranscriptStatus;
+  transcriptError: string | null;
   createdAt: string;
   tags: string[];
 };
@@ -59,7 +64,15 @@ function timeAgo(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
-export function Dashboard({ project: initial, publicUrl }: { project: Project; publicUrl: string }) {
+export function Dashboard({
+  project: initial,
+  publicUrl,
+  system,
+}: {
+  project: Project;
+  publicUrl: string;
+  system: SystemStatus;
+}) {
   const [project, setProject] = useState(initial);
   const [filter, setFilter] = useState<Filter>("pending");
   const [all, setAll] = useState<AdminTestimonial[]>([]);
@@ -83,7 +96,8 @@ export function Dashboard({ project: initial, publicUrl }: { project: Project; p
   }, [load]);
 
   // Refresh while videos are being converted so the result shows up by itself.
-  const processing = all.some((t) => t.mediaStatus === "queued" || t.mediaStatus === "processing");
+  const busy = (s: string) => s === "queued" || s === "processing";
+  const processing = all.some((t) => busy(t.mediaStatus) || busy(t.transcriptStatus));
   useEffect(() => {
     if (!processing) return;
     const id = setInterval(() => void load(), 3000);
@@ -101,6 +115,15 @@ export function Dashboard({ project: initial, publicUrl }: { project: Project; p
   async function update(id: string, patch: Record<string, unknown>) {
     try {
       await api(`/api/admin/testimonials/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+      await load();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function transcribe(id: string) {
+    try {
+      await api(`/api/admin/testimonials/${id}/transcribe`, { method: "POST" });
       await load();
     } catch (err) {
       setError((err as Error).message);
@@ -198,6 +221,8 @@ export function Dashboard({ project: initial, publicUrl }: { project: Project; p
               onUpdate={(patch) => update(t.id, patch)}
               onDelete={() => remove(t.id)}
               onReprocess={() => reprocess(t.id)}
+              onTranscribe={() => transcribe(t.id)}
+              transcription={system.transcription.enabled && system.ffmpeg}
             />
           ))}
         </section>
@@ -222,11 +247,15 @@ function TestimonialRow({
   onUpdate,
   onDelete,
   onReprocess,
+  onTranscribe,
+  transcription,
 }: {
   t: AdminTestimonial;
-  onUpdate: (patch: Record<string, unknown>) => void;
+  onUpdate: (patch: Record<string, unknown>) => Promise<void> | void;
   onDelete: () => void;
   onReprocess: () => void;
+  onTranscribe: () => void;
+  transcription: boolean;
 }) {
   const [name, setName] = useState(t.authorName);
   const [tags, setTags] = useState(t.tags.join(", "));
@@ -283,6 +312,9 @@ function TestimonialRow({
           </button>
         </div>
       )}
+      {t.videoKey && (
+        <TranscriptPanel t={t} enabled={transcription} onTranscribe={onTranscribe} onUpdate={onUpdate} />
+      )}
       {t.rating ? <Stars rating={t.rating} /> : null}
       {t.text && <p className="quote" style={{ fontSize: "var(--text-lg)" }}>{t.text}</p>}
 
@@ -338,6 +370,91 @@ function TestimonialRow({
         </button>
       </div>
     </article>
+  );
+}
+
+const TRANSCRIPT_LABEL: Record<TranscriptStatus, string> = {
+  none: "Not transcribed",
+  queued: "Transcribing…",
+  processing: "Transcribing…",
+  ready: "Ready",
+  failed: "Failed",
+};
+
+/** Machine transcript and WebVTT captions, both editable by the owner. */
+function TranscriptPanel({
+  t,
+  enabled,
+  onTranscribe,
+  onUpdate,
+}: {
+  t: AdminTestimonial;
+  enabled: boolean;
+  onTranscribe: () => void;
+  onUpdate: (patch: Record<string, unknown>) => Promise<void> | void;
+}) {
+  const [transcript, setTranscript] = useState(t.transcript ?? "");
+  const [captions, setCaptions] = useState(t.captionsVtt ?? "");
+  useEffect(() => {
+    setTranscript(t.transcript ?? "");
+    setCaptions(t.captionsVtt ?? "");
+  }, [t.transcript, t.captionsVtt]);
+  const dirty = transcript !== (t.transcript ?? "") || captions !== (t.captionsVtt ?? "");
+  const busy = t.transcriptStatus === "queued" || t.transcriptStatus === "processing";
+
+  return (
+    <details className="transcript-editor" data-testid="transcript-panel" data-status={t.transcriptStatus}>
+      <summary>
+        Transcript &amp; captions <span className="muted xsmall">· {TRANSCRIPT_LABEL[t.transcriptStatus]}</span>
+      </summary>
+      <div className="stack" style={{ marginTop: "var(--space-3)" }}>
+        {t.transcriptStatus === "failed" && (
+          <p className="error-text small">Transcription failed: {t.transcriptError ?? "unknown error"}</p>
+        )}
+        {!enabled && (
+          <p className="muted small">
+            Automatic transcripts are off on this server (see <code>TRANSCRIBE_PROVIDER</code> in the README). You can
+            still type a transcript or paste captions.
+          </p>
+        )}
+        <label>
+          Transcript
+          <textarea rows={3} value={transcript} onChange={(e) => setTranscript(e.target.value)} />
+        </label>
+        <label>
+          <span>
+            Captions <span className="hint">(WebVTT or SRT)</span>
+          </span>
+          <textarea
+            rows={4}
+            className="mono"
+            value={captions}
+            onChange={(e) => setCaptions(e.target.value)}
+            placeholder={"WEBVTT\n\n00:00:00.000 --> 00:00:03.000\nHello!"}
+          />
+        </label>
+        <div className="row">
+          <button
+            type="button"
+            className="secondary small"
+            disabled={!dirty}
+            onClick={() => onUpdate({ transcript, captionsVtt: captions })}
+          >
+            Save transcript
+          </button>
+          {enabled && (
+            <button type="button" className="ghost small" disabled={busy} onClick={onTranscribe}>
+              {t.transcriptStatus === "none" ? "Transcribe" : "Transcribe again"}
+            </button>
+          )}
+          {t.transcript && t.transcript !== t.text && (
+            <button type="button" className="ghost small" onClick={() => onUpdate({ text: t.transcript })}>
+              Use transcript as quote
+            </button>
+          )}
+        </div>
+      </div>
+    </details>
   );
 }
 

@@ -706,6 +706,20 @@ pre {
   object-fit: cover;
 }
 
+.testimonial .transcript {
+  margin: var(--space-3) var(--space-2) 0;
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+}
+.testimonial .transcript summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.testimonial .transcript p {
+  margin-top: var(--space-2);
+  white-space: pre-wrap;
+}
+
 .quote {
   font-family: var(--font-voice);
   font-size: 1.1875rem;
@@ -1832,4 +1846,19 @@ pre {
   .done-mark svg {
     stroke-dashoffset: 0;
   }
+}
+
+.transcript-editor {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+}
+.transcript-editor summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+textarea.mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
 }

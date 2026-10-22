@@ -15,6 +15,13 @@
       "when": 1792684309433,
       "tag": "0001_media_pipeline",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792685339546,
+      "tag": "0002_transcripts",
+      "breakpoints": true
     }
   ]
 }

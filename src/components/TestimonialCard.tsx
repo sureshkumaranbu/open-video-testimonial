@@ -60,7 +60,14 @@ export function TestimonialCard({ t, video }: { t: PublicTestimonial; video?: Vi
               <source src={t.video.url} type={t.video.mime} />
             )}
             {video?.fallback && <source src={video.fallback.url} type={video.fallback.mime} />}
+            {t.video.captionsUrl && <track kind="captions" src={t.video.captionsUrl} label="Captions" default />}
           </video>
+          {t.video.transcript && (
+            <details className="transcript">
+              <summary>Transcript</summary>
+              <p>{t.video.transcript}</p>
+            </details>
+          )}
         </div>
       )}
       {t.rating ? <Stars rating={t.rating} /> : null}

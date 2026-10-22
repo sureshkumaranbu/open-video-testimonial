@@ -158,7 +158,8 @@ export async function queueVideoProcessing(testimonialId: string) {
   if (ok) enqueue(PROCESS_VIDEO_JOB, { testimonialId }, { maxAttempts: 2 });
 }
 
-export async function processVideo(testimonialId: string) {
+/** `willRetry` keeps the status at "queued" when the job queue will try again. */
+export async function processVideo(testimonialId: string, opts: { willRetry?: boolean } = {}) {
   const db = getDb();
   const row = db.select().from(testimonials).where(eq(testimonials.id, testimonialId)).get();
   if (!row) return; // deleted while queued
@@ -175,6 +176,7 @@ export async function processVideo(testimonialId: string) {
   const posterKey = newKey("image", "jpg");
   const mp4 = resolveKey(mp4Key);
   const poster = resolveKey(posterKey);
+  let processed = false;
   try {
     if (!fs.existsSync(input)) throw new PermanentJobError("The original video file is missing");
     const info = await probe(input);
@@ -204,11 +206,14 @@ export async function processVideo(testimonialId: string) {
       })
       .where(eq(testimonials.id, row.id))
       .run();
+    processed = true;
     await Promise.all(replaced.map((k) => fs.promises.rm(resolveKey(k), { force: true })));
   } catch (err) {
+    if (processed) throw err;
     await Promise.all([mp4, poster].map((f) => fs.promises.rm(f, { force: true })));
+    const retrying = opts.willRetry && !(err instanceof PermanentJobError);
     db.update(testimonials)
-      .set({ mediaStatus: "failed", mediaError: (err as Error).message.slice(0, 500) })
+      .set({ mediaStatus: retrying ? "queued" : "failed", mediaError: (err as Error).message.slice(0, 500) })
       .where(eq(testimonials.id, row.id))
       .run();
     throw err;

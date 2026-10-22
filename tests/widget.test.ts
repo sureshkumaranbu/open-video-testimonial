@@ -58,6 +58,8 @@ describe("GET /api/widget/:slug", () => {
       height: null,
       durationMs: null,
       sources: [{ url: "/api/media/videos/00000000-0000-0000-0000-000000000000.webm", type: "video/webm" }],
+      captionsUrl: null,
+      transcript: null,
     });
   });
 

@@ -1,3 +1,4 @@
+import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = Number(process.env.E2E_PORT || 3100);
@@ -46,6 +47,9 @@ export default defineConfig({
           NEXT_TELEMETRY_DISABLED: "1",
           // Run background jobs (video conversion, email, webhooks) promptly.
           JOBS_POLL_MS: "300",
+          // A stand-in for whisper.cpp so transcripts and captions run end to end.
+          TRANSCRIBE_PROVIDER: "command",
+          TRANSCRIBE_COMMAND: `"${process.execPath}" "${path.resolve(__dirname, "e2e/fixtures/fake-whisper.mjs")}" {input} {output}`,
         },
       },
 });

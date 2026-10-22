@@ -39,6 +39,9 @@ export type TestimonialStatus = (typeof TESTIMONIAL_STATUSES)[number];
 export const MEDIA_STATUSES = ["none", "queued", "processing", "ready", "failed", "skipped"] as const;
 export type MediaStatus = (typeof MEDIA_STATUSES)[number];
 
+export const TRANSCRIPT_STATUSES = ["none", "queued", "processing", "ready", "failed"] as const;
+export type TranscriptStatus = (typeof TRANSCRIPT_STATUSES)[number];
+
 export const testimonials = sqliteTable(
   "testimonials",
   {
@@ -66,6 +69,12 @@ export const testimonials = sqliteTable(
     videoHeight: integer("video_height"),
     mediaStatus: text("media_status", { enum: MEDIA_STATUSES }).notNull().default("none"),
     mediaError: text("media_error"),
+    /** Plain-text transcript of the video (machine-made, owner-editable). */
+    transcript: text("transcript"),
+    /** WebVTT captions shown on every player. */
+    captionsVtt: text("captions_vtt"),
+    transcriptStatus: text("transcript_status", { enum: TRANSCRIPT_STATUSES }).notNull().default("none"),
+    transcriptError: text("transcript_error"),
     consentAt: integer("consent_at", { mode: "timestamp_ms" }).notNull(),
     source: text("source").notNull().default("form"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),

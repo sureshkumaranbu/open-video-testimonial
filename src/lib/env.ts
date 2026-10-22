@@ -53,6 +53,30 @@ export const env = {
   get workerEnabled() {
     return process.env.JOBS_WORKER !== "off";
   },
+  /**
+   * Speech-to-text for transcripts and captions: "off" (default), "openai"
+   * (any OpenAI-compatible /audio/transcriptions endpoint) or "command"
+   * (a local program such as whisper.cpp).
+   */
+  get transcribeProvider(): "off" | "openai" | "command" {
+    const p = (process.env.TRANSCRIBE_PROVIDER || "off").toLowerCase();
+    return p === "openai" || p === "command" ? p : "off";
+  },
+  get transcribeApiUrl() {
+    return (process.env.TRANSCRIBE_API_URL || "https://api.openai.com/v1").replace(/\/+$/, "");
+  },
+  get transcribeApiKey() {
+    return process.env.TRANSCRIBE_API_KEY || "";
+  },
+  get transcribeModel() {
+    return process.env.TRANSCRIBE_MODEL || "whisper-1";
+  },
+  get transcribeLanguage() {
+    return process.env.TRANSCRIBE_LANGUAGE || "";
+  },
+  get transcribeCommand() {
+    return process.env.TRANSCRIBE_COMMAND || "";
+  },
   get jobsPollMs() {
     return Math.max(Number(process.env.JOBS_POLL_MS || 2000), 100);
   },

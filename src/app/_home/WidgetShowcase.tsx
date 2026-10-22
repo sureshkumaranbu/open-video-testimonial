@@ -37,6 +37,8 @@ const SAMPLES: PublicTestimonial[] = [
       height: VIDEO_SAMPLE.height,
       durationMs: null,
       sources: [],
+      captionsUrl: null,
+      transcript: null,
     },
     tags: [],
     createdAt: "2026-01-01T00:00:00.000Z",

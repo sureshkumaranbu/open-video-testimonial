@@ -75,6 +75,10 @@ export const testimonialUpdateSchema = z.object({
   authorName: z.string().trim().min(1).max(120).optional(),
   authorTitle: z.string().trim().max(120).nullable().optional(),
   authorCompany: z.string().trim().max(120).nullable().optional(),
+  text: z.string().trim().max(5000).nullable().optional(),
+  transcript: z.string().trim().max(50_000).nullable().optional(),
+  /** WebVTT or SRT; normalised to WebVTT before saving. */
+  captionsVtt: z.string().max(200_000).nullable().optional(),
   tags: z.array(tagNameSchema).max(20).optional(),
 });
 
