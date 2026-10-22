@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- **Home page: real sample video testimonials.**
+  - The sample clips and faces are now licensed stock footage from Pexels, with every source listed in [`docs/CREDITS.md`](docs/CREDITS.md).
+  - The hero demo's Recording step plays a muted, looping clip, but only while it's in view, and shows the poster instead with reduced motion or Save-Data.
+  - A wall of video cards now sits near the top.
+  - Every sample card shows a face.
+  - Names and quotes stay fictional and are labelled as samples.
+
 ## 0.2.0
 
 The top features from [`docs/research/feature-opportunities.md`](docs/research/feature-opportunities.md).

@@ -34,11 +34,27 @@ async function shot(page: Page, name: string, fullPage = false) {
 // ------------------------------------------------------------------ home
 
 test.describe("home page", () => {
+  const SAMPLE_CAPTION =
+    /Sample testimonials for illustration\. Names and quotes are fictional; footage is licensed stock from Pexels, and the people shown haven't used or endorsed Plaudit\./;
+  const VIDEO_FILE = /\.(webm|mp4)$/;
+
+  /** Records every /samples/ file the page fetches, and any that fail. */
+  function trackSamples(page: Page) {
+    const loaded: string[] = [];
+    const bad: string[] = [];
+    page.on("response", (r) => {
+      if (!r.url().includes("/samples/")) return;
+      loaded.push(r.url().split("/samples/")[1]);
+      if (r.status() >= 400) bad.push(`${r.status()} ${r.url()}`);
+    });
+    return { loaded, bad };
+  }
+
   const SECTIONS = [
     "section-hero",
+    "section-videos",
     "section-platforms",
     "section-voices",
-    "section-videos",
     "section-how",
     "section-features",
     "section-showcase",
@@ -73,7 +89,7 @@ test.describe("home page", () => {
       .toBe(true);
     await expect(page.getByTestId("platform-marquee")).toContainText("WordPress");
     await expect(page.getByTestId("platform-marquee")).toContainText("Plain HTML");
-    await expect(page.getByTestId("sample-caption")).toHaveText(/Sample testimonials for illustration/);
+    await expect(page.getByTestId("sample-caption")).toHaveText(SAMPLE_CAPTION);
     await expect(page.locator(".voice-tag").first()).toHaveText("Sample");
     await expect(page.locator(".bento-tile")).toHaveCount(7);
     await expect(page.locator(".compare tbody tr")).toHaveCount(7);
@@ -112,27 +128,151 @@ test.describe("home page", () => {
     await expect(demo.getByRole("button", { name: "Recording" })).toHaveAttribute("aria-current", "step");
   });
 
-  test("sample video testimonials are labelled, lazy, muted, and play", async ({ page }) => {
-    const bad: string[] = [];
-    const loaded: string[] = [];
-    page.on("response", (r) => {
-      if (!r.url().includes("/samples/")) return;
-      loaded.push(r.url().split("/samples/")[1]);
-      if (r.status() >= 400) bad.push(`${r.status()} ${r.url()}`);
-    });
-    await page.goto("/");
-    await page.waitForTimeout(500);
-    // Nothing from the video strip loads before it is near the viewport.
-    expect(loaded.filter((f) => /\.(webm|mp4)$/.test(f))).toEqual([]);
+  test("the hero clip plays muted and looped, only while in view", async ({ page }) => {
+    const { loaded, bad } = trackSamples(page);
+    const demo = page.getByTestId("hero-demo");
+    const clip = page.getByTestId("hero-clip");
+    const video = clip.locator("video");
+    const playing = () =>
+      expect.poll(() => video.evaluate((v: HTMLVideoElement) => !v.paused && v.currentTime > 0), { timeout: 3000 });
+    // The demo moves on every few seconds; going via Review restarts the Recording step's full time.
+    const restartRecording = async () => {
+      await demo.getByRole("button", { name: "Review" }).click();
+      await demo.getByRole("button", { name: "Recording" }).click();
+    };
 
+    // Opened further down the page, the hero is out of view: nothing plays or downloads.
+    await page.goto("/#faq");
+    await page.waitForTimeout(1500);
+    expect(loaded.filter((f) => VIDEO_FILE.test(f))).toEqual([]);
+
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await restartRecording();
+    await playing().toBe(true);
+    await expect(clip).toHaveAttribute("data-playing", "true");
+    expect(
+      await video.evaluate((v: HTMLVideoElement) => [v.muted, v.loop, v.playsInline, v.autoplay, v.error]),
+    ).toEqual([true, true, true, false, null]);
+    // The poster is an image underneath, so something shows before the clip.
+    await expect
+      .poll(() => page.getByTestId("hero-poster").evaluate((img: HTMLImageElement) => img.naturalWidth))
+      .toBeGreaterThan(0);
+    // Only the hero clip has downloaded; every other video waits for a click.
+    expect(new Set(loaded.filter((f) => VIDEO_FILE.test(f)))).toEqual(new Set(["daniel.webm"]));
+
+    // Scrolled out of view, it pauses.
+    await restartRecording();
+    await playing().toBe(true);
+    await page.getByTestId("section-faq").scrollIntoViewIfNeeded();
+    await playing().toBe(false);
+
+    // Pausing the demo pauses the clip too.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await restartRecording();
+    await playing().toBe(true);
+    await demo.getByRole("button", { name: "Pause demo" }).click();
+    await playing().toBe(false);
+    expect(bad).toEqual([]);
+  });
+
+  test("posters, faces and the hero clip cause no layout shift", async ({ page }) => {
+    for (const viewport of [
+      { width: 1280, height: 800 },
+      { width: 375, height: 812 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await page.goto("/");
+      await page.evaluate(() => {
+        const w = window as Window & { __cls?: number };
+        w.__cls = 0;
+        new PerformanceObserver((list) => {
+          for (const e of list.getEntries() as (PerformanceEntry & { value: number; hadRecentInput: boolean })[]) {
+            if (!e.hadRecentInput) w.__cls! += e.value;
+          }
+        }).observe({ type: "layout-shift", buffered: true });
+      });
+      if (viewport.width > 900) {
+        await expect(page.getByTestId("hero-clip")).toHaveAttribute("data-playing", "true", { timeout: 10_000 });
+      } else {
+        // On a phone the hero clip starts below the fold, so only its poster has loaded.
+        await expect
+          .poll(() => page.getByTestId("hero-poster").evaluate((img: HTMLImageElement) => img.naturalWidth))
+          .toBeGreaterThan(0);
+      }
+      const height = await page.evaluate(() => document.documentElement.scrollHeight);
+      for (let y = 0; y < height; y += 400) {
+        await page.evaluate((top) => window.scrollTo(0, top), y);
+        await page.waitForTimeout(60);
+      }
+      expect(await page.evaluate(() => (window as Window & { __cls?: number }).__cls)).toBe(0);
+    }
+  });
+
+  test("every sample card shows a face that loads, and no sample file is missing", async ({ page }) => {
+    const { bad } = trackSamples(page);
+    await page.goto("/");
+    const height = await page.evaluate(() => document.documentElement.scrollHeight);
+    for (let y = 0; y < height; y += 400) {
+      await page.evaluate((top) => window.scrollTo(0, top), y);
+      await page.waitForTimeout(40);
+    }
+    // Wall cards (video and text) and the first copy of each marquee row.
+    const cards = page.locator("[data-sample-card]");
+    await expect(cards).toHaveCount(3 + 4 + 7);
+    for (const card of await cards.all()) {
+      await expect(card.locator(".voice-tag")).toHaveText("Sample");
+      const face = card.locator("img.face");
+      await expect(face).toHaveCount(1);
+      await face.evaluate((img: HTMLImageElement) => {
+        img.loading = "eager"; // the marquee can hold a lazy image far off to the side
+      });
+      await expect
+        .poll(() => face.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth), { timeout: 10_000 })
+        .toBeGreaterThan(0);
+      await expect(face).toHaveAttribute("src", /^\/samples\/avatars\/\w+\.jpg$/);
+    }
+    // The widget showcase cards use the real card component with an avatar URL.
+    const showcase = page.getByTestId("showcase-stage").locator("article.testimonial img.avatar");
+    await expect(showcase).toHaveCount(4);
+    for (const img of await showcase.all()) {
+      await img.scrollIntoViewIfNeeded();
+      await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
+    }
+    // Feature tiles and the how-it-works visual use faces too.
+    for (const scope of [page.locator(".bento"), page.getByTestId("how-it-works")]) {
+      const faces = scope.locator("img.face");
+      expect(await faces.count()).toBeGreaterThan(0);
+      for (const img of await faces.all()) {
+        await img.evaluate((el: HTMLImageElement) => {
+          el.loading = "eager";
+        });
+        await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
+      }
+    }
+    // The hero's review step shows the same person's face.
+    const demo = page.getByTestId("hero-demo");
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await demo.getByRole("button", { name: "Review" }).click();
+    const reviewFace = demo.locator("img.demo-avatar");
+    await expect(reviewFace).toHaveAttribute("src", "/samples/avatars/daniel.jpg");
+    await expect.poll(() => reviewFace.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
+    expect(bad).toEqual([]);
+  });
+
+  test("sample video testimonials are labelled, lazy, muted, and play", async ({ page }) => {
+    const { bad } = trackSamples(page);
+    await page.goto("/");
     const section = page.getByTestId("section-videos");
     await section.scrollIntoViewIfNeeded();
-    await expect(page.getByTestId("video-sample-caption")).toHaveText(/fictional.*synthetic placeholders/);
+    await expect(page.getByTestId("video-sample-caption")).toHaveText(SAMPLE_CAPTION);
+    await expect(page.getByTestId("video-sample-caption").getByRole("link", { name: "Credits" })).toHaveAttribute(
+      "href",
+      /docs\/CREDITS\.md$/,
+    );
     const cards = section.locator(".video-card");
     await expect(cards).toHaveCount(3);
     for (let i = 0; i < 3; i++) {
       await expect(cards.nth(i).locator(".voice-tag")).toHaveText("Sample");
-      await expect(cards.nth(i)).toContainText("fictional");
     }
 
     const players = section.getByTestId("sample-video");
@@ -140,13 +280,10 @@ test.describe("home page", () => {
       const player = players.nth(i);
       const video = player.locator("video");
       await expect(video).toHaveAttribute("poster", /\/samples\/\w+\.jpg$/);
-      // Never autoplays: still paused with no data until the visitor asks.
-      expect(await video.evaluate((v: HTMLVideoElement) => [v.paused, v.preload, v.muted, v.autoplay])).toEqual([
-        true,
-        "none",
-        true,
-        false,
-      ]);
+      // Never autoplays and fetches no video data until the visitor asks.
+      expect(
+        await video.evaluate((v: HTMLVideoElement) => [v.paused, v.preload, v.muted, v.autoplay, v.readyState]),
+      ).toEqual([true, "none", true, false, 0]);
       await player.getByRole("button", { name: /^Play sample video testimonial/ }).click();
       await expect(player).toHaveAttribute("data-started", "true");
       await expect
@@ -174,11 +311,11 @@ test.describe("home page", () => {
     await stage.scrollIntoViewIfNeeded();
     const video = stage.locator("article.testimonial video");
     await expect(video).toHaveCount(1);
-    await expect(video).toHaveAttribute("poster", /\/samples\/daniel\.jpg$/);
+    await expect(video).toHaveAttribute("poster", /\/samples\/aiko\.jpg$/);
     expect(await video.evaluate((v: HTMLVideoElement) => [v.paused, v.preload, v.muted])).toEqual([true, "none", true]);
     await video.evaluate((v: HTMLVideoElement) => v.play());
     await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime), { timeout: 15_000 }).toBeGreaterThan(0);
-    await expect(stage.getByText("Sample: Daniel")).toBeVisible();
+    await expect(stage.getByText("Sample: Grace")).toBeVisible();
   });
 
   test("sample media files are served with the right types and ranges", async ({ request }) => {
@@ -266,8 +403,17 @@ test.describe("home page", () => {
   });
 
   test("reduced motion shows everything and stops movement", async ({ page }) => {
+    const { loaded } = trackSamples(page);
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/");
+    // The hero shows the poster instead of looping the clip, and no video downloads.
+    const clip = page.getByTestId("hero-clip");
+    await expect(clip.locator("video")).toHaveCount(0);
+    await expect
+      .poll(() => page.getByTestId("hero-poster").evaluate((img: HTMLImageElement) => img.naturalWidth))
+      .toBeGreaterThan(0);
+    await page.waitForTimeout(1000);
+    expect(loaded.filter((f) => VIDEO_FILE.test(f))).toEqual([]);
     await expect(page.locator(".home")).not.toHaveClass(/motion-ready/);
     // Without scrolling, every reveal target is already fully visible.
     const hidden = await page.evaluate(() =>

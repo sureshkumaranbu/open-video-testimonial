@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
-import { SAMPLE_VIDEOS } from "./samples";
+import { Face } from "./Face";
+import { byId, type SampleVideoTestimonial } from "./samples";
 
-const SAMPLE = SAMPLE_VIDEOS[0];
+// The person who records in the demo, then gets approved and goes live.
+const SAMPLE = byId("daniel");
 
 const STEPS = [
   { key: "record", label: "Recording" },
@@ -16,6 +18,91 @@ export const STEP_MS = 3600;
 
 // Bar heights for the animated voice waveform.
 const WAVE = [8, 14, 22, 12, 26, 18, 10, 20, 28, 16, 9, 18, 24, 12, 7, 15, 22, 11, 6, 13, 19, 9];
+
+/**
+ * The "camera" in the Recording step: the sample clip, muted and looping.
+ * The poster is a plain image that paints first and keeps the box's size;
+ * the video sits on top and only fades in once it's actually playing. It
+ * downloads and plays only while the demo runs and the frame is in view,
+ * and never with reduced motion or Save-Data, which keep the poster.
+ */
+function HeroClip({
+  sample,
+  running,
+  children,
+}: {
+  sample: SampleVideoTestimonial;
+  running: boolean;
+  children: React.ReactNode;
+}) {
+  const box = useRef<HTMLDivElement>(null);
+  const video = useRef<HTMLVideoElement>(null);
+  const [motion, setMotion] = useState(false);
+  const [inView, setInView] = useState(false);
+  const [playing, setPlaying] = useState(false);
+
+  useEffect(() => {
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
+    if (!reduce && !saveData) setMotion(true);
+  }, []);
+
+  useEffect(() => {
+    const el = box.current;
+    if (!motion || !el) return;
+    if (!("IntersectionObserver" in window)) {
+      setInView(true);
+      return;
+    }
+    const io = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting), { threshold: 0.25 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [motion]);
+
+  useEffect(() => {
+    const v = video.current;
+    if (!v) return;
+    if (inView && running) {
+      v.muted = true;
+      void v.play().catch(() => undefined);
+    } else {
+      v.pause();
+    }
+  }, [inView, running, motion]);
+
+  return (
+    <div ref={box} className="demo-camera" data-testid="hero-clip" data-playing={playing}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={sample.poster}
+        alt=""
+        width={sample.width}
+        height={sample.height}
+        fetchPriority="high"
+        data-testid="hero-poster"
+      />
+      {motion && (
+        <video
+          ref={video}
+          muted
+          loop
+          playsInline
+          preload="none"
+          width={sample.width}
+          height={sample.height}
+          aria-hidden
+          tabIndex={-1}
+          onPlaying={() => setPlaying(true)}
+        >
+          {sample.sources.map((s) => (
+            <source key={s.src} src={s.src} type={s.type} />
+          ))}
+        </video>
+      )}
+      {children}
+    </div>
+  );
+}
 
 /** Static poster of the sample clip with a play glyph (the demo is a mock). */
 function DemoThumb() {
@@ -124,10 +211,12 @@ export function HeroDemo() {
       <div className="demo-screen" key={current}>
         {current === "record" && (
           <div className="demo-record">
-            <span className="rec-pill live" data-testid="demo-rec">
-              REC 00:{String(seconds % 60).padStart(2, "0")}
-            </span>
-            <blockquote>&ldquo;We set it up on Friday and had six videos by Monday.&rdquo;</blockquote>
+            <HeroClip sample={SAMPLE} running={!paused}>
+              <span className="rec-pill live" data-testid="demo-rec">
+                REC 00:{String(seconds % 60).padStart(2, "0")}
+              </span>
+              <span className="demo-subtitle">&ldquo;We set it up on Friday and had six videos by Monday.&rdquo;</span>
+            </HeroClip>
             <div className="caption">
               <span className="wave live" aria-hidden>
                 {WAVE.map((h, i) => (
@@ -143,9 +232,7 @@ export function HeroDemo() {
           <div className="demo-review">
             <div className="demo-card">
               <div className="demo-card-head">
-                <span className="demo-avatar" aria-hidden>
-                  {SAMPLE.name[0]}
-                </span>
+                <Face person={SAMPLE} size={34} className="demo-avatar" eager />
                 <div>
                   <strong>{SAMPLE.name}</strong>
                   <span>
@@ -196,7 +283,7 @@ export function HeroDemo() {
                   </div>
                   <p>&ldquo;{SAMPLE.quote}&rdquo;</p>
                   <div className="demo-landed-author">
-                    <span className="demo-avatar">{SAMPLE.name[0]}</span>
+                    <Face person={SAMPLE} size={24} className="demo-avatar" eager />
                     <strong>{SAMPLE.name}</strong>
                     <span className="demo-sample">Sample</span>
                   </div>

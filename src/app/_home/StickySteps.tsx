@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
+import { Face } from "./Face";
+import { byId, PEOPLE } from "./samples";
 
 const STEPS = [
   {
@@ -71,7 +73,10 @@ export function StickySteps() {
         <div className="how-frame">
           <div className={`how-pane ask${key === "ask" ? " on" : ""}`}>
             <span className="how-label">yoursite.com/c/acme</span>
-            <strong>How did we do?</strong>
+            <span className="how-ask">
+              <Face person={PEOPLE.grace} size={40} />
+              <strong>Hi Grace, how did we do?</strong>
+            </span>
             <span className="how-stars">
               {[1, 2, 3, 4, 5].map((n) => (
                 <Icon key={n} name="star" />
@@ -84,10 +89,19 @@ export function StickySteps() {
             </span>
           </div>
           <div className={`how-pane approve${key === "approve" ? " on" : ""}`}>
-            {["Approved", "Pending", "Pending"].map((s, i) => (
-              <div className="how-row" key={i} style={{ ["--i" as string]: i }}>
-                <span className="how-dot" />
-                <span className="how-field" />
+            {(
+              [
+                [PEOPLE.grace, "Approved"],
+                [PEOPLE.ken, "Pending"],
+                [PEOPLE.leila, "Pending"],
+              ] as const
+            ).map(([p, s], i) => (
+              <div className="how-row" key={p.id} style={{ ["--i" as string]: i }}>
+                <Face person={p} size={28} />
+                <span className="how-who">
+                  <strong>{p.name}</strong>
+                  <span className="how-field" />
+                </span>
                 <span className={`demo-badge ${s.toLowerCase()}`}>{s}</span>
               </div>
             ))}
@@ -95,8 +109,20 @@ export function StickySteps() {
           <div className={`how-pane show${key === "show" ? " on" : ""}`}>
             <code>&lt;script src=&quot;…/widget.js&quot; data-project=&quot;acme&quot;&gt;</code>
             <div className="how-tiles">
-              {[0, 1, 2, 3].map((i) => (
-                <span key={i} style={{ ["--i" as string]: i }} />
+              {[byId("maya"), byId("daniel")].map((v, i) => (
+                <span key={v.id} className="how-tile video" style={{ ["--i" as string]: i }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={v.poster} alt="" width={v.width} height={v.height} loading="lazy" decoding="async" />
+                  <span className="how-play">
+                    <Icon name="play" />
+                  </span>
+                </span>
+              ))}
+              {[PEOPLE.theo, PEOPLE.jordan].map((p, i) => (
+                <span key={p.id} className="how-tile" style={{ ["--i" as string]: i + 2 }}>
+                  <Face person={p} size={28} />
+                  <span className="how-field" />
+                </span>
               ))}
             </div>
           </div>

@@ -3,29 +3,31 @@
 import { useEffect, useRef, useState } from "react";
 import { TestimonialCard } from "@/components/TestimonialCard";
 import type { PublicTestimonial } from "@/lib/testimonials";
-import { SAMPLE_VIDEOS } from "./samples";
+import { byId, PEOPLE, type SamplePerson } from "./samples";
 
-const VIDEO_SAMPLE = SAMPLE_VIDEOS[1];
+const VIDEO_SAMPLE = byId("grace");
+
+const text = (id: string, p: SamplePerson, rating: number, body: string): PublicTestimonial => ({
+  id,
+  name: `Sample: ${p.name}`,
+  title: p.role,
+  company: `${p.company} (fictional)`,
+  avatarUrl: p.avatar,
+  rating,
+  text: body,
+  video: null,
+  tags: [],
+  createdAt: "2026-01-01T00:00:00.000Z",
+});
 
 const SAMPLES: PublicTestimonial[] = [
-  {
-    id: "s1",
-    name: "Sample: Amara",
-    title: "Founder",
-    company: "a bakery",
-    avatarUrl: null,
-    rating: 5,
-    text: "Our regulars recorded short clips at the counter. They're now the first thing on our homepage.",
-    video: null,
-    tags: [],
-    createdAt: "2026-01-01T00:00:00.000Z",
-  },
+  text("s1", PEOPLE.leila, 5, "My students recorded short clips after the final lesson. They're now the first thing on my homepage."),
   {
     id: "s-video",
     name: `Sample: ${VIDEO_SAMPLE.name}`,
     title: VIDEO_SAMPLE.role,
     company: `${VIDEO_SAMPLE.company} (fictional)`,
-    avatarUrl: null,
+    avatarUrl: VIDEO_SAMPLE.avatar,
     rating: VIDEO_SAMPLE.rating,
     text: VIDEO_SAMPLE.quote,
     // The poster is passed separately so it can load lazily.
@@ -43,30 +45,8 @@ const SAMPLES: PublicTestimonial[] = [
     tags: [],
     createdAt: "2026-01-01T00:00:00.000Z",
   },
-  {
-    id: "s2",
-    name: "Sample: Leo",
-    title: "Coach",
-    company: null,
-    avatarUrl: null,
-    rating: 5,
-    text: "I send the link after every session. Approving takes seconds.",
-    video: null,
-    tags: [],
-    createdAt: "2026-01-01T00:00:00.000Z",
-  },
-  {
-    id: "s3",
-    name: "Sample: Mei",
-    title: "Product lead",
-    company: "a SaaS team",
-    avatarUrl: null,
-    rating: 4,
-    text: "We host it ourselves, so customer emails never leave our server.",
-    video: null,
-    tags: [],
-    createdAt: "2026-01-01T00:00:00.000Z",
-  },
+  text("s2", PEOPLE.jordan, 5, "I send the link after every session. Approving takes seconds."),
+  text("s3", PEOPLE.ken, 4, "We host it ourselves, so customer emails never leave our server."),
 ];
 
 /** Live preview of the real testimonial card with theme and layout toggles. */
