@@ -1,4 +1,7 @@
+import fs from "node:fs";
+import { fetchImportedMedia, FETCH_MEDIA_JOB } from "./csv-import";
 import { env } from "./env";
+import { importArchive, IMPORT_JOB } from "./portability";
 import { registerJob, registerPeriodic, startWorker } from "./jobs";
 import { processVideo, PROCESS_VIDEO_JOB, queueUnprocessedVideos } from "./media";
 import { queueDueReminders, SEND_EMAIL_JOB, sendRequestEmail, sendThankYou, THANK_YOU_JOB } from "./requests";
@@ -28,6 +31,17 @@ export function registerJobs() {
   });
   registerJob(DELIVER_JOB, async (payload, job) => {
     await deliver((payload as { deliveryId: string }).deliveryId, job.attempts >= job.maxAttempts);
+  });
+  registerJob(IMPORT_JOB, async (payload) => {
+    const { zipPath, projectId } = payload as { zipPath: string; projectId: string };
+    try {
+      await importArchive(zipPath, projectId);
+    } finally {
+      await fs.promises.rm(zipPath, { force: true });
+    }
+  });
+  registerJob(FETCH_MEDIA_JOB, async (payload) => {
+    await fetchImportedMedia(payload as Parameters<typeof fetchImportedMedia>[0]);
   });
   registerPeriodic("requests.reminders", 5 * 60 * 1000, () => queueDueReminders());
   registerPeriodic("uploads.cleanup", 60 * 60 * 1000, () => cleanupExpiredUploads());

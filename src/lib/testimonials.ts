@@ -234,7 +234,7 @@ export function updateTestimonial(
     rating?: number | null;
     tags?: string[];
   },
-  opts: { actor?: "owner" | "api" } = {},
+  opts: { actor?: "owner" | "api"; quiet?: boolean } = {},
 ): TestimonialWithTags | null {
   const db = getDb();
   const existing = db.select().from(testimonials).where(eq(testimonials.id, id)).get();
@@ -268,7 +268,7 @@ export function updateTestimonial(
     }
   });
   const updated = getTestimonial(id);
-  if (fields.status && fields.status !== existing.status && fields.status !== "pending") {
+  if (!opts.quiet && fields.status && fields.status !== existing.status && fields.status !== "pending") {
     emitTestimonialEvent(fields.status === "approved" ? "testimonial.approved" : "testimonial.rejected", updated);
   }
   if (edited.length) {

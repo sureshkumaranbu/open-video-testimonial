@@ -92,6 +92,14 @@ export const env = {
   get mailOutbox() {
     return process.env.MAIL_OUTBOX === "true";
   },
+  /** Largest export archive accepted for import (megabytes). */
+  get maxImportBytes() {
+    return Number(process.env.MAX_IMPORT_MB || 10240) * 1024 * 1024;
+  },
+  /** Let CSV imports download media from private-network addresses. */
+  get importAllowPrivateUrls() {
+    return process.env.IMPORT_ALLOW_PRIVATE_URLS === "true";
+  },
   get jobsPollMs() {
     return Math.max(Number(process.env.JOBS_POLL_MS || 2000), 100);
   },

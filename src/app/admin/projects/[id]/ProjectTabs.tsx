@@ -3,6 +3,7 @@ import Link from "next/link";
 const TABS = [
   { id: "testimonials", label: "Testimonials", path: "" },
   { id: "requests", label: "Requests", path: "/requests" },
+  { id: "data", label: "Import & export", path: "/data" },
 ] as const;
 
 export type ProjectTab = (typeof TABS)[number]["id"];

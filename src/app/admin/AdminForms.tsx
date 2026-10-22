@@ -102,3 +102,85 @@ export function NewProjectForm() {
     </form>
   );
 }
+
+type ImportState =
+  | { step: "idle" }
+  | { step: "uploading"; percent: number }
+  | { step: "importing"; projectId: string; name: string }
+  | { step: "done"; projectId: string; name: string; count: number }
+  | { step: "error"; message: string };
+
+/** Uploads a Plaudit export (.zip) and recreates it as a new project. */
+export function ImportProjectForm() {
+  const [state, setState] = useState<ImportState>({ step: "idle" });
+
+  async function run(file: File) {
+    const { ResumableUpload } = await import("@/lib/resumable-upload");
+    setState({ step: "uploading", percent: 0 });
+    try {
+      const upload = new ResumableUpload({
+        createUrl: "/api/admin/uploads",
+        onProgress: (s) => setState({ step: "uploading", percent: s.total ? Math.floor((s.sent / s.total) * 100) : 0 }),
+      });
+      upload.append(file);
+      const { id, token } = await upload.finish();
+      const res = await fetch("/api/admin/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uploadId: id, token }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "The import didn't start");
+      setState({ step: "importing", projectId: body.project.id, name: body.project.name });
+      for (;;) {
+        await new Promise((r) => setTimeout(r, 1000));
+        const job = await (await fetch(`/api/admin/jobs/${body.jobId}`)).json();
+        if (job.status === "done") {
+          setState({ step: "done", projectId: body.project.id, name: body.project.name, count: body.counts.testimonials });
+          return;
+        }
+        if (job.status === "failed") throw new Error(job.error || "The import failed");
+      }
+    } catch (err) {
+      setState({ step: "error", message: (err as Error).message });
+    }
+  }
+
+  return (
+    <div className="card stack" style={{ borderStyle: "dashed", boxShadow: "none" }} data-testid="import-project">
+      <div className="stack" style={{ gap: "var(--space-1)" }}>
+        <h2>Import a project</h2>
+        <p className="muted small">Restore a backup, or move a project from another Plaudit server, using its export .zip.</p>
+      </div>
+      {state.step === "uploading" && <p className="small">Uploading… {state.percent}%</p>}
+      {state.step === "importing" && <p className="small">Importing into “{state.name}”…</p>}
+      {state.step === "done" && (
+        <p className="small" role="status">
+          Imported {state.count} testimonial{state.count === 1 ? "" : "s"} into{" "}
+          <a href={`/admin/projects/${state.projectId}`}>{state.name}</a>.
+        </p>
+      )}
+      {state.step === "error" && (
+        <p className="error" role="alert">
+          {state.message}
+        </p>
+      )}
+      <label className="button secondary" style={{ flexDirection: "row", alignSelf: "flex-start" }}>
+        <Icon name="upload" />
+        Choose export .zip
+        <input
+          type="file"
+          accept=".zip,application/zip"
+          data-testid="import-file"
+          style={{ display: "none" }}
+          disabled={state.step === "uploading" || state.step === "importing"}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) void run(file);
+          }}
+        />
+      </label>
+    </div>
+  );
+}
