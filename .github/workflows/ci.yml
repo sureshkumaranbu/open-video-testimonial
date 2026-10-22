@@ -11,7 +11,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,7 +19,21 @@ jobs:
           node-version: 22
           cache: npm
       - name: Install ffmpeg (video conversion tests)
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+        timeout-minutes: 10
+        # The runner's apt mirror is occasionally very slow. Bound each attempt and
+        # retry; downloaded packages are kept, so a retry continues where it stopped.
+        run: |
+          sudo apt-get update
+          for attempt in 1 2 3; do
+            if sudo timeout 180 apt-get install -y --no-install-recommends \
+                -o Acquire::Retries=3 -o Acquire::http::Timeout=30 ffmpeg; then
+              break
+            fi
+            echo "apt-get attempt $attempt failed or timed out; retrying"
+            sudo dpkg --configure -a || true
+            sleep 5
+          done
+          ffmpeg -hide_banner -version > /dev/null && echo "ffmpeg is installed"
       - run: npm ci
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=moderate
