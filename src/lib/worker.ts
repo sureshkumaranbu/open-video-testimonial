@@ -1,6 +1,7 @@
 import { env } from "./env";
 import { registerJob, registerPeriodic, startWorker } from "./jobs";
 import { processVideo, PROCESS_VIDEO_JOB, queueUnprocessedVideos } from "./media";
+import { queueDueReminders, SEND_EMAIL_JOB, sendRequestEmail, sendThankYou, THANK_YOU_JOB } from "./requests";
 import { getTestimonial } from "./testimonials";
 import { queueTranscription, TRANSCRIBE_JOB, transcribeTestimonial } from "./transcribe";
 import { cleanupExpiredUploads } from "./uploads";
@@ -18,6 +19,13 @@ export function registerJobs() {
     const { testimonialId } = payload as { testimonialId: string };
     await transcribeTestimonial(testimonialId, { willRetry: job.attempts < job.maxAttempts });
   });
+  registerJob(SEND_EMAIL_JOB, async (payload, job) => {
+    await sendRequestEmail(payload as Parameters<typeof sendRequestEmail>[0], job.attempts >= job.maxAttempts);
+  });
+  registerJob(THANK_YOU_JOB, async (payload) => {
+    await sendThankYou(payload as Parameters<typeof sendThankYou>[0]);
+  });
+  registerPeriodic("requests.reminders", 5 * 60 * 1000, () => queueDueReminders());
   registerPeriodic("uploads.cleanup", 60 * 60 * 1000, () => cleanupExpiredUploads());
   registerPeriodic("media.backfill", 24 * 60 * 60 * 1000, () => queueUnprocessedVideos());
 }

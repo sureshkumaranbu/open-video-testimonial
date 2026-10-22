@@ -83,6 +83,10 @@ export function updateProject(
       | "questions"
       | "maxVideoSeconds"
       | "consentText"
+      | "inviteSubject"
+      | "inviteMessage"
+      | "reminderDays"
+      | "thankYouEmail"
     >
   >,
 ) {
@@ -101,6 +105,7 @@ export interface NewTestimonial {
   avatarKey?: string;
   videoKey?: string;
   videoMime?: string;
+  requestId?: string;
 }
 
 export function createTestimonial(projectId: string, input: NewTestimonial): Testimonial {
@@ -121,6 +126,7 @@ export function createTestimonial(projectId: string, input: NewTestimonial): Tes
       videoKey: input.videoKey ?? null,
       videoMime: input.videoMime ?? null,
       videoOriginalKey: input.videoKey ?? null,
+      requestId: input.requestId ?? null,
       consentAt: now,
       createdAt: now,
       updatedAt: now,

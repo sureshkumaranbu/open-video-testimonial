@@ -30,6 +30,7 @@ type AdminTestimonial = {
   consentScopes: string;
   editedAfterConsent: boolean;
   withdrawnAt: string | null;
+  requestId: string | null;
   createdAt: string;
   tags: string[];
 };
@@ -291,6 +292,11 @@ function TestimonialRow({
             </span>
           ) : (
             <span className={`badge ${t.status}`}>{t.status[0].toUpperCase() + t.status.slice(1)}</span>
+          )}
+          {t.requestId && (
+            <span className="badge requested" title="Sent through a personal request link">
+              Requested
+            </span>
           )}
           {t.editedAfterConsent && (
             <span className="badge edited" title="You changed what the author wrote after they consented">

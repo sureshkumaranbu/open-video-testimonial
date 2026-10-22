@@ -15,6 +15,8 @@ type Props = {
   };
   /** The exact consent wording shown, and its stored version. */
   consent: { versionId: string; text: string };
+  /** From a personal request link. */
+  prefill?: { token: string; name: string; email: string; company: string } | null;
 };
 
 type Mode = "text" | "video";
@@ -86,7 +88,7 @@ function PhotoPicker() {
   );
 }
 
-export function CollectForm({ project, consent }: Props) {
+export function CollectForm({ project, consent, prefill }: Props) {
   const [mode, setMode] = useState<Mode>(project.allowText ? "text" : "video");
   const [rating, setRating] = useState(0);
   const [video, setVideo] = useState<RecordedVideo | null>(null);
@@ -219,13 +221,13 @@ export function CollectForm({ project, consent }: Props) {
         </h2>
         <label>
           Your name
-          <input type="text" name="name" required maxLength={120} autoComplete="name" />
+          <input type="text" name="name" required maxLength={120} autoComplete="name" defaultValue={prefill?.name} />
         </label>
         <label>
           <span>
             Email <span className="hint">(private, never shown publicly)</span>
           </span>
-          <input type="email" name="email" maxLength={254} autoComplete="email" />
+          <input type="email" name="email" maxLength={254} autoComplete="email" defaultValue={prefill?.email} />
         </label>
         <div className="two-col">
           <label>
@@ -234,7 +236,7 @@ export function CollectForm({ project, consent }: Props) {
           </label>
           <label>
             Company
-            <input type="text" name="company" maxLength={120} autoComplete="organization" />
+            <input type="text" name="company" maxLength={120} autoComplete="organization" defaultValue={prefill?.company} />
           </label>
         </div>
         <PhotoPicker />
@@ -251,6 +253,7 @@ export function CollectForm({ project, consent }: Props) {
       />
 
       <input type="hidden" name="consentVersion" value={consent.versionId} />
+      {prefill && <input type="hidden" name="requestToken" value={prefill.token} />}
       <label className="check consent">
         <input type="checkbox" name="consent" required />
         <span data-testid="consent-text">{consent.text}</span>

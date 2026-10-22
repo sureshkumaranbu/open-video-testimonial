@@ -1915,3 +1915,60 @@ textarea.mono {
   margin: var(--space-1) 0 0;
   color: var(--ink-2);
 }
+
+.project-tabs {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--line);
+  margin-top: var(--space-4);
+  overflow-x: auto;
+}
+.project-tabs a {
+  padding: var(--space-3) var(--space-4);
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+}
+.project-tabs a[aria-current="page"] {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+.badge.requested {
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.data-table th,
+.data-table td {
+  text-align: left;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.data-table th {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-3);
+}
+.table-wrap {
+  overflow-x: auto;
+}
+.notice {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: var(--text-sm);
+}
+.notice.warn {
+  background: var(--warn-soft);
+}

@@ -47,6 +47,8 @@ export default defineConfig({
           NEXT_TELEMETRY_DISABLED: "1",
           // Run background jobs (video conversion, email, webhooks) promptly.
           JOBS_POLL_MS: "300",
+          // Emails are written to .e2e-data/mail-outbox, where the tests read them.
+          MAIL_OUTBOX: "true",
           // A stand-in for whisper.cpp so transcripts and captions run end to end.
           TRANSCRIBE_PROVIDER: "command",
           TRANSCRIBE_COMMAND: `"${process.execPath}" "${path.resolve(__dirname, "e2e/fixtures/fake-whisper.mjs")}" {input} {output}`,

@@ -81,6 +81,17 @@ export const env = {
   get consentIpHash() {
     return process.env.CONSENT_IP_HASH === "true";
   },
+  /** Outgoing mail server, e.g. smtps://user:pass@smtp.example.com:465 */
+  get smtpUrl() {
+    return process.env.SMTP_URL || "";
+  },
+  get smtpFrom() {
+    return process.env.SMTP_FROM || "Plaudit <no-reply@localhost>";
+  },
+  /** Write emails to DATA_DIR/mail-outbox instead of sending (for local testing). */
+  get mailOutbox() {
+    return process.env.MAIL_OUTBOX === "true";
+  },
   get jobsPollMs() {
     return Math.max(Number(process.env.JOBS_POLL_MS || 2000), 100);
   },

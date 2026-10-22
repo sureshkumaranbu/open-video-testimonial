@@ -1,6 +1,7 @@
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { grantConsent, withdrawUrl } from "@/lib/consent";
 import { queueVideoProcessing } from "@/lib/media";
+import { findRequestByToken, markResponded, queueThankYou } from "@/lib/requests";
 import { deleteObject, saveUpload, UploadError } from "@/lib/storage";
 import { claimUpload, getUpload } from "@/lib/uploads";
 import { createTestimonial, getProjectBySlug } from "@/lib/testimonials";
@@ -36,7 +37,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ slug: string }
   if (form.get("website")) return Response.json({ ok: true, message: project.thankYouMessage });
 
   const parsed = submissionSchema.safeParse(Object.fromEntries(
-    ["name", "email", "title", "company", "rating", "text", "consent", "consentSocial", "consentVersion"].map((k) => [
+    ["name", "email", "title", "company", "rating", "text", "consent", "consentSocial", "consentVersion", "requestToken"].map((k) => [
       k,
       typeof form.get(k) === "string" ? form.get(k) : undefined,
     ]),
@@ -79,8 +80,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ slug: string }
     const storedAvatar = avatar ? await saveUpload(avatar, "image") : null;
     if (storedAvatar) saved.push(storedAvatar.key);
 
+    // A personal request link: connect the two and stop the reminders.
+    const request = input.requestToken ? findRequestByToken(input.requestToken) : null;
+    const fromRequest = request?.projectId === project.id ? request : null;
     const testimonial = createTestimonial(project.id, {
       ...input,
+      requestId: fromRequest?.id,
       text,
       videoKey: storedVideo?.key,
       videoMime: storedVideo?.mime,
@@ -94,6 +99,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ slug: string }
       actor: "customer",
       ip: clientIp(req),
     });
+    if (fromRequest) markResponded(fromRequest, testimonial.id);
+    queueThankYou(project, input.email, withdrawUrl(withdrawToken));
     if (storedVideo) await queueVideoProcessing(testimonial.id);
     return Response.json(
       { ok: true, id: testimonial.id, message: project.thankYouMessage, withdrawUrl: withdrawUrl(withdrawToken) },

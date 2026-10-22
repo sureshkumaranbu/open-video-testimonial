@@ -16,7 +16,7 @@ const nextConfig: NextConfig = {
       },
       {
         // Private withdrawal links must not leak through the Referer header.
-        source: "/w/:path*",
+        source: "/:prefix(w|u)/:path*",
         headers: [
           { key: "Referrer-Policy", value: "no-referrer" },
           { key: "X-Frame-Options", value: "DENY" },

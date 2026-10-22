@@ -28,6 +28,13 @@ export const projects = sqliteTable("projects", {
   maxVideoSeconds: integer("max_video_seconds").notNull().default(120),
   /** Consent wording shown on the form; empty means the default. `{project}` is replaced. */
   consentText: text("consent_text").notNull().default(""),
+  /** Invitation email. `{name}`, `{project}` and `{link}` are filled in. Empty means the default. */
+  inviteSubject: text("invite_subject").notNull().default(""),
+  inviteMessage: text("invite_message").notNull().default(""),
+  /** Days after the invitation to send reminders, e.g. "3,7". Empty for none. */
+  reminderDays: text("reminder_days").notNull().default("3,7"),
+  /** Email the author a receipt (with their withdrawal link) after they submit. */
+  thankYouEmail: integer("thank_you_email", { mode: "boolean" }).notNull().default(true),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
 });
 
@@ -84,6 +91,8 @@ export const testimonials = sqliteTable(
     /** Set when the author withdraws consent through their private link. */
     withdrawnAt: integer("withdrawn_at", { mode: "timestamp_ms" }),
     withdrawTokenHash: text("withdraw_token_hash"),
+    /** Set when the testimonial came in through a personal request link. */
+    requestId: text("request_id"),
     consentAt: integer("consent_at", { mode: "timestamp_ms" }).notNull(),
     source: text("source").notNull().default("form"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
@@ -165,6 +174,39 @@ export const consentEvents = sqliteTable(
   (t) => [index("consent_events_testimonial_idx").on(t.testimonialId)],
 );
 
+export const REQUEST_STATUSES = ["waiting", "responded", "unsubscribed"] as const;
+export type RequestStatus = (typeof REQUEST_STATUSES)[number];
+export const EMAIL_STATUSES = ["not_sent", "queued", "sent", "failed"] as const;
+export type EmailStatus = (typeof EMAIL_STATUSES)[number];
+
+/** A personal invitation to leave a testimonial, with a prefilled link and reminders. */
+export const requests = sqliteTable(
+  "requests",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    name: text("name"),
+    email: text("email").notNull(),
+    company: text("company"),
+    status: text("status", { enum: REQUEST_STATUSES }).notNull().default("waiting"),
+    emailStatus: text("email_status", { enum: EMAIL_STATUSES }).notNull().default("not_sent"),
+    emailError: text("email_error"),
+    sentAt: integer("sent_at", { mode: "timestamp_ms" }),
+    remindersSent: integer("reminders_sent").notNull().default(0),
+    nextReminderAt: integer("next_reminder_at", { mode: "timestamp_ms" }),
+    respondedAt: integer("responded_at", { mode: "timestamp_ms" }),
+    testimonialId: text("testimonial_id").references(() => testimonials.id, { onDelete: "set null" }),
+    unsubscribedAt: integer("unsubscribed_at", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+  },
+  (t) => [
+    index("requests_project_idx").on(t.projectId),
+    index("requests_reminder_idx").on(t.status, t.nextReminderAt),
+  ],
+);
+
 export const JOB_STATUSES = ["queued", "running", "done", "failed"] as const;
 
 /** Background work (video processing, email, webhooks) run by the in-process worker. */
@@ -212,4 +254,5 @@ export type Testimonial = typeof testimonials.$inferSelect;
 export type Job = typeof jobs.$inferSelect;
 export type ConsentVersion = typeof consentVersions.$inferSelect;
 export type ConsentEvent = typeof consentEvents.$inferSelect;
+export type TestimonialRequest = typeof requests.$inferSelect;
 export type Upload = typeof uploads.$inferSelect;

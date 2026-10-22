@@ -5,6 +5,7 @@ import { systemStatus } from "@/lib/system";
 import { getProjectById } from "@/lib/testimonials";
 import { AppBar } from "../../AppBar";
 import { Dashboard } from "./Dashboard";
+import { ProjectTabs } from "./ProjectTabs";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Project" };
@@ -17,7 +18,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   return (
     <>
       <AppBar trail={[{ href: "/admin", label: "Projects" }, { label: project.name }]} />
-      <main className="container">
+      <main className="container stack-lg">
+        <ProjectTabs projectId={project.id} active="testimonials" />
         <Dashboard project={project} publicUrl={env.publicUrl} system={await systemStatus()} />
       </main>
     </>

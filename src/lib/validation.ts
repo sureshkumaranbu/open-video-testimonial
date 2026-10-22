@@ -29,6 +29,7 @@ export const submissionSchema = z.object({
   consent: z.literal("on", { error: "Please tick the consent box so we can share your testimonial" }),
   consentSocial: z.literal("on").optional(),
   consentVersion: z.string().max(64).optional(),
+  requestToken: z.string().max(100).optional(),
 });
 
 export type SubmissionInput = z.infer<typeof submissionSchema>;
@@ -68,6 +69,15 @@ export const projectSchema = z.object({
   maxVideoSeconds: z.number().int().min(15).max(600).optional(),
   /** Empty restores the default wording. */
   consentText: z.string().trim().max(1000).optional(),
+  inviteSubject: z.string().trim().max(200).optional(),
+  inviteMessage: z.string().trim().max(5000).optional(),
+  /** Comma-separated days after the invitation, e.g. "3,7". */
+  reminderDays: z
+    .string()
+    .max(40)
+    .regex(/^[\d,\s]*$/, "Use whole days separated by commas, e.g. 3, 7")
+    .optional(),
+  thankYouEmail: z.boolean().optional(),
 });
 
 export const projectUpdateSchema = projectSchema.partial().omit({ slug: true });
