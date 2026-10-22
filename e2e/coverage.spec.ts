@@ -38,6 +38,7 @@ test.describe("home page", () => {
     "section-hero",
     "section-platforms",
     "section-voices",
+    "section-videos",
     "section-how",
     "section-features",
     "section-showcase",
@@ -111,6 +112,91 @@ test.describe("home page", () => {
     await expect(demo.getByRole("button", { name: "Recording" })).toHaveAttribute("aria-current", "step");
   });
 
+  test("sample video testimonials are labelled, lazy, muted, and play", async ({ page }) => {
+    const bad: string[] = [];
+    const loaded: string[] = [];
+    page.on("response", (r) => {
+      if (!r.url().includes("/samples/")) return;
+      loaded.push(r.url().split("/samples/")[1]);
+      if (r.status() >= 400) bad.push(`${r.status()} ${r.url()}`);
+    });
+    await page.goto("/");
+    await page.waitForTimeout(500);
+    // Nothing from the video strip loads before it is near the viewport.
+    expect(loaded.filter((f) => /\.(webm|mp4)$/.test(f))).toEqual([]);
+
+    const section = page.getByTestId("section-videos");
+    await section.scrollIntoViewIfNeeded();
+    await expect(page.getByTestId("video-sample-caption")).toHaveText(/fictional.*synthetic placeholders/);
+    const cards = section.locator(".video-card");
+    await expect(cards).toHaveCount(3);
+    for (let i = 0; i < 3; i++) {
+      await expect(cards.nth(i).locator(".voice-tag")).toHaveText("Sample");
+      await expect(cards.nth(i)).toContainText("fictional");
+    }
+
+    const players = section.getByTestId("sample-video");
+    for (let i = 0; i < 3; i++) {
+      const player = players.nth(i);
+      const video = player.locator("video");
+      await expect(video).toHaveAttribute("poster", /\/samples\/\w+\.jpg$/);
+      // Never autoplays: still paused with no data until the visitor asks.
+      expect(await video.evaluate((v: HTMLVideoElement) => [v.paused, v.preload, v.muted, v.autoplay])).toEqual([
+        true,
+        "none",
+        true,
+        false,
+      ]);
+      await player.getByRole("button", { name: /^Play sample video testimonial/ }).click();
+      await expect(player).toHaveAttribute("data-started", "true");
+      await expect
+        .poll(() => video.evaluate((v: HTMLVideoElement) => v.readyState), { timeout: 15_000 })
+        .toBeGreaterThanOrEqual(1);
+      await expect
+        .poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime), { timeout: 15_000 })
+        .toBeGreaterThan(0);
+      expect(await video.evaluate((v: HTMLVideoElement) => [v.muted, v.error, v.controls])).toEqual([true, null, true]);
+      await video.evaluate((v: HTMLVideoElement) => v.pause());
+    }
+    expect(bad).toEqual([]);
+  });
+
+  test("hero demo and widget showcase include a video card", async ({ page }) => {
+    await page.goto("/");
+    const demo = page.getByTestId("hero-demo");
+    await demo.getByRole("button", { name: "Live on your site" }).click();
+    const thumb = demo.getByTestId("demo-video-thumb").locator("img");
+    await expect(thumb).toBeVisible();
+    await expect.poll(() => thumb.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+    await expect(demo.locator(".demo-sample")).toHaveText("Sample");
+
+    const stage = page.getByTestId("showcase-stage");
+    await stage.scrollIntoViewIfNeeded();
+    const video = stage.locator("article.testimonial video");
+    await expect(video).toHaveCount(1);
+    await expect(video).toHaveAttribute("poster", /\/samples\/daniel\.jpg$/);
+    expect(await video.evaluate((v: HTMLVideoElement) => [v.paused, v.preload, v.muted])).toEqual([true, "none", true]);
+    await video.evaluate((v: HTMLVideoElement) => v.play());
+    await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime), { timeout: 15_000 }).toBeGreaterThan(0);
+    await expect(stage.getByText("Sample: Daniel")).toBeVisible();
+  });
+
+  test("sample media files are served with the right types and ranges", async ({ request }) => {
+    for (const id of ["maya", "daniel", "aiko"]) {
+      const webm = await request.get(`/samples/${id}.webm`);
+      expect(webm.status()).toBe(200);
+      expect(webm.headers()["content-type"]).toContain("video/webm");
+      const size = (await webm.body()).length;
+      expect(size).toBeLessThan(3 * 1024 * 1024);
+      const mp4 = await request.get(`/samples/${id}.mp4`);
+      expect(mp4.status()).toBe(200);
+      expect(mp4.headers()["content-type"]).toContain("video/mp4");
+      expect((await request.get(`/samples/${id}.jpg`)).headers()["content-type"]).toContain("image/jpeg");
+      const part = await request.get(`/samples/${id}.webm`, { headers: { Range: "bytes=0-1023" } });
+      expect(part.status()).toBe(206);
+    }
+  });
+
   test("sticky how-it-works follows the step in view", async ({ page }) => {
     await page.goto("/");
     const how = page.getByTestId("how-it-works");
@@ -139,7 +225,7 @@ test.describe("home page", () => {
     const showcase = page.getByTestId("widget-showcase");
     await showcase.scrollIntoViewIfNeeded();
     const stage = page.getByTestId("showcase-stage");
-    await expect(stage.locator("article.testimonial")).toHaveCount(3);
+    await expect(stage.locator("article.testimonial")).toHaveCount(4);
     const cardBg = () => stage.locator("article.testimonial").first().evaluate((el) => getComputedStyle(el).backgroundColor);
     expect(await cardBg()).toBe("rgb(255, 255, 255)");
     await showcase.getByRole("button", { name: "Dark" }).click();

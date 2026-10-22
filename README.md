@@ -133,6 +133,7 @@ To run the same suite against a running instance (for example `docker compose up
 ## Project docs
 
 - [`docs/SPEC.md`](docs/SPEC.md): the product spec, covering MVP scope and the roadmap.
+- [`docs/CREDITS.md`](docs/CREDITS.md): where the sample media on the home page comes from. The sample videos are synthetic placeholders made by `scripts/make-sample-videos.sh`.
 - [`docs/research/senja-teardown.md`](docs/research/senja-teardown.md): clean-room notes on how an existing commercial testimonial tool behaves, which informed the spec.
 
 ## Stack

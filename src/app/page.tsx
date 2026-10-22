@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { Fragment } from "react";
 import { Icon } from "@/components/Icon";
+import { Stars } from "@/components/TestimonialCard";
 import { HeroDemo } from "./_home/HeroDemo";
 import { HomeMotion, MOTION_BOOT } from "./_home/HomeMotion";
+import { SampleVideo } from "./_home/SampleVideo";
+import { SAMPLE_VIDEOS } from "./_home/samples";
 import { StickySteps } from "./_home/StickySteps";
 import { WidgetShowcase } from "./_home/WidgetShowcase";
 import "./home.css";
@@ -289,6 +292,45 @@ export default function Home() {
           ))}
           <p className="container voices-caption muted xsmall" data-testid="sample-caption">
             Sample testimonials for illustration. Not real customers.
+          </p>
+        </section>
+
+        <section
+          id="videos"
+          className="container section video-strip"
+          data-testid="section-videos"
+          aria-labelledby="videos-title"
+        >
+          <div className="section-head" data-reveal>
+            <span className="kicker">Video testimonials</span>
+            <h2 id="videos-title">Faces and voices, not just five stars.</h2>
+            <p className="muted">
+              Customers record straight from the browser. This is how a video card looks on your site.
+            </p>
+          </div>
+          <div className="video-cards">
+            {SAMPLE_VIDEOS.map((v, i) => (
+              <article key={v.id} className="video-card" data-reveal style={{ ["--d" as string]: i }}>
+                <SampleVideo sample={v} label={`sample video testimonial from ${v.name} (fictional)`} />
+                <div className="video-card-body">
+                  <div className="row spread">
+                    <Stars rating={v.rating} />
+                    <span className="voice-tag">Sample</span>
+                  </div>
+                  <p className="quote">{v.quote}</p>
+                  <div className="video-card-author">
+                    <strong>{v.name}</strong>
+                    <span>
+                      {v.role}, {v.company} · fictional
+                    </span>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+          <p className="voices-caption muted xsmall" data-testid="video-sample-caption">
+            Sample testimonials for illustration. The people and companies are fictional, and the clips are
+            synthetic placeholders, not real recordings.
           </p>
         </section>
 
