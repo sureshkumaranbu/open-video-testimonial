@@ -9,6 +9,8 @@ import { env } from "./env";
 import { enqueue, PermanentJobError } from "./jobs";
 import { extractAudio, ffmpegAvailable, probe } from "./media";
 import { resolveKey } from "./storage";
+import { getTestimonial } from "./testimonials";
+import { emitTestimonialEvent } from "./webhooks";
 
 const { testimonials } = schema;
 
@@ -139,6 +141,7 @@ export async function transcribeTestimonial(testimonialId: string, opts: { willR
       transcriptError: null,
       updatedAt: new Date(),
     });
+    emitTestimonialEvent("testimonial.transcribed", getTestimonial(row.id));
     return result;
   } catch (err) {
     const retrying = opts.willRetry && !(err instanceof PermanentJobError);

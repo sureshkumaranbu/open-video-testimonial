@@ -5,6 +5,7 @@ import { queueDueReminders, SEND_EMAIL_JOB, sendRequestEmail, sendThankYou, THAN
 import { getTestimonial } from "./testimonials";
 import { queueTranscription, TRANSCRIBE_JOB, transcribeTestimonial } from "./transcribe";
 import { cleanupExpiredUploads } from "./uploads";
+import { deliver, DELIVER_JOB } from "./webhooks";
 
 /** Wires every background job type and periodic task to its handler. */
 export function registerJobs() {
@@ -24,6 +25,9 @@ export function registerJobs() {
   });
   registerJob(THANK_YOU_JOB, async (payload) => {
     await sendThankYou(payload as Parameters<typeof sendThankYou>[0]);
+  });
+  registerJob(DELIVER_JOB, async (payload, job) => {
+    await deliver((payload as { deliveryId: string }).deliveryId, job.attempts >= job.maxAttempts);
   });
   registerPeriodic("requests.reminders", 5 * 60 * 1000, () => queueDueReminders());
   registerPeriodic("uploads.cleanup", 60 * 60 * 1000, () => cleanupExpiredUploads());

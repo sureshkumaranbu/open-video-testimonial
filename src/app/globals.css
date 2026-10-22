@@ -1972,3 +1972,48 @@ textarea.mono {
 .notice.warn {
   background: var(--warn-soft);
 }
+
+.status-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-2) var(--space-6);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.status-list dt {
+  font-weight: 600;
+}
+.status-list dd {
+  margin: 0;
+  color: var(--ink-2);
+}
+.status-list dd[data-on="true"]::before {
+  content: "● ";
+  color: var(--ok);
+}
+.status-list dd[data-on="false"]::before {
+  content: "○ ";
+  color: var(--ink-3);
+}
+.secret {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  word-break: break-all;
+  background: var(--surface-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+}
+.event-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: var(--space-2);
+}
+@media (max-width: 520px) {
+  .status-list {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+  .status-list dd {
+    margin-bottom: var(--space-2);
+  }
+}

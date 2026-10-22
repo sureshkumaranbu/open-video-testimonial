@@ -207,6 +207,70 @@ export const requests = sqliteTable(
   ],
 );
 
+export const API_KEY_SCOPES = ["read", "write"] as const;
+export type ApiKeyScope = (typeof API_KEY_SCOPES)[number];
+
+/** Keys for the REST API. Only a hash is stored; the key is shown once. */
+export const apiKeys = sqliteTable("api_keys", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  /** First characters of the key, to recognise it in the list. */
+  prefix: text("prefix").notNull(),
+  keyHash: text("key_hash").notNull().unique(),
+  scope: text("scope", { enum: API_KEY_SCOPES }).notNull().default("read"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+  lastUsedAt: integer("last_used_at", { mode: "timestamp_ms" }),
+  revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
+});
+
+export const WEBHOOK_EVENTS = [
+  "testimonial.created",
+  "testimonial.approved",
+  "testimonial.rejected",
+  "testimonial.deleted",
+  "testimonial.transcribed",
+  "consent.withdrawn",
+] as const;
+export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number] | "ping";
+
+/** Outgoing webhooks, signed with a per-endpoint secret. */
+export const webhooks = sqliteTable("webhooks", {
+  id: text("id").primaryKey(),
+  url: text("url").notNull(),
+  /** HMAC-SHA256 signing secret (needed in full to sign, so stored as-is). */
+  secret: text("secret").notNull(),
+  /** JSON array of event names; empty means every event. */
+  events: text("events").notNull().default("[]"),
+  /** Only this project's events, or every project when null. */
+  projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+});
+
+export const DELIVERY_STATUSES = ["pending", "success", "failed"] as const;
+
+/** One attempt log per event sent to a webhook (retries update the same row). */
+export const webhookDeliveries = sqliteTable(
+  "webhook_deliveries",
+  {
+    id: text("id").primaryKey(),
+    webhookId: text("webhook_id")
+      .notNull()
+      .references(() => webhooks.id, { onDelete: "cascade" }),
+    event: text("event").notNull(),
+    payload: text("payload").notNull(),
+    status: text("status", { enum: DELIVERY_STATUSES }).notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    responseStatus: integer("response_status"),
+    responseBody: text("response_body"),
+    error: text("error"),
+    durationMs: integer("duration_ms"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+    deliveredAt: integer("delivered_at", { mode: "timestamp_ms" }),
+  },
+  (t) => [index("webhook_deliveries_webhook_idx").on(t.webhookId, t.createdAt)],
+);
+
 export const JOB_STATUSES = ["queued", "running", "done", "failed"] as const;
 
 /** Background work (video processing, email, webhooks) run by the in-process worker. */
@@ -255,4 +319,7 @@ export type Job = typeof jobs.$inferSelect;
 export type ConsentVersion = typeof consentVersions.$inferSelect;
 export type ConsentEvent = typeof consentEvents.$inferSelect;
 export type TestimonialRequest = typeof requests.$inferSelect;
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type Webhook = typeof webhooks.$inferSelect;
+export type WebhookDelivery = typeof webhookDeliveries.$inferSelect;
 export type Upload = typeof uploads.$inferSelect;

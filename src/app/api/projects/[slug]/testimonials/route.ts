@@ -4,7 +4,8 @@ import { queueVideoProcessing } from "@/lib/media";
 import { findRequestByToken, markResponded, queueThankYou } from "@/lib/requests";
 import { deleteObject, saveUpload, UploadError } from "@/lib/storage";
 import { claimUpload, getUpload } from "@/lib/uploads";
-import { createTestimonial, getProjectBySlug } from "@/lib/testimonials";
+import { createTestimonial, getProjectBySlug, getTestimonial } from "@/lib/testimonials";
+import { emitTestimonialEvent } from "@/lib/webhooks";
 import { firstIssue, submissionSchema } from "@/lib/validation";
 import { jsonError } from "@/lib/http";
 
@@ -100,6 +101,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ slug: string }
       ip: clientIp(req),
     });
     if (fromRequest) markResponded(fromRequest, testimonial.id);
+    emitTestimonialEvent("testimonial.created", getTestimonial(testimonial.id));
     queueThankYou(project, input.email, withdrawUrl(withdrawToken));
     if (storedVideo) await queueVideoProcessing(testimonial.id);
     return Response.json(

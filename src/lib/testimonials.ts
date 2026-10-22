@@ -4,6 +4,7 @@ import { getDb, schema } from "@/db";
 import type { Project, Testimonial, TestimonialStatus } from "@/db/schema";
 import { CONSENTED_FIELDS, logConsentEvent } from "./consent";
 import { deleteObject, mediaUrl, MIME_BY_EXT } from "./storage";
+import { emitTestimonialEvent } from "./webhooks";
 
 const { projects, testimonials, tags, testimonialTags } = schema;
 
@@ -108,8 +109,12 @@ export interface NewTestimonial {
   requestId?: string;
 }
 
-export function createTestimonial(projectId: string, input: NewTestimonial): Testimonial {
-  const now = new Date();
+export function createTestimonial(
+  projectId: string,
+  input: NewTestimonial,
+  opts: { source?: string; createdAt?: Date } = {},
+): Testimonial {
+  const now = opts.createdAt ?? new Date();
   return getDb()
     .insert(testimonials)
     .values({
@@ -127,6 +132,7 @@ export function createTestimonial(projectId: string, input: NewTestimonial): Tes
       videoMime: input.videoMime ?? null,
       videoOriginalKey: input.videoKey ?? null,
       requestId: input.requestId ?? null,
+      source: opts.source ?? "form",
       consentAt: now,
       createdAt: now,
       updatedAt: now,
@@ -261,6 +267,10 @@ export function updateTestimonial(
       }
     }
   });
+  const updated = getTestimonial(id);
+  if (fields.status && fields.status !== existing.status && fields.status !== "pending") {
+    emitTestimonialEvent(fields.status === "approved" ? "testimonial.approved" : "testimonial.rejected", updated);
+  }
   if (edited.length) {
     logConsentEvent({
       testimonialId: id,
@@ -269,10 +279,12 @@ export function updateTestimonial(
       detail: `Changed after consent: ${edited.join(", ")}`,
     });
   }
-  return getTestimonial(id);
+  return updated;
 }
 
 export async function deleteTestimonial(id: string) {
+  // Webhook payloads are captured before the row disappears.
+  emitTestimonialEvent("testimonial.deleted", getTestimonial(id));
   const row = getDb().delete(testimonials).where(eq(testimonials.id, id)).returning().get();
   if (!row) return false;
   const keys = new Set([row.avatarKey, row.videoKey, row.videoOriginalKey, row.posterKey]);

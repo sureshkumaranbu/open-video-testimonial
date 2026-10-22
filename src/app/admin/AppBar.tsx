@@ -24,7 +24,12 @@ export function AppBar({ trail }: { trail?: { href?: string; label: string }[] }
             </span>
           ))}
         </nav>
-        <LogoutButton />
+        <div className="row" style={{ gap: "var(--space-2)", flexWrap: "nowrap" }}>
+          <Link href="/admin/settings" className="button ghost small">
+            Settings
+          </Link>
+          <LogoutButton />
+        </div>
       </div>
     </header>
   );
