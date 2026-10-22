@@ -2,10 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/Icon";
-import { VideoRecorder } from "./VideoRecorder";
+import { type RecordedVideo, VideoRecorder } from "./VideoRecorder";
 
 type Props = {
-  project: { slug: string; name: string; allowVideo: boolean; allowText: boolean };
+  project: {
+    slug: string;
+    name: string;
+    allowVideo: boolean;
+    allowText: boolean;
+    questions: string[];
+    maxVideoSeconds: number;
+  };
+  /** The exact consent wording shown, and its stored version. */
+  consent: { versionId: string; text: string };
+  /** From a personal request link. */
+  prefill?: { token: string; name: string; email: string; company: string } | null;
 };
 
 type Mode = "text" | "video";
@@ -77,13 +88,14 @@ function PhotoPicker() {
   );
 }
 
-export function CollectForm({ project }: Props) {
+export function CollectForm({ project, consent, prefill }: Props) {
   const [mode, setMode] = useState<Mode>(project.allowText ? "text" : "video");
   const [rating, setRating] = useState(0);
-  const [video, setVideo] = useState<Blob | null>(null);
+  const [video, setVideo] = useState<RecordedVideo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState<string | null>(null);
+  const [done, setDone] = useState<{ message: string; withdrawUrl?: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -96,18 +108,22 @@ export function CollectForm({ project }: Props) {
         setError("Record or upload a video before sending.");
         return;
       }
-      const ext = video.type.includes("mp4") ? "mp4" : video.type.includes("quicktime") ? "mov" : "webm";
-      form.set("video", video, `testimonial.${ext}`);
     }
     setSubmitting(true);
     try {
+      if (mode === "video" && video) {
+        // Usually already done: the video uploads while it records.
+        const { id, token } = await video.upload.finish();
+        form.set("videoUpload", id);
+        form.set("videoUploadToken", token);
+      }
       const res = await fetch(`/api/projects/${project.slug}/testimonials`, {
         method: "POST",
         body: form,
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Your testimonial didn't send. Check your connection and try again.");
-      setDone(body.message);
+      setDone({ message: body.message, withdrawUrl: body.withdrawUrl });
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -123,10 +139,31 @@ export function CollectForm({ project }: Props) {
             <path d="M5 12.5l4.5 4.5L19 7.5" />
           </svg>
         </span>
-        <h2 style={{ fontSize: "var(--text-2xl)" }}>{done}</h2>
+        <h2 style={{ fontSize: "var(--text-2xl)" }}>{done.message}</h2>
         <p className="muted">
           {project.name} will review it shortly. You can close this page.
         </p>
+        {done.withdrawUrl && (
+          <div className="withdraw-note" data-testid="withdraw-note">
+            <p className="small">
+              Changed your mind later? This private link lets you withdraw your testimonial at any time. Keep it
+              somewhere safe; anyone with it can withdraw.
+            </p>
+            <div className="link-field">
+              <span>{done.withdrawUrl}</span>
+              <button
+                type="button"
+                className="secondary small"
+                onClick={async () => {
+                  await navigator.clipboard?.writeText(done.withdrawUrl!);
+                  setCopied(true);
+                }}
+              >
+                {copied ? "Copied" : "Copy link"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -169,7 +206,12 @@ export function CollectForm({ project }: Props) {
             />
           </label>
         ) : (
-          <VideoRecorder onChange={setVideo} />
+          <VideoRecorder
+            slug={project.slug}
+            questions={project.questions}
+            maxSeconds={project.maxVideoSeconds}
+            onChange={setVideo}
+          />
         )}
       </section>
 
@@ -179,13 +221,13 @@ export function CollectForm({ project }: Props) {
         </h2>
         <label>
           Your name
-          <input type="text" name="name" required maxLength={120} autoComplete="name" />
+          <input type="text" name="name" required maxLength={120} autoComplete="name" defaultValue={prefill?.name} />
         </label>
         <label>
           <span>
             Email <span className="hint">(private, never shown publicly)</span>
           </span>
-          <input type="email" name="email" maxLength={254} autoComplete="email" />
+          <input type="email" name="email" maxLength={254} autoComplete="email" defaultValue={prefill?.email} />
         </label>
         <div className="two-col">
           <label>
@@ -194,7 +236,7 @@ export function CollectForm({ project }: Props) {
           </label>
           <label>
             Company
-            <input type="text" name="company" maxLength={120} autoComplete="organization" />
+            <input type="text" name="company" maxLength={120} autoComplete="organization" defaultValue={prefill?.company} />
           </label>
         </div>
         <PhotoPicker />
@@ -210,11 +252,16 @@ export function CollectForm({ project }: Props) {
         style={{ position: "absolute", left: "-9999px" }}
       />
 
+      <input type="hidden" name="consentVersion" value={consent.versionId} />
+      {prefill && <input type="hidden" name="requestToken" value={prefill.token} />}
       <label className="check consent">
         <input type="checkbox" name="consent" required />
+        <span data-testid="consent-text">{consent.text}</span>
+      </label>
+      <label className="check consent-extra">
+        <input type="checkbox" name="consentSocial" />
         <span>
-          I agree that {project.name} may publish this testimonial, with my name, photo and video, on
-          its website and marketing.
+          {project.name} may also share it on social media. <span className="hint">(optional)</span>
         </span>
       </label>
 
@@ -224,7 +271,7 @@ export function CollectForm({ project }: Props) {
         </p>
       )}
       <button type="submit" className="accent lg block" disabled={submitting}>
-        {submitting ? "Sending…" : "Submit testimonial"}
+        {submitting ? (mode === "video" ? "Finishing upload…" : "Sending…") : "Submit testimonial"}
       </button>
     </form>
   );

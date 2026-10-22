@@ -32,23 +32,42 @@ type VideoOptions = {
   fallback?: { url: string; mime: string };
 };
 
+/** Frame ratio for a video: its own shape, clamped between 3:4 and 16:9. */
+export function videoRatio(v: { width: number | null; height: number | null }) {
+  if (!v.width || !v.height) return "16 / 10";
+  return String(Math.min(Math.max(v.width / v.height, 0.75), 1.78));
+}
+
 /** Read-only card used by the wall of love and the iframe embed. */
 export function TestimonialCard({ t, video }: { t: PublicTestimonial; video?: VideoOptions }) {
   const byline = [t.title, t.company].filter(Boolean).join(", ");
+  const poster = video?.poster ?? t.video?.poster ?? undefined;
   return (
     <article className={t.video ? "testimonial" : "testimonial text-only"}>
       {t.video && (
         <div className="media">
           <video
             controls
-            preload={video?.preload ?? "metadata"}
+            preload={video?.preload ?? (poster ? "none" : "metadata")}
             playsInline
             muted={video?.muted}
-            poster={video?.poster}
+            poster={poster}
+            style={{ aspectRatio: videoRatio(t.video) }}
           >
-            <source src={t.video.url} type={t.video.mime} />
+            {t.video.sources.length ? (
+              t.video.sources.map((src) => <source key={src.url} src={src.url} type={src.type} />)
+            ) : (
+              <source src={t.video.url} type={t.video.mime} />
+            )}
             {video?.fallback && <source src={video.fallback.url} type={video.fallback.mime} />}
+            {t.video.captionsUrl && <track kind="captions" src={t.video.captionsUrl} label="Captions" default />}
           </video>
+          {t.video.transcript && (
+            <details className="transcript">
+              <summary>Transcript</summary>
+              <p>{t.video.transcript}</p>
+            </details>
+          )}
         </div>
       )}
       {t.rating ? <Stars rating={t.rating} /> : null}

@@ -115,3 +115,8 @@ export function hostPage(title: string, body: string) {
 article,div{background:hotpink;border:4px solid lime}</style></head>
 <body><h1>${title}</h1>${body}</body></html>`;
 }
+
+/** Saves a screenshot to docs/screenshots/ when UPDATE_SCREENSHOTS is set. */
+export async function shot(page: Page, name: string, fullPage = false) {
+  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage });
+}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { Project, TestimonialStatus } from "@/db/schema";
+import type { MediaStatus, Project, TestimonialStatus, TranscriptStatus } from "@/db/schema";
+import type { SystemStatus } from "@/lib/system";
 import { Icon } from "@/components/Icon";
 import { Avatar, Stars } from "@/components/TestimonialCard";
 import { accentStyle } from "@/lib/theme";
@@ -18,6 +19,18 @@ type AdminTestimonial = {
   avatarKey: string | null;
   videoKey: string | null;
   videoMime: string | null;
+  posterKey: string | null;
+  videoOriginalKey: string | null;
+  mediaStatus: MediaStatus;
+  mediaError: string | null;
+  transcript: string | null;
+  captionsVtt: string | null;
+  transcriptStatus: TranscriptStatus;
+  transcriptError: string | null;
+  consentScopes: string;
+  editedAfterConsent: boolean;
+  withdrawnAt: string | null;
+  requestId: string | null;
   createdAt: string;
   tags: string[];
 };
@@ -55,7 +68,15 @@ function timeAgo(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
-export function Dashboard({ project: initial, publicUrl }: { project: Project; publicUrl: string }) {
+export function Dashboard({
+  project: initial,
+  publicUrl,
+  system,
+}: {
+  project: Project;
+  publicUrl: string;
+  system: SystemStatus;
+}) {
   const [project, setProject] = useState(initial);
   const [filter, setFilter] = useState<Filter>("pending");
   const [all, setAll] = useState<AdminTestimonial[]>([]);
@@ -78,6 +99,15 @@ export function Dashboard({ project: initial, publicUrl }: { project: Project; p
     void load();
   }, [load]);
 
+  // Refresh while videos are being converted so the result shows up by itself.
+  const busy = (s: string) => s === "queued" || s === "processing";
+  const processing = all.some((t) => busy(t.mediaStatus) || busy(t.transcriptStatus));
+  useEffect(() => {
+    if (!processing) return;
+    const id = setInterval(() => void load(), 3000);
+    return () => clearInterval(id);
+  }, [processing, load]);
+
   const counts = {
     pending: all.filter((t) => t.status === "pending").length,
     approved: all.filter((t) => t.status === "approved").length,
@@ -89,6 +119,24 @@ export function Dashboard({ project: initial, publicUrl }: { project: Project; p
   async function update(id: string, patch: Record<string, unknown>) {
     try {
       await api(`/api/admin/testimonials/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+      await load();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function transcribe(id: string) {
+    try {
+      await api(`/api/admin/testimonials/${id}/transcribe`, { method: "POST" });
+      await load();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function reprocess(id: string) {
+    try {
+      await api(`/api/admin/testimonials/${id}/reprocess`, { method: "POST" });
       await load();
     } catch (err) {
       setError((err as Error).message);
@@ -176,6 +224,9 @@ export function Dashboard({ project: initial, publicUrl }: { project: Project; p
               t={t}
               onUpdate={(patch) => update(t.id, patch)}
               onDelete={() => remove(t.id)}
+              onReprocess={() => reprocess(t.id)}
+              onTranscribe={() => transcribe(t.id)}
+              transcription={system.transcription.enabled && system.ffmpeg}
             />
           ))}
         </section>
@@ -189,14 +240,26 @@ export function Dashboard({ project: initial, publicUrl }: { project: Project; p
   );
 }
 
+const MEDIA_NOTE: Partial<Record<MediaStatus, string>> = {
+  queued: "Converting video…",
+  processing: "Converting video…",
+  skipped: "ffmpeg isn't installed, so the original file is served as uploaded. Some browsers may not play it.",
+};
+
 function TestimonialRow({
   t,
   onUpdate,
   onDelete,
+  onReprocess,
+  onTranscribe,
+  transcription,
 }: {
   t: AdminTestimonial;
-  onUpdate: (patch: Record<string, unknown>) => void;
+  onUpdate: (patch: Record<string, unknown>) => Promise<void> | void;
   onDelete: () => void;
+  onReprocess: () => void;
+  onTranscribe: () => void;
+  transcription: boolean;
 }) {
   const [name, setName] = useState(t.authorName);
   const [tags, setTags] = useState(t.tags.join(", "));
@@ -223,15 +286,54 @@ function TestimonialRow({
           </div>
         </div>
         <div className="row small" style={{ gap: "var(--space-2)" }}>
-          <span className={`badge ${t.status}`}>{t.status[0].toUpperCase() + t.status.slice(1)}</span>
+          {t.withdrawnAt ? (
+            <span className="badge rejected" data-testid="withdrawn-badge">
+              Withdrawn
+            </span>
+          ) : (
+            <span className={`badge ${t.status}`}>{t.status[0].toUpperCase() + t.status.slice(1)}</span>
+          )}
+          {t.requestId && (
+            <span className="badge requested" title="Sent through a personal request link">
+              Requested
+            </span>
+          )}
+          {t.editedAfterConsent && (
+            <span className="badge edited" title="You changed what the author wrote after they consented">
+              Edited after consent
+            </span>
+          )}
           <span className="muted xsmall">{timeAgo(t.createdAt)}</span>
         </div>
       </div>
 
       {t.videoKey && (
-        <video controls preload="metadata" playsInline>
-          <source src={`/api/media/${t.videoKey}`} type={t.videoMime ?? undefined} />
+        <video
+          controls
+          preload={t.posterKey ? "none" : "metadata"}
+          playsInline
+          poster={t.posterKey ? `/api/media/${t.posterKey}` : undefined}
+          key={t.videoKey}
+        >
+          <source src={`/api/media/${t.videoKey}`} type={t.mediaStatus === "ready" ? 'video/mp4; codecs="avc1.640028, mp4a.40.2"' : (t.videoMime ?? undefined)} />
+          {t.videoOriginalKey && t.videoOriginalKey !== t.videoKey && <source src={`/api/media/${t.videoOriginalKey}`} />}
         </video>
+      )}
+      {t.videoKey && MEDIA_NOTE[t.mediaStatus] && (
+        <p className="muted small" data-testid="media-status" data-status={t.mediaStatus}>
+          {MEDIA_NOTE[t.mediaStatus]}
+        </p>
+      )}
+      {t.videoKey && t.mediaStatus === "failed" && (
+        <div className="row small" data-testid="media-status" data-status="failed">
+          <span className="error-text">Video conversion failed: {t.mediaError ?? "unknown error"}. The original file is still served.</span>
+          <button type="button" className="secondary small" onClick={onReprocess}>
+            Try again
+          </button>
+        </div>
+      )}
+      {t.videoKey && (
+        <TranscriptPanel t={t} enabled={transcription} onTranscribe={onTranscribe} onUpdate={onUpdate} />
       )}
       {t.rating ? <Stars rating={t.rating} /> : null}
       {t.text && <p className="quote" style={{ fontSize: "var(--text-lg)" }}>{t.text}</p>}
@@ -263,8 +365,10 @@ function TestimonialRow({
         </button>
       </div>
 
+      <ConsentPanel t={t} />
+
       <div className="review-actions">
-        {t.status !== "approved" && (
+        {t.status !== "approved" && !t.withdrawnAt && (
           <button type="button" className="approve small" onClick={() => onUpdate({ status: "approved" })}>
             <Icon name="check" />
             Approve
@@ -276,7 +380,7 @@ function TestimonialRow({
             Reject
           </button>
         )}
-        {t.status !== "pending" && (
+        {t.status !== "pending" && !t.withdrawnAt && (
           <button type="button" className="ghost small" onClick={() => onUpdate({ status: "pending" })}>
             <Icon name="undo" />
             Move to pending
@@ -288,6 +392,172 @@ function TestimonialRow({
         </button>
       </div>
     </article>
+  );
+}
+
+type ConsentRecord = {
+  scopes: string[];
+  events: {
+    id: string;
+    type: "granted" | "edited" | "withdrawn" | "imported";
+    actor: string;
+    at: string;
+    text: string | null;
+    textHash: string | null;
+    scopes: string[] | null;
+    detail: string | null;
+  }[];
+};
+
+const EVENT_LABEL: Record<ConsentRecord["events"][number]["type"], string> = {
+  granted: "Consent given",
+  edited: "Edited",
+  withdrawn: "Withdrawn",
+  imported: "Imported",
+};
+const SCOPE_LABEL: Record<string, string> = { website: "website and marketing", social: "social media" };
+
+/** The append-only consent history, loaded when opened. */
+function ConsentPanel({ t }: { t: AdminTestimonial }) {
+  const [record, setRecord] = useState<ConsentRecord | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const scopes = (() => {
+    try {
+      return JSON.parse(t.consentScopes) as string[];
+    } catch {
+      return [];
+    }
+  })();
+
+  return (
+    <details
+      className="consent-panel"
+      data-testid="consent-panel"
+      onToggle={async (e) => {
+        if (!(e.currentTarget as HTMLDetailsElement).open) return;
+        try {
+          setRecord(await api<ConsentRecord>(`/api/admin/testimonials/${t.id}/consent`));
+        } catch (err) {
+          setError((err as Error).message);
+        }
+      }}
+    >
+      <summary>
+        Consent <span className="muted xsmall">· {scopes.map((s) => SCOPE_LABEL[s] ?? s).join(", ")}</span>
+      </summary>
+      {error && <p className="error-text small">{error}</p>}
+      {record && (
+        <ol className="consent-events">
+          {record.events.length === 0 && (
+            <li className="muted small">
+              Consent was given on {new Date(t.createdAt).toLocaleString()}, before the consent ledger existed, so the
+              exact wording wasn&apos;t recorded.
+            </li>
+          )}
+          {record.events.map((e) => (
+            <li key={e.id} data-type={e.type}>
+              <strong>{EVENT_LABEL[e.type]}</strong>{" "}
+              <span className="muted xsmall">
+                {new Date(e.at).toLocaleString()} · by {e.actor}
+              </span>
+              {e.scopes && <div className="small">For: {e.scopes.map((s) => SCOPE_LABEL[s] ?? s).join(", ")}</div>}
+              {e.detail && <div className="small">{e.detail}</div>}
+              {e.text && (
+                <blockquote className="small">
+                  &ldquo;{e.text}&rdquo;
+                  {e.textHash && <span className="muted xsmall"> (wording hash {e.textHash.slice(0, 12)})</span>}
+                </blockquote>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+    </details>
+  );
+}
+
+const TRANSCRIPT_LABEL: Record<TranscriptStatus, string> = {
+  none: "Not transcribed",
+  queued: "Transcribing…",
+  processing: "Transcribing…",
+  ready: "Ready",
+  failed: "Failed",
+};
+
+/** Machine transcript and WebVTT captions, both editable by the owner. */
+function TranscriptPanel({
+  t,
+  enabled,
+  onTranscribe,
+  onUpdate,
+}: {
+  t: AdminTestimonial;
+  enabled: boolean;
+  onTranscribe: () => void;
+  onUpdate: (patch: Record<string, unknown>) => Promise<void> | void;
+}) {
+  const [transcript, setTranscript] = useState(t.transcript ?? "");
+  const [captions, setCaptions] = useState(t.captionsVtt ?? "");
+  useEffect(() => {
+    setTranscript(t.transcript ?? "");
+    setCaptions(t.captionsVtt ?? "");
+  }, [t.transcript, t.captionsVtt]);
+  const dirty = transcript !== (t.transcript ?? "") || captions !== (t.captionsVtt ?? "");
+  const busy = t.transcriptStatus === "queued" || t.transcriptStatus === "processing";
+
+  return (
+    <details className="transcript-editor" data-testid="transcript-panel" data-status={t.transcriptStatus}>
+      <summary>
+        Transcript &amp; captions <span className="muted xsmall">· {TRANSCRIPT_LABEL[t.transcriptStatus]}</span>
+      </summary>
+      <div className="stack" style={{ marginTop: "var(--space-3)" }}>
+        {t.transcriptStatus === "failed" && (
+          <p className="error-text small">Transcription failed: {t.transcriptError ?? "unknown error"}</p>
+        )}
+        {!enabled && (
+          <p className="muted small">
+            Automatic transcripts are off on this server (see <code>TRANSCRIBE_PROVIDER</code> in the README). You can
+            still type a transcript or paste captions.
+          </p>
+        )}
+        <label>
+          Transcript
+          <textarea rows={3} value={transcript} onChange={(e) => setTranscript(e.target.value)} />
+        </label>
+        <label>
+          <span>
+            Captions <span className="hint">(WebVTT or SRT)</span>
+          </span>
+          <textarea
+            rows={4}
+            className="mono"
+            value={captions}
+            onChange={(e) => setCaptions(e.target.value)}
+            placeholder={"WEBVTT\n\n00:00:00.000 --> 00:00:03.000\nHello!"}
+          />
+        </label>
+        <div className="row">
+          <button
+            type="button"
+            className="secondary small"
+            disabled={!dirty}
+            onClick={() => onUpdate({ transcript, captionsVtt: captions })}
+          >
+            Save transcript
+          </button>
+          {enabled && (
+            <button type="button" className="ghost small" disabled={busy} onClick={onTranscribe}>
+              {t.transcriptStatus === "none" ? "Transcribe" : "Transcribe again"}
+            </button>
+          )}
+          {t.transcript && t.transcript !== t.text && (
+            <button type="button" className="ghost small" onClick={() => onUpdate({ text: t.transcript })}>
+              Use transcript as quote
+            </button>
+          )}
+        </div>
+      </div>
+    </details>
   );
 }
 
@@ -404,6 +674,9 @@ function SettingsPanel({ project, onSaved }: { project: Project; onSaved: (p: Pr
           accentColor: form.get("accentColor"),
           allowText: form.get("allowText") === "on",
           allowVideo: form.get("allowVideo") === "on",
+          questions: form.get("questions"),
+          maxVideoSeconds: Number(form.get("maxVideoSeconds")),
+          consentText: form.get("consentText"),
         }),
       });
       onSaved(saved);
@@ -435,6 +708,26 @@ function SettingsPanel({ project, onSaved }: { project: Project; onSaved: (p: Pr
         <label>
           Thank-you message
           <input type="text" name="thankYouMessage" defaultValue={project.thankYouMessage} required />
+        </label>
+        <label>
+          <span>
+            Questions <span className="hint">(one per line; shown beside the form and over the camera)</span>
+          </span>
+          <textarea name="questions" rows={4} defaultValue={project.questions} maxLength={1200} />
+        </label>
+        <label>
+          <span>
+            Consent wording{" "}
+            <span className="hint">
+              (<code>{"{project}"}</code> is replaced with this project&apos;s name; leave it empty for the default. Each change is kept as
+              a new version, and every testimonial records the version it agreed to.)
+            </span>
+          </span>
+          <textarea name="consentText" rows={3} maxLength={1000} defaultValue={project.consentText} />
+        </label>
+        <label>
+          Longest video (seconds)
+          <input type="number" name="maxVideoSeconds" min={15} max={600} step={5} defaultValue={project.maxVideoSeconds} required />
         </label>
         <label className="row" style={{ flexDirection: "row", alignItems: "center", gap: "var(--space-3)" }}>
           <input type="color" name="accentColor" defaultValue={project.accentColor} />

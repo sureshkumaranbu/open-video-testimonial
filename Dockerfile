@@ -17,6 +17,15 @@ RUN npm run build
 
 FROM ${NODE_IMAGE} AS runtime
 WORKDIR /app
+# ffmpeg converts uploaded videos to MP4 that every browser plays, makes
+# posters, and extracts audio for transcripts. Build with
+# --build-arg INSTALL_FFMPEG=false for a smaller image that serves uploads as-is.
+ARG INSTALL_FFMPEG=true
+RUN if [ "$INSTALL_FFMPEG" = "true" ]; then \
+      apt-get update \
+      && apt-get install -y --no-install-recommends ffmpeg \
+      && rm -rf /var/lib/apt/lists/*; \
+    fi
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \

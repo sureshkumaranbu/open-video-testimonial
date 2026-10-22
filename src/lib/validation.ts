@@ -27,6 +27,9 @@ export const submissionSchema = z.object({
     .transform((v) => (v === "" || v === undefined ? undefined : v)),
   text: optionalText(5000),
   consent: z.literal("on", { error: "Please tick the consent box so we can share your testimonial" }),
+  consentSocial: z.literal("on").optional(),
+  consentVersion: z.string().max(64).optional(),
+  requestToken: z.string().max(100).optional(),
 });
 
 export type SubmissionInput = z.infer<typeof submissionSchema>;
@@ -50,6 +53,31 @@ export const projectSchema = z.object({
     .optional(),
   allowVideo: z.boolean().optional(),
   allowText: z.boolean().optional(),
+  /** One prompt per line, at most 8 lines. */
+  questions: z
+    .string()
+    .max(1200)
+    .transform((v) =>
+      v
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .slice(0, 8)
+        .join("\n"),
+    )
+    .optional(),
+  maxVideoSeconds: z.number().int().min(15).max(600).optional(),
+  /** Empty restores the default wording. */
+  consentText: z.string().trim().max(1000).optional(),
+  inviteSubject: z.string().trim().max(200).optional(),
+  inviteMessage: z.string().trim().max(5000).optional(),
+  /** Comma-separated days after the invitation, e.g. "3,7". */
+  reminderDays: z
+    .string()
+    .max(40)
+    .regex(/^[\d,\s]*$/, "Use whole days separated by commas, e.g. 3, 7")
+    .optional(),
+  thankYouEmail: z.boolean().optional(),
 });
 
 export const projectUpdateSchema = projectSchema.partial().omit({ slug: true });
@@ -61,6 +89,11 @@ export const testimonialUpdateSchema = z.object({
   authorName: z.string().trim().min(1).max(120).optional(),
   authorTitle: z.string().trim().max(120).nullable().optional(),
   authorCompany: z.string().trim().max(120).nullable().optional(),
+  text: z.string().trim().max(5000).nullable().optional(),
+  rating: z.number().int().min(1).max(5).nullable().optional(),
+  transcript: z.string().trim().max(50_000).nullable().optional(),
+  /** WebVTT or SRT; normalised to WebVTT before saving. */
+  captionsVtt: z.string().max(200_000).nullable().optional(),
   tags: z.array(tagNameSchema).max(20).optional(),
 });
 

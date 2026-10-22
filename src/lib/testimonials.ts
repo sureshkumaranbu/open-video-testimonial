@@ -2,12 +2,28 @@ import crypto from "node:crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import type { Project, Testimonial, TestimonialStatus } from "@/db/schema";
-import { deleteObject, mediaUrl } from "./storage";
+import { CONSENTED_FIELDS, logConsentEvent } from "./consent";
+import { deleteObject, mediaUrl, MIME_BY_EXT } from "./storage";
+import { emitTestimonialEvent } from "./webhooks";
 
 const { projects, testimonials, tags, testimonialTags } = schema;
 
 export const DEFAULT_PROMPT = "How has our product helped you? We'd love to hear your story.";
 export const DEFAULT_THANK_YOU = "Thank you! Your testimonial has been received.";
+export const DEFAULT_QUESTIONS = [
+  "What were things like before?",
+  "What changed for you?",
+  "Who would you recommend it to?",
+];
+
+/** The project's prompts, one per line, falling back to the defaults. */
+export function projectQuestions(project: Pick<Project, "questions">) {
+  const lines = project.questions
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  return lines.length ? lines : DEFAULT_QUESTIONS;
+}
 
 // ---------------------------------------------------------------- projects
 
@@ -31,6 +47,13 @@ export function createProject(input: {
   accentColor?: string;
   allowVideo?: boolean;
   allowText?: boolean;
+  questions?: string;
+  maxVideoSeconds?: number;
+  consentText?: string;
+  inviteSubject?: string;
+  inviteMessage?: string;
+  reminderDays?: string;
+  thankYouEmail?: boolean;
 }): Project {
   return getDb()
     .insert(projects)
@@ -43,6 +66,13 @@ export function createProject(input: {
       accentColor: input.accentColor,
       allowVideo: input.allowVideo,
       allowText: input.allowText,
+      questions: input.questions ?? DEFAULT_QUESTIONS.join("\n"),
+      maxVideoSeconds: input.maxVideoSeconds,
+      consentText: input.consentText,
+      inviteSubject: input.inviteSubject,
+      inviteMessage: input.inviteMessage,
+      reminderDays: input.reminderDays,
+      thankYouEmail: input.thankYouEmail,
     })
     .returning()
     .get();
@@ -50,7 +80,24 @@ export function createProject(input: {
 
 export function updateProject(
   id: string,
-  patch: Partial<Pick<Project, "name" | "prompt" | "thankYouMessage" | "accentColor" | "allowVideo" | "allowText">>,
+  patch: Partial<
+    Pick<
+      Project,
+      | "name"
+      | "prompt"
+      | "thankYouMessage"
+      | "accentColor"
+      | "allowVideo"
+      | "allowText"
+      | "questions"
+      | "maxVideoSeconds"
+      | "consentText"
+      | "inviteSubject"
+      | "inviteMessage"
+      | "reminderDays"
+      | "thankYouEmail"
+    >
+  >,
 ) {
   return getDb().update(projects).set(patch).where(eq(projects.id, id)).returning().get() ?? null;
 }
@@ -67,10 +114,15 @@ export interface NewTestimonial {
   avatarKey?: string;
   videoKey?: string;
   videoMime?: string;
+  requestId?: string;
 }
 
-export function createTestimonial(projectId: string, input: NewTestimonial): Testimonial {
-  const now = new Date();
+export function createTestimonial(
+  projectId: string,
+  input: NewTestimonial,
+  opts: { source?: string; createdAt?: Date } = {},
+): Testimonial {
+  const now = opts.createdAt ?? new Date();
   return getDb()
     .insert(testimonials)
     .values({
@@ -86,6 +138,9 @@ export function createTestimonial(projectId: string, input: NewTestimonial): Tes
       avatarKey: input.avatarKey ?? null,
       videoKey: input.videoKey ?? null,
       videoMime: input.videoMime ?? null,
+      videoOriginalKey: input.videoKey ?? null,
+      requestId: input.requestId ?? null,
+      source: opts.source ?? "form",
       consentAt: now,
       createdAt: now,
       updatedAt: now,
@@ -167,6 +222,13 @@ export function listProjectTags(projectId: string) {
     .map((t) => t.name);
 }
 
+/** Thrown when someone tries to publish a testimonial its author withdrew. */
+export class ConsentWithdrawnError extends Error {
+  constructor() {
+    super("The author withdrew consent for this testimonial, so it can't be published again");
+  }
+}
+
 export function updateTestimonial(
   id: string,
   patch: {
@@ -174,16 +236,26 @@ export function updateTestimonial(
     authorName?: string;
     authorTitle?: string | null;
     authorCompany?: string | null;
+    text?: string | null;
+    transcript?: string | null;
+    captionsVtt?: string | null;
+    rating?: number | null;
     tags?: string[];
   },
+  opts: { actor?: "owner" | "api"; quiet?: boolean } = {},
 ): TestimonialWithTags | null {
   const db = getDb();
   const existing = db.select().from(testimonials).where(eq(testimonials.id, id)).get();
   if (!existing) return null;
+  if (existing.withdrawnAt && patch.status && patch.status !== "rejected") throw new ConsentWithdrawnError();
   const { tags: tagNames, ...fields } = patch;
+  // Changing what the author wrote is allowed, but recorded.
+  const edited = CONSENTED_FIELDS.filter(
+    (f) => fields[f] !== undefined && (fields[f] ?? null) !== (existing[f] ?? null),
+  );
   db.transaction((tx) => {
     tx.update(testimonials)
-      .set({ ...fields, updatedAt: new Date() })
+      .set({ ...fields, ...(edited.length ? { editedAfterConsent: true } : {}), updatedAt: new Date() })
       .where(eq(testimonials.id, id))
       .run();
     if (tagNames) {
@@ -203,13 +275,28 @@ export function updateTestimonial(
       }
     }
   });
-  return getTestimonial(id);
+  const updated = getTestimonial(id);
+  if (!opts.quiet && fields.status && fields.status !== existing.status && fields.status !== "pending") {
+    emitTestimonialEvent(fields.status === "approved" ? "testimonial.approved" : "testimonial.rejected", updated);
+  }
+  if (edited.length) {
+    logConsentEvent({
+      testimonialId: id,
+      type: "edited",
+      actor: opts.actor ?? "owner",
+      detail: `Changed after consent: ${edited.join(", ")}`,
+    });
+  }
+  return updated;
 }
 
 export async function deleteTestimonial(id: string) {
+  // Webhook payloads are captured before the row disappears.
+  emitTestimonialEvent("testimonial.deleted", getTestimonial(id));
   const row = getDb().delete(testimonials).where(eq(testimonials.id, id)).returning().get();
   if (!row) return false;
-  await Promise.all([deleteObject(row.avatarKey), deleteObject(row.videoKey)]);
+  const keys = new Set([row.avatarKey, row.videoKey, row.videoOriginalKey, row.posterKey]);
+  await Promise.all([...keys].map((k) => deleteObject(k)));
   return true;
 }
 
@@ -224,9 +311,37 @@ export interface PublicTestimonial {
   avatarUrl: string | null;
   rating: number | null;
   text: string | null;
-  video: { url: string; mime: string } | null;
+  video: {
+    url: string;
+    mime: string;
+    poster: string | null;
+    width: number | null;
+    height: number | null;
+    durationMs: number | null;
+    /** Every playable copy, best first, for <source> elements. */
+    sources: { url: string; type: string }[];
+    /** WebVTT captions, if there are any. */
+    captionsUrl: string | null;
+    transcript: string | null;
+  } | null;
   tags: string[];
   createdAt: string;
+}
+
+// Naming the codecs lets a browser without H.264 skip straight to the original.
+const PROCESSED_TYPE = 'video/mp4; codecs="avc1.640028, mp4a.40.2"';
+
+/** The converted MP4 first (plays everywhere), then the original upload as a fallback. */
+export function videoSources(t: Testimonial) {
+  if (!t.videoKey) return [];
+  const sources = [
+    { url: mediaUrl(t.videoKey)!, type: t.mediaStatus === "ready" ? PROCESSED_TYPE : (t.videoMime ?? "video/webm") },
+  ];
+  if (t.mediaStatus === "ready" && t.videoOriginalKey && t.videoOriginalKey !== t.videoKey) {
+    const ext = t.videoOriginalKey.split(".").pop() ?? "";
+    sources.push({ url: mediaUrl(t.videoOriginalKey)!, type: MIME_BY_EXT[ext] ?? "video/webm" });
+  }
+  return sources;
 }
 
 export function toPublic(t: TestimonialWithTags): PublicTestimonial {
@@ -238,12 +353,26 @@ export function toPublic(t: TestimonialWithTags): PublicTestimonial {
     avatarUrl: mediaUrl(t.avatarKey),
     rating: t.rating,
     text: t.text,
-    video: t.videoKey ? { url: mediaUrl(t.videoKey)!, mime: t.videoMime ?? "video/webm" } : null,
+    video: t.videoKey
+      ? {
+          url: mediaUrl(t.videoKey)!,
+          mime: t.videoMime ?? "video/webm",
+          poster: mediaUrl(t.posterKey),
+          width: t.videoWidth,
+          height: t.videoHeight,
+          durationMs: t.videoDurationMs,
+          sources: videoSources(t),
+          captionsUrl: t.captionsVtt ? `/api/captions/${t.id}` : null,
+          transcript: t.transcript,
+        }
+      : null,
     tags: t.tags,
     createdAt: t.createdAt.toISOString(),
   };
 }
 
 export function listPublicTestimonials(projectId: string, opts: { tag?: string; limit?: number } = {}) {
-  return listTestimonials(projectId, { ...opts, status: "approved" }).map(toPublic);
+  return listTestimonials(projectId, { ...opts, status: "approved" })
+    .filter((t) => !t.withdrawnAt)
+    .map(toPublic);
 }

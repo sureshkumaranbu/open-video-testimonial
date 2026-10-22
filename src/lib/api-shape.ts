@@ -1,0 +1,72 @@
+import type { Project } from "@/db/schema";
+import { env } from "./env";
+import { mediaUrl } from "./storage";
+import type { TestimonialWithTags } from "./testimonials";
+
+/**
+ * The testimonial as the REST API and webhooks describe it. Unlike the public
+ * widget feed, this is for the owner's own systems, so it includes the
+ * author's email, moderation state and consent details. URLs are absolute.
+ */
+export function toApi(t: TestimonialWithTags) {
+  const abs = (key: string | null) => (key ? `${env.publicUrl}${mediaUrl(key)}` : null);
+  let scopes: string[] = [];
+  try {
+    scopes = JSON.parse(t.consentScopes);
+  } catch {
+    // leave empty
+  }
+  return {
+    id: t.id,
+    projectId: t.projectId,
+    status: t.status,
+    rating: t.rating,
+    text: t.text,
+    /** Machine transcript of the video (editable by the owner), if any. */
+    transcript: t.transcript,
+    author: {
+      name: t.authorName,
+      email: t.authorEmail,
+      title: t.authorTitle,
+      company: t.authorCompany,
+      avatarUrl: abs(t.avatarKey),
+    },
+    video: t.videoKey
+      ? {
+          url: abs(t.videoKey),
+          mime: t.videoMime,
+          originalUrl: abs(t.videoOriginalKey),
+          posterUrl: abs(t.posterKey),
+          captionsUrl: t.captionsVtt ? `${env.publicUrl}/api/captions/${t.id}` : null,
+          durationMs: t.videoDurationMs,
+          width: t.videoWidth,
+          height: t.videoHeight,
+          processing: t.mediaStatus,
+        }
+      : null,
+    tags: t.tags,
+    source: t.source,
+    requested: Boolean(t.requestId),
+    consent: {
+      at: t.consentAt.toISOString(),
+      scopes,
+      editedAfterConsent: t.editedAfterConsent,
+      withdrawnAt: t.withdrawnAt?.toISOString() ?? null,
+    },
+    createdAt: t.createdAt.toISOString(),
+    updatedAt: t.updatedAt.toISOString(),
+  };
+}
+
+export type ApiTestimonial = ReturnType<typeof toApi>;
+
+export function projectToApi(p: Project) {
+  return {
+    id: p.id,
+    slug: p.slug,
+    name: p.name,
+    collectUrl: `${env.publicUrl}/c/${p.slug}`,
+    wallUrl: `${env.publicUrl}/wall/${p.slug}`,
+    createdAt: p.createdAt.toISOString(),
+  };
+}

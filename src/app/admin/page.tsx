@@ -3,7 +3,7 @@ import { Icon } from "@/components/Icon";
 import { requireAdminPage } from "@/lib/server-session";
 import { countByStatus, listProjects } from "@/lib/testimonials";
 import { accentStyle } from "@/lib/theme";
-import { NewProjectForm } from "./AdminForms";
+import { ImportProjectForm, NewProjectForm } from "./AdminForms";
 import { AppBar } from "./AppBar";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +50,7 @@ export default async function AdminHome() {
             </Link>
           ))}
           <NewProjectForm />
+          <ImportProjectForm />
         </div>
       </main>
     </>

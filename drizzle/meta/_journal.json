@@ -8,6 +8,41 @@
       "when": 1792617844658,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1792684309433,
+      "tag": "0001_media_pipeline",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792685339546,
+      "tag": "0002_transcripts",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1792685684957,
+      "tag": "0003_consent_ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1792686104748,
+      "tag": "0004_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1792686601627,
+      "tag": "0005_api_webhooks",
+      "breakpoints": true
     }
   ]
 }

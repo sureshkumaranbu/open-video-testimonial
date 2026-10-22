@@ -1,0 +1,47 @@
+import { z } from "zod";
+import { emailEnabled } from "@/lib/email";
+import { jsonError, requireAdmin } from "@/lib/http";
+import { createRequests, listRequests, parseRecipients, withLink } from "@/lib/requests";
+import { getProjectById } from "@/lib/testimonials";
+import { firstIssue } from "@/lib/validation";
+
+type Ctx = { params: Promise<{ id: string }> };
+
+/** Everyone asked for a testimonial in this project, with their personal links. */
+export async function GET(req: Request, ctx: Ctx) {
+  const denied = requireAdmin(req);
+  if (denied) return denied;
+  const project = getProjectById((await ctx.params).id);
+  if (!project) return jsonError(404, "Project not found");
+  return Response.json({
+    email: emailEnabled(),
+    requests: listRequests(project.id).map((r) => withLink(project, r)),
+  });
+}
+
+const bodySchema = z.object({
+  /** Pasted lines or CSV text. */
+  recipients: z.string().max(500_000),
+  send: z.boolean().default(false),
+});
+
+/** Creates requests from pasted lines or CSV, and optionally emails them. */
+export async function POST(req: Request, ctx: Ctx) {
+  const denied = requireAdmin(req);
+  if (denied) return denied;
+  const project = getProjectById((await ctx.params).id);
+  if (!project) return jsonError(404, "Project not found");
+  const parsed = bodySchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return jsonError(400, firstIssue(parsed.error));
+  if (parsed.data.send && !emailEnabled()) {
+    return jsonError(409, "Email isn't set up on this server (SMTP_URL), so invitations can't be sent. Create the links and share them yourself.");
+  }
+  const { valid, invalid } = parseRecipients(parsed.data.recipients);
+  if (valid.length === 0) return jsonError(400, "No valid email addresses found");
+  if (valid.length > 1000) return jsonError(400, "Add at most 1,000 people at a time");
+  const { created, skipped } = createRequests(project, valid, { send: parsed.data.send });
+  return Response.json(
+    { created: created.map((r) => withLink(project, r)), skipped, invalid },
+    { status: 201 },
+  );
+}

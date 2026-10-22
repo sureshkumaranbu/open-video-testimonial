@@ -36,4 +36,71 @@ export const env = {
   get cookieSecure() {
     return process.env.COOKIE_SECURE === "true";
   },
+  get tmpDir() {
+    return path.join(/*turbopackIgnore: true*/ this.dataDir, "tmp");
+  },
+  /** ffmpeg/ffprobe binaries. Set MEDIA_PROCESSING=off to serve uploads untouched. */
+  get ffmpegPath() {
+    return process.env.FFMPEG_PATH || "ffmpeg";
+  },
+  get ffprobePath() {
+    return process.env.FFPROBE_PATH || "ffprobe";
+  },
+  get mediaProcessing() {
+    return process.env.MEDIA_PROCESSING !== "off";
+  },
+  /** The background worker runs inside the server process unless turned off. */
+  get workerEnabled() {
+    return process.env.JOBS_WORKER !== "off";
+  },
+  /**
+   * Speech-to-text for transcripts and captions: "off" (default), "openai"
+   * (any OpenAI-compatible /audio/transcriptions endpoint) or "command"
+   * (a local program such as whisper.cpp).
+   */
+  get transcribeProvider(): "off" | "openai" | "command" {
+    const p = (process.env.TRANSCRIBE_PROVIDER || "off").toLowerCase();
+    return p === "openai" || p === "command" ? p : "off";
+  },
+  get transcribeApiUrl() {
+    return (process.env.TRANSCRIBE_API_URL || "https://api.openai.com/v1").replace(/\/+$/, "");
+  },
+  get transcribeApiKey() {
+    return process.env.TRANSCRIBE_API_KEY || "";
+  },
+  get transcribeModel() {
+    return process.env.TRANSCRIBE_MODEL || "whisper-1";
+  },
+  get transcribeLanguage() {
+    return process.env.TRANSCRIBE_LANGUAGE || "";
+  },
+  get transcribeCommand() {
+    return process.env.TRANSCRIBE_COMMAND || "";
+  },
+  /** Store a keyed hash of the submitter's IP with each consent record. Off by default. */
+  get consentIpHash() {
+    return process.env.CONSENT_IP_HASH === "true";
+  },
+  /** Outgoing mail server, e.g. smtps://user:pass@smtp.example.com:465 */
+  get smtpUrl() {
+    return process.env.SMTP_URL || "";
+  },
+  get smtpFrom() {
+    return process.env.SMTP_FROM || "Plaudit <no-reply@localhost>";
+  },
+  /** Write emails to DATA_DIR/mail-outbox instead of sending (for local testing). */
+  get mailOutbox() {
+    return process.env.MAIL_OUTBOX === "true";
+  },
+  /** Largest export archive accepted for import (megabytes). */
+  get maxImportBytes() {
+    return Number(process.env.MAX_IMPORT_MB || 10240) * 1024 * 1024;
+  },
+  /** Let CSV imports download media from private-network addresses. */
+  get importAllowPrivateUrls() {
+    return process.env.IMPORT_ALLOW_PRIVATE_URLS === "true";
+  },
+  get jobsPollMs() {
+    return Math.max(Number(process.env.JOBS_POLL_MS || 2000), 100);
+  },
 };

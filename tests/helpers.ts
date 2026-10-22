@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -52,4 +53,23 @@ export function submitRequest(slug: string, form: FormData, ip = "203.0.113.7") 
     body: form,
     headers: { "x-forwarded-for": ip },
   });
+}
+
+/** A real (short) WebM recording with audio, used by media pipeline tests. */
+export const SAMPLE_WEBM = path.resolve(__dirname, "../e2e/fixtures/sample.webm");
+
+let ffmpegChecked: boolean | null = null;
+
+/** Whether ffmpeg is on PATH. CI installs it; tests that need it say so when skipped. */
+export function hasFfmpeg() {
+  if (ffmpegChecked === null) {
+    try {
+      execFileSync("ffmpeg", ["-version"], { stdio: "ignore" });
+      execFileSync("ffprobe", ["-version"], { stdio: "ignore" });
+      ffmpegChecked = true;
+    } catch {
+      ffmpegChecked = false;
+    }
+  }
+  return ffmpegChecked;
 }

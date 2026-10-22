@@ -52,6 +52,7 @@
     ".a{display:flex;gap:12px;align-items:center;padding-top:16px;border-top:1px solid var(--border)}" +
     ".av{width:40px;height:40px;border-radius:50%;object-fit:cover;flex:none;display:grid;place-items:center;font-weight:700;font-size:14px;box-shadow:0 0 0 2px var(--card),0 0 0 3px var(--border)}" +
     ".n{font-weight:600;font-size:14px}.m{color:var(--muted);font-size:13px}" +
+    ".tr{margin:10px 6px 0;font-size:14px;color:var(--muted)}.tr summary{cursor:pointer;font-weight:600}.tr p{font-family:inherit;font-size:14px;margin-top:6px;color:var(--text)}" +
     ".e{color:var(--muted);font-size:14px;text-align:center;padding:32px;border:1px dashed var(--border);border-radius:18px}";
 
   var STAR = "M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z";
@@ -87,6 +88,12 @@
     return new URL(url, base).href;
   }
 
+  // Portrait phone videos get a taller frame instead of a thin landscape crop.
+  function ratio(v) {
+    if (!v.width || !v.height) return "16 / 10";
+    return String(Math.min(Math.max(v.width / v.height, 0.75), 1.78));
+  }
+
   function card(t, accent) {
     var c = el("article", "c");
     c.setAttribute("data-testimonial-id", t.id);
@@ -94,13 +101,34 @@
       var frame = el("div", "v");
       var v = el("video");
       v.controls = true;
-      v.preload = "metadata";
+      v.preload = t.video.poster ? "none" : "metadata";
+      if (t.video.poster) v.poster = abs(t.video.poster);
+      v.style.aspectRatio = ratio(t.video);
       v.setAttribute("playsinline", "");
-      var src = el("source");
-      src.src = abs(t.video.url);
-      src.type = t.video.mime;
-      v.appendChild(src);
+      var sources = t.video.sources && t.video.sources.length ? t.video.sources : [{ url: t.video.url, type: t.video.mime }];
+      sources.forEach(function (s) {
+        var src = el("source");
+        src.src = abs(s.url);
+        src.type = s.type;
+        v.appendChild(src);
+      });
+      if (t.video.captionsUrl) {
+        // Cross-origin captions need a CORS request (the server allows it).
+        v.crossOrigin = "anonymous";
+        var track = el("track");
+        track.kind = "captions";
+        track.label = "Captions";
+        track.src = abs(t.video.captionsUrl);
+        track.default = true;
+        v.appendChild(track);
+      }
       frame.appendChild(v);
+      if (t.video.transcript) {
+        var details = el("details", "tr");
+        details.appendChild(el("summary", null, "Transcript"));
+        details.appendChild(el("p", null, t.video.transcript));
+        frame.appendChild(details);
+      }
       c.appendChild(frame);
     }
     if (t.rating) {

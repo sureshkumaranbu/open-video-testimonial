@@ -783,7 +783,8 @@ test.describe("public surfaces", () => {
     expect((await request.get(`/api/widget/no-such-project-${RUN}`)).status()).toBe(404);
 
     const video = body.testimonials.find((t: { video: unknown }) => t.video).video as { url: string; mime: string };
-    expect(video.mime).toBe("video/webm");
+    // WebM until the background worker has converted it to MP4.
+    expect(["video/webm", "video/mp4"]).toContain(video.mime);
     const full = await request.get(video.url);
     expect(full.status()).toBe(200);
     const size = Number(full.headers()["content-length"]);

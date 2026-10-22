@@ -402,6 +402,8 @@ label,
 
 input[type="text"],
 input[type="email"],
+input[type="number"],
+input[type="url"],
 input[type="password"],
 textarea,
 select {
@@ -427,6 +429,8 @@ textarea::placeholder {
 
 input[type="text"]:hover,
 input[type="email"]:hover,
+input[type="number"]:hover,
+input[type="url"]:hover,
 input[type="password"]:hover,
 textarea:hover {
   border-color: var(--ink-3);
@@ -434,6 +438,8 @@ textarea:hover {
 
 input[type="text"]:focus,
 input[type="email"]:focus,
+input[type="number"]:focus,
+input[type="url"]:focus,
 input[type="password"]:focus,
 textarea:focus {
   outline: none;
@@ -698,6 +704,20 @@ pre {
   background: var(--stage);
   aspect-ratio: 16 / 10;
   object-fit: cover;
+}
+
+.testimonial .transcript {
+  margin: var(--space-3) var(--space-2) 0;
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+}
+.testimonial .transcript summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.testimonial .transcript p {
+  margin-top: var(--space-2);
+  white-space: pre-wrap;
 }
 
 .quote {
@@ -1336,6 +1356,123 @@ pre {
   aspect-ratio: 16 / 10;
   object-fit: contain;
 }
+/* Phones held upright get an upright stage instead of a letterboxed one. */
+.recorder-stage[data-portrait="true"] {
+  aspect-ratio: 3 / 4;
+  max-height: 70vh;
+  margin-inline: auto;
+  width: 100%;
+}
+.recorder-stage video[data-facing="user"] {
+  transform: scaleX(-1); /* mirror the selfie preview; the recording itself isn't mirrored */
+}
+.countdown {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: clamp(4rem, 18vw, 7rem);
+  font-weight: 700;
+  color: #fff;
+  background: rgb(13 16 32 / 0.35);
+  z-index: 2;
+  animation: countdown-pop 1s var(--ease-out) both;
+}
+@keyframes countdown-pop {
+  from {
+    opacity: 0;
+    transform: scale(1.4);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.prompt-overlay {
+  position: absolute;
+  top: var(--space-12);
+  left: var(--space-3);
+  right: var(--space-3);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: rgb(13 16 32 / 0.62);
+  color: #fff;
+  backdrop-filter: blur(6px);
+}
+.prompt-overlay p {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.35;
+}
+.prompt-step {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgb(255 255 255 / 0.75);
+}
+.prompt-nav {
+  display: flex;
+  gap: var(--space-2);
+}
+.prompt-overlay button,
+.recorder-tools button {
+  --btn-bg: rgb(255 255 255 / 0.16);
+  --btn-fg: #fff;
+  --btn-border: rgb(255 255 255 / 0.3);
+  min-height: 32px;
+}
+.recorder-tools {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 1;
+  display: flex;
+  gap: var(--space-2);
+}
+.rec-pill[data-warn="true"] {
+  background: var(--rec);
+  color: #fff;
+}
+.upload-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+}
+.upload-status .icon {
+  color: var(--ok);
+  vertical-align: -3px;
+}
+.upload-meter {
+  flex: 1;
+  min-width: 120px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--line);
+  overflow: hidden;
+}
+.upload-meter span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left;
+  transition: transform var(--dur-base) var(--ease-out);
+}
+.error-text {
+  color: var(--danger);
+}
+@media (prefers-reduced-motion: reduce) {
+  .countdown {
+    animation: none;
+  }
+}
 
 /* ---------- Wall of love ---------- */
 
@@ -1709,4 +1846,180 @@ pre {
   .done-mark svg {
     stroke-dashoffset: 0;
   }
+}
+
+.transcript-editor {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+}
+.transcript-editor summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+textarea.mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.withdraw {
+  padding-block: var(--space-16);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.withdraw-done {
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--ok-soft);
+  color: var(--ink);
+}
+
+.withdraw-note {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.badge.edited {
+  background: var(--warn-soft);
+  color: var(--ink);
+}
+.consent-panel summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+.consent-events {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-3) 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.consent-events li {
+  border-left: 3px solid var(--line-strong);
+  padding-left: var(--space-3);
+}
+.consent-events li[data-type="withdrawn"] {
+  border-color: var(--danger);
+}
+.consent-events blockquote {
+  margin: var(--space-1) 0 0;
+  color: var(--ink-2);
+}
+
+.project-tabs {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--line);
+  margin-top: var(--space-4);
+  overflow-x: auto;
+}
+.project-tabs a {
+  padding: var(--space-3) var(--space-4);
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+}
+.project-tabs a[aria-current="page"] {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+.badge.requested {
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.data-table th,
+.data-table td {
+  text-align: left;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.data-table th {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-3);
+}
+.table-wrap {
+  overflow-x: auto;
+}
+.notice {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: var(--text-sm);
+}
+.notice.warn {
+  background: var(--warn-soft);
+}
+
+.status-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-2) var(--space-6);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.status-list dt {
+  font-weight: 600;
+}
+.status-list dd {
+  margin: 0;
+  color: var(--ink-2);
+}
+.status-list dd[data-on="true"]::before {
+  content: "● ";
+  color: var(--ok);
+}
+.status-list dd[data-on="false"]::before {
+  content: "○ ";
+  color: var(--ink-3);
+}
+.secret {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  word-break: break-all;
+  background: var(--surface-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+}
+.event-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: var(--space-2);
+}
+@media (max-width: 520px) {
+  .status-list {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+  .status-list dd {
+    margin-bottom: var(--space-2);
+  }
+}
+
+.mapping-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-3);
 }
