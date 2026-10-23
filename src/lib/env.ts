@@ -96,8 +96,32 @@ export const env = {
   get smtpUrl() {
     return process.env.SMTP_URL || "";
   },
+  /**
+   * Or the same thing in parts, so a password with special characters needn't
+   * be URL-encoded. SMTP_URL wins when both are set.
+   */
+  get smtpHost() {
+    return process.env.SMTP_HOST || "";
+  },
+  get smtpPort() {
+    return Number(process.env.SMTP_PORT) || 0;
+  },
+  get smtpUser() {
+    return process.env.SMTP_USER || "";
+  },
+  get smtpPassword() {
+    return process.env.SMTP_PASSWORD || "";
+  },
+  /** Implicit TLS (usually port 465). Unset means "on for port 465". */
+  get smtpSecure() {
+    const v = (process.env.SMTP_SECURE || "").trim().toLowerCase();
+    return v === "" ? null : v === "true";
+  },
   get smtpFrom() {
     return process.env.SMTP_FROM || "Plaudit <no-reply@localhost>";
+  },
+  get smtpFromSet() {
+    return Boolean(process.env.SMTP_FROM);
   },
   /** Write emails to DATA_DIR/mail-outbox instead of sending (for local testing). */
   get mailOutbox() {

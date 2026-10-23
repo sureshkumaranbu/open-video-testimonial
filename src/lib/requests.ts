@@ -4,7 +4,7 @@ import { z } from "zod";
 import { getDb, schema } from "@/db";
 import type { Project, TestimonialRequest } from "@/db/schema";
 import { parseCsv } from "./csv";
-import { emailEnabled, fillTemplate, headerSafe, sendMail } from "./email";
+import { emailEnabled, fillTemplate, headerSafe, isPermanentSmtpError, sendMail } from "./email";
 import { env } from "./env";
 import { enqueue, PermanentJobError } from "./jobs";
 
@@ -214,8 +214,10 @@ export async function sendRequestEmail(payload: { requestId: string; kind: Email
   try {
     await sendMail(inviteEmail(project, r, payload.kind));
   } catch (err) {
-    update(r.id, { emailStatus: final ? "failed" : "queued", emailError: (err as Error).message.slice(0, 300) });
-    if (err instanceof Error && /isn't set up/.test(err.message)) throw new PermanentJobError(err.message);
+    // A refused login, sender or address fails the same way every time: stop now.
+    const permanent = isPermanentSmtpError(err) || (err instanceof Error && /isn't set up/.test(err.message));
+    update(r.id, { emailStatus: final || permanent ? "failed" : "queued", emailError: (err as Error).message.slice(0, 300) });
+    if (permanent) throw new PermanentJobError((err as Error).message);
     throw err;
   }
   const now = new Date();
@@ -289,15 +291,20 @@ export function queueThankYou(project: Project, request: TestimonialRequest | nu
 export async function sendThankYou(payload: { projectId: string; to: string; withdrawUrl: string }) {
   const project = getDb().select().from(projects).where(eq(projects.id, payload.projectId)).get();
   if (!project) return;
-  await sendMail({
-    to: payload.to,
-    subject: `Thanks for your testimonial for ${project.name}`,
-    text: `Thank you for taking the time to share your experience with ${project.name}. They'll review it before it appears anywhere.
+  try {
+    await sendMail({
+      to: payload.to,
+      subject: `Thanks for your testimonial for ${project.name}`,
+      text: `Thank you for taking the time to share your experience with ${project.name}. They'll review it before it appears anywhere.
 
 If you change your mind, you can withdraw your testimonial at any time with this private link:
 ${payload.withdrawUrl}
 
 Keep this email: anyone with the link can withdraw the testimonial.
 `,
-  });
+    });
+  } catch (err) {
+    if (isPermanentSmtpError(err)) throw new PermanentJobError((err as Error).message);
+    throw err;
+  }
 }

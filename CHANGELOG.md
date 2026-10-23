@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Email setup is easier to get right.**
+  - **Send test email** in Settings shows the mail server's exact error, plus what to do about it.
+  - A step-by-step guide, [`docs/EMAIL.md`](docs/EMAIL.md), with settings for common providers.
+  - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` and `SMTP_SECURE` can be used instead of `SMTP_URL`.
+  - A warning when `SMTP_FROM` isn't set.
+  - Requests shows "Retrying: <error>" instead of "Sending…".
+  - A refused login, sender or address fails at once instead of being retried.
+  - A wrong host or port now times out in seconds, not minutes.
+
 Fixes from a release QA pass:
 
 - **Security**
