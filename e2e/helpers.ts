@@ -123,5 +123,8 @@ article,div{background:hotpink;border:4px solid lime}</style></head>
 
 /** Saves a screenshot to docs/screenshots/ when UPDATE_SCREENSHOTS is set. */
 export async function shot(page: Page, name: string, fullPage = false) {
-  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage });
+  if (!SHOTS) return;
+  // A sticky header is drawn where the viewport is, so start full-page shots at the top.
+  if (fullPage) await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage });
 }

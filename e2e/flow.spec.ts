@@ -16,7 +16,10 @@ const FIXTURES = path.join(__dirname, "fixtures");
 const SHOTS = process.env.UPDATE_SCREENSHOTS ? path.join(__dirname, "..", "docs", "screenshots") : null;
 
 async function shot(page: Page, name: string, fullPage = false) {
-  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage });
+  if (!SHOTS) return;
+  // A sticky header is drawn where the viewport is, so start full-page shots at the top.
+  if (fullPage) await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage });
 }
 
 async function signIn(page: Page) {

@@ -541,6 +541,8 @@ test.describe("admin at 375px", () => {
     const api = await adminApi(baseURL!);
     const project = await createProject(api, "A Rather Long Project Name For A Phone", slug("phone"));
     await seed(api, project.slug, [{ name: "Polly Phone", text: "Small screens too.", status: "approved" }]);
+    // Settings' tables only appear once there's something in them.
+    expect((await api.post("/api/admin/api-keys", { data: { name: "A phone-width key", scope: "read" } })).status()).toBe(201);
     await signIn(page);
     await fitsThePhone(page);
 

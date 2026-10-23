@@ -2038,6 +2038,9 @@ textarea.mono {
 }
 .table-wrap {
   overflow-x: auto;
+  /* Contains absolutely positioned bits (screen-reader-only labels) so they
+     scroll with the table instead of widening the page. */
+  position: relative;
 }
 .notice {
   padding: var(--space-3) var(--space-4);
