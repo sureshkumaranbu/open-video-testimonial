@@ -20,7 +20,7 @@ import { listConsentEvents } from "@/lib/consent";
 import { createProject, getTestimonial } from "@/lib/testimonials";
 import { verifySignature } from "@/lib/webhooks";
 import { registerJobs } from "@/lib/worker";
-import { adminCookie, params, submissionForm, submitRequest, useTempDataDir } from "./helpers";
+import { adminHeaders, params, submissionForm, submitRequest, useTempDataDir } from "./helpers";
 
 // ------------------------------------------------------------ a receiver
 
@@ -62,7 +62,7 @@ const admin = (url: string, body?: unknown, method = body === undefined ? "GET" 
   new Request(`http://localhost${url}`, {
     method,
     body: body === undefined ? undefined : JSON.stringify(body),
-    headers: { cookie: adminCookie(), "content-type": "application/json" },
+    headers: { ...adminHeaders(), "content-type": "application/json" },
   });
 
 const withKey = (key: string, url: string, body?: unknown, method = body === undefined ? "GET" : "POST") =>
@@ -101,8 +101,16 @@ function independentVerify(secret: string, header: string, body: string) {
 
 describe("REST API", () => {
   it("needs a valid, unrevoked key", async () => {
-    expect((await listProjectsRoute(new Request("http://localhost/api/v1/projects"))).status).toBe(401);
-    expect((await listProjectsRoute(withKey("plk_wrongwrongwrongwrongwrong", "/api/v1/projects"))).status).toBe(401);
+    const missing = await listProjectsRoute(new Request("http://localhost/api/v1/projects"));
+    expect(missing.status).toBe(401);
+    expect((await missing.json()).error).toMatch(/^Missing API key/);
+    // A malformed key says it's invalid, not missing.
+    const malformed = await listProjectsRoute(withKey("not-a-plaudit-key", "/api/v1/projects"));
+    expect(malformed.status).toBe(401);
+    expect((await malformed.json()).error).toMatch(/^Invalid API key/);
+    const unknown = await listProjectsRoute(withKey("plk_wrongwrongwrongwrongwrong", "/api/v1/projects"));
+    expect(unknown.status).toBe(401);
+    expect((await unknown.json()).error).toBe("Invalid or revoked API key");
     const { key, id, prefix } = await newKey("read");
     expect(key).toMatch(/^plk_[\w-]{43}$/);
     expect(prefix).toBe(key.slice(0, 12));
@@ -137,6 +145,14 @@ describe("REST API", () => {
     expect(page2.data).toHaveLength(1);
     expect(page2.pagination.nextOffset).toBeNull();
     expect((await listRoute(withKey(key, "/api/v1/projects/acme/testimonials?status=bogus"), params({ slug: "acme" }))).status).toBe(400);
+    // Out-of-range or malformed paging is an error, not silently clamped.
+    for (const query of ["limit=1000", "limit=0", "limit=abc", "limit=2.5", "offset=-1", "offset=x"]) {
+      const bad = await listRoute(withKey(key, `/api/v1/projects/acme/testimonials?${query}`), params({ slug: "acme" }));
+      expect(bad.status, query).toBe(400);
+      expect((await bad.json()).error, query).toMatch(/^(limit|offset) must be/);
+    }
+    const max = await listRoute(withKey(key, "/api/v1/projects/acme/testimonials?limit=100"), params({ slug: "acme" }));
+    expect((await max.json()).pagination.limit).toBe(100);
     expect((await listRoute(withKey(key, "/api/v1/projects/nope/testimonials"), params({ slug: "nope" }))).status).toBe(404);
   });
 
@@ -175,6 +191,22 @@ describe("REST API", () => {
     await withdraw(new Request(`http://localhost/api/withdraw/${token}`, { method: "POST" }), params({ token }));
     const res = await patchRoute(withKey(write.key, `/api/v1/testimonials/${id}`, { status: "approved" }, "PATCH"), params({ id }));
     expect(res.status).toBe(409);
+  });
+
+  it("shows withdrawn testimonials as withdrawn, not rejected", async () => {
+    const { key } = await newKey("read");
+    const { id, withdrawUrl } = await customerSubmits("Withdrawer");
+    await customerSubmits("Stayer");
+    const token = withdrawUrl.split("/w/")[1];
+    await withdraw(new Request(`http://localhost/api/withdraw/${token}`, { method: "POST" }), params({ token }));
+    const one = await (await getRoute(withKey(key, `/api/v1/testimonials/${id}`), params({ id }))).json();
+    expect(one.data).toMatchObject({ status: "withdrawn", consent: { withdrawnAt: expect.any(String) } });
+    const list = async (status: string) =>
+      (await (await listRoute(withKey(key, `/api/v1/projects/acme/testimonials?status=${status}`), params({ slug: "acme" }))).json())
+        .data as { id: string }[];
+    expect((await list("withdrawn")).map((t) => t.id)).toEqual([id]);
+    expect(await list("rejected")).toEqual([]);
+    expect(await list("pending")).toHaveLength(1);
   });
 
   it("publishes an OpenAPI 3.1 description", async () => {

@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { TESTIMONIAL_STATUSES } from "@/db/schema";
-import { toApi } from "@/lib/api-shape";
+import { API_STATUSES, type ApiStatus, apiStatus, toApi } from "@/lib/api-shape";
 import { apiJson, requireApiKey } from "@/lib/api-keys";
 import { grantConsent } from "@/lib/consent";
 import { jsonError } from "@/lib/http";
@@ -10,6 +9,12 @@ import { emitTestimonialEvent } from "@/lib/webhooks";
 
 type Ctx = { params: Promise<{ slug: string }> };
 
+/** A whole-number query parameter: the fallback when absent, null when malformed. */
+function intParam(raw: string | null, fallback: number) {
+  if (raw === null || raw === "") return fallback;
+  return /^-?\d+$/.test(raw) ? Number(raw) : null;
+}
+
 /** GET /api/v1/projects/:slug/testimonials?status=&tag=&limit=&offset= */
 export async function GET(req: Request, ctx: Ctx) {
   const auth = requireApiKey(req, "read");
@@ -17,14 +22,17 @@ export async function GET(req: Request, ctx: Ctx) {
   const project = getProjectBySlug((await ctx.params).slug);
   if (!project) return jsonError(404, "Project not found");
   const q = new URL(req.url).searchParams;
-  const status = q.get("status");
-  if (status && !TESTIMONIAL_STATUSES.includes(status as never)) return jsonError(400, "Unknown status");
-  const limit = Math.min(Math.max(Number(q.get("limit") ?? 50) || 50, 1), 100);
-  const offset = Math.max(Number(q.get("offset") ?? 0) || 0, 0);
-  const all = listTestimonials(project.id, {
-    status: (status as (typeof TESTIMONIAL_STATUSES)[number]) || undefined,
-    tag: q.get("tag") || undefined,
-  });
+  const status = q.get("status") || null;
+  if (status && !API_STATUSES.includes(status as ApiStatus)) {
+    return jsonError(400, `Unknown status: use ${API_STATUSES.join(", ")}`);
+  }
+  const limit = intParam(q.get("limit"), 50);
+  if (limit === null || limit < 1 || limit > 100) return jsonError(400, "limit must be a whole number from 1 to 100");
+  const offset = intParam(q.get("offset"), 0);
+  if (offset === null || offset < 0) return jsonError(400, "offset must be a whole number, 0 or more");
+  const all = listTestimonials(project.id, { tag: q.get("tag") || undefined }).filter(
+    (t) => !status || apiStatus(t) === status,
+  );
   const page = all.slice(offset, offset + limit);
   return apiJson({
     data: page.map(toApi),

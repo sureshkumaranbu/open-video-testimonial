@@ -32,13 +32,13 @@ All paths are relative to `https://<your-plaudit>/api/v1`.
 | Method and path | Scope | What it does |
 |---|---|---|
 | `GET /projects` | read | Lists projects with their counts per status |
-| `GET /projects/{slug}/testimonials` | read | Lists testimonials, newest first. Query: `status` (`pending`, `approved`, `rejected`), `tag`, `limit` (1 to 100, default 50), `offset` |
+| `GET /projects/{slug}/testimonials` | read | Lists testimonials, newest first. Query: `status` (`pending`, `approved`, `rejected` or `withdrawn`), `tag`, `limit` (1 to 100, default 50; anything else is a `400`), `offset` |
 | `POST /projects/{slug}/testimonials` | write | Adds a text testimonial (see below) |
 | `GET /testimonials/{id}` | read | Gets one testimonial |
 | `PATCH /testimonials/{id}` | write | Changes `status`, `tags`, `authorName`, `authorTitle`, `authorCompany`, `text`, `rating`, `transcript` or `captionsVtt` |
 | `DELETE /testimonials/{id}` | write | Deletes a testimonial and its media |
 
-Errors look like `{ "error": "…" }`, with status `400` (invalid input), `401` (missing or bad key), `403` (read-only key), `404`, `409` (for example, re-publishing a testimonial whose author withdrew consent) or `429`.
+Errors look like `{ "error": "…" }`, with status `400` (invalid input), `401` (missing or invalid key), `403` (read-only key), `404`, `409` (for example, re-publishing a testimonial whose author withdrew consent) or `429`.
 
 ### A testimonial
 
@@ -70,6 +70,10 @@ Errors look like `{ "error": "…" }`, with status `400` (invalid input), `401` 
 ```
 
 Unlike the public widget feed, API responses include **private fields** (the author's email and the consent details), because they go to your own systems. Treat API keys like passwords.
+
+`status` is `pending`, `approved` or `rejected`, or **`withdrawn`** once the author withdrew consent through their private link. A withdrawn testimonial can't be published again, and `consent.withdrawnAt` says when it happened. Filtering with `status=rejected` leaves withdrawn ones out.
+
+**Media URLs** (`avatarUrl`, `video.url`, `originalUrl`, `posterUrl`) work for anyone only while the testimonial is approved and not withdrawn. Before that, and after a rejection or withdrawal, they return `404` unless the request carries your API key (`Authorization: Bearer plk_…`) or comes from the signed-in dashboard.
 
 ### Adding a testimonial
 
