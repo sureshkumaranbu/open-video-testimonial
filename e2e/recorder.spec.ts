@@ -144,23 +144,23 @@ test("an upload survives dropped requests and resumes", async ({ page, baseURL }
   expect(row.videoOriginalKey).toMatch(/\.webm$/);
 });
 
-test("a server rejection shows a clear error with a retry button", async ({ page, baseURL }) => {
+test("a temporary server error shows a clear error with a retry button", async ({ page, baseURL }) => {
   const p = await project(baseURL!, "Rejecting Co");
   await page.route("**/api/uploads/**", (route) =>
     route.request().method() === "PUT"
-      ? route.fulfill({ status: 413, contentType: "application/json", body: JSON.stringify({ error: "The file is larger than 200 MB" }) })
+      ? route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ error: "Missing or invalid offset" }) })
       : route.continue(),
   );
   await page.goto(`/c/${p.slug}`);
   await page.getByRole("button", { name: "Video" }).click();
   await page.getByTestId("video-file").setInputFiles(path.join(FIXTURES, "sample.webm"));
-  await expect(page.getByTestId("upload-status")).toContainText("larger than 200 MB");
+  await expect(page.getByTestId("upload-status")).toContainText("Missing or invalid offset");
   await expect(page.getByRole("button", { name: "Retry upload" })).toBeVisible();
 
-  await page.getByLabel("Your name").fill("Big File");
+  await page.getByLabel("Your name").fill("Flaky Upload");
   await page.getByLabel(/I agree/).check();
   await page.getByRole("button", { name: "Submit testimonial" }).click();
-  await expect(page.locator("p.error")).toContainText("larger than 200 MB");
+  await expect(page.locator("p.error")).toContainText("Missing or invalid offset");
 
   // Once the problem goes away, retrying finishes the upload.
   await page.unroute("**/api/uploads/**");
@@ -168,6 +168,47 @@ test("a server rejection shows a clear error with a retry button", async ({ page
   await expect(page.getByTestId("upload-status")).toContainText("Video uploaded");
   await page.getByRole("button", { name: "Submit testimonial" }).click();
   await expect(page.getByRole("status").filter({ hasText: /thank you/i })).toBeVisible();
+});
+
+test("a file over the size limit asks for another file, with no retry or playback", async ({ page, baseURL }) => {
+  const p = await project(baseURL!, "Too Big Co");
+  // A 201 MB file is refused when the upload starts (its size is known up front).
+  await page.route("**/api/projects/*/uploads", (route) =>
+    route.fulfill({ status: 413, contentType: "application/json", body: JSON.stringify({ error: "The video is larger than 200 MB" }) }),
+  );
+  await page.goto(`/c/${p.slug}`);
+  await page.getByRole("button", { name: "Video" }).click();
+  await page.getByTestId("video-file").setInputFiles(path.join(FIXTURES, "sample.webm"));
+  const rejected = page.getByTestId("upload-rejected");
+  await expect(rejected).toContainText("larger than 200 MB");
+  await expect(page.getByRole("button", { name: "Retry upload" })).toHaveCount(0);
+  await expect(page.getByText("Play it back before you send it.")).toHaveCount(0);
+  await expect(page.getByLabel("Your recording")).toHaveCount(0);
+
+  // Choosing a file that fits works.
+  await page.unroute("**/api/projects/*/uploads");
+  await rejected.getByTestId("video-file-again").setInputFiles(path.join(FIXTURES, "sample.webm"));
+  await expect(page.getByTestId("upload-status")).toContainText("Video uploaded");
+  await expect(page.getByTestId("upload-rejected")).toHaveCount(0);
+});
+
+test("a file that isn't really a video is refused straight away", async ({ page, baseURL }) => {
+  const p = await project(baseURL!, "Fake Video Co");
+  const uploads: string[] = [];
+  page.on("request", (r) => {
+    if (r.url().includes("/uploads")) uploads.push(`${r.method()} ${r.url()}`);
+  });
+  await page.goto(`/c/${p.slug}`);
+  await page.getByRole("button", { name: "Video" }).click();
+  await page.getByTestId("video-file").setInputFiles({
+    name: "holiday.mp4",
+    mimeType: "video/mp4",
+    buffer: Buffer.from("This is a text file with a video extension, not a video at all.\n".repeat(20)),
+  });
+  await expect(page.getByTestId("upload-rejected")).toContainText("isn't a video we can use");
+  await expect(page.getByText("Video uploaded")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Retry upload" })).toHaveCount(0);
+  expect(uploads).toEqual([]); // caught before anything was sent
 });
 
 test("recording again throws the first upload away", async ({ page, baseURL }) => {

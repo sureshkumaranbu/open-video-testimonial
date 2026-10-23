@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { pickMimeType, ResumableUpload, type UploadState } from "@/lib/resumable-upload";
+import { isVideoMime, sniffMime, UNSUPPORTED_VIDEO } from "@/lib/sniff";
 
 type State = "idle" | "previewing" | "countdown" | "recording" | "recorded";
 type Facing = "user" | "environment";
@@ -44,6 +45,8 @@ export function VideoRecorder({ slug, questions, maxSeconds, onChange }: Props) 
   const [touch, setTouch] = useState(false);
   const [canRecord, setCanRecord] = useState(true);
   const [progress, setProgress] = useState<UploadState | null>(null);
+  /** Why the last file was refused (too large, not a video): pick another one. */
+  const [rejected, setRejected] = useState<string | null>(null);
   const liveRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -82,11 +85,24 @@ export function VideoRecorder({ slug, questions, maxSeconds, onChange }: Props) 
     void uploadRef.current?.abort();
     const upload = new ResumableUpload({
       createUrl: `/api/projects/${slug}/uploads`,
-      onProgress: setProgress,
+      onProgress: (s) => {
+        setProgress(s);
+        if (s.fatal && s.error) rejectFile(s.error);
+      },
     });
     uploadRef.current = upload;
     setProgress(upload.state);
     return upload;
+  }
+
+  /** The file can't be used at all: drop it and ask for another one. */
+  function rejectFile(message: string) {
+    void uploadRef.current?.abort();
+    uploadRef.current = null;
+    setProgress(null);
+    setResult(null, null);
+    setState("idle");
+    setRejected(message);
   }
 
   function setResult(blob: Blob | null, upload: ResumableUpload | null) {
@@ -96,6 +112,7 @@ export function VideoRecorder({ slug, questions, maxSeconds, onChange }: Props) 
 
   async function openCamera(nextFacing: Facing = facing) {
     setError(null);
+    setRejected(null);
     if (!canRecord) {
       setError("This browser can't record here. Use your camera app or upload a video instead.");
       return;
@@ -201,16 +218,24 @@ export function VideoRecorder({ slug, questions, maxSeconds, onChange }: Props) 
     setProgress(null);
     setResult(null, null);
     setError(null);
+    setRejected(null);
     setState("idle");
   }
 
-  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
     stopStream();
     clearTimer();
     setError(null);
+    setRejected(null);
+    // Say so straight away if it isn't a video at all (the server checks too).
+    const head = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+    if (!isVideoMime(sniffMime(head))) {
+      rejectFile(UNSUPPORTED_VIDEO);
+      return;
+    }
     const upload = newUpload();
     upload.append(file);
     void upload.finish().catch(() => undefined);
@@ -348,6 +373,17 @@ export function VideoRecorder({ slug, questions, maxSeconds, onChange }: Props) 
               </span>
             </>
           )}
+        </div>
+      )}
+
+      {rejected && (
+        <div className="upload-status rejected" data-testid="upload-rejected" role="alert">
+          <span className="error-text">{rejected}</span>
+          <label className="button secondary small" style={{ flexDirection: "row" }}>
+            <Icon name="upload" />
+            Choose another file
+            <input type="file" accept="video/*" onChange={onFile} data-testid="video-file-again" style={{ display: "none" }} />
+          </label>
         </div>
       )}
 

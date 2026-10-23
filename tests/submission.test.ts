@@ -83,7 +83,7 @@ describe("POST /api/projects/:slug/testimonials", () => {
       params({ slug: "acme" }),
     );
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toMatch(/unsupported video/i);
+    expect((await res.json()).error).toMatch(/isn.t a video we can use/);
     expect(listTestimonials(projectId)).toHaveLength(0);
   });
 

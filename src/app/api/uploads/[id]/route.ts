@@ -1,7 +1,7 @@
 import { getRequestSession } from "@/lib/auth";
 import { jsonError } from "@/lib/http";
 import { clientKey, rateLimit } from "@/lib/rate-limit";
-import { UploadError } from "@/lib/storage";
+import { UnsupportedMediaError, UploadError } from "@/lib/storage";
 import { appendChunk, CHUNK_MAX_BYTES, discardUpload, getUpload, OffsetMismatch } from "@/lib/uploads";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -69,6 +69,7 @@ export async function PUT(req: Request, ctx: Ctx) {
     if (err instanceof OffsetMismatch) {
       return Response.json({ error: "Offset mismatch", offset: err.expected }, { status: 409 });
     }
+    if (err instanceof UnsupportedMediaError) return jsonError(415, err.message);
     if (err instanceof UploadError) return jsonError(413, err.message);
     throw err;
   }
