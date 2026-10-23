@@ -1,4 +1,4 @@
-import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { clientIp, clientKey, rateLimit } from "@/lib/rate-limit";
 import { grantConsent, withdrawUrl } from "@/lib/consent";
 import { queueVideoProcessing } from "@/lib/media";
 import { findRequestByToken, markResponded, queueThankYou } from "@/lib/requests";
@@ -23,7 +23,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ slug: string }
   const project = getProjectBySlug(slug);
   if (!project) return jsonError(404, "Project not found");
 
-  if (!rateLimit(`submit:${clientIp(req)}`, SUBMISSIONS_PER_WINDOW, WINDOW_MS)) {
+  if (!rateLimit(`submit:${clientKey(req)}`, SUBMISSIONS_PER_WINDOW, WINDOW_MS)) {
     return jsonError(429, "Too many submissions, please try again later");
   }
 

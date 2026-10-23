@@ -31,7 +31,7 @@ import {
 } from "@/lib/testimonials";
 import { registerJobs } from "@/lib/worker";
 import { extractEntry, openZip, zipStream } from "@/lib/zip";
-import { adminCookie, params, PNG_BYTES, SAMPLE_WEBM, submissionForm, submitRequest, useTempDataDir } from "./helpers";
+import { adminHeaders, params, PNG_BYTES, SAMPLE_WEBM, submissionForm, submitRequest, useTempDataDir } from "./helpers";
 
 let ctx: ReturnType<typeof useTempDataDir>;
 let projectId: string;
@@ -50,7 +50,7 @@ const admin = (url: string, body?: unknown) =>
   new Request(`http://localhost${url}`, {
     method: body === undefined ? "GET" : "POST",
     body: body === undefined ? undefined : JSON.stringify(body),
-    headers: { cookie: adminCookie(), "content-type": "application/json" },
+    headers: { ...adminHeaders(), "content-type": "application/json" },
   });
 
 async function writeZip(file: string, entries: Parameters<typeof zipStream>[0], opts?: Parameters<typeof zipStream>[1]) {
@@ -203,7 +203,7 @@ describe("export", () => {
         new Request(`http://localhost/api/uploads/${id}?offset=${offset}`, {
           method: "PUT",
           body: new Blob([new Uint8Array(exported.subarray(offset, offset + 40_000))]),
-          headers: { "x-upload-token": token, cookie: adminCookie() },
+          headers: { "x-upload-token": token, ...adminHeaders() },
         }),
         params({ id }),
       );

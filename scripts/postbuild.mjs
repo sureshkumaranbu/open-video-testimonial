@@ -7,4 +7,6 @@ if (fs.existsSync(out)) {
   fs.cpSync("public", `${out}/public`, { recursive: true });
   fs.cpSync(".next/static", `${out}/.next/static`, { recursive: true });
   fs.cpSync("drizzle", `${out}/drizzle`, { recursive: true });
+  // Loaded with `node --import ./peer-ip.mjs server.js` (see the Dockerfile).
+  fs.copyFileSync("scripts/peer-ip.mjs", `${out}/peer-ip.mjs`);
 }

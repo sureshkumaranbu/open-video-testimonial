@@ -1,6 +1,6 @@
 import { getRequestSession } from "@/lib/auth";
 import { jsonError } from "@/lib/http";
-import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { clientKey, rateLimit } from "@/lib/rate-limit";
 import { UploadError } from "@/lib/storage";
 import { appendChunk, CHUNK_MAX_BYTES, discardUpload, getUpload, OffsetMismatch } from "@/lib/uploads";
 
@@ -51,7 +51,7 @@ export async function GET(req: Request, ctx: Ctx) {
 
 export async function PUT(req: Request, ctx: Ctx) {
   // The owner's own archive uploads can be thousands of chunks; don't throttle them.
-  if (!getRequestSession(req) && !rateLimit(`upload-chunk:${clientIp(req)}`, 1500, 10 * 60 * 1000)) {
+  if (!getRequestSession(req) && !rateLimit(`upload-chunk:${clientKey(req)}`, 1500, 10 * 60 * 1000)) {
     return jsonError(429, "Too many requests, please slow down");
   }
   const upload = await session(req, ctx);

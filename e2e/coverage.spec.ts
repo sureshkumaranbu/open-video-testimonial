@@ -512,8 +512,15 @@ test.describe("projects", () => {
     await page.getByRole("button", { name: "Create project" }).click();
     await expect(page).toHaveURL(/\/admin$/);
     expect(await page.getByLabel(/^Link slug/).evaluate((el: HTMLInputElement) => el.validity.valid)).toBe(false);
-    const apiRes = await page.request.post("/api/admin/projects", { data: { name: "X", slug: "Bad Slug!" } });
+    const origin = new URL(page.url()).origin;
+    const apiRes = await page.request.post("/api/admin/projects", {
+      data: { name: "X", slug: "Bad Slug!" },
+      headers: { origin },
+    });
     expect(apiRes.status()).toBe(400);
+    // The session cookie alone isn't enough: a change must come with this site's Origin.
+    const noOrigin = await page.request.post("/api/admin/projects", { data: { name: "X", slug: "no-origin-x" } });
+    expect(noOrigin.status()).toBe(403);
 
     // Valid.
     await page.getByLabel("Name").fill("Coverage Co");

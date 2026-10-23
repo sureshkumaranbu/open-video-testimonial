@@ -1,4 +1,4 @@
-import { getRequestSession, isSameOrigin } from "./auth";
+import { getRequestSession, isSameSiteRequest } from "./auth";
 
 export function jsonError(status: number, error: string, headers?: HeadersInit) {
   return Response.json({ error }, { status, headers });
@@ -7,7 +7,7 @@ export function jsonError(status: number, error: string, headers?: HeadersInit) 
 /** Guards an admin API route: returns an error Response, or null if allowed. */
 export function requireAdmin(req: Request) {
   if (!getRequestSession(req)) return jsonError(401, "Not signed in");
-  if (req.method !== "GET" && !isSameOrigin(req)) return jsonError(403, "Cross-origin request blocked");
+  if (req.method !== "GET" && req.method !== "HEAD" && !isSameSiteRequest(req)) return jsonError(403, "Cross-origin request blocked");
   return null;
 }
 
