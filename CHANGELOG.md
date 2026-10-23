@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **The camera preview shows you again.** It could stay black while recording, depending on how fast the page rendered; the recording itself was fine.
+
 - **Sign in with Google, Apple or an email link, and invite your team.** The step-by-step guide is [`docs/AUTH.md`](docs/AUTH.md).
   - **Email links:** single-use, 15 minutes, and only in the browser that asked. Needs email.
   - **Google**, with an optional Workspace domain.

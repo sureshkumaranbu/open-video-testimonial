@@ -51,6 +51,8 @@ export function VideoRecorder({ slug, questions, maxSeconds, maxBytes, onChange 
   const [rejected, setRejected] = useState<string | null>(null);
   const liveRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  /** The camera stream the preview shows (state, so the preview updates when it changes). */
+  const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const uploadRef = useRef<ResumableUpload | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -63,6 +65,7 @@ export function VideoRecorder({ slug, questions, maxSeconds, maxBytes, onChange 
   function stopStream() {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
+    setLiveStream(null);
   }
 
   function clearTimer() {
@@ -82,6 +85,16 @@ export function VideoRecorder({ slug, questions, maxSeconds, maxBytes, onChange 
   useEffect(() => () => {
     if (playbackUrl) URL.revokeObjectURL(playbackUrl);
   }, [playbackUrl]);
+
+  // Show the camera in the preview once the <video> is on the page, and again
+  // after switching cameras (same element, new stream).
+  const live = state === "previewing" || state === "countdown" || state === "recording";
+  useEffect(() => {
+    const video = liveRef.current;
+    if (!live || !video || !liveStream) return;
+    if (video.srcObject !== liveStream) video.srcObject = liveStream;
+    void video.play().catch(() => undefined);
+  }, [live, liveStream]);
 
   function newUpload(size?: number) {
     void uploadRef.current?.abort();
@@ -132,6 +145,7 @@ export function VideoRecorder({ slug, questions, maxSeconds, maxBytes, onChange 
         audio: { echoCancellation: true, noiseSuppression: true },
       });
       streamRef.current = stream;
+      setLiveStream(stream);
       const settings = stream.getVideoTracks()[0]?.getSettings();
       setPortrait(Boolean(settings?.width && settings?.height && settings.height > settings.width) || tall);
       setFacing(nextFacing);
@@ -140,12 +154,6 @@ export function VideoRecorder({ slug, questions, maxSeconds, maxBytes, onChange 
         .enumerateDevices()
         .then((devices) => setCanSwitch(devices.filter((d) => d.kind === "videoinput").length > 1))
         .catch(() => undefined);
-      requestAnimationFrame(() => {
-        if (liveRef.current) {
-          liveRef.current.srcObject = stream;
-          void liveRef.current.play().catch(() => undefined);
-        }
-      });
     } catch {
       setError("Your camera is blocked. Allow camera access in your browser, or use one of the other options below.");
     }
@@ -251,7 +259,6 @@ export function VideoRecorder({ slug, questions, maxSeconds, maxBytes, onChange 
     setState("recorded");
   }
 
-  const live = state === "previewing" || state === "countdown" || state === "recording";
   const left = maxSeconds - seconds;
   const percent = progress && progress.total ? Math.floor((progress.sent / progress.total) * 100) : 0;
 
