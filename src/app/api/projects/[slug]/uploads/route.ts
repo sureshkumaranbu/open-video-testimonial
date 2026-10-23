@@ -1,6 +1,7 @@
 import { env } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { clientKey, rateLimit } from "@/lib/rate-limit";
+import { tooLarge } from "@/lib/sniff";
 import { getProjectBySlug } from "@/lib/testimonials";
 import { CHUNK_MAX_BYTES, createUpload, MAX_OPEN_UPLOADS_PER_PROJECT, openUploadCount } from "@/lib/uploads";
 
@@ -17,9 +18,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ slug: string }
   if (openUploadCount(project.id) >= MAX_OPEN_UPLOADS_PER_PROJECT) {
     return jsonError(429, "Too many uploads in progress right now. Please try again in a while.");
   }
+  // A picked file's size is known up front: refuse it before a byte is sent.
   const body = (await req.json().catch(() => ({}))) as { size?: unknown };
   if (typeof body.size === "number" && body.size > env.maxVideoBytes) {
-    return jsonError(413, `The video is larger than ${Math.round(env.maxVideoBytes / 1024 / 1024)} MB`);
+    return jsonError(413, tooLarge(env.maxVideoBytes));
   }
   const { upload, token } = createUpload("video", { projectId: project.id, maxBytes: env.maxVideoBytes });
   return Response.json(

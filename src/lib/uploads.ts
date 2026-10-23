@@ -6,6 +6,7 @@ import { getDb, schema } from "@/db";
 import type { Upload, UploadKind } from "@/db/schema";
 import { env } from "./env";
 import { isVideoMime, saveFile, sniffMime, UNSUPPORTED_VIDEO, UnsupportedMediaError, UploadError, type MediaKind } from "./storage";
+import { tooLarge } from "./sniff";
 
 const { uploads } = schema;
 
@@ -98,7 +99,7 @@ async function doAppend(id: string, offset: number, bytes: Uint8Array) {
   if (offset !== row.received) throw new OffsetMismatch(row.received);
   if (row.received + bytes.byteLength > row.maxBytes) {
     await discardUpload(id);
-    throw new UploadError(`The file is larger than ${Math.round(row.maxBytes / 1024 / 1024)} MB`);
+    throw new UploadError(tooLarge(row.maxBytes));
   }
   // A video's first bytes say what it is: refuse anything else now, rather
   // than after the whole file has arrived. (Every container we accept is

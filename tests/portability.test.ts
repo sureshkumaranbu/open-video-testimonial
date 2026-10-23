@@ -194,6 +194,12 @@ describe("export", () => {
     expect(csvOnly.headers.get("content-type")).toBe("text/csv; charset=utf-8");
   });
 
+  it("refuses an archive over the import limit when its upload starts", async () => {
+    const res = await startAdminUpload(admin("/api/admin/uploads", { size: env.maxImportBytes + 1 }));
+    expect(res.status).toBe(413);
+    expect((await res.json()).error).toMatch(/^The file is larger than \d+ MB$/);
+  });
+
   it("imports its own export as a new project, keeping data, consent history and media", async () => {
     await seedProject();
     const exported = Buffer.from(await (await exportRoute(admin(`/api/admin/projects/${projectId}/export`), params({ id: projectId }))).arrayBuffer());

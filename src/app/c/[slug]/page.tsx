@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { currentConsentVersion } from "@/lib/consent";
+import { env } from "@/lib/env";
 import { findRequestByToken } from "@/lib/requests";
 import { getProjectBySlug, projectQuestions } from "@/lib/testimonials";
 import { accentStyle } from "@/lib/theme";
@@ -59,6 +60,7 @@ export default async function CollectPage({ params, searchParams }: Props) {
             allowText: project.allowText,
             questions,
             maxVideoSeconds: project.maxVideoSeconds,
+            maxVideoBytes: env.maxVideoBytes,
           }}
           consent={{ versionId: consent.id, text: consent.text }}
           prefill={prefill}

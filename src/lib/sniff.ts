@@ -27,3 +27,8 @@ export function isVideoMime(mime: string | null) {
 }
 
 export const UNSUPPORTED_VIDEO = "This file isn't a video we can use. Choose a WebM, MP4, MOV or Ogg video.";
+
+/** The same words wherever a file is refused for its size: before upload, on start, or mid-upload. */
+export function tooLarge(maxBytes: number) {
+  return `The file is larger than ${Math.round(maxBytes / 1024 / 1024)} MB`;
+}

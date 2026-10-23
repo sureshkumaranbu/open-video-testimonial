@@ -12,6 +12,7 @@ type Props = {
     allowText: boolean;
     questions: string[];
     maxVideoSeconds: number;
+    maxVideoBytes: number;
   };
   /** The exact consent wording shown, and its stored version. */
   consent: { versionId: string; text: string };
@@ -210,6 +211,7 @@ export function CollectForm({ project, consent, prefill }: Props) {
             slug={project.slug}
             questions={project.questions}
             maxSeconds={project.maxVideoSeconds}
+            maxBytes={project.maxVideoBytes}
             onChange={setVideo}
           />
         )}

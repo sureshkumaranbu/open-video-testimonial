@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { adminApi, createProject, FIXTURES, shot, signIn, useFreshIp } from "./helpers";
@@ -170,26 +171,34 @@ test("a temporary server error shows a clear error with a retry button", async (
   await expect(page.getByRole("status").filter({ hasText: /thank you/i })).toBeVisible();
 });
 
-test("a file over the size limit asks for another file, with no retry or playback", async ({ page, baseURL }) => {
+test("a file over the size limit is refused before uploading, with no retry or playback", async ({ page, baseURL }, testInfo) => {
   const p = await project(baseURL!, "Too Big Co");
-  // A 201 MB file is refused when the upload starts (its size is known up front).
-  await page.route("**/api/projects/*/uploads", (route) =>
-    route.fulfill({ status: 413, contentType: "application/json", body: JSON.stringify({ error: "The video is larger than 200 MB" }) }),
-  );
+  // A real WebM header padded (sparsely) to 1 byte over the default 200 MB limit.
+  const big = testInfo.outputPath("too-big.webm");
+  fs.mkdirSync(path.dirname(big), { recursive: true });
+  fs.writeFileSync(big, fs.readFileSync(path.join(FIXTURES, "sample.webm")).subarray(0, 4096));
+  fs.truncateSync(big, 200 * 1024 * 1024 + 1);
+  const uploads: string[] = [];
+  page.on("request", (r) => {
+    if (r.url().includes("/uploads")) uploads.push(`${r.method()} ${r.url()}`);
+  });
+
   await page.goto(`/c/${p.slug}`);
   await page.getByRole("button", { name: "Video" }).click();
-  await page.getByTestId("video-file").setInputFiles(path.join(FIXTURES, "sample.webm"));
+  await page.getByTestId("video-file").setInputFiles(big);
   const rejected = page.getByTestId("upload-rejected");
-  await expect(rejected).toContainText("larger than 200 MB");
+  await expect(rejected).toContainText("The file is larger than 200 MB");
+  await expect(rejected.getByTestId("video-file-again")).toBeAttached();
   await expect(page.getByRole("button", { name: "Retry upload" })).toHaveCount(0);
   await expect(page.getByText("Play it back before you send it.")).toHaveCount(0);
   await expect(page.getByLabel("Your recording")).toHaveCount(0);
+  expect(uploads).toEqual([]); // not one byte sent, not even a start request
 
   // Choosing a file that fits works.
-  await page.unroute("**/api/projects/*/uploads");
   await rejected.getByTestId("video-file-again").setInputFiles(path.join(FIXTURES, "sample.webm"));
   await expect(page.getByTestId("upload-status")).toContainText("Video uploaded");
   await expect(page.getByTestId("upload-rejected")).toHaveCount(0);
+  fs.rmSync(big);
 });
 
 test("a file that isn't really a video is refused straight away", async ({ page, baseURL }) => {
