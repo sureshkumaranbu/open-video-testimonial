@@ -44,7 +44,8 @@ const date = (iso: string | null) =>
 
 function emailSummary(r: Row) {
   if (r.emailStatus === "not_sent") return "Link only";
-  if (r.emailStatus === "queued") return "Sending…";
+  // A failed attempt that will be tried again: say why rather than "Sending…" for minutes.
+  if (r.emailStatus === "queued") return r.emailError ? `Retrying: ${r.emailError}` : "Sending…";
   if (r.emailStatus === "failed") return `Failed: ${r.emailError ?? "unknown error"}`;
   const reminders = r.remindersSent ? ` · ${r.remindersSent} reminder${r.remindersSent > 1 ? "s" : ""}` : "";
   const next = r.status === "waiting" && r.nextReminderAt ? ` · next ${date(r.nextReminderAt)}` : "";
@@ -202,7 +203,7 @@ export function Requests({ project, email, defaults }: Props) {
                         </span>
                         {r.respondedAt && <div className="muted xsmall">{date(r.respondedAt)}</div>}
                       </td>
-                      <td className={r.emailStatus === "failed" ? "error-text" : "muted"}>{emailSummary(r)}</td>
+                      <td className={r.emailStatus === "failed" || r.emailError ? "error-text" : "muted"}>{emailSummary(r)}</td>
                       <td>
                         <div className="row" style={{ gap: "var(--space-2)", flexWrap: "nowrap" }}>
                           <CopyLink link={r.link} />

@@ -4,6 +4,7 @@ import { requireAdminPage } from "@/lib/server-session";
 import { systemStatus } from "@/lib/system";
 import { listProjects } from "@/lib/testimonials";
 import { AppBar } from "../AppBar";
+import { EmailTest } from "./EmailTest";
 import { Settings } from "./Settings";
 
 export const dynamic = "force-dynamic";
@@ -44,11 +45,21 @@ export default async function SettingsPage() {
                 ? `On: sending as ${system.email.from}`
                 : system.email.mode === "outbox"
                   ? "Test mode: written to DATA_DIR/mail-outbox"
-                  : "Off: set SMTP_URL to send request emails"}
+                  : "Off: set SMTP_URL to send request emails (see docs/EMAIL.md)"}
             </dd>
             <dt>Public URL</dt>
             <dd>{env.publicUrl}</dd>
           </dl>
+          {system.email.mode !== "off" && (
+            <div className="panel-body stack">
+              {system.email.warning && (
+                <p className="notice warn" data-testid="email-from-warning">
+                  {system.email.warning}
+                </p>
+              )}
+              <EmailTest defaultTo={env.adminEmail} />
+            </div>
+          )}
         </section>
 
         <Settings
