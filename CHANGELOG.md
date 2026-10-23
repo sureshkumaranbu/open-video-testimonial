@@ -19,7 +19,7 @@ Fixes from a release QA pass:
   - Media of pending, rejected or withdrawn testimonials is no longer public.
   - CSP, `nosniff` and `Referrer-Policy` headers on every page.
   - Changes made with the dashboard's cookie need an `Origin`.
-- **Uploads**: a file that isn't a video, or is too large, is refused straight away, with "Choose another file".
+- **Uploads**: a file that isn't a video, or is over the size limit, is refused before any of it is uploaded, with "Choose another file".
 - **CSV import** lists the ratings, dates, emails and URLs it had to leave out, by line, instead of changing them silently.
 - **API**
   - Withdrawn testimonials have status `withdrawn`.

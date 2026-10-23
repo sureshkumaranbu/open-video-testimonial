@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { pickMimeType, ResumableUpload, type UploadState } from "@/lib/resumable-upload";
-import { isVideoMime, sniffMime, UNSUPPORTED_VIDEO } from "@/lib/sniff";
+import { isVideoMime, sniffMime, tooLarge, UNSUPPORTED_VIDEO } from "@/lib/sniff";
 
 type State = "idle" | "previewing" | "countdown" | "recording" | "recorded";
 type Facing = "user" | "environment";
@@ -17,6 +17,8 @@ type Props = {
   slug: string;
   questions: string[];
   maxSeconds: number;
+  /** The server's size limit for a video, so a picked file that's too big is refused before uploading. */
+  maxBytes: number;
   onChange: (video: RecordedVideo | null) => void;
 };
 
@@ -31,7 +33,7 @@ function describeLimit(seconds: number) {
  * Records from the camera with MediaRecorder and uploads while recording, or
  * takes a file (including one from the phone's own camera app).
  */
-export function VideoRecorder({ slug, questions, maxSeconds, onChange }: Props) {
+export function VideoRecorder({ slug, questions, maxSeconds, maxBytes, onChange }: Props) {
   const [state, setState] = useState<State>("idle");
   const [error, setError] = useState<string | null>(null);
   const [seconds, setSeconds] = useState(0);
@@ -81,10 +83,11 @@ export function VideoRecorder({ slug, questions, maxSeconds, onChange }: Props) 
     if (playbackUrl) URL.revokeObjectURL(playbackUrl);
   }, [playbackUrl]);
 
-  function newUpload() {
+  function newUpload(size?: number) {
     void uploadRef.current?.abort();
     const upload = new ResumableUpload({
       createUrl: `/api/projects/${slug}/uploads`,
+      size,
       onProgress: (s) => {
         setProgress(s);
         if (s.fatal && s.error) rejectFile(s.error);
@@ -230,13 +233,18 @@ export function VideoRecorder({ slug, questions, maxSeconds, onChange }: Props) 
     clearTimer();
     setError(null);
     setRejected(null);
-    // Say so straight away if it isn't a video at all (the server checks too).
+    // Say so straight away if it's too big or isn't a video at all, rather
+    // than after uploading it (the server checks too).
+    if (file.size > maxBytes) {
+      rejectFile(tooLarge(maxBytes));
+      return;
+    }
     const head = new Uint8Array(await file.slice(0, 16).arrayBuffer());
     if (!isVideoMime(sniffMime(head))) {
       rejectFile(UNSUPPORTED_VIDEO);
       return;
     }
-    const upload = newUpload();
+    const upload = newUpload(file.size);
     upload.append(file);
     void upload.finish().catch(() => undefined);
     setResult(file, upload);

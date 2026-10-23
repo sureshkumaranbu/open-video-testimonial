@@ -138,6 +138,30 @@ describe("resumable upload API", () => {
     }
   });
 
+  it("refuses a file whose size is over the limit when the upload starts, before any bytes", async () => {
+    const res = await start("acme", { size: env.maxVideoBytes + 1 });
+    expect(res.status).toBe(413);
+    expect((await res.json()).error).toBe("The file is larger than 200 MB");
+    expect(getDb().select().from(schema.uploads).all()).toHaveLength(0);
+    expect((await start("acme", { size: env.maxVideoBytes })).status).toBe(201); // exactly the limit is fine
+  });
+
+  it("the browser uploader sends a picked file's size up front, so an oversized one sends no chunks", async () => {
+    const requests: string[] = [];
+    const real = routeFetch();
+    const upload = new ResumableUpload({
+      createUrl: "/api/projects/acme/uploads",
+      size: env.maxVideoBytes + 1,
+      fetch: (input, init) => {
+        requests.push(`${init?.method ?? "GET"} ${input}`);
+        return real(input, init);
+      },
+    });
+    upload.append(new Blob([WEBM_BYTES]));
+    await expect(upload.finish()).rejects.toMatchObject({ fatal: true, message: "The file is larger than 200 MB" });
+    expect(requests).toEqual(["POST /api/projects/acme/uploads"]);
+  });
+
   it("refuses a file that isn't a video on its first chunk (415) and drops the upload", async () => {
     const { id, token } = await (await start()).json();
     const text = new TextEncoder().encode("This is a text file named holiday.mp4, not a video at all.");

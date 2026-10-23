@@ -25,6 +25,8 @@ export interface ResumableUploadOptions {
   chunkSize?: number;
   /** Wait for this many bytes before sending a chunk while more is coming. */
   minChunk?: number;
+  /** The total size when it's known before sending (a picked file), so the server can refuse it at once. */
+  size?: number;
   retries?: number;
   retryDelayMs?: number;
   fetch?: FetchLike;
@@ -44,8 +46,9 @@ export class UploadFailed extends Error {
 const isFileRejection = (status: number) => status === 413 || status === 415;
 
 export class ResumableUpload {
-  readonly opts: Required<Omit<ResumableUploadOptions, "onProgress" | "fetch">> & {
+  readonly opts: Required<Omit<ResumableUploadOptions, "onProgress" | "fetch" | "size">> & {
     onProgress?: ResumableUploadOptions["onProgress"];
+    size?: number;
     fetch: FetchLike;
   };
   private parts: Blob[] = [];
@@ -127,7 +130,7 @@ export class ResumableUpload {
       const res = await this.opts.fetch(this.opts.createUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ size: this.closed ? this.total : undefined }),
+        body: JSON.stringify({ size: this.opts.size ?? (this.closed ? this.total : undefined) }),
       });
       const body = await res.json().catch(() => ({}));
       if (res.status === 429 || res.status >= 500) throw new Error(body.error || `Upload couldn't start (${res.status})`);

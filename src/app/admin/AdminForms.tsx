@@ -121,6 +121,7 @@ export function ImportProjectForm() {
     try {
       const upload = new ResumableUpload({
         createUrl: "/api/admin/uploads",
+        size: file.size,
         onProgress: (s) => setState({ step: "uploading", percent: s.total ? Math.floor((s.sent / s.total) * 100) : 0 }),
       });
       upload.append(file);
