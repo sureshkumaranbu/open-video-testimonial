@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **Sign in with Google, Apple or an email link, and invite your team.** The step-by-step guide is [`docs/AUTH.md`](docs/AUTH.md).
+  - **Email links:** single-use, 15 minutes, and only in the browser that asked. Needs email.
+  - **Google**, with an optional Workspace domain.
+  - **Apple**: needs a paid developer membership and HTTPS.
+  - **Settings → Team:** invite people by email, or remove them; their sessions end at once. You can also let people in with `ADMIN_EMAILS` or `ALLOWED_EMAIL_DOMAINS`. There's one owner (`ADMIN_EMAIL`); everyone else is an admin.
+  - Only the methods you set up are shown. Settings → This server lists each one and what it still needs.
+  - `PASSWORD_LOGIN=false` turns off the password once another method works.
+  - The session cookie's name now includes a hash of `PUBLIC_URL`, so two local instances don't sign each other out. **Upgrading signs everyone out once.**
+  - Database migration `0007` adds the team and sign-in tables.
+
 - **Email setup is easier to get right.**
   - **Send test email** in Settings shows the mail server's exact error, plus what to do about it.
   - A step-by-step guide, [`docs/EMAIL.md`](docs/EMAIL.md), with settings for common providers.

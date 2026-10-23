@@ -38,7 +38,7 @@ describe("admin auth", () => {
       }),
     );
     expect(res.status).toBe(200);
-    expect(res.headers.get("set-cookie")).toMatch(/plaudit_session=.+HttpOnly; SameSite=Lax/);
+    expect(res.headers.get("set-cookie")).toMatch(/^plaudit_session_[0-9a-f]{8}=.+HttpOnly; SameSite=Lax/);
   });
 
   it("rejects a wrong password", async () => {
@@ -58,7 +58,7 @@ describe("admin auth", () => {
     const forged = Buffer.from(JSON.stringify({ sub: "x", exp: Date.now() + 1e9 })).toString("base64url");
     expect(verifySessionToken(`${forged}.${sig}`)).toBeNull();
     expect(verifySessionToken(`${payload}.AAAA`)).toBeNull();
-    expect(verifySessionToken(createSessionToken(ADMIN_EMAIL, 0))).toBeNull();
+    expect(verifySessionToken(createSessionToken(ADMIN_EMAIL, "password", 0))).toBeNull();
   });
 });
 

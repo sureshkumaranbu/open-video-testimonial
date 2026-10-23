@@ -320,6 +320,64 @@ export const uploads = sqliteTable("uploads", {
   expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
 });
 
+export const MEMBER_ROLES = ["owner", "admin"] as const;
+export type MemberRole = (typeof MEMBER_ROLES)[number];
+
+/**
+ * People invited to the dashboard from Settings → Team. The owner (ADMIN_EMAIL)
+ * and anyone allowed by ADMIN_EMAILS or ALLOWED_EMAIL_DOMAINS can sign in
+ * without a row here; a row is added for them on first sign-in.
+ */
+export const members = sqliteTable("members", {
+  id: text("id").primaryKey(),
+  /** Lower-cased. */
+  email: text("email").notNull().unique(),
+  name: text("name"),
+  role: text("role", { enum: MEMBER_ROLES }).notNull().default("admin"),
+  /** Who sent the invitation, if anyone. */
+  invitedBy: text("invited_by"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+  activatedAt: integer("activated_at", { mode: "timestamp_ms" }),
+  lastSignInAt: integer("last_sign_in_at", { mode: "timestamp_ms" }),
+});
+
+export const LOGIN_TOKEN_PURPOSES = ["sign-in", "invite"] as const;
+export type LoginTokenPurpose = (typeof LOGIN_TOKEN_PURPOSES)[number];
+
+/** Single-use email links (sign-in and invitations), stored as hashes. */
+export const loginTokens = sqliteTable(
+  "login_tokens",
+  {
+    id: text("id").primaryKey(),
+    /** SHA-256 of the token in the link. */
+    tokenHash: text("token_hash").notNull().unique(),
+    email: text("email").notNull(),
+    purpose: text("purpose", { enum: LOGIN_TOKEN_PURPOSES }).notNull(),
+    /** SHA-256 of a cookie set in the browser that asked for the link; null for invitations. */
+    browserHash: text("browser_hash"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    usedAt: integer("used_at", { mode: "timestamp_ms" }),
+  },
+  (t) => [index("login_tokens_email_idx").on(t.email)],
+);
+
+/** In-progress Google and Apple sign-ins: state, nonce and PKCE verifier, bound to a browser cookie. */
+export const oauthFlows = sqliteTable("oauth_flows", {
+  /** Random; the browser that started the sign-in holds it in a cookie. */
+  id: text("id").primaryKey(),
+  provider: text("provider").notNull(),
+  state: text("state").notNull().unique(),
+  nonce: text("nonce").notNull(),
+  codeVerifier: text("code_verifier").notNull(),
+  /** Apple posts the result back cross-site; it waits here until the browser follows the redirect. */
+  code: text("code"),
+  userJson: text("user_json"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+  expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+});
+
+export type Member = typeof members.$inferSelect;
 export type Project = typeof projects.$inferSelect;
 export type Testimonial = typeof testimonials.$inferSelect;
 export type Job = typeof jobs.$inferSelect;

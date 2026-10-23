@@ -11,6 +11,13 @@ export function requireAdmin(req: Request) {
   return null;
 }
 
+/** Like requireAdmin, for what only the owner may do (managing the team). */
+export function requireOwner(req: Request) {
+  const denied = requireAdmin(req);
+  if (denied) return denied;
+  return getRequestSession(req)!.role === "owner" ? null : jsonError(403, "Only the owner can do this");
+}
+
 export const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",

@@ -24,7 +24,7 @@ async function shot(page: Page, name: string, fullPage = false) {
 
 async function signIn(page: Page) {
   await page.goto("/admin/login");
-  await page.getByLabel("Email").fill(E2E_ADMIN.email);
+  await page.getByLabel("Email", { exact: true }).fill(E2E_ADMIN.email);
   await page.getByLabel("Password").fill(E2E_ADMIN.password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/admin$/);
@@ -52,7 +52,7 @@ async function expectVideoPlays(video: Locator) {
 test("admin can sign in and create a project", async ({ page }) => {
   await page.goto("/admin");
   await expect(page).toHaveURL(/\/admin\/login$/);
-  await page.getByLabel("Email").fill(E2E_ADMIN.email);
+  await page.getByLabel("Email", { exact: true }).fill(E2E_ADMIN.email);
   await page.getByLabel("Password").fill("wrong-password");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByText(/wrong email or password/i)).toBeVisible();

@@ -14,15 +14,19 @@ Please report security problems privately. Use GitHub's **Report a vulnerability
   - your webhook URLs
   - media URLs in CSV files you import, with private-network addresses refused by default
 - **Few runtime dependencies**, all widely used and pinned in `package-lock.json`:
-  - Next.js, React, better-sqlite3, Drizzle ORM, Zod, nodemailer
-  - nodemailer and the test-only smtp-server are pinned to exact versions that had been published for more than two weeks when they were added
+  - Next.js, React, better-sqlite3, Drizzle ORM, Zod, nodemailer, jose
+  - nodemailer, jose (no dependencies of its own, for checking Google and Apple sign-in tokens) and the test-only smtp-server are pinned to exact versions that had been published for more than two weeks when they were added
   - CI runs `npm audit` on production dependencies
 - **No install scripts in the Docker build** (`npm ci --ignore-scripts`). better-sqlite3 ships prebuilt binaries.
 - The container runs as the unprivileged `node` user.
 
 **Accounts, keys and tokens**
 
-- The single owner signs in with a session that's an HMAC-signed, HttpOnly, SameSite=Lax cookie. Every change made with that cookie must also carry this site's `Origin` (or `Sec-Fetch-Site: same-origin`), as a guard against cross-site request forgery. API-key requests don't use cookies and aren't affected.
+- **Sessions** are HMAC-signed, HttpOnly, SameSite=Lax cookies with a fresh id on every sign-in. Every request checks the address may still sign in, so removing a teammate signs them out at once. Every change made with that cookie must also carry this site's `Origin` (or `Sec-Fetch-Site: same-origin`), as a guard against cross-site request forgery. API-key requests don't use cookies and aren't affected.
+- **Sign-in** ([docs/AUTH.md](docs/AUTH.md)):
+  - **Email links** are random, stored as SHA-256 hashes, single-use (claimed atomically), and expire in 15 minutes (invitations: 72 hours). A sign-in link only works in the browser that asked for it, which holds a secret cookie. Opening a link changes nothing until its button is pressed, so mail scanners can't use it up. Asking for one always gets the same answer, and the email is sent in the background, so the form can't reveal who has access. Requests are limited per address and per client.
+  - **Google and Apple** use the authorization code flow, with a random `state` and `nonce` per sign-in (and PKCE for Google). They are kept server-side for 10 minutes and tied to the browser by a cookie. The id_token is verified against the provider's published keys (issuer, audience, expiry, nonce), and the email must be verified. Apple's cross-site `form_post` only parks the code; the sign-in finishes on a same-site redirect that carries the browser's cookie. Apple's client secret is a short-lived ES256 JWT, made on the server.
+  - Accounts are matched by verified email. Only the owner can invite or remove people.
 - **Rate limits** key on the client's real address:
   - The address comes from the connection itself, and `X-Forwarded-For` counts only with `TRUST_PROXY` set. Even then only the entry your proxy added counts, so clients can't make up new addresses to reset their limits.
   - Sign-in allows 10 wrong passwords per address per 15 minutes.

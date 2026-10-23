@@ -1,12 +1,25 @@
 import crypto from "node:crypto";
 import { env } from "./env";
+import { roleFor } from "./members";
 
 /**
- * Single-owner auth: the owner's credentials come from ADMIN_EMAIL /
- * ADMIN_PASSWORD, and a signed, expiring cookie carries the session.
+ * Dashboard sessions. People sign in with the owner's password
+ * (ADMIN_EMAIL / ADMIN_PASSWORD), an emailed link, Google or Apple, and a
+ * signed, expiring cookie carries the session. Every request checks that the
+ * address is still allowed in, so removing someone from the team signs them out.
  */
-export const SESSION_COOKIE = "plaudit_session";
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * The cookie's name includes a short hash of PUBLIC_URL, so two Plaudit
+ * servers on one host (say localhost:3000 and :3001) don't overwrite each
+ * other's sessions.
+ */
+export function sessionCookieName() {
+  return `plaudit_session_${crypto.createHash("sha256").update(env.publicUrl).digest("hex").slice(0, 8)}`;
+}
+
+export type SignInMethod = "password" | "email" | "google" | "apple";
 
 function sign(payload: string) {
   return crypto.createHmac("sha256", env.sessionSecret).update(payload).digest("base64url");
@@ -28,10 +41,12 @@ export function checkCredentials(email: string, password: string) {
   return emailOk && passwordOk;
 }
 
-export function createSessionToken(email: string, now = Date.now()) {
-  const payload = Buffer.from(JSON.stringify({ sub: email, exp: now + SESSION_TTL_MS })).toString(
-    "base64url",
-  );
+/** A new session, with a fresh random id every time someone signs in. */
+export function createSessionToken(email: string, method: SignInMethod = "password", now = Date.now()) {
+  const sid = crypto.randomBytes(12).toString("base64url");
+  const payload = Buffer.from(
+    JSON.stringify({ sub: email.trim().toLowerCase(), exp: now + SESSION_TTL_MS, sid, amr: method }),
+  ).toString("base64url");
   return `${payload}.${sign(payload)}`;
 }
 
@@ -53,7 +68,7 @@ export function verifySessionToken(token: string | undefined | null, now = Date.
 
 export function sessionCookieHeader(token: string) {
   const parts = [
-    `${SESSION_COOKIE}=${token}`,
+    `${sessionCookieName()}=${token}`,
     "Path=/",
     "HttpOnly",
     "SameSite=Lax",
@@ -64,7 +79,7 @@ export function sessionCookieHeader(token: string) {
 }
 
 export function clearSessionCookieHeader() {
-  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+  return `${sessionCookieName()}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
 }
 
 export function readCookie(req: Request, name: string) {
@@ -76,9 +91,17 @@ export function readCookie(req: Request, name: string) {
   return undefined;
 }
 
+/** A valid session whose address may still sign in, with its role. */
+export function sessionFromToken(token: string | undefined | null) {
+  const session = verifySessionToken(token);
+  if (!session) return null;
+  const role = roleFor(session.email);
+  return role ? { email: session.email, role } : null;
+}
+
 /** Returns the session for an API request, or null if not signed in. */
 export function getRequestSession(req: Request) {
-  return verifySessionToken(readCookie(req, SESSION_COOKIE));
+  return sessionFromToken(readCookie(req, sessionCookieName()));
 }
 
 /**

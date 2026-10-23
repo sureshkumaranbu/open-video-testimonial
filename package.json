@@ -21,6 +21,7 @@
   "dependencies": {
     "better-sqlite3": "^13.0.3",
     "drizzle-orm": "^0.45.4",
+    "jose": "6.2.12",
     "next": "^16.4.2",
     "nodemailer": "10.0.13",
     "react": "^19.3.1",
