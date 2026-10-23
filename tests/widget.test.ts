@@ -93,6 +93,9 @@ describe("GET /api/media/*", () => {
     const file = path.join(ctx.dir, "uploads", key);
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, Buffer.from("0123456789"));
+    // Public only while it belongs to an approved testimonial (see media-access.test.ts).
+    const t = createTestimonial(projectId, { name: "Ada", videoKey: key, videoMime: "video/webm" });
+    updateTestimonial(t.id, { status: "approved" });
   });
 
   const get = (k: string, headers: Record<string, string> = {}) =>

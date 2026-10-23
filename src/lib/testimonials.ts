@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import type { Project, Testimonial, TestimonialStatus } from "@/db/schema";
 import { CONSENTED_FIELDS, logConsentEvent } from "./consent";
@@ -199,6 +199,27 @@ export function listTestimonials(
 export function getTestimonial(id: string): TestimonialWithTags | null {
   const row = getDb().select().from(testimonials).where(eq(testimonials.id, id)).get();
   return row ? attachTags([row])[0] : null;
+}
+
+/**
+ * Whether a stored media file (avatar, poster or any video rendition) may be
+ * shown to the public: only while a testimonial using it is approved and its
+ * author hasn't withdrawn consent. Files no testimonial uses are private.
+ */
+export function isMediaPublic(key: string) {
+  const rows = getDb()
+    .select({ status: testimonials.status, withdrawnAt: testimonials.withdrawnAt })
+    .from(testimonials)
+    .where(
+      or(
+        eq(testimonials.avatarKey, key),
+        eq(testimonials.videoKey, key),
+        eq(testimonials.videoOriginalKey, key),
+        eq(testimonials.posterKey, key),
+      ),
+    )
+    .all();
+  return rows.some((r) => r.status === "approved" && !r.withdrawnAt);
 }
 
 export function countByStatus(projectId: string) {
