@@ -519,6 +519,66 @@ test.describe("auth", () => {
   });
 });
 
+// ------------------------------------------------------- admin on a phone
+
+test.describe("admin at 375px", () => {
+  test.use({ viewport: { width: 375, height: 812 } });
+
+  /** Nothing overflows sideways, and the app bar's trail never runs into its actions. */
+  async function fitsThePhone(page: Page) {
+    const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, inner: window.innerWidth }));
+    expect(widths.scroll).toBeLessThanOrEqual(widths.inner);
+    const crumbs = (await page.locator(".app-bar .crumbs").boundingBox())!;
+    const actions = (await page.locator(".app-bar-actions").boundingBox())!;
+    expect(crumbs.x + crumbs.width).toBeLessThanOrEqual(actions.x);
+    for (const name of ["Settings", "Sign out"]) {
+      const box = (await page.getByRole(name === "Settings" ? "link" : "button", { name, exact: true }).first().boundingBox())!;
+      expect(box.x + box.width, name).toBeLessThanOrEqual(375);
+    }
+  }
+
+  test("every admin page fits, and every control can be reached", async ({ page, baseURL }) => {
+    const api = await adminApi(baseURL!);
+    const project = await createProject(api, "A Rather Long Project Name For A Phone", slug("phone"));
+    await seed(api, project.slug, [{ name: "Polly Phone", text: "Small screens too.", status: "approved" }]);
+    await signIn(page);
+    await fitsThePhone(page);
+
+    await page.goto(`/admin/projects/${project.id}`);
+    await fitsThePhone(page);
+    // The current page is named in the trail; the full trail returns on wider screens.
+    await expect(page.locator(".app-bar .crumb.current")).toBeVisible();
+    // Every status filter, "All" included, is on screen and works.
+    const filter = page.getByRole("group", { name: "Filter by status" });
+    for (const label of ["Pending", "Approved", "Rejected", "All"]) {
+      const button = filter.getByRole("button", { name: new RegExp(`^${label}`) });
+      const box = (await button.boundingBox())!;
+      expect(box.x, label).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width, label).toBeLessThanOrEqual(375);
+    }
+    await filter.getByRole("button", { name: /^All/ }).click();
+    await expect(filter.getByRole("button", { name: /^All/ })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByText("Polly Phone")).toBeVisible();
+
+    // Every project tab is fully on screen and opens its page.
+    const tabs = page.getByRole("navigation", { name: "Project sections" });
+    for (const name of ["Testimonials", "Requests", "Import & export"]) {
+      const box = (await tabs.getByRole("link", { name }).boundingBox())!;
+      expect(box.x + box.width, name).toBeLessThanOrEqual(375);
+    }
+    await tabs.getByRole("link", { name: "Import & export" }).click();
+    await expect(page.getByRole("heading", { name: "Import & export", level: 1 })).toBeVisible();
+    await fitsThePhone(page);
+    await tabs.getByRole("link", { name: "Requests" }).click();
+    await expect(page).toHaveURL(/\/requests$/);
+    await fitsThePhone(page);
+
+    await page.getByRole("link", { name: "Settings", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible();
+    await fitsThePhone(page);
+  });
+});
+
 // -------------------------------------------------------------- projects
 
 test.describe("projects", () => {

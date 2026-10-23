@@ -197,7 +197,7 @@ export function Dashboard({
       <div className="workspace">
         <section className="queue" aria-label="Testimonials">
           <div className="row spread">
-            <div className="segmented" role="group" aria-label="Filter by status">
+            <div className="segmented status-filter" role="group" aria-label="Filter by status">
               {FILTERS.map((f) => (
                 <button key={f.id} type="button" aria-pressed={filter === f.id} onClick={() => setFilter(f.id)}>
                   {f.label}
