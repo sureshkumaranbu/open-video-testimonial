@@ -1,6 +1,7 @@
-import { checkCredentials, createSessionToken, isSameOrigin, sessionCookieHeader } from "@/lib/auth";
+import { checkCredentials, isSameOrigin } from "@/lib/auth";
 import { jsonError } from "@/lib/http";
 import { clearRateLimit, clientIp, loginDelayMs, rateCount, rateLimit } from "@/lib/rate-limit";
+import { completeSignIn, signInMethods } from "@/lib/sign-in";
 
 const WINDOW_MS = 15 * 60 * 1000;
 /** Wrong passwords one client may try per window before it gets 429s. */
@@ -9,6 +10,7 @@ const ALL_FAILURES = "login-fail:all";
 
 export async function POST(req: Request) {
   if (!isSameOrigin(req)) return jsonError(403, "Cross-origin request blocked");
+  if (!signInMethods().password) return jsonError(403, "Password sign-in is turned off on this server");
   // Clients we can't identify have no per-client limit (it would be one
   // bucket shared by everyone); the account backoff still applies to them.
   const ip = clientIp(req);
@@ -28,8 +30,5 @@ export async function POST(req: Request) {
     return jsonError(401, "Wrong email or password");
   }
   if (clientFailures) clearRateLimit(clientFailures);
-  return Response.json(
-    { ok: true },
-    { headers: { "Set-Cookie": sessionCookieHeader(createSessionToken(email.trim().toLowerCase())) } },
-  );
+  return Response.json({ ok: true }, { headers: { "Set-Cookie": completeSignIn(email, "password")! } });
 }

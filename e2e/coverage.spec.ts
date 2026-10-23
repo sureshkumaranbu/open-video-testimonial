@@ -492,7 +492,7 @@ test.describe("home page", () => {
 test.describe("auth", () => {
   test("wrong password shows an error", async ({ page }) => {
     await page.goto("/admin/login");
-    await page.getByLabel("Email").fill(E2E_ADMIN.email);
+    await page.getByLabel("Email", { exact: true }).fill(E2E_ADMIN.email);
     await page.getByLabel("Password").fill("not-the-password");
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.getByRole("alert").filter({ hasText: /wrong email or password/i })).toBeVisible();

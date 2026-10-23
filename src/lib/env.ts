@@ -1,4 +1,11 @@
+import fs from "node:fs";
 import path from "node:path";
+
+const list = (value: string | undefined) =>
+  (value || "")
+    .split(",")
+    .map((v) => v.trim().toLowerCase())
+    .filter(Boolean);
 
 /** Runtime configuration. Read lazily so tests can set env vars before use. */
 export const env = {
@@ -16,6 +23,58 @@ export const env = {
   },
   get adminPassword() {
     return process.env.ADMIN_PASSWORD || "";
+  },
+  /** More people who may sign in to the dashboard (comma-separated). */
+  get adminEmails() {
+    return list(process.env.ADMIN_EMAILS);
+  },
+  /** Anyone with a verified address at these domains may sign in, e.g. "acme.com". */
+  get allowedEmailDomains() {
+    return list(process.env.ALLOWED_EMAIL_DOMAINS).map((d) => d.replace(/^@/, ""));
+  },
+  /** Email and password sign-in. "false" turns it off once another method works. */
+  get passwordLogin() {
+    return process.env.PASSWORD_LOGIN !== "false";
+  },
+  get googleClientId() {
+    return process.env.GOOGLE_CLIENT_ID || "";
+  },
+  get googleClientSecret() {
+    return process.env.GOOGLE_CLIENT_SECRET || "";
+  },
+  /** Google Workspace domain to suggest and require (the `hd` claim). */
+  get googleHostedDomain() {
+    return (process.env.GOOGLE_HOSTED_DOMAIN || "").trim().toLowerCase();
+  },
+  /** Only for tests against a stand-in OpenID provider. */
+  get googleIssuer() {
+    return process.env.GOOGLE_ISSUER || "https://accounts.google.com";
+  },
+  /** The Services ID, e.g. com.acme.plaudit.signin. */
+  get appleClientId() {
+    return process.env.APPLE_CLIENT_ID || "";
+  },
+  get appleTeamId() {
+    return process.env.APPLE_TEAM_ID || "";
+  },
+  get appleKeyId() {
+    return process.env.APPLE_KEY_ID || "";
+  },
+  /** The .p8 key's contents (APPLE_PRIVATE_KEY), or a path to it (APPLE_PRIVATE_KEY_FILE). */
+  get applePrivateKey() {
+    const inline = (process.env.APPLE_PRIVATE_KEY || "").replace(/\\n/g, "\n").trim();
+    if (inline) return inline;
+    const file = process.env.APPLE_PRIVATE_KEY_FILE;
+    if (!file) return "";
+    try {
+      return fs.readFileSync(/*turbopackIgnore: true*/ file, "utf8").trim();
+    } catch {
+      return "";
+    }
+  },
+  /** Only for tests against a stand-in OpenID provider. */
+  get appleIssuer() {
+    return process.env.APPLE_ISSUER || "https://appleid.apple.com";
   },
   get sessionSecret() {
     const secret = process.env.SESSION_SECRET || "";

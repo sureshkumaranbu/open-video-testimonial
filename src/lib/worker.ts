@@ -8,6 +8,7 @@ import { queueDueReminders, SEND_EMAIL_JOB, sendRequestEmail, sendThankYou, THAN
 import { getTestimonial } from "./testimonials";
 import { queueTranscription, TRANSCRIBE_JOB, transcribeTestimonial } from "./transcribe";
 import { cleanupExpiredUploads } from "./uploads";
+import { cleanupLoginTokens } from "./login-links";
 import { deliver, DELIVER_JOB } from "./webhooks";
 
 /** Wires every background job type and periodic task to its handler. */
@@ -45,6 +46,7 @@ export function registerJobs() {
   });
   registerPeriodic("requests.reminders", 5 * 60 * 1000, () => queueDueReminders());
   registerPeriodic("uploads.cleanup", 60 * 60 * 1000, () => cleanupExpiredUploads());
+  registerPeriodic("login-links.cleanup", 60 * 60 * 1000, () => cleanupLoginTokens());
   // Hourly: converts older videos, and ones uploaded while ffmpeg was missing.
   registerPeriodic("media.backfill", 60 * 60 * 1000, () => queueUnprocessedVideos());
 }

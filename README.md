@@ -29,7 +29,7 @@ More: [settings (API keys and webhooks)](docs/screenshots/settings.png) · [impo
 - [Quick start with Node.js](#quick-start-with-nodejs)
 - [First steps](#first-steps)
 - [Configuration](#configuration)
-- [Optional features](#optional-features): [video conversion](#video-conversion-ffmpeg) · [email](#email-requests-reminders-and-receipts) · [transcripts](#transcripts-and-captions) · [API and webhooks](#api-and-webhooks)
+- [Optional features](#optional-features): [sign-in and team](#sign-in-and-team) · [video conversion](#video-conversion-ffmpeg) · [email](#email-requests-reminders-and-receipts) · [transcripts](#transcripts-and-captions) · [API and webhooks](#api-and-webhooks)
 - [Embedding](#embedding)
 - [Backups, moving and upgrading](#backups-moving-and-upgrading)
 - [Privacy and consent](#privacy-and-consent)
@@ -86,7 +86,7 @@ cp .env.example .env
 
 Open `.env` and set at least:
 
-- `ADMIN_EMAIL` and `ADMIN_PASSWORD`: your sign-in.
+- `ADMIN_EMAIL` and `ADMIN_PASSWORD`: your sign-in as the owner. You can add Google, Apple, email links and teammates later ([guide](docs/AUTH.md)).
 - `SESSION_SECRET`: a long random string. `openssl rand -hex 32` makes one.
 - `PUBLIC_URL`: the address people will use, such as `http://localhost:3000` on your own computer.
 
@@ -140,7 +140,11 @@ Every setting is an environment variable, read from `.env` (Node) or `docker-com
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | none (required) | Owner sign-in for the dashboard |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | none (required) | The owner's address and password for the dashboard |
+| `ADMIN_EMAILS`, `ALLOWED_EMAIL_DOMAINS` | unset | More people who may sign in as admins: a comma-separated list of addresses, and of domains ([sign-in guide](docs/AUTH.md#who-can-sign-in)) |
+| `PASSWORD_LOGIN` | `true` | `false` turns off password sign-in once another method works |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_HOSTED_DOMAIN` | unset | Sign in with Google ([setup](docs/AUTH.md#google)) |
+| `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` (or `APPLE_PRIVATE_KEY_FILE`) | unset | Sign in with Apple ([setup](docs/AUTH.md#apple)) |
 | `SESSION_SECRET` | none (required) | Signs session cookies and personal links. At least 16 characters. Changing it signs everyone out and invalidates old request links |
 | `PUBLIC_URL` | `http://localhost:3000` | Used in links, emails, embed snippets and the API |
 | `DATA_DIR` | `./data` (`/data` in Docker) | The SQLite database, uploads and temporary files |
@@ -163,6 +167,17 @@ Every setting is an environment variable, read from `.env` (Node) or `docker-com
 ## Optional features
 
 Each of these is off, or degrades gracefully, until you set it up. **Settings → This server** in the dashboard shows what's on.
+
+### Sign-in and team
+
+The owner signs in with `ADMIN_EMAIL` and `ADMIN_PASSWORD`. **[Sign-in and your team](docs/AUTH.md)** shows, step by step, how to add any of these:
+
+- **Email links**: no password, just a link that works once. Needs [email](#email-requests-reminders-and-receipts).
+- **Sign in with Google**, including Google Workspace.
+- **Sign in with Apple**. This needs a paid Apple Developer membership and an HTTPS domain.
+- **Teammates**: invite them in **Settings → Team**, or let in a list of addresses (`ADMIN_EMAILS`) or a whole domain (`ALLOWED_EMAIL_DOMAINS`).
+
+Only the methods you set up appear on the sign-in page. Once one works, `PASSWORD_LOGIN=false` turns off the password.
 
 ### Video conversion (ffmpeg)
 
@@ -296,7 +311,7 @@ See [`SECURITY.md`](SECURITY.md) for how to report a vulnerability and what Plau
 | Problem | Fix |
 |---|---|
 | `SESSION_SECRET must be set` on start | Put a value of 16 or more characters in `.env` |
-| Can't sign in | Check `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` (or the compose fallbacks) and restart. After 10 sign-in attempts within 15 minutes, wait for the window to pass |
+| Can't sign in | Check `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` (or the compose fallbacks) and restart. After 10 sign-in attempts within 15 minutes, wait for the window to pass. For Google, Apple and email links, see [sign-in troubleshooting](docs/AUTH.md#troubleshooting) |
 | Signed out straight away over plain HTTP | `COOKIE_SECURE=true` needs HTTPS. Set it to `false` for local use |
 | "ffmpeg isn't installed" in the dashboard | Install ffmpeg or set `FFMPEG_PATH`, restart, then press **Try again** on the video |
 | Camera blocked on the collection page | Browsers only allow cameras on `https://` or `localhost`. Serve Plaudit over HTTPS |
@@ -344,6 +359,8 @@ To test a running instance instead, for example `docker compose up`, set `E2E_BA
 
 ## Project docs
 
+- [`docs/AUTH.md`](docs/AUTH.md): sign-in with Google, Apple or an email link, and your team.
+- [`docs/EMAIL.md`](docs/EMAIL.md): setting up email.
 - [`docs/API.md`](docs/API.md): REST API and webhooks.
 - [`docs/SPEC.md`](docs/SPEC.md): product spec, what's shipped, and the roadmap.
 - [`docs/research/feature-opportunities.md`](docs/research/feature-opportunities.md): the research behind the current features.

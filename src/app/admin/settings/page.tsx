@@ -1,18 +1,23 @@
 import { WEBHOOK_EVENTS } from "@/db/schema";
 import { env } from "@/lib/env";
+import { callbackUrl } from "@/lib/oidc";
 import { requireAdminPage } from "@/lib/server-session";
+import { signInMethods } from "@/lib/sign-in";
 import { systemStatus } from "@/lib/system";
 import { listProjects } from "@/lib/testimonials";
 import { AppBar } from "../AppBar";
 import { EmailTest } from "./EmailTest";
+import { Team } from "./Team";
 import { Settings } from "./Settings";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
-  await requireAdminPage();
+  const session = await requireAdminPage();
   const system = await systemStatus();
+  const signIn = signInMethods();
+  const missing = (list: string[]) => `Off: set ${list.join(", ")}`;
   return (
     <>
       <AppBar trail={[{ label: "Settings" }]} />
@@ -20,7 +25,7 @@ export default async function SettingsPage() {
         <div className="page-head">
           <div>
             <h1>Settings</h1>
-            <p className="muted">Server features, API keys and webhooks.</p>
+            <p className="muted">Server features, the team, API keys and webhooks.</p>
           </div>
         </div>
 
@@ -50,6 +55,31 @@ export default async function SettingsPage() {
             <dt>Public URL</dt>
             <dd>{env.publicUrl}</dd>
           </dl>
+          <h3 className="panel-body small" id="sign-in-h" style={{ paddingBottom: 0 }}>
+            Sign-in methods <span className="muted">(setup: docs/AUTH.md)</span>
+          </h3>
+          <dl className="status-list panel-body" data-testid="sign-in-status" aria-labelledby="sign-in-h">
+            <dt>Password</dt>
+            <dd data-on={signIn.password}>
+              {signIn.passwordKeptOn
+                ? "On: PASSWORD_LOGIN=false is ignored until another method below is on"
+                : signIn.password
+                  ? `On: the owner, ${env.adminEmail}${env.passwordLogin ? " (PASSWORD_LOGIN=false turns it off)" : ""}`
+                  : env.adminPassword
+                    ? "Off: PASSWORD_LOGIN=false"
+                    : "Off: ADMIN_PASSWORD isn't set"}
+            </dd>
+            <dt>Email link</dt>
+            <dd data-on={signIn.email}>{signIn.email ? "On: uses the email settings above" : "Off: set up email (SMTP_URL) first"}</dd>
+            <dt>Google</dt>
+            <dd data-on={signIn.google}>
+              {signIn.google ? `On: redirect URI ${callbackUrl("google")}` : missing(signIn.status.google.missing)}
+            </dd>
+            <dt>Apple</dt>
+            <dd data-on={signIn.apple}>
+              {signIn.apple ? `On: return URL ${callbackUrl("apple")}` : missing(signIn.status.apple.missing)}
+            </dd>
+          </dl>
           {system.email.mode !== "off" && (
             <div className="panel-body stack">
               {system.email.warning && (
@@ -61,6 +91,8 @@ export default async function SettingsPage() {
             </div>
           )}
         </section>
+
+        <Team you={session} canInvite={signIn.email || signIn.google || signIn.apple} emailOn={signIn.email} />
 
         <Settings
           apiBase={`${env.publicUrl}/api/v1`}

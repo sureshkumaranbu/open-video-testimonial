@@ -1871,6 +1871,20 @@ pre {
   gap: var(--space-5);
 }
 
+/* "or …" between sign-in methods. */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+}
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--line);
+}
+
 @media (max-width: 860px) {
   .signin {
     grid-template-columns: minmax(0, 1fr);

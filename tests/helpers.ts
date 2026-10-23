@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { closeDb } from "@/db";
-import { createSessionToken, SESSION_COOKIE } from "@/lib/auth";
+import { createSessionToken, sessionCookieName } from "@/lib/auth";
 import { resetRateLimits } from "@/lib/rate-limit";
 
 export const ADMIN_EMAIL = "owner@example.com";
@@ -33,7 +33,7 @@ export function useTempDataDir() {
 }
 
 export function adminCookie() {
-  return `${SESSION_COOKIE}=${createSessionToken(ADMIN_EMAIL)}`;
+  return `${sessionCookieName()}=${createSessionToken(ADMIN_EMAIL)}`;
 }
 
 /** Headers a signed-in browser sends on the dashboard's own requests. */
