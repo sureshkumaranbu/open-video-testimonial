@@ -11,29 +11,50 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+      # The runner's apt mirror is sometimes very slow (tens of KB/s), so the
+      # ffmpeg packages are cached between runs: a slow mirror then costs one
+      # run, not every run.
+      - name: Restore cached ffmpeg packages
+        id: apt-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/apt-cache
+          key: apt-ffmpeg-v1-${{ runner.os }}-${{ runner.arch }}
       - name: Install ffmpeg (video conversion tests)
-        timeout-minutes: 10
-        # The runner's apt mirror is occasionally very slow. Bound each attempt and
-        # retry; downloaded packages are kept, so a retry continues where it stopped.
+        timeout-minutes: 20
+        # Each attempt is bounded and retried; downloaded packages are kept, so
+        # a retry continues where the last one stopped.
         run: |
+          mkdir -p ~/apt-cache
+          sudo cp ~/apt-cache/*.deb /var/cache/apt/archives/ 2>/dev/null || true
           sudo apt-get update
           for attempt in 1 2 3; do
-            if sudo timeout 180 apt-get install -y --no-install-recommends \
-                -o Acquire::Retries=3 -o Acquire::http::Timeout=30 ffmpeg; then
+            if sudo timeout 420 apt-get install -y --no-install-recommends \
+                -o Acquire::Retries=5 -o Acquire::http::Timeout=60 \
+                -o APT::Keep-Downloaded-Packages=true ffmpeg; then
               break
             fi
             echo "apt-get attempt $attempt failed or timed out; retrying"
             sudo dpkg --configure -a || true
             sleep 5
           done
+          cp /var/cache/apt/archives/*.deb ~/apt-cache/ 2>/dev/null || true
+          # Last, so the step fails if ffmpeg still isn't there.
           ffmpeg -hide_banner -version > /dev/null && echo "ffmpeg is installed"
+      - name: Save ffmpeg packages for next time
+        if: steps.apt-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ~/apt-cache
+          key: apt-ffmpeg-v1-${{ runner.os }}-${{ runner.arch }}
       - run: npm ci
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=moderate
