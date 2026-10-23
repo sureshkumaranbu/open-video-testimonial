@@ -104,6 +104,7 @@ Everything (the SQLite database and uploaded media) lives in the `plaudit-data` 
 > - Use a strong `ADMIN_PASSWORD` and a random `SESSION_SECRET`.
 > - Serve it over HTTPS behind a reverse proxy (Caddy, Traefik, nginx…).
 > - Set `PUBLIC_URL=https://your-domain` and `COOKIE_SECURE=true`.
+> - Set `TRUST_PROXY=true` so rate limits see each visitor's real address. Only do this when a proxy sits in front: without one, anyone could fake the header it trusts.
 > - Uploads arrive in 8 MB pieces, so the default request-size limits of most proxies are fine. If you raise `MAX_VIDEO_MB`, nothing else needs changing.
 
 ## Quick start with Node.js
@@ -145,6 +146,7 @@ Every setting is an environment variable, read from `.env` (Node) or `docker-com
 | `DATA_DIR` | `./data` (`/data` in Docker) | The SQLite database, uploads and temporary files |
 | `MAX_VIDEO_MB`, `MAX_IMAGE_MB` | `200`, `5` | Upload limits |
 | `COOKIE_SECURE` | `false` | Set `true` behind HTTPS |
+| `TRUST_PROXY` | `false` | Set `true` (or the number of proxies) when a reverse proxy in front adds the client's address to `X-Forwarded-For`. Rate limits then use that address instead of the proxy's. Leave it off when Plaudit is reached directly |
 | `MEDIA_PROCESSING` | on | `off` serves videos exactly as uploaded |
 | `FFMPEG_PATH`, `FFPROBE_PATH` | `ffmpeg`, `ffprobe` | Where to find ffmpeg if it's not on `PATH` |
 | `SMTP_URL`, `SMTP_FROM` | unset | Your mail server, for requests, reminders and receipts ([details](#email-requests-reminders-and-receipts)) |

@@ -5,7 +5,7 @@ import { and, eq, gt, lte } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import type { Upload, UploadKind } from "@/db/schema";
 import { env } from "./env";
-import { saveFile, sniffMime, UploadError, type MediaKind } from "./storage";
+import { isVideoMime, saveFile, sniffMime, UNSUPPORTED_VIDEO, UnsupportedMediaError, UploadError, type MediaKind } from "./storage";
 
 const { uploads } = schema;
 
@@ -99,6 +99,13 @@ async function doAppend(id: string, offset: number, bytes: Uint8Array) {
   if (row.received + bytes.byteLength > row.maxBytes) {
     await discardUpload(id);
     throw new UploadError(`The file is larger than ${Math.round(row.maxBytes / 1024 / 1024)} MB`);
+  }
+  // A video's first bytes say what it is: refuse anything else now, rather
+  // than after the whole file has arrived. (Every container we accept is
+  // recognisable from its first 12 bytes.)
+  if (row.kind === "video" && offset === 0 && bytes.byteLength >= 12 && !isVideoMime(sniffMime(bytes.subarray(0, 16)))) {
+    await discardUpload(id);
+    throw new UnsupportedMediaError(UNSUPPORTED_VIDEO);
   }
   await fs.promises.appendFile(partPath(id), bytes);
   const received = row.received + bytes.byteLength;

@@ -82,16 +82,30 @@ export function getRequestSession(req: Request) {
 }
 
 /**
- * Rejects state-changing requests whose Origin doesn't match the host, as a
- * CSRF guard on top of SameSite=Lax cookies.
+ * Rejects requests whose Origin doesn't match the host, as a CSRF guard on
+ * top of SameSite=Lax cookies. Lenient: a request with no Origin passes, so
+ * scripts can sign in; anything that acts with the session cookie must also
+ * pass isSameSiteRequest.
  */
 export function isSameOrigin(req: Request) {
   const origin = req.headers.get("origin");
-  if (!origin) return true; // non-browser clients (curl, tests) send no Origin
+  if (!origin) return true;
   const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
   try {
     return new URL(origin).host === host;
   } catch {
     return false;
   }
+}
+
+/**
+ * Strict check for state-changing requests authenticated by the session
+ * cookie: the browser must vouch that the request comes from this site,
+ * with a matching Origin or, when Origin is missing, Sec-Fetch-Site:
+ * same-origin. A request that carries neither is refused. API-key routes
+ * don't use cookies and aren't affected.
+ */
+export function isSameSiteRequest(req: Request) {
+  if (req.headers.get("origin")) return isSameOrigin(req);
+  return req.headers.get("sec-fetch-site") === "same-origin";
 }

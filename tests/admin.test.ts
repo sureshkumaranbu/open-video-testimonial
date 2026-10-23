@@ -5,7 +5,7 @@ import { POST as createProjectRoute } from "@/app/api/admin/projects/route";
 import { DELETE, PATCH } from "@/app/api/admin/testimonials/[id]/route";
 import { createSessionToken, verifySessionToken } from "@/lib/auth";
 import { createProject, createTestimonial, getTestimonial } from "@/lib/testimonials";
-import { ADMIN_EMAIL, ADMIN_PASSWORD, adminCookie, params, useTempDataDir } from "./helpers";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, adminHeaders, params, useTempDataDir } from "./helpers";
 
 let ctx: ReturnType<typeof useTempDataDir>;
 let projectId: string;
@@ -18,7 +18,7 @@ beforeEach(() => {
 });
 afterEach(() => ctx.cleanup());
 
-function patch(id: string, body: unknown, headers: Record<string, string> = { cookie: adminCookie() }) {
+function patch(id: string, body: unknown, headers: Record<string, string> = { ...adminHeaders() }) {
   return PATCH(
     new Request(`http://localhost/api/admin/testimonials/${id}`, {
       method: "PATCH",
@@ -73,9 +73,22 @@ describe("moderation", () => {
     const res = await patch(
       testimonialId,
       { status: "approved" },
-      { cookie: adminCookie(), origin: "https://evil.example" },
+      { ...adminHeaders(), origin: "https://evil.example" },
     );
     expect(res.status).toBe(403);
+  });
+
+  it("requires the browser to vouch for the origin of cookie-authenticated changes", async () => {
+    const cookie = adminHeaders().cookie;
+    // No Origin and no Sec-Fetch-Site: refused, even with a valid session.
+    expect((await patch(testimonialId, { status: "approved" }, { cookie })).status).toBe(403);
+    expect((await patch(testimonialId, { status: "approved" }, { cookie, "sec-fetch-site": "cross-site" })).status).toBe(403);
+    expect((await patch(testimonialId, { status: "approved" }, { cookie, "sec-fetch-site": "same-site" })).status).toBe(403);
+    expect(getTestimonial(testimonialId)!.status).toBe("pending");
+    // A matching Origin, or Sec-Fetch-Site: same-origin, is accepted.
+    expect((await patch(testimonialId, { status: "approved" }, { cookie, origin: "http://localhost" })).status).toBe(200);
+    expect((await patch(testimonialId, { status: "rejected" }, { cookie, "sec-fetch-site": "same-origin" })).status).toBe(200);
+    expect(getTestimonial(testimonialId)!.status).toBe("rejected");
   });
 
   it("approves and rejects", async () => {
@@ -101,7 +114,7 @@ describe("moderation", () => {
     const res = await DELETE(
       new Request(`http://localhost/api/admin/testimonials/${testimonialId}`, {
         method: "DELETE",
-        headers: { cookie: adminCookie() },
+        headers: { ...adminHeaders() },
       }),
       params({ id: testimonialId }),
     );
@@ -114,7 +127,7 @@ describe("moderation", () => {
     await patch(testimonialId, { status: "approved" });
     const res = await getProject(
       new Request(`http://localhost/api/admin/projects/${projectId}?status=pending`, {
-        headers: { cookie: adminCookie() },
+        headers: { ...adminHeaders() },
       }),
       params({ id: projectId }),
     );
@@ -130,7 +143,7 @@ describe("projects", () => {
       createProjectRoute(
         new Request("http://localhost/api/admin/projects", {
           method: "POST",
-          headers: { cookie: adminCookie(), "content-type": "application/json" },
+          headers: { ...adminHeaders(), "content-type": "application/json" },
           body: JSON.stringify({ name: "Beta", slug }),
         }),
       );

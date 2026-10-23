@@ -36,6 +36,17 @@ export const env = {
   get cookieSecure() {
     return process.env.COOKIE_SECURE === "true";
   },
+  /**
+   * How many reverse proxies sit in front of Plaudit and append the client's
+   * address to X-Forwarded-For. "true" means one. 0 (the default) ignores
+   * forwarding headers, which any client could otherwise make up.
+   */
+  get trustProxyHops() {
+    const v = (process.env.TRUST_PROXY || "").trim().toLowerCase();
+    if (v === "true" || v === "yes") return 1;
+    const n = Number(v);
+    return Number.isInteger(n) && n > 0 ? Math.min(n, 10) : 0;
+  },
   get tmpDir() {
     return path.join(/*turbopackIgnore: true*/ this.dataDir, "tmp");
   },

@@ -73,20 +73,16 @@ test.describe("home page", () => {
       await section.scrollIntoViewIfNeeded();
       await expect(section).toBeVisible();
     }
-    // Scroll through like a reader would.
-    const height = await page.evaluate(() => document.documentElement.scrollHeight);
-    for (let y = 0; y < height; y += 300) {
-      await page.evaluate((top) => window.scrollTo(0, top), y);
-      await page.waitForTimeout(40);
+    // Bring each reveal target into view in turn, as a reader would, and
+    // wait for that one to fade in (robust to slow or headed runs).
+    const reveals = page.locator("[data-reveal]");
+    const count = await reveals.count();
+    expect(count).toBeGreaterThan(10);
+    for (let i = 0; i < count; i++) {
+      const el = reveals.nth(i);
+      await el.evaluate((node) => node.scrollIntoView({ block: "center" }));
+      await expect(el).toHaveClass(/(^|\s)is-in(\s|$)/, { timeout: 5000 });
     }
-    // After scrolling through, every reveal target has faded in.
-    await expect
-      .poll(() =>
-        page.evaluate(() =>
-          [...document.querySelectorAll("[data-reveal]")].every((el) => el.classList.contains("is-in")),
-        ),
-      )
-      .toBe(true);
     await expect(page.getByTestId("platform-marquee")).toContainText("WordPress");
     await expect(page.getByTestId("platform-marquee")).toContainText("Plain HTML");
     await expect(page.getByTestId("sample-caption")).toHaveText(SAMPLE_CAPTION);
@@ -126,6 +122,30 @@ test.describe("home page", () => {
     await demo.getByRole("button", { name: "Recording" }).click();
     await expect(demo).toHaveAttribute("data-step", "record");
     await expect(demo.getByRole("button", { name: "Recording" })).toHaveAttribute("aria-current", "step");
+  });
+
+  test("the hero's Pending and Approved badges never show at the same time", async ({ page }) => {
+    await page.goto("/");
+    const demo = page.getByTestId("hero-demo");
+    await demo.getByRole("button", { name: "Review" }).click();
+    // Sample both badges every frame through the swap; the fainter of the two
+    // is how much they overlap.
+    const overlap = await page.evaluate(async () => {
+      const pending = document.querySelector(".demo-badge-swap .pending")!;
+      const approved = document.querySelector(".demo-badge-swap .approved")!;
+      let worst = 0;
+      const end = performance.now() + 2600;
+      while (performance.now() < end) {
+        await new Promise(requestAnimationFrame);
+        const a = Number(getComputedStyle(pending).opacity);
+        const b = Number(getComputedStyle(approved).opacity);
+        worst = Math.max(worst, Math.min(a, b));
+      }
+      return worst;
+    });
+    expect(overlap).toBeLessThan(0.05);
+    await expect(demo.locator(".demo-badge-swap .approved")).toHaveCSS("opacity", "1");
+    await expect(demo.locator(".demo-badge-swap .pending")).toHaveCSS("opacity", "0");
   });
 
   test("the hero clip plays muted and looped, only while in view", async ({ page }) => {
@@ -499,6 +519,68 @@ test.describe("auth", () => {
   });
 });
 
+// ------------------------------------------------------- admin on a phone
+
+test.describe("admin at 375px", () => {
+  test.use({ viewport: { width: 375, height: 812 } });
+
+  /** Nothing overflows sideways, and the app bar's trail never runs into its actions. */
+  async function fitsThePhone(page: Page) {
+    const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, inner: window.innerWidth }));
+    expect(widths.scroll).toBeLessThanOrEqual(widths.inner);
+    const crumbs = (await page.locator(".app-bar .crumbs").boundingBox())!;
+    const actions = (await page.locator(".app-bar-actions").boundingBox())!;
+    expect(crumbs.x + crumbs.width).toBeLessThanOrEqual(actions.x);
+    for (const name of ["Settings", "Sign out"]) {
+      const box = (await page.getByRole(name === "Settings" ? "link" : "button", { name, exact: true }).first().boundingBox())!;
+      expect(box.x + box.width, name).toBeLessThanOrEqual(375);
+    }
+  }
+
+  test("every admin page fits, and every control can be reached", async ({ page, baseURL }) => {
+    const api = await adminApi(baseURL!);
+    const project = await createProject(api, "A Rather Long Project Name For A Phone", slug("phone"));
+    await seed(api, project.slug, [{ name: "Polly Phone", text: "Small screens too.", status: "approved" }]);
+    // Settings' tables only appear once there's something in them.
+    expect((await api.post("/api/admin/api-keys", { data: { name: "A phone-width key", scope: "read" } })).status()).toBe(201);
+    await signIn(page);
+    await fitsThePhone(page);
+
+    await page.goto(`/admin/projects/${project.id}`);
+    await fitsThePhone(page);
+    // The current page is named in the trail; the full trail returns on wider screens.
+    await expect(page.locator(".app-bar .crumb.current")).toBeVisible();
+    // Every status filter, "All" included, is on screen and works.
+    const filter = page.getByRole("group", { name: "Filter by status" });
+    for (const label of ["Pending", "Approved", "Rejected", "All"]) {
+      const button = filter.getByRole("button", { name: new RegExp(`^${label}`) });
+      const box = (await button.boundingBox())!;
+      expect(box.x, label).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width, label).toBeLessThanOrEqual(375);
+    }
+    await filter.getByRole("button", { name: /^All/ }).click();
+    await expect(filter.getByRole("button", { name: /^All/ })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByText("Polly Phone")).toBeVisible();
+
+    // Every project tab is fully on screen and opens its page.
+    const tabs = page.getByRole("navigation", { name: "Project sections" });
+    for (const name of ["Testimonials", "Requests", "Import & export"]) {
+      const box = (await tabs.getByRole("link", { name }).boundingBox())!;
+      expect(box.x + box.width, name).toBeLessThanOrEqual(375);
+    }
+    await tabs.getByRole("link", { name: "Import & export" }).click();
+    await expect(page.getByRole("heading", { name: "Import & export", level: 1 })).toBeVisible();
+    await fitsThePhone(page);
+    await tabs.getByRole("link", { name: "Requests" }).click();
+    await expect(page).toHaveURL(/\/requests$/);
+    await fitsThePhone(page);
+
+    await page.getByRole("link", { name: "Settings", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible();
+    await fitsThePhone(page);
+  });
+});
+
 // -------------------------------------------------------------- projects
 
 test.describe("projects", () => {
@@ -512,8 +594,15 @@ test.describe("projects", () => {
     await page.getByRole("button", { name: "Create project" }).click();
     await expect(page).toHaveURL(/\/admin$/);
     expect(await page.getByLabel(/^Link slug/).evaluate((el: HTMLInputElement) => el.validity.valid)).toBe(false);
-    const apiRes = await page.request.post("/api/admin/projects", { data: { name: "X", slug: "Bad Slug!" } });
+    const origin = new URL(page.url()).origin;
+    const apiRes = await page.request.post("/api/admin/projects", {
+      data: { name: "X", slug: "Bad Slug!" },
+      headers: { origin },
+    });
     expect(apiRes.status()).toBe(400);
+    // The session cookie alone isn't enough: a change must come with this site's Origin.
+    const noOrigin = await page.request.post("/api/admin/projects", { data: { name: "X", slug: "no-origin-x" } });
+    expect(noOrigin.status()).toBe(403);
 
     // Valid.
     await page.getByLabel("Name").fill("Coverage Co");

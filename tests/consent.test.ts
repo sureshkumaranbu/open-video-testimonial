@@ -6,7 +6,7 @@ import { POST as withdraw } from "@/app/api/withdraw/[token]/route";
 import { GET as widget } from "@/app/api/widget/[slug]/route";
 import { currentConsentVersion, DEFAULT_CONSENT, listConsentEvents, listConsentVersions } from "@/lib/consent";
 import { createProject, getProjectById, getTestimonial, updateProject } from "@/lib/testimonials";
-import { adminCookie, params, submissionForm, submitRequest, useTempDataDir } from "./helpers";
+import { adminHeaders, params, submissionForm, submitRequest, useTempDataDir } from "./helpers";
 
 let ctx: ReturnType<typeof useTempDataDir>;
 let projectId: string;
@@ -36,7 +36,7 @@ function adminPatch(id: string, body: unknown) {
     new Request(`http://localhost/api/admin/testimonials/${id}`, {
       method: "PATCH",
       body: JSON.stringify(body),
-      headers: { cookie: adminCookie() },
+      headers: { ...adminHeaders() },
     }),
     params({ id }),
   );
@@ -103,7 +103,7 @@ describe("consent ledger", () => {
     expect(events[1]).toMatchObject({ actor: "owner", detail: "Changed after consent: text, authorName" });
 
     const record = await (
-      await consentRecord(new Request(`http://localhost/x`, { headers: { cookie: adminCookie() } }), params({ id }))
+      await consentRecord(new Request(`http://localhost/x`, { headers: { ...adminHeaders() } }), params({ id }))
     ).json();
     expect(record).toMatchObject({ scopes: ["website"], editedAfterConsent: true });
     expect(record.events).toHaveLength(2);

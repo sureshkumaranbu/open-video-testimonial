@@ -20,6 +20,9 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:-insecure-dev-secret-change-me-please}
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      # Set to true when a reverse proxy (Caddy, nginx, Traefik…) sits in front
+      # and appends the client address to X-Forwarded-For. Leave false otherwise.
+      TRUST_PROXY: ${TRUST_PROXY:-false}
       DATA_DIR: /data
     volumes:
       - plaudit-data:/data

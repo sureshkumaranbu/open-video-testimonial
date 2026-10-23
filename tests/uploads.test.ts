@@ -138,6 +138,26 @@ describe("resumable upload API", () => {
     }
   });
 
+  it("refuses a file that isn't a video on its first chunk (415) and drops the upload", async () => {
+    const { id, token } = await (await start()).json();
+    const text = new TextEncoder().encode("This is a text file named holiday.mp4, not a video at all.");
+    const res = await chunk(id, token, 0, text);
+    expect(res.status).toBe(415);
+    expect((await res.json()).error).toBe("This file isn't a video we can use. Choose a WebM, MP4, MOV or Ogg video.");
+    expect((await status(id, token)).status).toBe(404);
+    // A real video header is accepted.
+    const ok = await (await start()).json();
+    expect((await chunk(ok.id, ok.token, 0, WEBM_BYTES)).status).toBe(200);
+  });
+
+  it("the browser uploader marks size and type refusals as fatal, so it won't retry them", async () => {
+    const states: { error: string | null; fatal: boolean }[] = [];
+    const upload = new ResumableUpload({ createUrl: "/api/projects/acme/uploads", fetch: routeFetch(), onProgress: (s) => states.push(s) });
+    upload.append(new Blob([new TextEncoder().encode("plain text, definitely not a video file")]));
+    await expect(upload.finish()).rejects.toMatchObject({ fatal: true });
+    expect(states.at(-1)).toMatchObject({ fatal: true, error: expect.stringMatching(/isn't a video/) });
+  });
+
   it("refuses uploads for unknown projects or projects without video", async () => {
     expect((await start("nope")).status).toBe(404);
     updateProject(projectId, { allowVideo: false });
@@ -191,14 +211,18 @@ describe("submitting with a finished upload", () => {
     expect(again.status).toBe(400);
   });
 
-  it("rejects an upload that isn't a video", async () => {
-    const { id, token } = await uploaded(PNG_BYTES);
+  it("rejects an upload that isn't a video, while uploading and again at submission", async () => {
+    // Caught on the first chunk: the upload is gone before anyone presses Submit.
+    const early = await (await start()).json();
+    expect((await chunk(early.id, early.token, 0, PNG_BYTES)).status).toBe(415);
+    // Too short to judge while uploading, so the final check at submission catches it.
+    const { id, token } = await uploaded(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]));
     const res = await submit(
       submitRequest("acme", submissionForm({ name: "Ada", consent: "on", videoUpload: id, videoUploadToken: token })),
       params({ slug: "acme" }),
     );
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toMatch(/unsupported video format/i);
+    expect((await res.json()).error).toBe("This file isn't a video we can use. Choose a WebM, MP4, MOV or Ogg video.");
   });
 
   it("rejects another project's upload", async () => {

@@ -20,6 +20,9 @@ export function useTempDataDir() {
   process.env.SESSION_SECRET = "test-secret-test-secret-test-secret";
   process.env.ADMIN_EMAIL = ADMIN_EMAIL;
   process.env.ADMIN_PASSWORD = ADMIN_PASSWORD;
+  // Tests stand in for many clients by sending X-Forwarded-For, as a reverse
+  // proxy would; tests/rate-limit.test.ts covers TRUST_PROXY being off.
+  process.env.TRUST_PROXY = "1";
   return {
     dir,
     cleanup() {
@@ -31,6 +34,11 @@ export function useTempDataDir() {
 
 export function adminCookie() {
   return `${SESSION_COOKIE}=${createSessionToken(ADMIN_EMAIL)}`;
+}
+
+/** Headers a signed-in browser sends on the dashboard's own requests. */
+export function adminHeaders() {
+  return { cookie: adminCookie(), "sec-fetch-site": "same-origin" };
 }
 
 export function params<T>(value: T) {

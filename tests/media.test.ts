@@ -10,7 +10,7 @@ import { probe, queueUnprocessedVideos, queueVideoProcessing, resetFfmpegCheck }
 import { saveFile, sniffMime } from "@/lib/storage";
 import { createProject, createTestimonial, deleteTestimonial, getTestimonial, updateTestimonial } from "@/lib/testimonials";
 import { registerJobs } from "@/lib/worker";
-import { adminCookie, hasFfmpeg, params, SAMPLE_WEBM, useTempDataDir } from "./helpers";
+import { adminHeaders, hasFfmpeg, params, SAMPLE_WEBM, useTempDataDir } from "./helpers";
 
 let ctx: ReturnType<typeof useTempDataDir>;
 let projectId: string;
@@ -124,7 +124,7 @@ describe.skipIf(!hasFfmpeg())("video processing (needs ffmpeg)", () => {
     const res = await reprocess(
       new Request(`http://localhost/api/admin/testimonials/${t.id}/reprocess`, {
         method: "POST",
-        headers: { cookie: adminCookie() },
+        headers: { ...adminHeaders() },
       }),
       params({ id: t.id }),
     );

@@ -12,8 +12,9 @@ let ipCounter = Math.floor(Math.random() * 200);
 
 /**
  * A fresh client IP per test. The app rate-limits submissions and sign-ins
- * per IP (taken from X-Forwarded-For), so a long suite run from one machine
- * would otherwise trip its own limits.
+ * per IP, taken from X-Forwarded-For because the test server runs with
+ * TRUST_PROXY=1; a long suite run from one machine would otherwise trip its
+ * own limits.
  */
 export function freshIp() {
   ipCounter = (ipCounter + 1) % 250;
@@ -34,7 +35,11 @@ export async function signIn(page: Page) {
 
 /** A signed-in API client for seeding data quickly. */
 export async function adminApi(baseURL: string): Promise<APIRequestContext> {
-  const api = await pwRequest.newContext({ baseURL, extraHTTPHeaders: { "x-forwarded-for": freshIp() } });
+  // Origin: the dashboard's own requests carry it, and admin changes require it.
+  const api = await pwRequest.newContext({
+    baseURL,
+    extraHTTPHeaders: { "x-forwarded-for": freshIp(), origin: new URL(baseURL).origin },
+  });
   const res = await api.post("/api/admin/login", { data: E2E_ADMIN });
   expect(res.ok()).toBe(true);
   return api;
@@ -118,5 +123,8 @@ article,div{background:hotpink;border:4px solid lime}</style></head>
 
 /** Saves a screenshot to docs/screenshots/ when UPDATE_SCREENSHOTS is set. */
 export async function shot(page: Page, name: string, fullPage = false) {
-  if (SHOTS) await page.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage });
+  if (!SHOTS) return;
+  // A sticky header is drawn where the viewport is, so start full-page shots at the top.
+  if (fullPage) await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: path.join(SHOTS, `${name}.png`), fullPage });
 }

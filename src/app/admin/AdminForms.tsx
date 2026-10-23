@@ -9,13 +9,14 @@ export function LogoutButton() {
     <button
       type="button"
       className="ghost small"
+      aria-label="Sign out"
       onClick={async () => {
         await fetch("/api/admin/logout", { method: "POST" });
         window.location.href = "/admin/login";
       }}
     >
       <Icon name="logout" />
-      Sign out
+      <span className="hide-narrow">Sign out</span>
     </button>
   );
 }

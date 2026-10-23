@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+Fixes from a release QA pass:
+
+- **Security**
+  - Rate limits use the real client address; forwarding headers count only with the new `TRUST_PROXY` setting.
+  - Wrong passwords back off instead of letting anyone lock the owner out.
+  - Media of pending, rejected or withdrawn testimonials is no longer public.
+  - CSP, `nosniff` and `Referrer-Policy` headers on every page.
+  - Changes made with the dashboard's cookie need an `Origin`.
+- **Uploads**: a file that isn't a video, or is too large, is refused straight away, with "Choose another file".
+- **CSV import** lists the ratings, dates, emails and URLs it had to leave out, by line, instead of changing them silently.
+- **API**
+  - Withdrawn testimonials have status `withdrawn`.
+  - `limit` outside 1–100 is a 400.
+  - "Invalid API key" vs "Missing API key".
+  - Validation errors are plain English.
+- The dashboard fits a 375px phone.
+- Bad private links return 404.
+- A favicon.
+- The hero's badge swap no longer overlaps.
+
 - **Home page: real sample video testimonials.**
   - The sample clips and faces are now licensed stock footage from Pexels, with every source listed in [`docs/CREDITS.md`](docs/CREDITS.md).
   - The hero demo's Recording step plays a muted, looping clip, but only while it's in view, and shows the poster instead with reduced motion or Save-Data.

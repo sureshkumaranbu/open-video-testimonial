@@ -44,9 +44,19 @@ export function openApiSpec(serverUrl: string) {
           summary: "List a project's testimonials, newest first",
           operationId: "listTestimonials",
           parameters: [
-            { name: "status", in: "query", schema: { type: "string", enum: ["pending", "approved", "rejected"] } },
+            {
+              name: "status",
+              in: "query",
+              description: "rejected excludes withdrawn testimonials; ask for withdrawn to get those",
+              schema: { type: "string", enum: ["pending", "approved", "rejected", "withdrawn"] },
+            },
             { name: "tag", in: "query", schema: { type: "string" } },
-            { name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: 100, default: 50 } },
+            {
+              name: "limit",
+              in: "query",
+              description: "Outside 1–100 is a 400 error",
+              schema: { type: "integer", minimum: 1, maximum: 100, default: 50 },
+            },
             { name: "offset", in: "query", schema: { type: "integer", minimum: 0, default: 0 } },
           ],
           responses: {
@@ -135,7 +145,11 @@ export function openApiSpec(serverUrl: string) {
           properties: {
             id: { type: "string" },
             projectId: { type: "string" },
-            status: { type: "string", enum: ["pending", "approved", "rejected"] },
+            status: {
+              type: "string",
+              enum: ["pending", "approved", "rejected", "withdrawn"],
+              description: "withdrawn: the author withdrew consent; it can't be published again",
+            },
             rating: nullable("integer", { minimum: 1, maximum: 5 }),
             text: nullable("string"),
             transcript: nullable("string", { description: "Transcript of the video, if any" }),

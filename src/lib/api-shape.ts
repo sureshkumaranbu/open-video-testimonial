@@ -3,6 +3,13 @@ import { env } from "./env";
 import { mediaUrl } from "./storage";
 import type { TestimonialWithTags } from "./testimonials";
 
+export const API_STATUSES = ["pending", "approved", "rejected", "withdrawn"] as const;
+export type ApiStatus = (typeof API_STATUSES)[number];
+
+export function apiStatus(t: Pick<TestimonialWithTags, "status" | "withdrawnAt">): ApiStatus {
+  return t.withdrawnAt ? "withdrawn" : t.status;
+}
+
 /**
  * The testimonial as the REST API and webhooks describe it. Unlike the public
  * widget feed, this is for the owner's own systems, so it includes the
@@ -19,7 +26,8 @@ export function toApi(t: TestimonialWithTags) {
   return {
     id: t.id,
     projectId: t.projectId,
-    status: t.status,
+    /** "withdrawn" once the author withdrew consent (stored as rejected, and never publishable again). */
+    status: apiStatus(t),
     rating: t.rating,
     text: t.text,
     /** Machine transcript of the video (editable by the owner), if any. */

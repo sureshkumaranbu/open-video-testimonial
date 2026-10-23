@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { findByWithdrawToken } from "@/lib/consent";
 import { getProjectById } from "@/lib/testimonials";
 import { WithdrawForm } from "./WithdrawForm";
@@ -11,15 +12,11 @@ export default async function WithdrawPage({ params }: { params: Promise<{ token
   const { token } = await params;
   const row = findByWithdrawToken(token);
   const project = row ? getProjectById(row.projectId) : null;
+  if (!row || !project) notFound();
 
   return (
     <main className="container narrow withdraw">
-      {!row || !project ? (
-        <>
-          <h1>Link not found</h1>
-          <p className="muted">This withdrawal link isn&apos;t valid. Check that you copied all of it.</p>
-        </>
-      ) : row.withdrawnAt ? (
+      {row.withdrawnAt ? (
         <>
           <h1>Already withdrawn</h1>
           <p className="muted">

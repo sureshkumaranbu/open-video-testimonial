@@ -21,7 +21,7 @@ import {
 } from "@/lib/requests";
 import { createProject, getProjectById, getTestimonial } from "@/lib/testimonials";
 import { registerJobs } from "@/lib/worker";
-import { adminCookie, params, submissionForm, submitRequest, useTempDataDir } from "./helpers";
+import { adminHeaders, params, submissionForm, submitRequest, useTempDataDir } from "./helpers";
 
 /** Every message the local SMTP server receives. */
 const inbox: { to: string; raw: string }[] = [];
@@ -64,7 +64,7 @@ afterEach(() => {
 });
 
 const admin = (url: string, init: RequestInit = {}) =>
-  new Request(`http://localhost${url}`, { ...init, headers: { cookie: adminCookie(), "content-type": "application/json" } });
+  new Request(`http://localhost${url}`, { ...init, headers: { ...adminHeaders(), "content-type": "application/json" } });
 
 async function ask(recipients: string, send = true) {
   const res = await createRoute(

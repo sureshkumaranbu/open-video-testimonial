@@ -614,13 +614,14 @@
   grid-area: 1 / 1;
 }
 
+/* One after the other, never both at once: the two words would overlap. */
 .demo-badge-swap .pending {
   opacity: 0;
-  animation: badge-out 300ms 1500ms var(--ease-out) both;
+  animation: badge-out 220ms 1500ms var(--ease-out) both;
 }
 
 .demo-badge-swap .approved {
-  animation: badge-in 420ms 1500ms var(--ease-out) both;
+  animation: badge-in 380ms 1720ms var(--ease-out) both;
 }
 
 @keyframes badge-out {

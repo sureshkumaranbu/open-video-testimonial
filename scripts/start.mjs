@@ -5,6 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import "./peer-ip.mjs"; // must run before the server creates its HTTP listener
 
 if (fs.existsSync(".env")) process.loadEnvFile(".env"); // never overrides real env vars
 process.env.DATA_DIR = path.resolve(process.env.DATA_DIR || "data");

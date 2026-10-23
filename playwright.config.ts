@@ -45,6 +45,9 @@ export default defineConfig({
           ADMIN_EMAIL: E2E_ADMIN.email,
           ADMIN_PASSWORD: E2E_ADMIN.password,
           NEXT_TELEMETRY_DISABLED: "1",
+          // The suite stands in for many visitors by sending X-Forwarded-For,
+          // as a reverse proxy would (see useFreshIp in e2e/helpers.ts).
+          TRUST_PROXY: "1",
           // Run background jobs (video conversion, email, webhooks) promptly.
           JOBS_POLL_MS: "300",
           // Emails are written to .e2e-data/mail-outbox, where the tests read them.

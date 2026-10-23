@@ -71,6 +71,8 @@ jobs:
           ADMIN_PASSWORD: e2e-password-123
           SESSION_SECRET: ci-session-secret-ci-session-secret
           PUBLIC_URL: http://127.0.0.1:3000
+          # The suite stands in for many visitors with X-Forwarded-For.
+          TRUST_PROXY: "1"
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
       - name: End-to-end tests against the container

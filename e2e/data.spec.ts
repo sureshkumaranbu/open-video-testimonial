@@ -67,10 +67,10 @@ test("CSV import with the column mapper", async ({ page, baseURL }) => {
   await signIn(page);
   await page.goto(`/admin/projects/${p.id}/data`);
   const csv = [
-    "Customer,Contact,Their words,Stars,Labels",
-    'Cleo Csv,cleo@example.com,"Moved over in five minutes, honestly.",★★★★★,"migrated"',
-    "Dan Dup,dan@example.com,Fine.,4/5,",
-    "No Words,nw@example.com,,3,",
+    "Customer,Contact,Their words,Stars,Labels,When",
+    'Cleo Csv,cleo@example.com,"Moved over in five minutes, honestly.",★★★★★,"migrated",2025-05-01',
+    "Dan Dup,dan@example.com,Fine.,9,,not-a-date",
+    "No Words,nw@example.com,,3,,",
   ].join("\n");
   await page.getByTestId("csv-file").setInputFiles({ name: "old-tool.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
 
@@ -84,10 +84,19 @@ test("CSV import with the column mapper", async ({ page, baseURL }) => {
   await preview.getByLabel("Email").selectOption("Contact");
   await expect(preview.getByTestId("preview-row").first()).toContainText("5/5");
   await expect(preview).toContainText("line 4 (No text or video URL)");
+  await preview.getByLabel("Date").selectOption("When");
+  // Values it can't use are listed by line, not silently changed.
+  const warnings = preview.getByTestId("csv-warnings");
+  await expect(warnings).toContainText('Line 3: Rating "9" isn\'t 1 to 5 stars');
+  await expect(warnings).toContainText('Line 3: Date "not-a-date" isn\'t a date we can read');
   await preview.getByLabel(/Approve imported testimonials/).check();
   await shot(page, "import-export", true);
   await preview.getByRole("button", { name: "Import 2 testimonials" }).click();
-  await expect(page.getByRole("status")).toContainText("Imported 2 testimonials, skipped 1.");
+  const result = page.getByTestId("import-result");
+  await expect(result).toContainText("Imported 2 testimonials, skipped 1.");
+  await expect(result).toContainText("Skipped: line 4 (No text or video URL)");
+  await expect(result.getByTestId("csv-warnings")).toContainText("Imported without some values (2)");
+  await expect(result.getByTestId("csv-warnings")).toContainText('Line 3: Rating "9"');
 
   await page.goto(`/wall/${p.slug}`);
   await expect(page.getByText("Moved over in five minutes, honestly.")).toBeVisible();

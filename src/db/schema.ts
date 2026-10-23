@@ -98,7 +98,14 @@ export const testimonials = sqliteTable(
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
   },
-  (t) => [index("testimonials_project_status_idx").on(t.projectId, t.status)],
+  (t) => [
+    index("testimonials_project_status_idx").on(t.projectId, t.status),
+    // /api/media looks up which testimonial a file belongs to on every request.
+    index("testimonials_avatar_key_idx").on(t.avatarKey),
+    index("testimonials_video_key_idx").on(t.videoKey),
+    index("testimonials_video_original_key_idx").on(t.videoOriginalKey),
+    index("testimonials_poster_key_idx").on(t.posterKey),
+  ],
 );
 
 export const tags = sqliteTable(

@@ -50,8 +50,10 @@ const API_HEADERS = { "Cache-Control": "no-store" };
  * `write` routes need a key with the write scope.
  */
 export function requireApiKey(req: Request, need: ApiKeyScope) {
-  const match = /^Bearer\s+(plk_[A-Za-z0-9_-]{20,})$/.exec(req.headers.get("authorization") ?? "");
-  if (!match) return { error: jsonError(401, "Missing API key (Authorization: Bearer plk_…)", API_HEADERS) };
+  const header = req.headers.get("authorization")?.trim() ?? "";
+  if (!header) return { error: jsonError(401, "Missing API key (Authorization: Bearer plk_…)", API_HEADERS) };
+  const match = /^Bearer\s+(plk_[A-Za-z0-9_-]{20,})$/.exec(header);
+  if (!match) return { error: jsonError(401, "Invalid API key (Authorization: Bearer plk_…)", API_HEADERS) };
   const key = getDb().select().from(apiKeys).where(eq(apiKeys.keyHash, hash(match[1]))).get();
   if (!key || key.revokedAt) return { error: jsonError(401, "Invalid or revoked API key", API_HEADERS) };
   if (need === "write" && key.scope !== "write") {

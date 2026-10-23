@@ -1542,12 +1542,59 @@ pre {
 }
 
 .crumbs {
+  flex: 1 1 auto;
   display: flex;
   align-items: center;
   gap: var(--space-2);
   color: var(--ink-3);
   font-size: var(--text-sm);
   min-width: 0;
+  overflow: hidden;
+}
+
+.crumb {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  white-space: nowrap;
+}
+
+/* Long names shorten with an ellipsis instead of running into the actions. */
+.crumb > :last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.crumb-here {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.crumbs .brand {
+  flex: none;
+}
+
+.app-bar-actions {
+  flex: none;
+  display: flex;
+  gap: var(--space-2);
+}
+
+@media (max-width: 560px) {
+  /* Phones: just the current page, and icon-only actions. */
+  .crumb:not(.current) {
+    display: none;
+  }
+  .hide-narrow {
+    display: none;
+  }
+  .app-bar-actions .small {
+    width: 40px;
+    padding: 0;
+    justify-content: center;
+  }
 }
 
 .crumbs a {
@@ -1922,6 +1969,13 @@ textarea.mono {
   border-bottom: 1px solid var(--line);
   margin-top: var(--space-4);
   overflow-x: auto;
+  scrollbar-width: none;
+  /* Shadows appear at an edge only while there's more to scroll that way. */
+  background:
+    linear-gradient(to right, var(--paper) 40%, transparent) left / 32px 100% no-repeat local,
+    linear-gradient(to left, var(--paper) 40%, transparent) right / 32px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgb(0 0 0 / 0.14), transparent) left / 12px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgb(0 0 0 / 0.14), transparent) right / 12px 100% no-repeat scroll;
 }
 .project-tabs a {
   padding: var(--space-3) var(--space-4);
@@ -1936,6 +1990,29 @@ textarea.mono {
 .project-tabs a[aria-current="page"] {
   color: var(--ink);
   border-color: var(--ink);
+}
+@media (max-width: 480px) {
+  .project-tabs a {
+    padding-inline: var(--space-3);
+  }
+}
+
+/* The dashboard's status filter: on phones, four equal cells with the count under the label. */
+@media (max-width: 560px) {
+  .segmented.status-filter {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+    border-radius: var(--radius-md);
+  }
+  .segmented.status-filter button {
+    flex-direction: column;
+    gap: 0;
+    min-height: 48px;
+    padding: var(--space-1);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+  }
 }
 .badge.requested {
   background: var(--surface-2);
@@ -1961,6 +2038,9 @@ textarea.mono {
 }
 .table-wrap {
   overflow-x: auto;
+  /* Contains absolutely positioned bits (screen-reader-only labels) so they
+     scroll with the table instead of widening the page. */
+  position: relative;
 }
 .notice {
   padding: var(--space-3) var(--space-4);
@@ -1971,6 +2051,15 @@ textarea.mono {
 }
 .notice.warn {
   background: var(--warn-soft);
+}
+.notice p {
+  margin: 0;
+}
+/* A short list of line-by-line notes, e.g. what a CSV import left out. */
+ul.notes {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-5);
+  overflow-wrap: anywhere;
 }
 
 .status-list {

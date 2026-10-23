@@ -5,7 +5,14 @@
  * the person presses stop. Failed requests are retried, and the upload
  * resumes from whatever offset the server confirms.
  */
-export type UploadState = { sent: number; total: number; done: boolean; error: string | null };
+export type UploadState = {
+  sent: number;
+  total: number;
+  done: boolean;
+  error: string | null;
+  /** The server refused the file itself (too large, not a video): retrying can't help. */
+  fatal: boolean;
+};
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -24,7 +31,17 @@ export interface ResumableUploadOptions {
   onProgress?: (state: UploadState) => void;
 }
 
-export class UploadFailed extends Error {}
+export class UploadFailed extends Error {
+  constructor(
+    message: string,
+    readonly fatal = false,
+  ) {
+    super(message);
+  }
+}
+
+/** 413 (too large) and 415 (not a video) are about the file, not the connection. */
+const isFileRejection = (status: number) => status === 413 || status === 415;
 
 export class ResumableUpload {
   readonly opts: Required<Omit<ResumableUploadOptions, "onProgress" | "fetch">> & {
@@ -39,6 +56,7 @@ export class ResumableUpload {
   private session: Promise<{ id: string; token: string }> | null = null;
   private pumping: Promise<void> | null = null;
   private error: string | null = null;
+  private fatal = false;
 
   constructor(opts: ResumableUploadOptions) {
     this.opts = {
@@ -53,7 +71,13 @@ export class ResumableUpload {
   }
 
   get state(): UploadState {
-    return { sent: this.acked, total: this.total, done: this.closed && this.acked === this.total, error: this.error };
+    return {
+      sent: this.acked,
+      total: this.total,
+      done: this.closed && this.acked === this.total,
+      error: this.error,
+      fatal: this.fatal,
+    };
   }
 
   /** Adds bytes to the end of the upload and starts sending them. */
@@ -70,7 +94,7 @@ export class ResumableUpload {
     this.closed = true;
     this.kick();
     while (this.pumping) await this.pumping;
-    if (this.error) throw new UploadFailed(this.error);
+    if (this.error) throw new UploadFailed(this.error, this.fatal);
     if (this.acked !== this.total) {
       this.kick();
       while (this.pumping) await this.pumping;
@@ -81,6 +105,7 @@ export class ResumableUpload {
 
   /** Retries after a failure, continuing from the server's offset. */
   retry() {
+    if (this.fatal) return;
     this.error = null;
     this.kick();
   }
@@ -106,7 +131,7 @@ export class ResumableUpload {
       });
       const body = await res.json().catch(() => ({}));
       if (res.status === 429 || res.status >= 500) throw new Error(body.error || `Upload couldn't start (${res.status})`);
-      if (!res.ok) throw new UploadFailed(body.error || `Upload couldn't start (${res.status})`);
+      if (!res.ok) throw new UploadFailed(body.error || `Upload couldn't start (${res.status})`, isFileRejection(res.status));
       return { id: body.id as string, token: body.token as string };
     })();
     this.session.catch(() => {
@@ -159,7 +184,7 @@ export class ResumableUpload {
           this.acked = 0;
         }
         if (res.status >= 400 && res.status < 500 && res.status !== 404 && res.status !== 429) {
-          throw new UploadFailed(body.error || `Upload rejected (${res.status})`);
+          throw new UploadFailed(body.error || `Upload rejected (${res.status})`, isFileRejection(res.status));
         }
         throw new Error(body.error || `Upload failed (${res.status})`);
       } catch (err) {
@@ -167,6 +192,7 @@ export class ResumableUpload {
         if (err instanceof UploadFailed || failures > this.opts.retries) {
           this.error =
             err instanceof UploadFailed ? err.message : "The upload keeps failing. Check your connection and try again.";
+          this.fatal = err instanceof UploadFailed && err.fatal;
           this.emit();
           return;
         }

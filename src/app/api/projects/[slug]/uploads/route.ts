@@ -1,6 +1,6 @@
 import { env } from "@/lib/env";
 import { jsonError } from "@/lib/http";
-import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { clientKey, rateLimit } from "@/lib/rate-limit";
 import { getProjectBySlug } from "@/lib/testimonials";
 import { CHUNK_MAX_BYTES, createUpload, MAX_OPEN_UPLOADS_PER_PROJECT, openUploadCount } from "@/lib/uploads";
 
@@ -10,7 +10,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ slug: string }
   const project = getProjectBySlug(slug);
   if (!project) return jsonError(404, "Project not found");
   if (!project.allowVideo) return jsonError(400, "This page doesn't accept videos");
-  if (!rateLimit(`upload-start:${clientIp(req)}`, 30, 10 * 60 * 1000)) {
+  if (!rateLimit(`upload-start:${clientKey(req)}`, 30, 10 * 60 * 1000)) {
     return jsonError(429, "Too many uploads, please try again later");
   }
   // Bounds the disk an anonymous visitor can tie up with unfinished uploads.

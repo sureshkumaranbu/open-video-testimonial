@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { env } from "./env";
+import { sniffMime, UNSUPPORTED_VIDEO } from "./sniff";
 
 /**
  * Media storage. The MVP stores files on local disk under DATA_DIR/uploads;
@@ -32,32 +33,18 @@ export const MIME_BY_EXT: Record<string, string> = Object.fromEntries(
   [...Object.entries(IMAGE_TYPES), ...Object.entries(VIDEO_TYPES)].map(([m, e]) => [e, m]),
 );
 
-/** Sniffs the real container type from magic bytes; never trust the client. */
-export function sniffMime(head: Uint8Array): string | null {
-  const b = head;
-  const ascii = (start: number, len: number) =>
-    String.fromCharCode(...b.subarray(start, start + len));
-  if (b[0] === 0x89 && ascii(1, 3) === "PNG") return "image/png";
-  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
-  if (ascii(0, 4) === "RIFF" && ascii(8, 4) === "WEBP") return "image/webp";
-  if (ascii(0, 4) === "GIF8") return "image/gif";
-  if (b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3) return "video/webm";
-  if (ascii(4, 4) === "ftyp") {
-    return ascii(8, 2) === "qt" ? "video/quicktime" : "video/mp4";
-  }
-  if (ascii(0, 4) === "OggS") return "video/ogg";
-  return null;
-}
+export { isVideoMime, sniffMime, UNSUPPORTED_VIDEO } from "./sniff";
 
 export class UploadError extends Error {}
+
+/** The file isn't a type we accept (415 rather than 413). */
+export class UnsupportedMediaError extends UploadError {}
 
 function checkType(mime: string | null, kind: MediaKind) {
   const allowed = kind === "video" ? VIDEO_TYPES : IMAGE_TYPES;
   if (!mime || !(mime in allowed)) {
-    throw new UploadError(
-      kind === "video"
-        ? "Unsupported video format (use WebM, MP4, MOV or Ogg)"
-        : "Unsupported image format (use PNG, JPEG, WebP or GIF)",
+    throw new UnsupportedMediaError(
+      kind === "video" ? UNSUPPORTED_VIDEO : "Unsupported image format (use PNG, JPEG, WebP or GIF)",
     );
   }
   return { mime, ext: allowed[mime] };

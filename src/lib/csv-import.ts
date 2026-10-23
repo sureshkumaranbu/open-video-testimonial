@@ -83,16 +83,21 @@ export function guessOrigin(headers: string[]) {
   return "csv";
 }
 
-/** "5", "4.6", "5/5", "8 out of 10", "★★★★☆" -> 1..5, or null. */
+/**
+ * "5", "4.6", "5/5", "8 out of 10", "★★★★☆" -> 1..5, or null. A bare number
+ * must already be 1 to 5: "9" could be out of 10 or a typo, so it isn't
+ * guessed (write "9/10" for a 10-point scale).
+ */
 export function parseRating(raw: string | undefined) {
   if (!raw) return null;
   const stars = (raw.match(/★/g) ?? []).length;
   if (stars) return Math.min(stars, 5);
-  const m = /^\s*(\d+(?:[.,]\d+)?)\s*(?:\/|out of)?\s*(\d+)?/i.exec(raw);
+  const m = /^\s*(\d+(?:[.,]\d+)?)\s*(?:(?:\/|out of)\s*(\d+))?\s*(?:stars?)?\s*$/i.exec(raw);
   if (!m) return null;
   let n = Number(m[1].replace(",", "."));
-  const scale = m[2] ? Number(m[2]) : n > 5 && n <= 10 ? 10 : 5;
-  if (scale && scale !== 5) n = (n / scale) * 5;
+  const scale = m[2] ? Number(m[2]) : 5;
+  if (!scale || n > scale) return null;
+  if (scale !== 5) n = (n / scale) * 5;
   const r = Math.round(n);
   return r >= 1 && r <= 5 ? r : null;
 }
@@ -102,6 +107,8 @@ function parseDate(raw: string | undefined) {
   const t = Date.parse(raw);
   return Number.isFinite(t) && t > Date.UTC(1990, 0, 1) && t < Date.now() + 86_400_000 ? new Date(t) : null;
 }
+
+const quoted = (v: string) => `"${v.length > 40 ? `${v.slice(0, 40)}…` : v}"`;
 
 const httpUrl = z.url({ protocol: /^https?$/ });
 
@@ -117,31 +124,55 @@ export interface MappedRow {
   tags: string[];
   avatarUrl: string | null;
   videoUrl: string | null;
+  /** Why the row can't be imported at all. */
   error: string | null;
+  /** Values that were left out, so the owner knows what changed. */
+  warnings: string[];
 }
+
+export type RowNote = { line: number; message: string };
 
 export function mapRows(records: Record<string, string>[], mapping: Mapping): MappedRow[] {
   const get = (r: Record<string, string>, f: ImportField) => (mapping[f] ? (r[mapping[f]!] ?? "").trim() : "");
   return records.map((r, i) => {
-    const url = (v: string) => (v && httpUrl.safeParse(v).success ? v : null);
-    const email = get(r, "email").toLowerCase();
+    const warnings: string[] = [];
+    const url = (field: "avatarUrl" | "videoUrl", label: string) => {
+      const v = get(r, field);
+      if (!v) return null;
+      if (httpUrl.safeParse(v).success) return v;
+      warnings.push(`${label} ${quoted(v)} isn't a web address, so it was left out`);
+      return null;
+    };
+    const rawEmail = get(r, "email");
+    const email = rawEmail.toLowerCase();
+    const validEmail = z.email().safeParse(email).success;
+    if (rawEmail && !validEmail) warnings.push(`Email ${quoted(rawEmail)} isn't valid, so it was left out`);
+    const rawRating = get(r, "rating");
+    const rating = parseRating(rawRating);
+    if (rawRating && rating === null) {
+      warnings.push(`Rating ${quoted(rawRating)} isn't 1 to 5 stars (write 9/10 for a 10-point scale), so it was imported without a rating`);
+    }
+    const rawDate = get(r, "date");
+    const date = parseDate(rawDate);
+    if (rawDate && !date) warnings.push(`Date ${quoted(rawDate)} isn't a date we can read, so the import time was used`);
     const row: MappedRow = {
       line: i + 2,
       name: get(r, "name").slice(0, 120),
-      email: z.email().safeParse(email).success ? email : null,
+      email: validEmail ? email : null,
       title: get(r, "title").slice(0, 120) || null,
       company: get(r, "company").slice(0, 120) || null,
       text: get(r, "text").slice(0, 5000) || null,
-      rating: parseRating(get(r, "rating")),
-      date: parseDate(get(r, "date")),
+      rating,
+      date,
       tags: get(r, "tags")
         .split(/[,;|]/)
         .map((t) => t.trim().toLowerCase().slice(0, 32))
         .filter(Boolean)
         .slice(0, 20),
-      avatarUrl: url(get(r, "avatarUrl")),
-      videoUrl: url(get(r, "videoUrl")),
+      avatarUrl: url("avatarUrl", "Avatar URL"),
+      videoUrl: url("videoUrl", "Video URL"),
       error: null,
+      warnings,
     };
     if (!row.name) row.error = "No name";
     else if (!row.text && !row.videoUrl) row.error = "No text or video URL";
@@ -161,7 +192,14 @@ export function previewCsv(csv: string, mapping?: Mapping) {
     valid: rows.filter((r) => !r.error).length,
     rows: rows.slice(0, 5),
     errors: rows.filter((r) => r.error).slice(0, 20).map((r) => ({ line: r.line, error: r.error })),
+    ...warningsOf(rows, 20),
   };
+}
+
+/** Warnings on rows that will be imported, with line numbers: the first `max`, and how many in all. */
+function warningsOf(rows: MappedRow[], max: number) {
+  const all: RowNote[] = rows.filter((r) => !r.error).flatMap((r) => r.warnings.map((message) => ({ line: r.line, message })));
+  return { warnings: all.slice(0, max), warningCount: all.length };
 }
 
 export const FETCH_MEDIA_JOB = "import.media";
@@ -222,7 +260,7 @@ export function importCsv(
     }
     imported++;
   }
-  return { imported, skipped, origin };
+  return { imported, skipped, ...warningsOf(rows, 100), origin };
 }
 
 // ------------------------------------------------------------ fetching media

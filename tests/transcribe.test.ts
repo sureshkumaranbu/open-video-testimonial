@@ -13,7 +13,7 @@ import { queueVideoProcessing, resetFfmpegCheck } from "@/lib/media";
 import { saveFile } from "@/lib/storage";
 import { createProject, createTestimonial, getTestimonial, updateTestimonial } from "@/lib/testimonials";
 import { registerJobs } from "@/lib/worker";
-import { adminCookie, hasFfmpeg, params, SAMPLE_WEBM, useTempDataDir } from "./helpers";
+import { adminHeaders, hasFfmpeg, params, SAMPLE_WEBM, useTempDataDir } from "./helpers";
 
 const FAKE_WHISPER = path.resolve(__dirname, "../e2e/fixtures/fake-whisper.mjs");
 
@@ -39,7 +39,7 @@ async function videoTestimonial() {
 }
 
 function admin(url: string, init: RequestInit = {}) {
-  return new Request(`http://localhost${url}`, { ...init, headers: { cookie: adminCookie(), "content-type": "application/json" } });
+  return new Request(`http://localhost${url}`, { ...init, headers: { ...adminHeaders(), "content-type": "application/json" } });
 }
 
 describe.skipIf(!hasFfmpeg())("transcription (needs ffmpeg)", () => {
