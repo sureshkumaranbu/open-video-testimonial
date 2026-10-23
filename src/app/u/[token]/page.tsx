@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { findRequestByUnsubscribeToken } from "@/lib/requests";
 import { getProjectById } from "@/lib/testimonials";
 import { UnsubscribeButton } from "./UnsubscribeButton";
@@ -14,14 +15,10 @@ export default async function UnsubscribePage({ params }: { params: Promise<{ to
   const { token } = await params;
   const r = findRequestByUnsubscribeToken(token);
   const project = r ? getProjectById(r.projectId) : null;
+  if (!r || !project) notFound();
   return (
     <main className="container narrow withdraw">
-      {!r || !project ? (
-        <>
-          <h1>Link not found</h1>
-          <p className="muted">This unsubscribe link isn&apos;t valid.</p>
-        </>
-      ) : r.unsubscribedAt ? (
+      {r.unsubscribedAt ? (
         <>
           <h1>You&apos;re unsubscribed</h1>
           <p className="muted">{project.name} won&apos;t email you about this request again.</p>

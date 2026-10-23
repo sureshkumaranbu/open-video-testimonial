@@ -73,20 +73,16 @@ test.describe("home page", () => {
       await section.scrollIntoViewIfNeeded();
       await expect(section).toBeVisible();
     }
-    // Scroll through like a reader would.
-    const height = await page.evaluate(() => document.documentElement.scrollHeight);
-    for (let y = 0; y < height; y += 300) {
-      await page.evaluate((top) => window.scrollTo(0, top), y);
-      await page.waitForTimeout(40);
+    // Bring each reveal target into view in turn, as a reader would, and
+    // wait for that one to fade in (robust to slow or headed runs).
+    const reveals = page.locator("[data-reveal]");
+    const count = await reveals.count();
+    expect(count).toBeGreaterThan(10);
+    for (let i = 0; i < count; i++) {
+      const el = reveals.nth(i);
+      await el.evaluate((node) => node.scrollIntoView({ block: "center" }));
+      await expect(el).toHaveClass(/(^|\s)is-in(\s|$)/, { timeout: 5000 });
     }
-    // After scrolling through, every reveal target has faded in.
-    await expect
-      .poll(() =>
-        page.evaluate(() =>
-          [...document.querySelectorAll("[data-reveal]")].every((el) => el.classList.contains("is-in")),
-        ),
-      )
-      .toBe(true);
     await expect(page.getByTestId("platform-marquee")).toContainText("WordPress");
     await expect(page.getByTestId("platform-marquee")).toContainText("Plain HTML");
     await expect(page.getByTestId("sample-caption")).toHaveText(SAMPLE_CAPTION);
@@ -126,6 +122,30 @@ test.describe("home page", () => {
     await demo.getByRole("button", { name: "Recording" }).click();
     await expect(demo).toHaveAttribute("data-step", "record");
     await expect(demo.getByRole("button", { name: "Recording" })).toHaveAttribute("aria-current", "step");
+  });
+
+  test("the hero's Pending and Approved badges never show at the same time", async ({ page }) => {
+    await page.goto("/");
+    const demo = page.getByTestId("hero-demo");
+    await demo.getByRole("button", { name: "Review" }).click();
+    // Sample both badges every frame through the swap; the fainter of the two
+    // is how much they overlap.
+    const overlap = await page.evaluate(async () => {
+      const pending = document.querySelector(".demo-badge-swap .pending")!;
+      const approved = document.querySelector(".demo-badge-swap .approved")!;
+      let worst = 0;
+      const end = performance.now() + 2600;
+      while (performance.now() < end) {
+        await new Promise(requestAnimationFrame);
+        const a = Number(getComputedStyle(pending).opacity);
+        const b = Number(getComputedStyle(approved).opacity);
+        worst = Math.max(worst, Math.min(a, b));
+      }
+      return worst;
+    });
+    expect(overlap).toBeLessThan(0.05);
+    await expect(demo.locator(".demo-badge-swap .approved")).toHaveCSS("opacity", "1");
+    await expect(demo.locator(".demo-badge-swap .pending")).toHaveCSS("opacity", "0");
   });
 
   test("the hero clip plays muted and looped, only while in view", async ({ page }) => {
