@@ -22,8 +22,12 @@ Please report security problems privately. Use GitHub's **Report a vulnerability
 
 **Accounts, keys and tokens**
 
-- The single owner signs in with a session that's an HMAC-signed, HttpOnly, SameSite=Lax cookie. Write requests also check the Origin header, as a guard against cross-site request forgery.
-- Sign-ins and public submissions are rate-limited per IP.
+- The single owner signs in with a session that's an HMAC-signed, HttpOnly, SameSite=Lax cookie. Every change made with that cookie must also carry this site's `Origin` (or `Sec-Fetch-Site: same-origin`), as a guard against cross-site request forgery. API-key requests don't use cookies and aren't affected.
+- **Rate limits** key on the client's real address:
+  - The address comes from the connection itself, and `X-Forwarded-For` counts only with `TRUST_PROXY` set. Even then only the entry your proxy added counts, so clients can't make up new addresses to reset their limits.
+  - Sign-in allows 10 wrong passwords per address per 15 minutes.
+  - After a few wrong passwords from anywhere, every attempt is slowed down (up to 4 seconds), but nobody can lock the owner out.
+  - Public submissions, uploads and withdrawals are limited per address too.
 - **Secrets at rest**:
   - API keys and upload tokens are stored as SHA-256 hashes.
   - Withdrawal tokens are stored as hashes.
@@ -33,12 +37,18 @@ Please report security problems privately. Use GitHub's **Report a vulnerability
 
 **Files and media**
 
-- **Uploads** are checked by their real file signature (magic bytes), not the name or the browser's claim. They're stored under random names that can't escape the uploads directory, and served with `nosniff`.
+- **Uploads** are checked by their real file signature (magic bytes), not the name or the browser's claim. A video upload that doesn't start like a video is refused on its first chunk. Files are stored under random names that can't escape the uploads directory, and served with `nosniff`.
+- **Media access**: a video, poster or photo is public only while its testimonial is approved and not withdrawn. Public responses must be revalidated on every use, so a rejection or withdrawal takes effect at once. Otherwise only the signed-in owner, or a request with a REST API key, gets it; anyone else gets a 404.
 - **ffmpeg and transcription programs** are run with argument lists, never through a shell. ffmpeg may only read local files (`-protocol_whitelist file`). Both have time limits.
 - **Archives being imported** are read without trusting entry names; files are looked up by their expected path. Sizes are checked on the decompressed output, which defends against zip bombs, and CRCs are verified.
 
 **Pages and embeds**
 
+- **Headers**:
+  - Every response sends `X-Content-Type-Options: nosniff` and a `Referrer-Policy`.
+  - Every page sends a Content Security Policy that only allows this server, and can't be framed by other sites. The exception is `/embed/*`, which exists to be framed.
+  - The dashboard's policy allows scripts only with a fresh per-request nonce.
+  - Private links send no `Referer` at all.
 - The embed widget renders inside Shadow DOM and inserts user text only with `textContent`, never as HTML.
 - Exported CSV cells that could run as spreadsheet formulas are neutralised.
 - Public pages and feeds never include email addresses, consent records or unapproved testimonials.
@@ -48,6 +58,6 @@ Please report security problems privately. Use GitHub's **Report a vulnerability
 
 ## Known limitations
 
-- Media files are served by unguessable URLs but aren't access-controlled. Someone who has the URL of a pending video can watch it.
 - The rate limiter and background worker are in-process, so run a single instance.
-- The rate limiter keys on `X-Forwarded-For`. Run Plaudit behind a reverse proxy that sets that header, rather than exposing it directly.
+- Behind a reverse proxy, set `TRUST_PROXY=true`, or every visitor shares the proxy's address and its limits. Leave it off when Plaudit is reached directly.
+- Public pages are prerendered, so their CSP allows inline scripts (Next.js's bootstrap needs them). The dashboard's doesn't.
