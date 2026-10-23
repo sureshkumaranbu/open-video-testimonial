@@ -11,7 +11,38 @@ type Preview = {
   valid: number;
   rows: Record<string, unknown>[];
   errors: { line: number; error: string }[];
+  warnings: Note[];
+  warningCount: number;
 };
+
+type Note = { line: number; message: string };
+
+type ImportResult = {
+  imported: number;
+  skipped: { line: number; error: string }[];
+  warnings: Note[];
+  warningCount: number;
+};
+
+/** Values an import leaves out (an unreadable date or rating, say), line by line. */
+function Warnings({ notes, count, intro }: { notes: Note[]; count: number; intro: string }) {
+  if (count === 0) return null;
+  return (
+    <div className="small" data-testid="csv-warnings">
+      <p>
+        {intro} ({count}):
+      </p>
+      <ul className="notes">
+        {notes.map((w, i) => (
+          <li key={i}>
+            Line {w.line}: {w.message}
+          </li>
+        ))}
+      </ul>
+      {count > notes.length && <p className="muted">…and {count - notes.length} more.</p>}
+    </div>
+  );
+}
 
 const FIELD_LABEL: Record<string, string> = {
   name: "Name (required)",
@@ -49,7 +80,7 @@ export function DataTools({ projectId, total, fields }: { projectId: string; tot
   const [fetchMedia, setFetchMedia] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<ImportResult | null>(null);
 
   async function refresh(text: string, map?: Record<string, string>) {
     setError(null);
@@ -157,6 +188,7 @@ export function DataTools({ projectId, total, fields }: { projectId: string; tot
                   Rows that will be skipped: {preview.errors.map((e) => `line ${e.line} (${e.error})`).join(", ")}
                 </p>
               )}
+              <Warnings notes={preview.warnings} count={preview.warningCount} intro="These rows will import, but without some values" />
               <label className="check small">
                 <input type="checkbox" checked={approve} onChange={(e) => setApprove(e.target.checked)} />
                 Approve imported testimonials (otherwise they wait in Pending)
@@ -173,15 +205,13 @@ export function DataTools({ projectId, total, fields }: { projectId: string; tot
                     setBusy(true);
                     setError(null);
                     try {
-                      const res = await post<{ imported: number; skipped: { line: number; error: string }[] }>(
-                        `/api/admin/projects/${projectId}/import-csv`,
-                        { csv, mapping: Object.fromEntries(Object.entries(mapping).filter(([, v]) => v)), approve, fetchMedia },
-                      );
-                      setResult(
-                        `Imported ${res.imported} testimonial${res.imported === 1 ? "" : "s"}` +
-                          (res.skipped.length ? `, skipped ${res.skipped.length}` : "") +
-                          ".",
-                      );
+                      const res = await post<ImportResult>(`/api/admin/projects/${projectId}/import-csv`, {
+                        csv,
+                        mapping: Object.fromEntries(Object.entries(mapping).filter(([, v]) => v)),
+                        approve,
+                        fetchMedia,
+                      });
+                      setResult(res);
                       setPreview(null);
                       setCsv(null);
                       setFileName("");
@@ -198,9 +228,19 @@ export function DataTools({ projectId, total, fields }: { projectId: string; tot
             </div>
           )}
           {result && (
-            <p className="notice" role="status">
-              {result} <a href={`/admin/projects/${projectId}`}>Review them</a>
-            </p>
+            <div className="notice stack" role="status" data-testid="import-result">
+              <p>
+                Imported {result.imported} testimonial{result.imported === 1 ? "" : "s"}
+                {result.skipped.length ? `, skipped ${result.skipped.length}` : ""}.{" "}
+                <a href={`/admin/projects/${projectId}`}>Review them</a>
+              </p>
+              {result.skipped.length > 0 && (
+                <p className="small">
+                  Skipped: {result.skipped.map((e) => `line ${e.line} (${e.error})`).join(", ")}
+                </p>
+              )}
+              <Warnings notes={result.warnings} count={result.warningCount} intro="Imported without some values" />
+            </div>
           )}
           {error && (
             <p className="error" role="alert">

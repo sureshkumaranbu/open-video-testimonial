@@ -1972,6 +1972,15 @@ textarea.mono {
 .notice.warn {
   background: var(--warn-soft);
 }
+.notice p {
+  margin: 0;
+}
+/* A short list of line-by-line notes, e.g. what a CSV import left out. */
+ul.notes {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-5);
+  overflow-wrap: anywhere;
+}
 
 .status-list {
   display: grid;

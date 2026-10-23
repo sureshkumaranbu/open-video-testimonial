@@ -137,7 +137,9 @@ describe("CSV", () => {
   });
 
   it("understands ratings in several forms", () => {
-    expect(["5", "4.6", "4/5", "8 out of 10", "★★★☆☆", "9", "0", "lots", ""].map(parseRating)).toEqual([5, 5, 4, 4, 3, 5, null, null, null]);
+    expect(["5", "4.6", "4/5", "8 out of 10", "9/10", "4 stars", "★★★☆☆"].map(parseRating)).toEqual([5, 5, 4, 4, 5, 4, 3]);
+    // A bare number above 5 isn't guessed to be out of 10: it's left out (and warned about).
+    expect(["9", "6", "0", "11/10", "lots", ""].map(parseRating)).toEqual([null, null, null, null, null, null]);
   });
 });
 
@@ -299,6 +301,35 @@ describe("CSV import", () => {
     });
     expect(t.createdAt.toISOString()).toBe("2025-03-01T00:00:00.000Z");
     expect(listConsentEvents(t.id)[0]).toMatchObject({ type: "imported", actor: "import" });
+  });
+
+  it("says which values it left out, with line numbers, instead of changing them silently", async () => {
+    const csv = [
+      "Name,Text,Rating,Date,Email,Video URL",
+      "Ada,Great,9,not-a-date,not-an-email,javascript:alert(1)",
+      "Bob,Fine,4,2025-03-01,bob@example.com,",
+    ].join("\n");
+    const expected = [
+      { line: 2, message: 'Email "not-an-email" isn\'t valid, so it was left out' },
+      {
+        line: 2,
+        message: 'Rating "9" isn\'t 1 to 5 stars (write 9/10 for a 10-point scale), so it was imported without a rating',
+      },
+      { line: 2, message: 'Date "not-a-date" isn\'t a date we can read, so the import time was used' },
+      { line: 2, message: 'Video URL "javascript:alert(1)" isn\'t a web address, so it was left out' },
+    ];
+    const preview = await (await previewRoute(admin(`/api/admin/projects/${projectId}/import-csv/preview`, { csv }))).json();
+    expect(preview).toMatchObject({ valid: 2, warningCount: 4 });
+    expect(preview.warnings).toEqual(expect.arrayContaining(expected));
+
+    const before = Date.now();
+    const body = await (await importCsvRoute(admin(`/api/admin/projects/${projectId}/import-csv`, { csv }), params({ id: projectId }))).json();
+    expect(body).toMatchObject({ imported: 2, warningCount: 4 });
+    expect(body.warnings).toEqual(expect.arrayContaining(expected));
+    const ada = listTestimonials(projectId).find((t) => t.authorName === "Ada")!;
+    expect(ada).toMatchObject({ rating: null, authorEmail: null });
+    expect(ada.createdAt.getTime()).toBeGreaterThanOrEqual(before - 1000);
+    expect(listTestimonials(projectId).find((t) => t.authorName === "Bob")).toMatchObject({ rating: 4 });
   });
 
   it("honours a changed mapping and can approve on import", async () => {
