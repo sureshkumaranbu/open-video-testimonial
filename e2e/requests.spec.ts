@@ -126,3 +126,25 @@ test("invite, prefilled link, response, receipt and unsubscribe", async ({ page,
   await page.getByRole("button", { name: "Add and send" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Added 0 people" })).toContainText("(unsubscribed)");
 });
+
+test("Settings sends a test email, to the owner or to an address they type", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/admin/settings");
+  await expect(page.getByTestId("server-status")).toContainText("Test mode");
+  await expect(page.getByTestId("email-from-warning")).toHaveCount(0); // only when really sending
+  const form = page.getByTestId("email-test");
+  const to = form.getByLabel("Send a test email to");
+  await expect(to).not.toHaveValue(""); // the owner's address
+
+  const typed = `check+${RUN}@example.com`;
+  await to.fill(typed);
+  await form.getByRole("button", { name: "Send test email" }).click();
+  await expect(page.getByTestId("email-test-result")).toContainText(`Written to DATA_DIR/mail-outbox for ${typed}`);
+  expect(await waitForMail(typed, /Subject: Plaudit test email/)).toContain("If you can read it, email works");
+
+  await to.fill("not an address");
+  await expect(form.getByRole("button", { name: "Send test email" })).toBeEnabled();
+  await page.evaluate(() => document.querySelector<HTMLFormElement>('[data-testid="email-test"]')!.noValidate = true);
+  await form.getByRole("button", { name: "Send test email" }).click();
+  await expect(page.getByTestId("email-test-result")).toContainText("Enter a valid email address");
+});

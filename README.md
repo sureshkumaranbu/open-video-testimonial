@@ -149,7 +149,8 @@ Every setting is an environment variable, read from `.env` (Node) or `docker-com
 | `TRUST_PROXY` | `false` | Set `true` (or the number of proxies) when a reverse proxy in front adds the client's address to `X-Forwarded-For`. Rate limits then use that address instead of the proxy's. Leave it off when Plaudit is reached directly |
 | `MEDIA_PROCESSING` | on | `off` serves videos exactly as uploaded |
 | `FFMPEG_PATH`, `FFPROBE_PATH` | `ffmpeg`, `ffprobe` | Where to find ffmpeg if it's not on `PATH` |
-| `SMTP_URL`, `SMTP_FROM` | unset | Your mail server, for requests, reminders and receipts ([details](#email-requests-reminders-and-receipts)) |
+| `SMTP_URL`, `SMTP_FROM` | unset | Your mail server and sender, for requests, reminders and receipts ([set up email](docs/EMAIL.md)). Without `SMTP_FROM`, mail comes from `no-reply@localhost`, which real servers refuse |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE` | unset | The mail server in parts instead of `SMTP_URL`, so the password needn't be URL-encoded. `SMTP_URL` wins if both are set |
 | `MAIL_OUTBOX` | `false` | `true` writes emails to `DATA_DIR/mail-outbox` instead of sending them (for trying things out) |
 | `TRANSCRIBE_PROVIDER` | `off` | `command` or `openai` ([details](#transcripts-and-captions)) |
 | `TRANSCRIBE_COMMAND` | unset | For `command`: the program to run |
@@ -179,13 +180,15 @@ To build a smaller Docker image without ffmpeg, set `INSTALL_FFMPEG=false` in `.
 
 Plaudit sends plain-text email through **your own SMTP server**: your email provider, a transactional mail service, or your own server. That means no per-email cost and mail from your own domain.
 
+**[Set up email](docs/EMAIL.md)** walks through it step by step, with exact settings for Gmail, Microsoft 365, Zoho, Hostinger, cPanel, Resend, Postmark, SendGrid, Mailgun, Amazon SES and Brevo, plus deliverability and troubleshooting. In short:
+
 ```bash
 SMTP_URL=smtps://user:password@smtp.example.com:465   # TLS (port 465)
 # or: smtp://user:password@smtp.example.com:587       # STARTTLS (port 587)
-SMTP_FROM="Acme <hello@acme.example>"
+SMTP_FROM="Acme <hello@acme.example>"                 # an address your provider lets you send as
 ```
 
-If the username or password contains special characters, URL-encode them (`@` becomes `%40`). Restart Plaudit after changing these.
+URL-encode special characters in the username or password (`@` becomes `%40`), or use `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` and `SMTP_PASSWORD` instead. Restart Plaudit after changing these, then press **Send test email** in **Settings → This server**.
 
 With email set up:
 
@@ -297,7 +300,7 @@ See [`SECURITY.md`](SECURITY.md) for how to report a vulnerability and what Plau
 | Signed out straight away over plain HTTP | `COOKIE_SECURE=true` needs HTTPS. Set it to `false` for local use |
 | "ffmpeg isn't installed" in the dashboard | Install ffmpeg or set `FFMPEG_PATH`, restart, then press **Try again** on the video |
 | Camera blocked on the collection page | Browsers only allow cameras on `https://` or `localhost`. Serve Plaudit over HTTPS |
-| Emails don't arrive | **Requests** shows the delivery error for each person. Check `SMTP_URL` (port, TLS, URL-encoded password), and that `SMTP_FROM` is an address your server may send from |
+| Emails don't arrive | Press **Send test email** in **Settings → This server**: it shows the mail server's exact error and what to do. **Requests** shows the error for each person. See [email troubleshooting](docs/EMAIL.md#troubleshooting) |
 | Transcription failed | The dashboard shows the error. Run your `TRANSCRIBE_COMMAND` by hand with a WAV file to test it |
 | Links in emails point to localhost | Set `PUBLIC_URL` to your real address |
 
