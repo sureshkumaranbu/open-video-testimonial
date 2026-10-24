@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Security:** nodemailer 10.2.1, which fixes three address-parsing advisories in earlier versions. Plaudit only sends to strictly checked addresses, so it wasn't exposed in practice.
 - Fixes from an A-Z bug sweep:
   - Playing a fresh recording back shows its length and can seek.
   - A photo the server wouldn't accept (an SVG, say, or over the size limit) is refused as soon as it's picked, next to the photo field, instead of "Looks good" until submit.
