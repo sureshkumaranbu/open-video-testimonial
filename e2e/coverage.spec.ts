@@ -748,20 +748,23 @@ test.describe("collection form", () => {
     await expect(page.locator("p.error")).toHaveText("Record or upload a video before sending.");
   });
 
-  test("avatar of the wrong type is rejected with a clear message", async ({ page }) => {
+  test("avatar of the wrong type is refused as soon as it's picked", async ({ page }) => {
     await fillBasics(page, "Bad Avatar");
     await page.locator('input[name="avatar"]').setInputFiles({
       name: "me.png",
       mimeType: "image/png",
       buffer: Buffer.from("<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>"),
     });
-    await page.getByLabel(/I agree/).check();
-    await page.getByRole("button", { name: "Submit testimonial" }).click();
-    await expect(page.locator("p.error")).toHaveText(/Unsupported image format/);
-    expect(await names()).not.toContain("Bad Avatar");
+    await expect(page.getByTestId("photo-problem")).toHaveText("This photo isn't a format we can use. Choose a PNG, JPEG, WebP or GIF image.");
+    await expect(page.getByText("Looks good. Click to change it.")).toHaveCount(0);
+    expect(await page.locator('input[name="avatar"]').evaluate((i: HTMLInputElement) => i.files?.length)).toBe(0);
+    // A good one clears the message.
+    await page.locator('input[name="avatar"]').setInputFiles(path.join(FIXTURES, "avatar.png"));
+    await expect(page.getByText("Looks good. Click to change it.")).toBeVisible();
+    await expect(page.getByTestId("photo-problem")).toHaveCount(0);
   });
 
-  test("oversized avatar is rejected with a clear message", async ({ page }) => {
+  test("oversized avatar is refused as soon as it's picked", async ({ page }) => {
     await fillBasics(page, "Huge Avatar");
     const png = fs.readFileSync(path.join(FIXTURES, "avatar.png"));
     await page.locator('input[name="avatar"]').setInputFiles({
@@ -769,10 +772,8 @@ test.describe("collection form", () => {
       mimeType: "image/png",
       buffer: Buffer.concat([png, Buffer.alloc(5.5 * 1024 * 1024)]),
     });
-    await page.getByLabel(/I agree/).check();
-    await page.getByRole("button", { name: "Submit testimonial" }).click();
-    await expect(page.locator("p.error")).toHaveText(/larger than 5 MB/);
-    expect(await names()).not.toContain("Huge Avatar");
+    await expect(page.getByTestId("photo-problem")).toHaveText("The file is larger than 5 MB");
+    expect(await page.locator('input[name="avatar"]').evaluate((i: HTMLInputElement) => i.files?.length)).toBe(0);
   });
 
   test("a valid avatar is stored", async ({ page }) => {

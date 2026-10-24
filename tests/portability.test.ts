@@ -19,6 +19,7 @@ import { detectMapping, downloadPublic, guessOrigin, isPrivateAddress, parseRati
 import { parseCsv, toCsv } from "@/lib/csv";
 import { env } from "@/lib/env";
 import { runDueJobs } from "@/lib/jobs";
+import { freeName } from "@/lib/portability";
 import { createRequests } from "@/lib/requests";
 import { saveFile } from "@/lib/storage";
 import {
@@ -194,6 +195,14 @@ describe("export", () => {
     expect(csvOnly.headers.get("content-type")).toBe("text/csv; charset=utf-8");
   });
 
+  it("names a copy so it doesn't look identical to a project already here", () => {
+    expect(freeName("Brand New")).toBe("Brand New");
+    expect(freeName("Acme")).toBe("Acme (imported)");
+    expect(freeName("ACME")).toBe("ACME (imported)");
+    createProject({ name: "Acme (imported)", slug: "acme-copy" });
+    expect(freeName("Acme")).toBe("Acme (imported 2)");
+  });
+
   it("refuses an archive over the import limit when its upload starts", async () => {
     const res = await startAdminUpload(admin("/api/admin/uploads", { size: env.maxImportBytes + 1 }));
     expect(res.status).toBe(413);
@@ -221,6 +230,7 @@ describe("export", () => {
     expect(started.status).toBe(202);
     const body = await started.json();
     expect(body.project.slug).toBe("acme-2"); // "acme" is taken on this server
+    expect(body.project.name).toBe("Acme (imported)"); // and so is its name
     expect(body.counts).toEqual({ testimonials: 2, requests: 1 });
     await runDueJobs();
     const job = await (await jobRoute(admin(`/api/admin/jobs/${body.jobId}`), params({ id: body.jobId }))).json();

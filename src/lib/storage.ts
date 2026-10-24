@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { env } from "./env";
-import { sniffMime, UNSUPPORTED_VIDEO } from "./sniff";
+import { sniffMime, UNSUPPORTED_IMAGE, UNSUPPORTED_VIDEO } from "./sniff";
 
 /**
  * Media storage. The MVP stores files on local disk under DATA_DIR/uploads;
@@ -44,7 +44,7 @@ function checkType(mime: string | null, kind: MediaKind) {
   const allowed = kind === "video" ? VIDEO_TYPES : IMAGE_TYPES;
   if (!mime || !(mime in allowed)) {
     throw new UnsupportedMediaError(
-      kind === "video" ? UNSUPPORTED_VIDEO : "Unsupported image format (use PNG, JPEG, WebP or GIF)",
+      kind === "video" ? UNSUPPORTED_VIDEO : UNSUPPORTED_IMAGE,
     );
   }
   return { mime, ext: allowed[mime] };

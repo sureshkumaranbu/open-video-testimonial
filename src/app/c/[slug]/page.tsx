@@ -61,6 +61,7 @@ export default async function CollectPage({ params, searchParams }: Props) {
             questions,
             maxVideoSeconds: project.maxVideoSeconds,
             maxVideoBytes: env.maxVideoBytes,
+            maxImageBytes: env.maxImageBytes,
           }}
           consent={{ versionId: consent.id, text: consent.text }}
           prefill={prefill}

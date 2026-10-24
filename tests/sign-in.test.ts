@@ -32,7 +32,8 @@ beforeEach(() => {
   resetRateLimits();
   process.env.MAIL_OUTBOX = "true";
 });
-afterEach(() => {
+afterEach(async () => {
+  await new Promise((r) => setTimeout(r, 50)); // let links emailed in the background land in this test's outbox
   for (const k of VARS) delete process.env[k];
   ctx.cleanup();
 });
@@ -129,15 +130,40 @@ describe("email links", () => {
     expect(cookieOf(second, LINK_COOKIE)).toBe(secret);
   });
 
-  it("are rate limited per address and per client, and refused cross-site", async () => {
-    const statuses = [];
-    for (let i = 0; i < 4; i++) statuses.push((await ask(ADMIN_EMAIL)).status);
-    expect(statuses).toEqual([200, 200, 200, 429]);
-    resetRateLimits();
+  it("are rate limited per client, and refused cross-site", async () => {
     const perClient = [];
     for (let i = 0; i < 6; i++) perClient.push((await ask(`person${i}@example.com`)).status);
     expect(perClient).toEqual([200, 200, 200, 200, 200, 429]);
     expect((await ask(ADMIN_EMAIL, "", { origin: "https://evil.example", host: "localhost:3000" })).status).toBe(403);
+  });
+
+  it("asking for someone else's links can't lock them out: per-address limits stay quiet and count per client", async () => {
+    const from = (ip: string) => ({ ...ORIGIN, "x-forwarded-for": ip });
+    const askFrom = (ip: string) =>
+      requestLink(
+        new Request("http://localhost:3000/api/auth/email", {
+          method: "POST",
+          body: JSON.stringify({ email: ADMIN_EMAIL }),
+          headers: { ...from(ip), "content-type": "application/json" },
+        }),
+      );
+    const mailsToOwner = async () => {
+      await settle();
+      return outbox().filter((m) => m.includes(`To: ${ADMIN_EMAIL}`)).length;
+    };
+    // An attacker asks for the owner's link again and again: the answer never changes…
+    for (let i = 0; i < 5; i++) {
+      const res = await askFrom("203.0.113.66");
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ ok: true, message: LINK_SENT });
+    }
+    expect(await mailsToOwner()).toBe(3); // …and only 3 are sent for them
+    // The owner, elsewhere, still gets theirs.
+    expect((await askFrom("198.51.100.200")).status).toBe(200);
+    expect(await mailsToOwner()).toBe(4);
+    // Across many clients the address is capped at 10 per 15 minutes.
+    for (let i = 1; i <= 8; i++) expect((await askFrom(`192.0.2.${i}`)).status).toBe(200);
+    expect(await mailsToOwner()).toBe(10);
   });
 
   it("aren't offered when email isn't set up", async () => {

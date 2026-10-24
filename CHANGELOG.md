@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Fixes from an A-Z bug sweep:
+  - Playing a fresh recording back shows its length and can seek.
+  - A photo the server wouldn't accept (an SVG, say, or over the size limit) is refused as soon as it's picked, next to the photo field, instead of "Looks good" until submit.
+  - Asking for someone's email sign-in links can't lock them out. Past the per-address limits the answer is the same and nothing is sent.
+  - A project imported beside its original is named "… (imported)".
+
 - **Sign in with Google, Apple or an email link, and invite your team.** The step-by-step guide is [`docs/AUTH.md`](docs/AUTH.md).
   - **Email links:** single-use, 15 minutes, and only in the browser that asked. Needs email.
   - **Google**, with an optional Workspace domain.

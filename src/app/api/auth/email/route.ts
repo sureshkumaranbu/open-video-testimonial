@@ -22,14 +22,20 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonError(400, "Enter a valid email address");
   const email = normalizeEmail(parsed.data.email);
-  if (!rateLimit(`email-link:ip:${clientKey(req)}`, 5, WINDOW_MS) || !rateLimit(`email-link:to:${email}`, 3, WINDOW_MS)) {
+  const client = clientKey(req);
+  if (!rateLimit(`email-link:ip:${client}`, 5, WINDOW_MS)) {
     return jsonError(429, "Too many links asked for. Please wait a few minutes and try again.");
   }
+  // Limits per address answer like any other request and just don't send, so
+  // nobody can find out who may sign in, or lock the owner out by asking for
+  // their links: those are counted per client, under an overall cap that
+  // stops anyone flooding the inbox.
+  const sendable = rateLimit(`email-link:to:${email}:${client}`, 3, WINDOW_MS) && rateLimit(`email-link:to:${email}`, 10, WINDOW_MS);
   // The link only works in a browser holding this secret. Keep an existing
   // one, so asking twice doesn't break the first link.
   const existing = readCookie(req, LINK_COOKIE);
   const secret = existing && /^[\w-]{43}$/.test(existing) ? existing : randomSecret();
-  if (roleFor(email)) {
+  if (sendable && roleFor(email)) {
     const token = createLoginToken(email, "sign-in", secret);
     void sendMail({
       to: email,

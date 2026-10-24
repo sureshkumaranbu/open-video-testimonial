@@ -48,6 +48,9 @@ How it works:
 - You type your address and get a link. The page always says *"If this address can sign in, we've sent it a link"*, so it can't be used to find out who has access.
 - The link works **once**, for **15 minutes**, and only in the **browser where you asked for it**. Someone who sees the email can't use it from another device.
 - Opening the link shows a **Sign in** button. Nothing happens until you press it, so email security scanners that open links can't use it up.
+- **Limits:**
+  - Each device can ask for 3 links per address every 15 minutes, and an address gets at most 10 in that time. Past either limit the page still says the same thing, but nothing is sent, so someone asking for your links can't lock you out.
+  - Each device can ask for 5 links in all every 15 minutes. Plaudit tells devices apart by their IP address, so behind a reverse proxy set `TRUST_PROXY=true`. Without it, everyone shares one limit. People behind the same office network or VPN share it too.
 
 ## Google
 

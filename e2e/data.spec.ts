@@ -40,7 +40,8 @@ test("export everything, then import it as a new project", async ({ page, baseUR
   await page.getByTestId("import-file").setInputFiles(zipPath);
   const card = page.getByTestId("import-project");
   await expect(card.getByRole("status")).toContainText("Imported 3 testimonials into", { timeout: 30_000 });
-  await card.getByRole("link", { name: `Move Co ${RUN}` }).click();
+  // Imported beside the original, so it says so rather than looking identical.
+  await card.getByRole("link", { name: `Move Co ${RUN} (imported)` }).click();
   await expect(page).toHaveURL(/\/admin\/projects\/[0-9a-f-]{36}$/);
   expect(page.url()).not.toContain(p.id);
 

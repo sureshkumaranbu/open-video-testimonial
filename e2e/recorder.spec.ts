@@ -123,6 +123,31 @@ test("records with a countdown and on-screen questions, uploading while it recor
   }
 });
 
+test("playing a recording back shows its length and can seek", async ({ page, baseURL }) => {
+  const p = await project(baseURL!, "Playback Co");
+  await page.goto(`/c/${p.slug}`);
+  await page.getByRole("button", { name: "Video" }).click();
+  await page.getByRole("button", { name: "Record with camera" }).click();
+  await page.getByRole("button", { name: "Start recording" }).click();
+  await expect(page.getByText(/^REC 00:0[2-9]$/)).toBeVisible({ timeout: 10_000 });
+  await page.getByRole("button", { name: /^Stop/ }).click();
+  const playback = page.getByLabel("Your recording");
+  await expect(playback).toBeVisible();
+  // A MediaRecorder WebM says nothing about its length; the player must work it out.
+  await expect.poll(() => playback.evaluate((v: HTMLVideoElement) => v.duration), { timeout: 10_000 }).toBeGreaterThan(1);
+  const { duration, start } = await playback.evaluate((v: HTMLVideoElement) => ({ duration: v.duration, start: v.currentTime }));
+  expect(Number.isFinite(duration)).toBe(true);
+  expect(start).toBe(0); // back at the start, ready to play
+  const seeked = await playback.evaluate(
+    (v: HTMLVideoElement) =>
+      new Promise<number>((r) => {
+        v.addEventListener("seeked", () => r(v.currentTime), { once: true });
+        v.currentTime = v.duration / 2;
+      }),
+  );
+  expect(seeked).toBeGreaterThan(0.4);
+});
+
 test("an upload survives dropped requests and resumes", async ({ page, baseURL }) => {
   const p = await project(baseURL!, "Flaky Network Co");
   let failed = 0;
