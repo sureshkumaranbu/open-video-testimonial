@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Security:** nodemailer 10.2.1, which fixes three address-parsing advisories in earlier versions. Plaudit only sends to strictly checked addresses, so it wasn't exposed in practice.
 - **The camera preview shows you again.** It could stay black while recording, depending on how fast the page rendered; the recording itself was fine.
 
 - **Sign in with Google, Apple or an email link, and invite your team.** The step-by-step guide is [`docs/AUTH.md`](docs/AUTH.md).

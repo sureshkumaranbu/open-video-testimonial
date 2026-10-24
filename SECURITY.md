@@ -16,6 +16,7 @@ Please report security problems privately. Use GitHub's **Report a vulnerability
 - **Few runtime dependencies**, all widely used and pinned in `package-lock.json`:
   - Next.js, React, better-sqlite3, Drizzle ORM, Zod, nodemailer, jose
   - nodemailer, jose (no dependencies of its own, for checking Google and Apple sign-in tokens) and the test-only smtp-server are pinned to exact versions that had been published for more than two weeks when they were added
+  - The one exception is a security fix. nodemailer 10.2.1 was taken 2 days after release because of [GHSA-8c8m-p3m8-cjg8](https://github.com/advisories/GHSA-8c8m-p3m8-cjg8), [GHSA-m943-m63m-w62w](https://github.com/advisories/GHSA-m943-m63m-w62w) and [GHSA-85x2-q946-cp5h](https://github.com/advisories/GHSA-85x2-q946-cp5h), address-parsing bugs in versions up to 10.1.3. Plaudit wasn't exposed in practice, because it only sends to addresses that pass a strict email check, which rejects the quoted parts, comments, `;` and `>` these bugs need.
   - CI runs `npm audit` on production dependencies
 - **No install scripts in the Docker build** (`npm ci --ignore-scripts`). better-sqlite3 ships prebuilt binaries.
 - The container runs as the unprivileged `node` user.
