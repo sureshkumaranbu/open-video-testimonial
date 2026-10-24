@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Security:** nodemailer 10.2.1, which fixes three address-parsing advisories in earlier versions. Plaudit only sends to strictly checked addresses, so it wasn't exposed in practice.
+
 - **Sign in with Google, Apple or an email link, and invite your team.** The step-by-step guide is [`docs/AUTH.md`](docs/AUTH.md).
   - **Email links:** single-use, 15 minutes, and only in the browser that asked. Needs email.
   - **Google**, with an optional Workspace domain.
