@@ -61,6 +61,25 @@ async function waitForProcessed(api: APIRequestContext, projectId: string, name:
   return row!;
 }
 
+/**
+ * The live preview really shows the camera: a stream is attached and video
+ * frames are arriving (it has a size and its clock moves). Returns the
+ * stream's video track id.
+ */
+async function expectPreviewPlaying(page: Page) {
+  const preview = page.getByLabel("Camera preview");
+  const look = () =>
+    preview.evaluate((v: HTMLVideoElement) => ({
+      stream: v.srcObject instanceof MediaStream && v.srcObject.active,
+      width: v.videoWidth > 0,
+      playing: !v.paused,
+    }));
+  await expect.poll(look, { timeout: 10_000 }).toEqual({ stream: true, width: true, playing: true });
+  const before = await preview.evaluate((v: HTMLVideoElement) => v.currentTime);
+  await expect.poll(() => preview.evaluate((v: HTMLVideoElement) => v.currentTime), { timeout: 10_000 }).toBeGreaterThan(before);
+  return preview.evaluate((v: HTMLVideoElement) => (v.srcObject as MediaStream).getVideoTracks()[0].id);
+}
+
 test("records with a countdown and on-screen questions, uploading while it records", async ({ page, baseURL }) => {
   const p = await project(baseURL!, "Countdown Co", {
     questions: "What problem did you have?\nWhat changed?\nWould you recommend us?",
@@ -79,6 +98,7 @@ test("records with a countdown and on-screen questions, uploading while it recor
   await page.getByRole("button", { name: "Video" }).click();
   await page.getByRole("button", { name: "Record with camera" }).click();
   await expect(page.getByLabel("Camera preview")).toBeVisible();
+  await expectPreviewPlaying(page);
 
   const overlay = page.getByTestId("prompt-overlay");
   await expect(overlay).toContainText("Question 1 of 3");
@@ -94,6 +114,7 @@ test("records with a countdown and on-screen questions, uploading while it recor
   await expect(page.getByTestId("countdown")).toHaveText("3");
   await expect(page.getByTestId("countdown")).toHaveText("2");
   await expect(page.getByText(/^REC 00:0\d$/)).toBeVisible({ timeout: 5000 });
+  await expectPreviewPlaying(page); // still live while recording
   // Questions restart from the first one when recording begins.
   await expect(overlay).toContainText("Question 1 of 3");
 
@@ -121,6 +142,71 @@ test("records with a countdown and on-screen questions, uploading while it recor
   } else {
     expect(row.videoMime).toBe("video/webm"); // served as recorded
   }
+});
+
+test("the preview shows the camera however the browser schedules rendering", async ({ page, baseURL }) => {
+  const p = await project(baseURL!, "Timing Co");
+  // Frame callbacks can run before React has put the <video> on the page
+  // (slow devices, dev builds, busy tabs). Force that order: the preview must
+  // still get the stream.
+  await page.addInitScript(() => {
+    window.requestAnimationFrame = (cb: FrameRequestCallback) => {
+      queueMicrotask(() => cb(performance.now()));
+      return 0;
+    };
+  });
+  await page.goto(`/c/${p.slug}`);
+  await page.getByRole("button", { name: "Video" }).click();
+  await page.getByRole("button", { name: "Record with camera" }).click();
+  await expectPreviewPlaying(page);
+});
+
+for (const camera of ["a quick", "a slow (1.5 s)"]) {
+  test(`the preview is live every time, previewing and recording, with ${camera} camera`, async ({ page, baseURL }) => {
+    test.slow();
+    const p = await project(baseURL!, `Loop ${camera.includes("slow") ? "Slow" : "Quick"} Co`);
+    if (camera.includes("slow")) {
+      await page.addInitScript(() => {
+        const real = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+        navigator.mediaDevices.getUserMedia = (c) => new Promise((r) => setTimeout(r, 1500)).then(() => real(c));
+      });
+    }
+    await page.goto(`/c/${p.slug}`);
+    await page.getByRole("button", { name: "Video" }).click();
+    for (let round = 1; round <= 5; round++) {
+      await page.getByRole("button", { name: "Record with camera" }).click();
+      await expectPreviewPlaying(page);
+      await page.getByRole("button", { name: "Start recording" }).click();
+      await expect(page.getByText(/^REC 00:0\d$/)).toBeVisible({ timeout: 6000 });
+      await expectPreviewPlaying(page);
+      await page.getByRole("button", { name: /^Stop/ }).click();
+      await expect(page.getByLabel("Your recording")).toBeVisible({ timeout: 10_000 });
+      await page.getByRole("button", { name: "Record again" }).click();
+    }
+  });
+}
+
+test("switching camera keeps the preview live, on the new camera", async ({ page, baseURL }) => {
+  const p = await project(baseURL!, "Switch Co");
+  // Chromium's fake device is one camera; report a second so "Switch camera" appears.
+  await page.addInitScript(() => {
+    const real = navigator.mediaDevices.enumerateDevices.bind(navigator.mediaDevices);
+    navigator.mediaDevices.enumerateDevices = async () => {
+      const devices = await real();
+      const camera = devices.find((d) => d.kind === "videoinput");
+      return camera ? [...devices, { ...camera.toJSON(), deviceId: "back-camera", label: "Back camera" } as MediaDeviceInfo] : devices;
+    };
+  });
+  await page.goto(`/c/${p.slug}`);
+  await page.getByRole("button", { name: "Video" }).click();
+  await page.getByRole("button", { name: "Record with camera" }).click();
+  const first = await expectPreviewPlaying(page);
+  await expect(page.getByLabel("Camera preview")).toHaveAttribute("data-facing", "user");
+
+  await page.getByRole("button", { name: "Switch camera" }).click();
+  await expect(page.getByLabel("Camera preview")).toHaveAttribute("data-facing", "environment");
+  const second = await expectPreviewPlaying(page);
+  expect(second).not.toBe(first); // a new stream, attached to the same preview
 });
 
 test("an upload survives dropped requests and resumes", async ({ page, baseURL }) => {
