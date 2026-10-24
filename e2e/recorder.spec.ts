@@ -161,6 +161,31 @@ test("the preview shows the camera however the browser schedules rendering", asy
   await expectPreviewPlaying(page);
 });
 
+for (const camera of ["a quick", "a slow (1.5 s)"]) {
+  test(`the preview is live every time, previewing and recording, with ${camera} camera`, async ({ page, baseURL }) => {
+    test.slow();
+    const p = await project(baseURL!, `Loop ${camera.includes("slow") ? "Slow" : "Quick"} Co`);
+    if (camera.includes("slow")) {
+      await page.addInitScript(() => {
+        const real = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+        navigator.mediaDevices.getUserMedia = (c) => new Promise((r) => setTimeout(r, 1500)).then(() => real(c));
+      });
+    }
+    await page.goto(`/c/${p.slug}`);
+    await page.getByRole("button", { name: "Video" }).click();
+    for (let round = 1; round <= 5; round++) {
+      await page.getByRole("button", { name: "Record with camera" }).click();
+      await expectPreviewPlaying(page);
+      await page.getByRole("button", { name: "Start recording" }).click();
+      await expect(page.getByText(/^REC 00:0\d$/)).toBeVisible({ timeout: 6000 });
+      await expectPreviewPlaying(page);
+      await page.getByRole("button", { name: /^Stop/ }).click();
+      await expect(page.getByLabel("Your recording")).toBeVisible({ timeout: 10_000 });
+      await page.getByRole("button", { name: "Record again" }).click();
+    }
+  });
+}
+
 test("switching camera keeps the preview live, on the new camera", async ({ page, baseURL }) => {
   const p = await project(baseURL!, "Switch Co");
   // Chromium's fake device is one camera; report a second so "Switch camera" appears.
