@@ -26,6 +26,13 @@ export function isVideoMime(mime: string | null) {
   return mime === "video/webm" || mime === "video/mp4" || mime === "video/quicktime" || mime === "video/ogg";
 }
 
+/** Images we accept for photos. */
+export function isImageMime(mime: string | null) {
+  return mime === "image/png" || mime === "image/jpeg" || mime === "image/webp" || mime === "image/gif";
+}
+
+export const UNSUPPORTED_IMAGE = "This photo isn't a format we can use. Choose a PNG, JPEG, WebP or GIF image.";
+
 export const UNSUPPORTED_VIDEO = "This file isn't a video we can use. Choose a WebM, MP4, MOV or Ogg video.";
 
 /** The same words wherever a file is refused for its size: before upload, on start, or mid-upload. */

@@ -30,6 +30,37 @@ function describeLimit(seconds: number) {
 }
 
 /**
+ * The "play it back" player. A recording from MediaRecorder (WebM) has no
+ * length in its header, so the browser reports Infinity and the timeline
+ * can't seek. Seeking far past the end makes it work the length out; then
+ * jump back to the start.
+ */
+function Playback({ src }: { src: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const video = ref.current;
+    if (!video) return;
+    const measured = () => {
+      if (!Number.isFinite(video.duration)) return;
+      video.removeEventListener("durationchange", measured);
+      video.currentTime = 0;
+    };
+    const measure = () => {
+      if (video.duration !== Infinity) return;
+      video.addEventListener("durationchange", measured);
+      video.currentTime = Number.MAX_SAFE_INTEGER;
+    };
+    video.addEventListener("loadedmetadata", measure);
+    if (video.readyState >= 1) measure();
+    return () => {
+      video.removeEventListener("loadedmetadata", measure);
+      video.removeEventListener("durationchange", measured);
+    };
+  }, [src]);
+  return <video ref={ref} src={src} controls playsInline preload="metadata" aria-label="Your recording" />;
+}
+
+/**
  * Records from the camera with MediaRecorder and uploads while recording, or
  * takes a file (including one from the phone's own camera app).
  */
@@ -266,7 +297,7 @@ export function VideoRecorder({ slug, questions, maxSeconds, maxBytes, onChange 
     <div className="recorder" data-testid="video-recorder" data-state={state}>
       {state === "recorded" && playbackUrl ? (
         <div className="recorder-playback">
-          <video src={playbackUrl} controls playsInline aria-label="Your recording" />
+          <Playback src={playbackUrl} />
         </div>
       ) : (
         <div className="recorder-stage" data-portrait={portrait && live}>

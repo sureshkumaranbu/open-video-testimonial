@@ -12,7 +12,7 @@ import { PermanentJobError } from "./jobs";
 import { queueVideoProcessing } from "./media";
 import { listRequests } from "./requests";
 import { deleteObject, resolveKey, saveFile, sniffMime } from "./storage";
-import { createProject, getProjectBySlug, listTestimonials, type TestimonialWithTags } from "./testimonials";
+import { createProject, getProjectBySlug, listProjects, listTestimonials, type TestimonialWithTags } from "./testimonials";
 import { extractEntry, openZip, readEntryText, ZipError, zipStream, type ZipSource } from "./zip";
 
 /**
@@ -315,11 +315,23 @@ export function freeSlug(wanted: string) {
   for (let i = 2; ; i++) if (!getProjectBySlug(`${base}-${i}`)) return `${base}-${i}`;
 }
 
+/** The name, or "Name (imported)", "Name (imported 2)"… if a project here already has it. */
+export function freeName(wanted: string) {
+  const taken = new Set(listProjects().map((p) => p.name.trim().toLowerCase()));
+  if (!taken.has(wanted.trim().toLowerCase())) return wanted;
+  const base = wanted.slice(0, 64);
+  for (let i = 1; ; i++) {
+    const name = `${base} (imported${i > 1 ? ` ${i}` : ""})`;
+    if (!taken.has(name.toLowerCase())) return name;
+  }
+}
+
 /** Creates the (empty) target project for an import so the dashboard can link to it right away. */
 export function createImportTarget(manifest: ImportManifest, opts: { slug?: string; name?: string }) {
   const p = manifest.project;
   return createProject({
-    name: opts.name || p.name,
+    // A copy beside the original shouldn't look identical on the dashboard.
+    name: opts.name || freeName(p.name),
     slug: freeSlug(opts.slug || p.slug),
     prompt: p.prompt,
     thankYouMessage: p.thankYouMessage,

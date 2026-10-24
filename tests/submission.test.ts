@@ -71,6 +71,18 @@ describe("POST /api/projects/:slug/testimonials", () => {
     expect(fs.existsSync(path.join(ctx.dir, "uploads", saved.videoKey!))).toBe(true);
   });
 
+  it("still refuses a photo that isn't an image we accept, whatever the browser checked", async () => {
+    const res = await POST(
+      submitRequest(
+        "acme",
+        submissionForm({ ...base, text: "Great", avatar: new File(["<svg xmlns='http://www.w3.org/2000/svg'/>"], "me.png", { type: "image/png" }) }),
+      ),
+      params({ slug: "acme" }),
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("This photo isn't a format we can use. Choose a PNG, JPEG, WebP or GIF image.");
+  });
+
   it("rejects files whose content isn't really video, whatever the declared type", async () => {
     const res = await POST(
       submitRequest(

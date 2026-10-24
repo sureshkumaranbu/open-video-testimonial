@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/Icon";
+import { isImageMime, sniffMime, tooLarge, UNSUPPORTED_IMAGE } from "@/lib/sniff";
 import { type RecordedVideo, VideoRecorder } from "./VideoRecorder";
 
 type Props = {
@@ -13,6 +14,7 @@ type Props = {
     questions: string[];
     maxVideoSeconds: number;
     maxVideoBytes: number;
+    maxImageBytes: number;
   };
   /** The exact consent wording shown, and its stored version. */
   consent: { versionId: string; text: string };
@@ -59,8 +61,10 @@ function StarInput({ value, onChange }: { value: number; onChange: (n: number) =
   );
 }
 
-function PhotoPicker() {
+/** The optional photo. A file we can't use is refused when it's picked, not on submit. */
+function PhotoPicker({ maxBytes }: { maxBytes: number }) {
   const [preview, setPreview] = useState<string | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
   useEffect(() => () => {
     if (preview) URL.revokeObjectURL(preview);
   }, [preview]);
@@ -74,15 +78,35 @@ function PhotoPicker() {
         <span>
           Photo <span className="hint">(optional)</span>
         </span>
-        <span className="hint xsmall">{preview ? "Looks good. Click to change it." : "A headshot or your logo, under 5 MB"}</span>
+        {problem ? (
+          <span className="error-text xsmall" role="alert" data-testid="photo-problem">
+            {problem}
+          </span>
+        ) : (
+          <span className="hint xsmall">
+            {preview ? "Looks good. Click to change it." : `A headshot or your logo, under ${Math.round(maxBytes / 1024 / 1024)} MB`}
+          </span>
+        )}
       </span>
       <input
         type="file"
         name="avatar"
         accept="image/png,image/jpeg,image/webp,image/gif"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          setPreview(file ? URL.createObjectURL(file) : null);
+        onChange={async (e) => {
+          const input = e.target;
+          const file = input.files?.[0];
+          setPreview(null);
+          setProblem(null);
+          if (!file) return;
+          // Same checks as the server, by the file's real type, so it isn't refused only on submit.
+          const head = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+          const problem = file.size > maxBytes ? tooLarge(maxBytes) : !isImageMime(sniffMime(head)) ? UNSUPPORTED_IMAGE : null;
+          if (problem) {
+            input.value = ""; // so the form doesn't send it
+            setProblem(problem);
+            return;
+          }
+          setPreview(URL.createObjectURL(file));
         }}
       />
     </label>
@@ -241,7 +265,7 @@ export function CollectForm({ project, consent, prefill }: Props) {
             <input type="text" name="company" maxLength={120} autoComplete="organization" defaultValue={prefill?.company} />
           </label>
         </div>
-        <PhotoPicker />
+        <PhotoPicker maxBytes={project.maxImageBytes} />
       </section>
 
       {/* Honeypot for bots; hidden from people and assistive tech. */}
