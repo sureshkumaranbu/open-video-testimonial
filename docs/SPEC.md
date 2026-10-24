@@ -58,7 +58,7 @@ The behaviour is informed by the clean-room study in [`research/senja-teardown.m
 - **Consent**: a required checkbox. The server stores `consent_at`.
 - **Spam protection**: a honeypot field and a per-IP rate limit (10 submissions per 10 minutes).
 - **Upload checks**: the server checks the real file type from its **magic bytes**, not from what the client claims. Size limits are configurable (`MAX_VIDEO_MB`, default 200; `MAX_IMAGE_MB`, default 5). SVG is never accepted.
-- New testimonials always start as **pending**.
+- New testimonials always start as **pending**. If the project has auto-approve on, a matching one is then approved straight away (or, for a video, once it has been processed).
 
 ### 2. Dashboard
 
@@ -72,6 +72,11 @@ The behaviour is informed by the clean-room study in [`research/senja-teardown.m
   - Per testimonial: approve, reject, move back to pending, delete (which also removes its media), edit the display name, and set tags.
   - **Share & embed** panel: the collection link, plus copy-paste script and iframe snippets with a light/dark toggle.
   - **Settings**: name, question, thank-you message, accent colour, and which of text/video are allowed.
+  - **Auto-approve** (optional, off by default): approve new testimonials automatically when they have at least the minimum rating (4 or 5 stars), no links in their text (`http://`, `https://`, `www.`), and came from the collection page or a request link. Videos only when "Include video testimonials" is on, and only once processing has finished (`ready`); while processing, or if it failed or was skipped, they stay pending. Withdrawn testimonials are never approved. Turning it on doesn't touch what is already pending: the project stores when it was turned on, and only testimonials sent after that count. CSV import, API v1 POST and project import are unaffected.
+    - It uses the same update as the Approve button, so the wall, widget, iframe, JSON feed and webhooks behave the same. `testimonial.approved` carries `approvedBy` (`owner`, `api` or `auto`).
+    - Each testimonial records `approvedBy`, `approvedAt` and, for auto-approve, the rule (e.g. "4+ stars") while it's approved; leaving Approved clears them. The dashboard shows an **Auto-approved** label and "Approved automatically (4+ stars)".
+    - The settings are in project exports, in API project reads and in webhook payloads. Older exports import with auto-approve off.
+    - With it on, the receipt email says the testimonial "may appear on their website soon" instead of promising a review.
 
 ### 3. Wall of love
 

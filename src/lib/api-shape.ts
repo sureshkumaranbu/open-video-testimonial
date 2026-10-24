@@ -55,6 +55,9 @@ export function toApi(t: TestimonialWithTags) {
     tags: t.tags,
     source: t.source,
     requested: Boolean(t.requestId),
+    /** While approved: "owner" (the dashboard), "api" or "auto" (the project's auto-approve rule). */
+    approvedBy: t.approvedBy,
+    approvedAt: t.approvedAt?.toISOString() ?? null,
     consent: {
       at: t.consentAt.toISOString(),
       scopes,
@@ -75,6 +78,7 @@ export function projectToApi(p: Project) {
     name: p.name,
     collectUrl: `${env.publicUrl}/c/${p.slug}`,
     wallUrl: `${env.publicUrl}/wall/${p.slug}`,
+    autoApprove: { enabled: p.autoApprove, minRating: p.autoApproveMinRating, includeVideo: p.autoApproveVideo },
     createdAt: p.createdAt.toISOString(),
   };
 }

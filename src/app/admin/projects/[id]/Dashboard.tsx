@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { MediaStatus, Project, TestimonialStatus, TranscriptStatus } from "@/db/schema";
+import type { Approver, MediaStatus, Project, TestimonialStatus, TranscriptStatus } from "@/db/schema";
 import type { SystemStatus } from "@/lib/system";
 import { Icon } from "@/components/Icon";
 import { Avatar, Stars } from "@/components/TestimonialCard";
@@ -31,6 +31,9 @@ type AdminTestimonial = {
   editedAfterConsent: boolean;
   withdrawnAt: string | null;
   requestId: string | null;
+  approvedBy: Approver | null;
+  approvedAt: string | null;
+  approvalRule: string | null;
   createdAt: string;
   tags: string[];
 };
@@ -233,12 +236,19 @@ export function Dashboard({
 
         <aside>
           <EmbedPanel slug={project.slug} publicUrl={publicUrl} />
+          <AutoApprovePanel project={project} onSaved={setProject} />
           <SettingsPanel project={project} onSaved={setProject} />
         </aside>
       </div>
     </div>
   );
 }
+
+const APPROVED_BY: Record<Approver, string> = {
+  owner: "Approved in the dashboard",
+  api: "Approved through the API",
+  auto: "Approved automatically",
+};
 
 const MEDIA_NOTE: Partial<Record<MediaStatus, string>> = {
   queued: "Converting video…",
@@ -298,6 +308,11 @@ function TestimonialRow({
               Requested
             </span>
           )}
+          {t.status === "approved" && t.approvedBy === "auto" && (
+            <span className="badge auto" data-testid="auto-approved-badge" title="Approved by this project's auto-approve rule">
+              Auto-approved
+            </span>
+          )}
           {t.editedAfterConsent && (
             <span className="badge edited" title="You changed what the author wrote after they consented">
               Edited after consent
@@ -306,6 +321,13 @@ function TestimonialRow({
           <span className="muted xsmall">{timeAgo(t.createdAt)}</span>
         </div>
       </div>
+
+      {t.status === "approved" && t.approvedBy && t.approvedAt && (
+        <p className="muted xsmall approval-line" data-testid="approval-line">
+          {APPROVED_BY[t.approvedBy]}
+          {t.approvedBy === "auto" && t.approvalRule ? ` (${t.approvalRule})` : ""} · {timeAgo(t.approvedAt)}
+        </p>
+      )}
 
       {t.videoKey && (
         <video
@@ -652,6 +674,81 @@ function CopyLink({ text }: { text: string }) {
       <Icon name={copied ? "check" : "copy"} />
       {copied ? "Copied" : "Copy link"}
     </button>
+  );
+}
+
+/** The project's optional auto-approve rule. Off by default. */
+function AutoApprovePanel({ project, onSaved }: { project: Project; onSaved: (p: Project) => void }) {
+  const [enabled, setEnabled] = useState(project.autoApprove);
+  const [minRating, setMinRating] = useState(project.autoApproveMinRating);
+  const [video, setVideo] = useState(project.autoApproveVideo);
+  const [message, setMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const dirty =
+    enabled !== project.autoApprove || minRating !== project.autoApproveMinRating || video !== project.autoApproveVideo;
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setSaving(true);
+    setMessage(null);
+    try {
+      const { project: saved } = await api<{ project: Project }>(`/api/admin/projects/${project.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ autoApprove: enabled, autoApproveMinRating: minRating, autoApproveVideo: video }),
+      });
+      onSaved(saved);
+      setMessage(saved.autoApprove ? "Auto-approve is on for new testimonials" : "Auto-approve is off");
+    } catch (err) {
+      setMessage((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form className="panel" onSubmit={onSubmit} data-testid="auto-approve">
+      <div className="panel-head">
+        <h2 className="row" style={{ fontSize: "var(--text-base)", gap: "var(--space-2)" }}>
+          <Icon name="check" />
+          Auto-approve
+        </h2>
+      </div>
+      <div className="panel-body stack">
+        <label className="check">
+          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+          Approve new testimonials automatically
+        </label>
+        <div className="row spread">
+          <span className="small" id="auto-approve-rating" style={{ fontWeight: 600 }}>
+            Minimum rating
+          </span>
+          <div className="segmented" role="group" aria-labelledby="auto-approve-rating">
+            {[4, 5].map((n) => (
+              <button key={n} type="button" aria-pressed={minRating === n} onClick={() => setMinRating(n)}>
+                {n} stars
+              </button>
+            ))}
+          </div>
+        </div>
+        <label className="check">
+          <input type="checkbox" checked={video} onChange={(e) => setVideo(e.target.checked)} />
+          Include video testimonials
+        </label>
+        <p className="hint xsmall">
+          Testimonials that don&apos;t match still wait for you in Pending. You can reject an approved one at any time.
+        </p>
+        <div className="row">
+          <button type="submit" className="secondary" disabled={saving || !dirty}>
+            {saving ? "Saving…" : "Save auto-approve"}
+          </button>
+          {message && (
+            <span className="muted small" role="status">
+              {message}
+            </span>
+          )}
+        </div>
+      </div>
+    </form>
   );
 }
 

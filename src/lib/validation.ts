@@ -80,7 +80,14 @@ export const projectSchema = z.object({
   thankYouEmail: z.boolean().optional(),
 });
 
-export const projectUpdateSchema = projectSchema.partial().omit({ slug: true });
+export const projectUpdateSchema = projectSchema
+  .extend({
+    autoApprove: z.boolean(),
+    autoApproveMinRating: z.union([z.literal(4), z.literal(5)]),
+    autoApproveVideo: z.boolean(),
+  })
+  .partial()
+  .omit({ slug: true });
 
 export const tagNameSchema = z.string().trim().min(1).max(32);
 

@@ -2032,6 +2032,10 @@ textarea.mono {
   background: var(--surface-2);
   color: var(--ink-2);
 }
+.badge.auto {
+  background: var(--ok-soft);
+  color: var(--ink);
+}
 .data-table {
   width: 100%;
   border-collapse: collapse;

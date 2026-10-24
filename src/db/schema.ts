@@ -35,11 +35,23 @@ export const projects = sqliteTable("projects", {
   reminderDays: text("reminder_days").notNull().default("3,7"),
   /** Email the author a receipt (with their withdrawal link) after they submit. */
   thankYouEmail: integer("thank_you_email", { mode: "boolean" }).notNull().default(true),
+  /** Approve new form submissions that match the rule below without waiting for the owner. */
+  autoApprove: integer("auto_approve", { mode: "boolean" }).notNull().default(false),
+  /** 4 or 5: the lowest star rating that is approved automatically. */
+  autoApproveMinRating: integer("auto_approve_min_rating").notNull().default(4),
+  /** Videos are harder to check at a glance, so they're included only if the owner says so. */
+  autoApproveVideo: integer("auto_approve_video", { mode: "boolean" }).notNull().default(false),
+  /** When auto-approve was last turned on. Testimonials sent before then are left alone. */
+  autoApproveSince: integer("auto_approve_since", { mode: "timestamp_ms" }),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
 });
 
 export const TESTIMONIAL_STATUSES = ["pending", "approved", "rejected"] as const;
 export type TestimonialStatus = (typeof TESTIMONIAL_STATUSES)[number];
+
+/** Who approved a testimonial: someone in the dashboard, an API key, or the project's auto-approve rule. */
+export const APPROVERS = ["owner", "api", "auto"] as const;
+export type Approver = (typeof APPROVERS)[number];
 
 /**
  * Video processing state. "ready" means a web-safe MP4 and a poster exist;
@@ -95,6 +107,10 @@ export const testimonials = sqliteTable(
     requestId: text("request_id"),
     consentAt: integer("consent_at", { mode: "timestamp_ms" }).notNull(),
     source: text("source").notNull().default("form"),
+    /** Set while approved: who approved it, when, and (for auto-approve) the rule, e.g. "4+ stars". */
+    approvedBy: text("approved_by", { enum: APPROVERS }),
+    approvedAt: integer("approved_at", { mode: "timestamp_ms" }),
+    approvalRule: text("approval_rule"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(now),
   },

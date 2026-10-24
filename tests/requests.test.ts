@@ -19,7 +19,7 @@ import {
   requestToken,
   unsubscribeToken,
 } from "@/lib/requests";
-import { createProject, getProjectById, getTestimonial } from "@/lib/testimonials";
+import { createProject, getProjectById, getTestimonial, updateProject } from "@/lib/testimonials";
 import { registerJobs } from "@/lib/worker";
 import { adminHeaders, params, submissionForm, submitRequest, useTempDataDir } from "./helpers";
 
@@ -246,6 +246,7 @@ describe("requests", () => {
     const mail = await simpleParser(inbox[0].raw);
     expect(mail.subject).toBe("Thanks for your testimonial for Acme");
     expect(mail.text).toContain(withdrawUrl);
+    expect(mail.text).toContain("They'll review it before it appears anywhere.");
 
     await patchProject(
       admin(`/api/admin/projects/${projectId}`, { method: "PATCH", body: JSON.stringify({ thankYouEmail: false }) }),
@@ -259,6 +260,19 @@ describe("requests", () => {
     );
     await runDueJobs();
     expect(inbox).toHaveLength(1);
+
+    // With auto-approve on, it may go live without a review, so the receipt doesn't promise one.
+    updateProject(projectId, { thankYouEmail: true, autoApprove: true });
+    const third = await ask("cy@example.com", false);
+    await submit(
+      submitRequest("acme", submissionForm({ name: "Cy", text: "Hi", rating: "5", consent: "on", requestToken: requestToken(third.body.created[0].id) })),
+      params({ slug: "acme" }),
+    );
+    await runDueJobs();
+    expect(inbox).toHaveLength(2);
+    const receipt = await simpleParser(inbox[1].raw);
+    expect(receipt.text).toContain("It may appear on their website soon.");
+    expect(receipt.text).not.toContain("review it before");
   });
 
   it("writes .eml files instead of sending in outbox mode", async () => {

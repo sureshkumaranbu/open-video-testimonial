@@ -295,7 +295,10 @@ export async function sendThankYou(payload: { projectId: string; to: string; wit
     await sendMail({
       to: payload.to,
       subject: `Thanks for your testimonial for ${project.name}`,
-      text: `Thank you for taking the time to share your experience with ${project.name}. They'll review it before it appears anywhere.
+      // With auto-approve on it may go live without a review, so don't promise one.
+      text: `Thank you for taking the time to share your experience with ${project.name}. ${
+        project.autoApprove ? "It may appear on their website soon." : "They'll review it before it appears anywhere."
+      }
 
 If you change your mind, you can withdraw your testimonial at any time with this private link:
 ${payload.withdrawUrl}

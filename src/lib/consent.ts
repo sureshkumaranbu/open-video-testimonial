@@ -175,7 +175,7 @@ export function withdrawConsent(testimonialId: string, opts: { actor: Actor; ip?
   if (row.withdrawnAt) return row;
   const now = new Date();
   db.update(testimonials)
-    .set({ withdrawnAt: now, status: "rejected", updatedAt: now })
+    .set({ withdrawnAt: now, status: "rejected", approvedBy: null, approvedAt: null, approvalRule: null, updatedAt: now })
     .where(eq(testimonials.id, testimonialId))
     .run();
   logConsentEvent({ testimonialId, type: "withdrawn", actor: opts.actor, ip: opts.ip, detail: opts.detail, at: now });

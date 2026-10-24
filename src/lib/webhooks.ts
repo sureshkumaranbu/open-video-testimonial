@@ -88,7 +88,8 @@ export function emitTestimonialEvent(event: WebhookEvent, t: TestimonialWithTags
     const hooks = subscribers(event, t.projectId);
     if (!hooks.length) return 0;
     const project = getDb().select().from(projects).where(eq(projects.id, t.projectId)).get();
-    const body = { project: project ? projectToApi(project) : null, data: { testimonial: toApi(t) } };
+    const data = { testimonial: toApi(t), ...(event === "testimonial.approved" ? { approvedBy: t.approvedBy } : {}) };
+    const body = { project: project ? projectToApi(project) : null, data };
     for (const hook of hooks) queueDelivery(hook, event, body);
     return hooks.length;
   } catch (err) {

@@ -63,6 +63,8 @@ Errors look like `{ "error": "…" }`, with status `400` (invalid input), `401` 
   "tags": ["homepage"],
   "source": "form",
   "requested": true,
+  "approvedBy": "owner",
+  "approvedAt": "2026-10-22T10:02:11.000Z",
   "consent": { "at": "2026-10-22T09:30:00.000Z", "scopes": ["website", "social"], "editedAfterConsent": false, "withdrawnAt": null },
   "createdAt": "2026-10-22T09:30:00.000Z",
   "updatedAt": "2026-10-22T10:02:11.000Z"
@@ -70,6 +72,10 @@ Errors look like `{ "error": "…" }`, with status `400` (invalid input), `401` 
 ```
 
 Unlike the public widget feed, API responses include **private fields** (the author's email and the consent details), because they go to your own systems. Treat API keys like passwords.
+
+`approvedBy` says who approved it, while it's approved: `owner` (someone in the dashboard), `api` (an API key) or `auto` (the project's [auto-approve rule](../README.md#auto-approve)). It's `null` for testimonials that aren't approved, and for ones approved before Plaudit recorded this. `approvedAt` is when.
+
+Each project in `GET /projects` includes its auto-approve settings: `"autoApprove": { "enabled": false, "minRating": 4, "includeVideo": false }`.
 
 `status` is `pending`, `approved` or `rejected`, or **`withdrawn`** once the author withdrew consent through their private link. A withdrawn testimonial can't be published again, and `consent.withdrawnAt` says when it happened. Filtering with `status=rejected` leaves withdrawn ones out.
 
@@ -92,7 +98,7 @@ Under **Settings → Webhooks**, add the URL of your endpoint. You can limit it 
 | Event | When |
 |---|---|
 | `testimonial.created` | Someone submits a testimonial (or one is added through the API) |
-| `testimonial.approved` | A testimonial is approved |
+| `testimonial.approved` | A testimonial is approved, in the dashboard, through the API or by the project's auto-approve rule. `data.approvedBy` says which: `owner`, `api` or `auto` |
 | `testimonial.rejected` | A testimonial is rejected |
 | `testimonial.deleted` | A testimonial is deleted (the payload is the last state) |
 | `testimonial.transcribed` | A video's transcript and captions are ready |
@@ -100,6 +106,8 @@ Under **Settings → Webhooks**, add the URL of your endpoint. You can limit it 
 | `ping` | You pressed **Send test event** |
 
 Imports (CSV or archive) don't send webhooks.
+
+When auto-approve approves a new testimonial, you get `testimonial.created` (with `status: "pending"`) and then `testimonial.approved` (with `"approvedBy": "auto"`). For a text testimonial the two are queued together; for a video, `approved` comes once the video has been processed. Deliveries are first attempted in the order they were queued, but a retry can arrive after a later event, so use `createdAt` or the testimonial's `updatedAt` if order matters to you.
 
 Each delivery is a `POST` with a JSON body:
 
@@ -109,8 +117,14 @@ Each delivery is a `POST` with a JSON body:
   "event": "testimonial.approved",
   "createdAt": "2026-10-22T10:02:11.000Z",
   "project": { "id": "9e1f…", "slug": "acme", "name": "Acme", "collectUrl": "…", "wallUrl": "…", "createdAt": "…" },
-  "data": { "testimonial": { "…": "same shape as the REST API" } }
+  "data": { "testimonial": { "…": "same shape as the REST API" }, "approvedBy": "auto" }
 }
+```
+
+`data.approvedBy` is only on `testimonial.approved`. The project includes its settings, as in the REST API:
+
+```json
+"autoApprove": { "enabled": true, "minRating": 4, "includeVideo": false }
 ```
 
 and these headers:

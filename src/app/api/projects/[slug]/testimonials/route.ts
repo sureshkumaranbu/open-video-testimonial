@@ -1,5 +1,6 @@
 import { clientIp, clientKey, rateLimit } from "@/lib/rate-limit";
 import { grantConsent, withdrawUrl } from "@/lib/consent";
+import { maybeAutoApprove } from "@/lib/auto-approve";
 import { queueVideoProcessing } from "@/lib/media";
 import { findRequestByToken, markResponded, queueThankYou } from "@/lib/requests";
 import { deleteObject, saveUpload, UploadError } from "@/lib/storage";
@@ -17,7 +18,7 @@ function fileField(form: FormData, name: string) {
   return value instanceof File && value.size > 0 ? value : null;
 }
 
-/** Public endpoint behind the collection page. New testimonials start as pending. */
+/** Public endpoint behind the collection page. New testimonials start as pending, unless the project auto-approves them. */
 export async function POST(req: Request, ctx: { params: Promise<{ slug: string }> }) {
   const { slug } = await ctx.params;
   const project = getProjectBySlug(slug);
@@ -102,8 +103,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ slug: string }
     });
     if (fromRequest) markResponded(fromRequest, testimonial.id);
     emitTestimonialEvent("testimonial.created", getTestimonial(testimonial.id));
+    // A video is checked again once it has been processed.
+    if (storedVideo) await queueVideoProcessing(testimonial.id, { autoApprove: true });
+    else maybeAutoApprove(testimonial.id);
     queueThankYou(project, fromRequest, withdrawUrl(withdrawToken));
-    if (storedVideo) await queueVideoProcessing(testimonial.id);
     return Response.json(
       { ok: true, id: testimonial.id, message: project.thankYouMessage, withdrawUrl: withdrawUrl(withdrawToken) },
       { status: 201 },

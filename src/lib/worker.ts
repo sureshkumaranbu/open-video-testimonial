@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { maybeAutoApprove } from "./auto-approve";
 import { fetchImportedMedia, FETCH_MEDIA_JOB } from "./csv-import";
 import { env } from "./env";
 import { importArchive, IMPORT_JOB } from "./portability";
@@ -14,11 +15,12 @@ import { deliver, DELIVER_JOB } from "./webhooks";
 /** Wires every background job type and periodic task to its handler. */
 export function registerJobs() {
   registerJob(PROCESS_VIDEO_JOB, async (payload, job) => {
-    const { testimonialId } = payload as { testimonialId: string };
+    const { testimonialId, autoApprove } = payload as { testimonialId: string; autoApprove?: boolean };
     await processVideo(testimonialId, { willRetry: job.attempts < job.maxAttempts });
     // Transcribe new videos once they're converted (if a provider is set up).
     const t = getTestimonial(testimonialId);
     if (t?.mediaStatus === "ready" && t.transcriptStatus === "none") queueTranscription(testimonialId);
+    if (t?.mediaStatus === "ready" && autoApprove) maybeAutoApprove(testimonialId);
   });
   registerJob(TRANSCRIBE_JOB, async (payload, job) => {
     const { testimonialId } = payload as { testimonialId: string };

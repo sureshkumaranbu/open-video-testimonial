@@ -133,6 +133,15 @@ export function openApiSpec(serverUrl: string) {
             name: { type: "string" },
             collectUrl: { type: "string", format: "uri" },
             wallUrl: { type: "string", format: "uri" },
+            autoApprove: {
+              type: "object",
+              description: "The project's auto-approve rule, set in the dashboard. Off unless the owner turned it on.",
+              properties: {
+                enabled: { type: "boolean" },
+                minRating: { type: "integer", enum: [4, 5] },
+                includeVideo: { type: "boolean" },
+              },
+            },
             createdAt: { type: "string", format: "date-time" },
             counts: {
               type: "object",
@@ -180,6 +189,12 @@ export function openApiSpec(serverUrl: string) {
             tags: { type: "array", items: { type: "string" } },
             source: { type: "string", description: "form, api or import:<format>" },
             requested: { type: "boolean", description: "Came in through a personal request link" },
+            approvedBy: {
+              type: ["string", "null"],
+              enum: ["owner", "api", "auto", null],
+              description: "While approved: owner (the dashboard), api, or auto (the project's auto-approve rule). Null otherwise, and for testimonials approved before this was recorded",
+            },
+            approvedAt: nullable("string", { format: "date-time" }),
             consent: {
               type: "object",
               properties: {
@@ -230,7 +245,14 @@ export function openApiSpec(serverUrl: string) {
             event: { type: "string", enum: [...WEBHOOK_EVENTS, "ping"] },
             createdAt: { type: "string", format: "date-time" },
             project: ref("Project"),
-            data: { type: "object", properties: { testimonial: ref("Testimonial"), message: { type: "string" } } },
+            data: {
+              type: "object",
+              properties: {
+                testimonial: ref("Testimonial"),
+                approvedBy: { type: "string", enum: ["owner", "api", "auto"], description: "Only on testimonial.approved" },
+                message: { type: "string" },
+              },
+            },
           },
         },
       },

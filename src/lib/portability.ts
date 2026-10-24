@@ -4,7 +4,7 @@ import path from "node:path";
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb, schema } from "@/db";
-import type { Project } from "@/db/schema";
+import { APPROVERS, type Project } from "@/db/schema";
 import { listConsentEvents, listConsentVersions, logConsentEvent } from "./consent";
 import { toCsv } from "./csv";
 import { env } from "./env";
@@ -41,6 +41,9 @@ function exportTestimonial(t: TestimonialWithTags) {
     tags: t.tags,
     source: t.source,
     requestId: t.requestId,
+    approvedBy: t.approvedBy,
+    approvedAt: t.approvedAt?.toISOString() ?? null,
+    approvalRule: t.approvalRule,
     consent: {
       at: t.consentAt.toISOString(),
       scopes: JSON.parse(t.consentScopes) as string[],
@@ -95,6 +98,9 @@ export function buildManifest(project: Project) {
       inviteMessage: project.inviteMessage,
       reminderDays: project.reminderDays,
       thankYouEmail: project.thankYouEmail,
+      autoApprove: project.autoApprove,
+      autoApproveMinRating: project.autoApproveMinRating,
+      autoApproveVideo: project.autoApproveVideo,
       createdAt: project.createdAt.toISOString(),
     },
     consentVersions: listConsentVersions(project.id).map((v) => ({
@@ -204,6 +210,10 @@ const manifestSchema = z.object({
     inviteMessage: z.string().max(5000).default(""),
     reminderDays: z.string().max(40).default("3,7"),
     thankYouEmail: z.boolean().default(true),
+    // Exports from before auto-approve existed import with it off.
+    autoApprove: z.boolean().default(false),
+    autoApproveMinRating: z.union([z.literal(4), z.literal(5)]).default(4),
+    autoApproveVideo: z.boolean().default(false),
   }),
   consentVersions: z
     .array(z.object({ id: z.string(), version: z.number().int(), text: z.string(), hash: z.string(), createdAt: iso }))
@@ -225,6 +235,9 @@ const manifestSchema = z.object({
       tags: z.array(z.string().max(32)).max(20).default([]),
       source: z.string().max(40).default("form"),
       requestId: z.string().nullable().default(null),
+      approvedBy: z.enum(APPROVERS).nullable().default(null),
+      approvedAt: nullableIso,
+      approvalRule: z.string().max(40).nullable().default(null),
       consent: z.object({
         at: iso,
         scopes: z.array(z.string()).default(["website"]),
@@ -345,6 +358,9 @@ export function createImportTarget(manifest: ImportManifest, opts: { slug?: stri
     inviteMessage: p.inviteMessage,
     reminderDays: p.reminderDays,
     thankYouEmail: p.thankYouEmail,
+    autoApprove: p.autoApprove,
+    autoApproveMinRating: p.autoApproveMinRating,
+    autoApproveVideo: p.autoApproveVideo,
   });
 }
 
@@ -437,6 +453,9 @@ export async function importArchive(zipPath: string, projectId: string) {
             withdrawnAt: date(t.consent.withdrawnAt),
             source: t.source,
             requestId: t.requestId ? (requestIds.get(t.requestId) ?? null) : null,
+            ...(t.status === "approved" && !t.consent.withdrawnAt
+              ? { approvedBy: t.approvedBy, approvedAt: date(t.approvedAt), approvalRule: t.approvalRule }
+              : {}),
             createdAt: new Date(t.createdAt),
             updatedAt: new Date(t.updatedAt),
           })

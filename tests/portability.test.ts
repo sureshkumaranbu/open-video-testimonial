@@ -19,7 +19,7 @@ import { detectMapping, downloadPublic, guessOrigin, isPrivateAddress, parseRati
 import { parseCsv, toCsv } from "@/lib/csv";
 import { env } from "@/lib/env";
 import { runDueJobs } from "@/lib/jobs";
-import { freeName } from "@/lib/portability";
+import { buildManifest, createImportTarget, freeName, importArchive, readManifest } from "@/lib/portability";
 import { createRequests } from "@/lib/requests";
 import { saveFile } from "@/lib/storage";
 import {
@@ -28,6 +28,7 @@ import {
   getProjectById,
   getProjectBySlug,
   listTestimonials,
+  updateProject,
   updateTestimonial,
 } from "@/lib/testimonials";
 import { registerJobs } from "@/lib/worker";
@@ -173,10 +174,16 @@ describe("export", () => {
     const manifestPath = path.join(ctx.dir, "m.json");
     await extractEntry(zip, zip.entries.get("plaudit.json")!, manifestPath, 1e7);
     const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-    expect(manifest).toMatchObject({ format: "plaudit-export", version: 1, project: { slug: "acme", name: "Acme" } });
+    expect(manifest).toMatchObject({
+      format: "plaudit-export",
+      version: 1,
+      project: { slug: "acme", name: "Acme", autoApprove: false, autoApproveMinRating: 4, autoApproveVideo: false },
+    });
     const ada = manifest.testimonials.find((t: { id: string }) => t.id === textId);
     expect(ada).toMatchObject({
       status: "approved",
+      approvedBy: "owner",
+      approvalRule: null,
       author: { name: "Ada L.", email: "ada@example.com" },
       tags: ["home"],
       consent: { scopes: ["website", "social"], editedAfterConsent: true },
@@ -211,6 +218,7 @@ describe("export", () => {
 
   it("imports its own export as a new project, keeping data, consent history and media", async () => {
     await seedProject();
+    updateProject(projectId, { autoApprove: true, autoApproveMinRating: 5, autoApproveVideo: true });
     const exported = Buffer.from(await (await exportRoute(admin(`/api/admin/projects/${projectId}/export`), params({ id: projectId }))).arrayBuffer());
 
     // Upload the archive in chunks, as the browser does.
@@ -237,10 +245,15 @@ describe("export", () => {
     expect(job).toMatchObject({ status: "done", error: null });
 
     const copy = getProjectBySlug("acme-2")!;
+    expect(copy).toMatchObject({ autoApprove: true, autoApproveMinRating: 5, autoApproveVideo: true });
     const items = listTestimonials(copy.id);
+    // It applies from the import on, never to what was imported.
+    for (const t of items) expect(t.createdAt.getTime()).toBeLessThanOrEqual(copy.autoApproveSince!.getTime());
     expect(items).toHaveLength(2);
     const ada = items.find((t) => t.authorName === "Ada L.")!;
     expect(ada).toMatchObject({ status: "approved", tags: ["home"], editedAfterConsent: true, authorEmail: "ada@example.com" });
+    expect(ada).toMatchObject({ approvedBy: "owner", approvedAt: expect.any(Date) });
+    expect(items.find((t) => t.authorName === "Vid")).toMatchObject({ status: "pending", approvedBy: null });
     expect(listConsentEvents(ada.id).map((e) => e.type)).toEqual(["granted", "edited", "imported"]);
     const vid = items.find((t) => t.authorName === "Vid")!;
     expect(vid.transcript).toBe("Spoken words.");
@@ -250,6 +263,26 @@ describe("export", () => {
     expect(requests).toMatchObject([{ email: "bo@example.com", nextReminderAt: null }]);
     // The temporary archive is gone.
     expect(fs.readdirSync(env.tmpDir).filter((f) => f.startsWith("import-"))).toEqual([]);
+  });
+
+  it("imports an export from before auto-approve existed with it off", async () => {
+    await seedProject();
+    updateProject(projectId, { autoApprove: true });
+    const manifest = buildManifest(getProjectById(projectId)!) as unknown as {
+      project: Record<string, unknown>;
+      testimonials: Record<string, unknown>[];
+    };
+    for (const key of ["autoApprove", "autoApproveMinRating", "autoApproveVideo"]) delete manifest.project[key];
+    for (const t of manifest.testimonials) {
+      for (const key of ["approvedBy", "approvedAt", "approvalRule"]) delete t[key];
+    }
+    const zipPath = path.join(ctx.dir, "old.zip");
+    await writeZip(zipPath, [{ name: "plaudit.json", data: JSON.stringify(manifest) }]);
+    const { manifest: parsed } = await readManifest(zipPath);
+    const copy = createImportTarget(parsed, {});
+    expect(copy).toMatchObject({ autoApprove: false, autoApproveMinRating: 4, autoApproveVideo: false, autoApproveSince: null });
+    await importArchive(zipPath, copy.id);
+    expect(listTestimonials(copy.id).find((t) => t.status === "approved")).toMatchObject({ approvedBy: null, approvedAt: null });
   });
 
   it("refuses archives that aren't Plaudit exports", async () => {

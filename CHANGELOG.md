@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Optional auto-approve for each project**, off by default. New testimonials from the collection page or a request link go live without a click when they have enough stars (4+ or 5) and no links in their text. Videos are included only if you turn that on, once they've been processed. Everything else waits in Pending. See [Auto-approve](README.md#auto-approve).
+  - Turning it on doesn't approve what is already pending.
+  - Auto-approved testimonials show an **Auto-approved** label and "Approved automatically (4+ stars)". Rejecting one takes it off your site as usual.
+  - The API and webhooks say who approved a testimonial: `approvedBy` is `owner`, `api` or `auto`. Projects include their `autoApprove` settings.
+  - Project exports include the settings. Older exports import with it off.
+  - With it on, the receipt email no longer promises a review before the testimonial appears.
+  - Jobs queued in the same millisecond now always run in the order they were queued.
+  - Database migration `0008` adds the settings (off / 4 / off) and the approval record.
+
 - **Security:** nodemailer 10.2.1, which fixes three address-parsing advisories in earlier versions. Plaudit only sends to strictly checked addresses, so it wasn't exposed in practice.
 - **The camera preview shows you again.** It could stay black while recording, depending on how fast the page rendered; the recording itself was fine.
 - Fixes from an A-Z bug sweep:

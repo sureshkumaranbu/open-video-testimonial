@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { and, asc, eq, lte, or } from "drizzle-orm";
+import { and, asc, eq, lte, or, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import type { Job } from "@/db/schema";
 
@@ -63,7 +63,9 @@ function claimNext(now: Date): Job | null {
           and(eq(jobs.status, "running"), lte(jobs.lockedUntil, now)),
         ),
       )
-      .orderBy(asc(jobs.runAt))
+      // rowid breaks ties, so jobs queued in the same millisecond run in order
+      // (a testimonial's "created" webhook before its "approved" one).
+      .orderBy(asc(jobs.runAt), sql`rowid`)
       .limit(1)
       .get();
     if (!job) return null;

@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { getDb, schema } from "@/db";
-import type { Project, Testimonial, TestimonialStatus } from "@/db/schema";
+import type { Approver, Project, Testimonial, TestimonialStatus } from "@/db/schema";
 import { CONSENTED_FIELDS, logConsentEvent } from "./consent";
 import { deleteObject, mediaUrl, MIME_BY_EXT } from "./storage";
 import { emitTestimonialEvent } from "./webhooks";
@@ -54,6 +54,9 @@ export function createProject(input: {
   inviteMessage?: string;
   reminderDays?: string;
   thankYouEmail?: boolean;
+  autoApprove?: boolean;
+  autoApproveMinRating?: number;
+  autoApproveVideo?: boolean;
 }): Project {
   return getDb()
     .insert(projects)
@@ -73,6 +76,10 @@ export function createProject(input: {
       inviteMessage: input.inviteMessage,
       reminderDays: input.reminderDays,
       thankYouEmail: input.thankYouEmail,
+      autoApprove: input.autoApprove,
+      autoApproveMinRating: input.autoApproveMinRating,
+      autoApproveVideo: input.autoApproveVideo,
+      autoApproveSince: input.autoApprove ? new Date() : null,
     })
     .returning()
     .get();
@@ -96,10 +103,21 @@ export function updateProject(
       | "inviteMessage"
       | "reminderDays"
       | "thankYouEmail"
+      | "autoApprove"
+      | "autoApproveMinRating"
+      | "autoApproveVideo"
     >
   >,
 ) {
-  return getDb().update(projects).set(patch).where(eq(projects.id, id)).returning().get() ?? null;
+  const db = getDb();
+  const existing = db.select().from(projects).where(eq(projects.id, id)).get();
+  if (!existing) return null;
+  // Auto-approve applies from the moment it's turned on, never to what's already waiting.
+  const since =
+    patch.autoApprove === undefined
+      ? {}
+      : { autoApproveSince: patch.autoApprove ? (existing.autoApproveSince ?? new Date()) : null };
+  return db.update(projects).set({ ...patch, ...since }).where(eq(projects.id, id)).returning().get() ?? null;
 }
 
 // ------------------------------------------------------------ testimonials
@@ -263,7 +281,8 @@ export function updateTestimonial(
     rating?: number | null;
     tags?: string[];
   },
-  opts: { actor?: "owner" | "api"; quiet?: boolean } = {},
+  /** `rule` says which auto-approve rule matched, for the dashboard's history line. */
+  opts: { actor?: Approver; rule?: string; quiet?: boolean } = {},
 ): TestimonialWithTags | null {
   const db = getDb();
   const existing = db.select().from(testimonials).where(eq(testimonials.id, id)).get();
@@ -274,9 +293,17 @@ export function updateTestimonial(
   const edited = CONSENTED_FIELDS.filter(
     (f) => fields[f] !== undefined && (fields[f] ?? null) !== (existing[f] ?? null),
   );
+  const now = new Date();
+  // Who approved it is kept while it stays approved, and cleared when it leaves Approved.
+  const approval =
+    fields.status === undefined || fields.status === existing.status
+      ? {}
+      : fields.status === "approved"
+        ? { approvedBy: opts.actor ?? "owner", approvedAt: now, approvalRule: opts.rule ?? null }
+        : { approvedBy: null, approvedAt: null, approvalRule: null };
   db.transaction((tx) => {
     tx.update(testimonials)
-      .set({ ...fields, ...(edited.length ? { editedAfterConsent: true } : {}), updatedAt: new Date() })
+      .set({ ...fields, ...approval, ...(edited.length ? { editedAfterConsent: true } : {}), updatedAt: now })
       .where(eq(testimonials.id, id))
       .run();
     if (tagNames) {
@@ -304,7 +331,7 @@ export function updateTestimonial(
     logConsentEvent({
       testimonialId: id,
       type: "edited",
-      actor: opts.actor ?? "owner",
+      actor: opts.actor === "api" ? "api" : "owner",
       detail: `Changed after consent: ${edited.join(", ")}`,
     });
   }

@@ -57,6 +57,13 @@
       "when": 1792767534509,
       "tag": "0007_sign_in",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1792854757042,
+      "tag": "0008_auto_approve",
+      "breakpoints": true
     }
   ]
 }

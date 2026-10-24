@@ -54,6 +54,7 @@ More: [settings (API keys and webhooks)](docs/screenshots/settings.png) · [impo
 **Managing**
 
 - A dashboard to approve, reject, tag, rename and delete testimonials, with live counts.
+- **Optional auto-approve**, set for each project and off by default. New testimonials with enough stars (4+ or 5) and no links go live without a click. Videos are included only if you say so, once they've been processed. Anything else waits in *Pending*, and you can reject an approved one at any time.
 - **Video conversion.** With ffmpeg, every video becomes a fast-start MP4 that plays in every browser, plus a poster image. The original is kept.
 - **Transcripts and captions.** Use a local speech-to-text program (such as whisper.cpp, so no audio leaves your server) or any OpenAI-compatible API. You can edit both, and "use transcript as quote" turns one into the written text.
 - **Consent ledger.** Your consent wording is versioned. Each testimonial records what was agreed to (website, plus optional social media), when, and with which wording. Edits you make afterwards are logged, and authors get a private link to withdraw.
@@ -131,8 +132,27 @@ For development with hot reload, run `npm run dev` instead of build and start. D
 1. **Create a project** on the admin home page. A project is one product or brand, with its own link.
 2. **Adjust the collection page** in the project's settings: the question, the prompts shown while recording, the longest video, your brand colour, and the consent wording.
 3. **Share the link** `/c/<slug>`. You can paste it anywhere, or use **Requests** to send personal links by email.
-4. **Review.** New testimonials wait in *Pending*. Approve the ones you want to show.
+4. **Review.** New testimonials wait in *Pending*. Approve the ones you want to show, or let [auto-approve](#auto-approve) do it for the good ones.
 5. **Embed.** Copy the snippet from the **Share & embed** panel into your site.
+
+### Auto-approve
+
+By default, every testimonial waits for you to press **Approve**. To skip that for the good ones, open the project and use the **Auto-approve** panel:
+
+- **Approve new testimonials automatically**: off by default.
+- **Minimum rating**: 4 stars (4 or 5) or 5 stars.
+- **Include video testimonials**: off by default. Videos are harder to check at a glance, so they're a separate choice. A video is approved only once it has been processed (this needs ffmpeg). One that is still processing, or couldn't be processed, waits for you.
+
+A testimonial is approved automatically only if **all** of these are true:
+
+- It came from your collection page or a personal request link. CSV imports, the API and project imports keep their own status.
+- It has a star rating of at least the minimum. No rating means it waits.
+- Its text has no links (`http://`, `https://` or `www.`), so spam can't go live by itself.
+- Its author hasn't withdrawn it.
+
+Turning auto-approve on doesn't approve what is already waiting. It applies only to testimonials sent from then on.
+
+An auto-approved testimonial behaves exactly like one you approved: it appears on the wall, in the widget and iframe, and in the JSON feed, and `testimonial.approved` webhooks fire (with `"approvedBy": "auto"`). In the dashboard it carries an **Auto-approved** label and the line "Approved automatically (4+ stars)". Reject it like any other, and it comes straight off your site.
 
 ## Configuration
 
@@ -259,7 +279,7 @@ Create API keys and webhooks under **Settings**. [`docs/API.md`](docs/API.md) co
 
 ## Embedding
 
-The project page in the dashboard generates both snippets for you.
+The project page in the dashboard generates both snippets for you. Approve a testimonial, or let [auto-approve](#auto-approve) do it, and it shows up on your site within about a minute (the widget's feed may be cached for up to 60 seconds).
 
 ```html
 <!-- Script embed (recommended) -->
@@ -344,6 +364,7 @@ The Playwright run starts the server with these settings, so every feature is te
 | `e2e/requests.spec.ts` | Invitation email, prefilled link, receipt, unsubscribe |
 | `e2e/api.spec.ts` | API keys against the REST API, signed webhooks |
 | `e2e/data.spec.ts` | Export, import as a new project, CSV import with the mapper |
+| `e2e/auto-approve.spec.ts` | Auto-approve: off by default, ratings, links, videos after processing, webhooks, the label, rejecting, phone layout |
 
 To test a running instance instead, for example `docker compose up`, set `E2E_BASE_URL=http://127.0.0.1:3000`. Its `E2E_ADMIN_EMAIL` and `E2E_ADMIN_PASSWORD` must match that instance's admin credentials. Tests that need the outbox, the stand-in transcriber or a local webhook receiver skip themselves when those aren't available. `UPDATE_SCREENSHOTS=1` refreshes the images in `docs/screenshots/`.
 

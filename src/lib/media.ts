@@ -151,15 +151,19 @@ export async function extractAudio(input: string, output: string) {
   );
 }
 
-/** Queues processing for a testimonial's video, or marks it skipped without ffmpeg. */
-export async function queueVideoProcessing(testimonialId: string) {
+/**
+ * Queues processing for a testimonial's video, or marks it skipped without
+ * ffmpeg. `autoApprove` applies the project's auto-approve rule once it's done;
+ * only new submissions ask for that.
+ */
+export async function queueVideoProcessing(testimonialId: string, opts: { autoApprove?: boolean } = {}) {
   const ok = await ffmpegAvailable();
   getDb()
     .update(testimonials)
     .set({ mediaStatus: ok ? "queued" : "skipped", mediaError: null })
     .where(eq(testimonials.id, testimonialId))
     .run();
-  if (ok) enqueue(PROCESS_VIDEO_JOB, { testimonialId }, { maxAttempts: 2 });
+  if (ok) enqueue(PROCESS_VIDEO_JOB, { testimonialId, ...(opts.autoApprove ? { autoApprove: true } : {}) }, { maxAttempts: 2 });
 }
 
 /** `willRetry` keeps the status at "queued" when the job queue will try again. */
