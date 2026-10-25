@@ -4,7 +4,6 @@ import { getDb, schema, type Tx } from "@/db";
 import type {
   Approver,
   DatePrecision,
-  Form,
   HistoryActor,
   Project,
   Testimonial,
@@ -13,16 +12,16 @@ import type {
 } from "@/db/schema";
 import { CONSENTED_FIELDS, logConsentEvent } from "./consent";
 import { countWords } from "./dates";
-import { legacyPatchToFormPatch, projectColumnsFromForm, type LegacyFormPatch } from "./forms/defaults";
+import { applyLegacyPatch, ensureDefaultForm } from "./forms";
+import type { LegacyFormPatch } from "./forms/defaults";
 import { DEFAULT_QUESTIONS, LEGACY_FORM_FIELDS, resolveQuestions } from "./forms/legacy";
-import { parseFormRow } from "./forms/schema";
 import { reanchorHighlights } from "./highlights";
 import { actorForSource, historyActor, recordHistory } from "./history";
 import { deleteObject, mediaUrl, MIME_BY_EXT } from "./storage";
 import type { Brand } from "./validation";
 import { emitTestimonialEvent } from "./webhooks";
 
-const { projects, testimonials, tags, testimonialTags, forms, answers, testimonialImages } = schema;
+const { projects, testimonials, tags, testimonialTags, answers, testimonialImages } = schema;
 
 export const DEFAULT_PROMPT = "How has our product helped you? We'd love to hear your story.";
 export const DEFAULT_THANK_YOU = "Thank you! Your testimonial has been received.";
@@ -45,30 +44,6 @@ export function getProjectBySlug(slug: string) {
 
 export function getProjectById(id: string) {
   return getDb().select().from(projects).where(eq(projects.id, id)).get() ?? null;
-}
-
-/**
- * The project's default form as migration 0009 creates it for older projects:
- * classic, config_version 0, so its pages and settings are read from the
- * project columns until getDefaultForm() fills them in (src/lib/forms).
- * Race-safe: the partial unique index allows one default per project.
- */
-function insertDefaultForm(tx: Tx, project: Project) {
-  tx.insert(forms)
-    .values({
-      id: crypto.randomUUID(),
-      projectId: project.id,
-      slug: "default",
-      name: "Default form",
-      status: "live",
-      layout: "classic",
-      isDefault: true,
-      configVersion: 0,
-      createdAt: project.createdAt,
-      updatedAt: new Date(),
-    })
-    .onConflictDoNothing()
-    .run();
 }
 
 export function createProject(input: {
@@ -116,7 +91,8 @@ export function createProject(input: {
       })
       .returning()
       .get();
-    insertDefaultForm(tx, project);
+    // The classic default form, filled in from these settings (§2.4).
+    ensureDefaultForm(project, tx);
     return project;
   });
 }
@@ -148,52 +124,31 @@ export type ProjectPatch = Partial<
 /**
  * Saves project settings. The form fields among them (prompt, questions,
  * modes, consent wording, thank-you, accent colour, auto-approve) mirror the
- * default form (D2): once that form has its own config they're written to it
- * and the columns are derived back from it, in one transaction. A default form
- * still at config_version 0 is described by the columns themselves, so for it
- * the columns are all there is to write.
+ * default form (D2): applyLegacyPatch writes them to that form (filling it in
+ * first if migration 0009 left it at config_version 0) and the columns follow
+ * it, in one transaction with the other fields. The form keeps auto-approve's
+ * start: it applies from the moment it's turned on, never to what's already
+ * waiting.
  */
 export function updateProject(id: string, patch: ProjectPatch) {
   const db = getDb();
   const existing = db.select().from(projects).where(eq(projects.id, id)).get();
   if (!existing) return null;
   const { brand, ...rest } = patch;
-  // Auto-approve applies from the moment it's turned on, never to what's already waiting.
-  const since =
-    patch.autoApprove === undefined
-      ? {}
-      : { autoApproveSince: patch.autoApprove ? (existing.autoApproveSince ?? new Date()) : null };
   const columns: Partial<Project> = Object.fromEntries(
-    Object.entries({ ...rest, ...since, ...(brand === undefined ? {} : { brand: JSON.stringify(brand) }) }).filter(
+    Object.entries({ ...rest, ...(brand === undefined ? {} : { brand: JSON.stringify(brand) }) }).filter(
       ([, v]) => v !== undefined,
     ),
   );
   if (!Object.keys(columns).length) return existing;
-  const legacy: LegacyFormPatch = Object.fromEntries(
-    LEGACY_FORM_FIELDS.filter((f) => f in columns).map((f) => [f, columns[f]]),
-  );
+  const isFormField = (k: string) => (LEGACY_FORM_FIELDS as readonly string[]).includes(k);
+  const legacy: LegacyFormPatch = Object.fromEntries(Object.entries(columns).filter(([k]) => isFormField(k)));
+  const other: Partial<Project> = Object.fromEntries(Object.entries(columns).filter(([k]) => !isFormField(k)));
   return db.transaction((tx) => {
-    const form = Object.keys(legacy).length ? defaultFormRow(tx, id) : null;
-    if (form && form.configVersion > 0) {
-      const cfg = legacyPatchToFormPatch(legacy, parseFormRow(form));
-      tx.update(forms)
-        .set({
-          pages: JSON.stringify(cfg.pages),
-          design: JSON.stringify(cfg.design),
-          labels: JSON.stringify(cfg.labels),
-          settings: JSON.stringify(cfg.settings),
-          updatedAt: new Date(),
-        })
-        .where(eq(forms.id, form.id))
-        .run();
-      Object.assign(columns, projectColumnsFromForm(cfg));
-    }
-    return tx.update(projects).set(columns).where(eq(projects.id, id)).returning().get() ?? null;
+    const saved = applyLegacyPatch(existing, legacy, tx);
+    if (!Object.keys(other).length) return saved;
+    return tx.update(projects).set(other).where(eq(projects.id, id)).returning().get() ?? null;
   });
-}
-
-function defaultFormRow(tx: Tx, projectId: string): Form | null {
-  return tx.select().from(forms).where(and(eq(forms.projectId, projectId), eq(forms.isDefault, true))).get() ?? null;
 }
 
 // ------------------------------------------------------------ testimonials

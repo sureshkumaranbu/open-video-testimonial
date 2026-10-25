@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { eq, sql } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { GET as detailRoute } from "@/app/api/admin/testimonials/[id]/detail/route";
 import { GET as historyRoute } from "@/app/api/admin/testimonials/[id]/history/route";
 import { PATCH as patchRoute } from "@/app/api/admin/testimonials/[id]/route";
@@ -12,8 +12,8 @@ import { insertAnswers, listAnswers, updateAnswer } from "@/lib/answers";
 import { createApiKey } from "@/lib/api-keys";
 import { currentConsentVersion, currentConsentVersionFor, listConsentEvents, listConsentVersions } from "@/lib/consent";
 import { countWords, formatSourceDate } from "@/lib/dates";
-import { legacyPatchToFormPatch, projectColumnsFromForm } from "@/lib/forms/defaults";
-import { parseFormRow, type FormConfig } from "@/lib/forms/schema";
+import { formConfigFromProject, primaryQuestion } from "@/lib/forms/defaults";
+import { parseFormRow } from "@/lib/forms/schema";
 import { HighlightError, listHighlights, setHighlights } from "@/lib/highlights";
 import { listHistory } from "@/lib/history";
 import { runPeriodicTasks } from "@/lib/jobs";
@@ -31,27 +31,12 @@ import {
 import { trashTestimonial } from "@/lib/trash";
 import { ADMIN_EMAIL, adminHeaders, params, useTempDataDir } from "./helpers";
 
-// The forms contract (WP1.2) turns a legacy settings PATCH into a form config
-// and back; stood in for here to check how updateProject uses it.
-vi.mock("@/lib/forms/defaults", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/forms/defaults")>()),
-  legacyPatchToFormPatch: vi.fn(),
-  projectColumnsFromForm: vi.fn(),
-}));
-vi.mock("@/lib/forms/schema", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/forms/schema")>()),
-  parseFormRow: vi.fn(),
-}));
-
 let ctx: ReturnType<typeof useTempDataDir>;
 let projectId: string;
 
 beforeEach(() => {
   ctx = useTempDataDir();
   projectId = createProject({ name: "Acme", slug: "acme" }).id;
-  vi.mocked(parseFormRow).mockReset();
-  vi.mocked(legacyPatchToFormPatch).mockReset();
-  vi.mocked(projectColumnsFromForm).mockReset();
 });
 afterEach(() => ctx.cleanup());
 
@@ -450,13 +435,15 @@ describe("D12 consent versions", () => {
 describe("D2 projects and their default form", () => {
   const defaultForm = () =>
     getDb().select().from(schema.forms).where(eq(schema.forms.projectId, projectId)).all() as Form[];
+  const config = () => parseFormRow(defaultForm()[0]);
 
-  it("a new project gets one classic default form, filled from its settings on first use", () => {
-    expect(defaultForm()).toMatchObject([{ isDefault: true, layout: "classic", slug: "default", configVersion: 0, status: "live" }]);
+  it("a new project gets one classic default form, filled in from its settings", () => {
+    expect(defaultForm()).toMatchObject([{ isDefault: true, layout: "classic", slug: "default", configVersion: 1, status: "live" }]);
+    expect(config()).toEqual(formConfigFromProject(getProjectById(projectId)!));
     expect(projectQuestions(getProjectById(projectId)!)).toEqual(DEFAULT_QUESTIONS);
   });
 
-  it("settings of a default form without its own config are saved on the project only", () => {
+  it("form settings go through the default form, and the columns follow it", () => {
     const saved = updateProject(projectId, {
       prompt: "What changed?",
       autoApprove: true,
@@ -466,30 +453,38 @@ describe("D2 projects and their default form", () => {
     })!;
     expect(saved).toMatchObject({ prompt: "What changed?", autoApprove: true, website: "https://acme.example", businessType: "saas" });
     expect(JSON.parse(saved.brand)).toEqual({ colors: { primary: "#112233" }, fonts: {} });
-    expect(defaultForm()[0]).toMatchObject({ configVersion: 0, pages: "[]", settings: "{}" });
-    expect(parseFormRow).not.toHaveBeenCalled();
+    expect(getProjectById(projectId)).toEqual(saved);
+    expect(primaryQuestion(config())!.title).toBe("What changed?");
+    expect(config().settings.autoApprove).toMatchObject({ mode: "rating", since: saved.autoApproveSince });
   });
 
-  it("settings of a default form with its own config go through the form, and the columns follow it", () => {
-    getDb().update(schema.forms).set({ configVersion: 1 }).run();
-    const current = { v: 1, layout: "classic", pages: [], design: {}, labels: { overrides: {} }, settings: {} } as unknown as FormConfig;
-    const next = { ...current, pages: [{ type: "review", enabled: false }], settings: { closedMessage: "Back soon" } } as unknown as FormConfig;
-    vi.mocked(parseFormRow).mockReturnValue(current);
-    vi.mocked(legacyPatchToFormPatch).mockReturnValue(next);
-    vi.mocked(projectColumnsFromForm).mockReturnValue({ prompt: "As the form has it", autoApproveMinRating: 5 });
+  it("a SettingsPanel save keeps what was typed: empty prompts stay empty", () => {
+    updateProject(projectId, { questions: "" });
+    const p = getProjectById(projectId)!;
+    // The panel sends every field on each save.
+    const saved = updateProject(projectId, {
+      prompt: "New prompt",
+      questions: "",
+      allowVideo: p.allowVideo,
+      allowText: p.allowText,
+      consentText: "",
+    })!;
+    expect(saved).toMatchObject({ prompt: "New prompt", questions: "", consentText: "" });
+    expect(primaryQuestion(config())!.tips).toEqual(DEFAULT_QUESTIONS);
+  });
 
-    const saved = updateProject(projectId, { prompt: "Typed", autoApprove: true, name: "Acme Inc" })!;
-    expect(legacyPatchToFormPatch).toHaveBeenCalledWith(
-      { prompt: "Typed", autoApprove: true, autoApproveSince: expect.any(Date) },
-      current,
-    );
-    expect(saved).toMatchObject({ name: "Acme Inc", prompt: "As the form has it", autoApproveMinRating: 5 });
-    expect(defaultForm()[0]).toMatchObject({ pages: JSON.stringify(next.pages), settings: JSON.stringify(next.settings) });
+  it("a default form migration 0009 left unfilled is filled in from the columns first", () => {
+    getDb().update(schema.forms).set({ configVersion: 0, pages: "[]", settings: "{}" }).run();
+    updateProject(projectId, { thankYouMessage: "Cheers!" });
+    expect(defaultForm()[0].configVersion).toBe(1);
+    expect(config()).toEqual(formConfigFromProject(getProjectById(projectId)!));
+  });
 
-    // Fields that aren't the form's leave it alone.
-    vi.mocked(legacyPatchToFormPatch).mockClear();
-    updateProject(projectId, { inviteSubject: "A favour?" });
-    expect(legacyPatchToFormPatch).not.toHaveBeenCalled();
+  it("fields that aren't the form's leave it alone", () => {
+    const before = defaultForm()[0];
+    updateProject(projectId, { inviteSubject: "A favour?", name: "Acme Inc" });
+    expect(defaultForm()[0]).toEqual(before);
+    expect(getProjectById(projectId)).toMatchObject({ inviteSubject: "A favour?", name: "Acme Inc" });
   });
 
   it("deleting a project removes its forms", () => {

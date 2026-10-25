@@ -154,9 +154,11 @@ describe("which rule applies", () => {
   });
 
   it("a default form not yet given its own config follows the project's settings", () => {
+    updateProject(projectId, { autoApprove: true, autoApproveMinRating: 5 });
+    // As migration 0009 leaves an older project's default form.
+    getDb().update(schema.forms).set({ configVersion: 0, pages: "[]", settings: "{}" }).run();
     const def = getDb().select().from(schema.forms).all();
     expect(def).toMatchObject([{ projectId, isDefault: true, layout: "classic", configVersion: 0 }]);
-    updateProject(projectId, { autoApprove: true, autoApproveMinRating: 5 });
     const four = submitted(def[0].id, 4);
     const five = submitted(null, 5);
     expect(maybeAutoApprove(four)).toBeNull();
@@ -166,7 +168,7 @@ describe("which rule applies", () => {
   });
 
   it("asks the default form once it has its own config, for testimonials without a form", () => {
-    getDb().update(schema.forms).set({ configVersion: 1 }).run();
+    // createProject gives the default form its own config.
     formRule.mockReturnValue({ mode: "text", minRating: 4, includeVideo: false, since: SINCE });
     const id = submitted(null, 1);
     expect(maybeAutoApprove(id)).toMatchObject({ status: "approved", approvalRule: "text only" });
