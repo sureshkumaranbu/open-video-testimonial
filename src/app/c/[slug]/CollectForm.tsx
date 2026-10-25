@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/Icon";
-import { isImageMime, sniffMime, tooLarge, UNSUPPORTED_IMAGE } from "@/lib/sniff";
-import { type RecordedVideo, VideoRecorder } from "./VideoRecorder";
+import { createAnswerUpload } from "@/components/collect/answer-uploads";
+import { PhotoPicker } from "@/components/collect/PhotoPicker";
+import { StarInput } from "@/components/collect/StarInput";
+import { type RecordedVideo, VideoRecorder } from "@/components/collect/VideoRecorder";
 
 type Props = {
   project: {
@@ -24,95 +26,6 @@ type Props = {
 
 type Mode = "text" | "video";
 
-const RATING_WORDS = ["", "Poor", "Fair", "Good", "Great", "Outstanding"];
-
-function StarInput({ value, onChange }: { value: number; onChange: (n: number) => void }) {
-  const [hover, setHover] = useState(0);
-  const shown = hover || value;
-  return (
-    <div className="row" style={{ gap: "var(--space-3)" }}>
-      <div
-        className="star-input"
-        role="radiogroup"
-        aria-label="Rating"
-        data-hover={hover ? "" : undefined}
-        onMouseLeave={() => setHover(0)}
-      >
-        {[1, 2, 3, 4, 5].map((n) => (
-          <button
-            key={n}
-            type="button"
-            role="radio"
-            aria-checked={value === n}
-            aria-label={`${n} star${n > 1 ? "s" : ""}`}
-            data-on={!hover && n <= value}
-            data-hover-on={n <= hover}
-            onMouseEnter={() => setHover(n)}
-            onClick={() => onChange(n === value ? 0 : n)}
-          >
-            <Icon name="star" />
-          </button>
-        ))}
-      </div>
-      <span className="muted small" aria-live="polite">
-        {RATING_WORDS[shown]}
-      </span>
-    </div>
-  );
-}
-
-/** The optional photo. A file we can't use is refused when it's picked, not on submit. */
-function PhotoPicker({ maxBytes }: { maxBytes: number }) {
-  const [preview, setPreview] = useState<string | null>(null);
-  const [problem, setProblem] = useState<string | null>(null);
-  useEffect(() => () => {
-    if (preview) URL.revokeObjectURL(preview);
-  }, [preview]);
-  return (
-    <label className="file-pick" style={{ position: "relative" }}>
-      <span className="preview" aria-hidden>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        {preview ? <img src={preview} alt="" /> : <Icon name="upload" />}
-      </span>
-      <span className="stack" style={{ gap: 2 }}>
-        <span>
-          Photo <span className="hint">(optional)</span>
-        </span>
-        {problem ? (
-          <span className="error-text xsmall" role="alert" data-testid="photo-problem">
-            {problem}
-          </span>
-        ) : (
-          <span className="hint xsmall">
-            {preview ? "Looks good. Click to change it." : `A headshot or your logo, under ${Math.round(maxBytes / 1024 / 1024)} MB`}
-          </span>
-        )}
-      </span>
-      <input
-        type="file"
-        name="avatar"
-        accept="image/png,image/jpeg,image/webp,image/gif"
-        onChange={async (e) => {
-          const input = e.target;
-          const file = input.files?.[0];
-          setPreview(null);
-          setProblem(null);
-          if (!file) return;
-          // Same checks as the server, by the file's real type, so it isn't refused only on submit.
-          const head = new Uint8Array(await file.slice(0, 16).arrayBuffer());
-          const problem = file.size > maxBytes ? tooLarge(maxBytes) : !isImageMime(sniffMime(head)) ? UNSUPPORTED_IMAGE : null;
-          if (problem) {
-            input.value = ""; // so the form doesn't send it
-            setProblem(problem);
-            return;
-          }
-          setPreview(URL.createObjectURL(file));
-        }}
-      />
-    </label>
-  );
-}
-
 export function CollectForm({ project, consent, prefill }: Props) {
   const [mode, setMode] = useState<Mode>(project.allowText ? "text" : "video");
   const [rating, setRating] = useState(0);
@@ -121,6 +34,11 @@ export function CollectForm({ project, consent, prefill }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<{ message: string; withdrawUrl?: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  // The video is kept here, not by the recorder: switching to Write and back
+  // used to abort its upload while the page still held on to it, so sending
+  // then failed with an expired upload. Now the take survives the switch.
+  const [videoUpload] = useState(() => createAnswerUpload({ createUrl: `/api/projects/${project.slug}/uploads` }));
+  useEffect(() => () => videoUpload.discard(), [videoUpload]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -148,6 +66,8 @@ export function CollectForm({ project, consent, prefill }: Props) {
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Your testimonial didn't send. Check your connection and try again.");
+      // A video recorded before switching to Write wasn't sent: let it go.
+      if (mode === "text") videoUpload.discard();
       setDone({ message: body.message, withdrawUrl: body.withdrawUrl });
     } catch (err) {
       setError((err as Error).message);
@@ -237,6 +157,8 @@ export function CollectForm({ project, consent, prefill }: Props) {
             maxSeconds={project.maxVideoSeconds}
             maxBytes={project.maxVideoBytes}
             onChange={setVideo}
+            upload={videoUpload}
+            abortOnUnmount={false}
           />
         )}
       </section>
