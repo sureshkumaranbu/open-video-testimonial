@@ -588,6 +588,9 @@ describe("applyLegacyPatch (updateProject's half of the mirror)", () => {
     applyLegacyPatch(reload(), { autoApprove: true, autoApproveMinRating: 4, autoApproveVideo: false });
     expect(cfgOf(getForm(form.id)!).settings.autoApprove).toMatchObject({ mode: "rating", minRating: 2 });
     expect(reload().autoApproveMinRating).toBe(4);
+    // Saving again while it's on keeps the time it was turned on (as updateProject did).
+    expect(reload().autoApproveSince!.getTime()).toBe(p.autoApproveSince!.getTime());
+    expect(cfgOf(getForm(form.id)!).settings.autoApprove.since!.getTime()).toBe(p.autoApproveSince!.getTime());
     const off = applyLegacyPatch(reload(), { autoApprove: false });
     expect(off).toMatchObject({ autoApprove: false, autoApproveSince: null });
     expect(autoApproveRuleFor({ formId: null, projectId: project.id })).toMatchObject({ mode: "off", since: null });
