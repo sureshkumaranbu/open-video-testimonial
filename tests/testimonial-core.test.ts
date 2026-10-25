@@ -176,6 +176,17 @@ describe("INBOX-08 editing", () => {
     }
   });
 
+  it("refuses a platform that would make it a second copy of an imported review (409)", async () => {
+    const review = (platform: string) => createTestimonial(projectId, { name: "Ada", text: "Great", platform, sourceReviewId: "rev-1" }).id;
+    review("google");
+    const id = review("yelp");
+    const res = await patch(id, { platform: "google" });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toMatch(/already this review on google/);
+    expect(getTestimonial(id)!.platform).toBe("yelp");
+    expect((await patch(id, { platform: "trustpilot" })).status).toBe(200);
+  });
+
   it("sends testimonial.updated to hooks that ask for it, for content edits only", () => {
     getDb()
       .insert(schema.webhooks)
@@ -255,6 +266,21 @@ describe("INBOX-08 highlights", () => {
       actorEmail: ADMIN_EMAIL,
       diff: JSON.stringify({ highlights: [[], ["Setup took minutes", "support was great"]] }),
     });
+  });
+
+  it("never end up on the same words as another highlight after an edit", () => {
+    const id = newOne("Great support. Great price.");
+    setHighlights(id, [{ answerId: null, start: 0, end: 5 }, { answerId: null, start: 15, end: 20 }]);
+    updateTestimonial(id, { text: "Great price." });
+    expect(listHighlights(id).map((h) => [h.start, h.end, h.phrase])).toEqual([[0, 5, "Great"]]);
+    // A repeated phrase that's still there twice keeps both, each on its own.
+    const other = newOne("Great support. Great price.");
+    setHighlights(other, [{ answerId: null, start: 0, end: 5 }, { answerId: null, start: 15, end: 20 }]);
+    updateTestimonial(other, { text: "Wow. Great support. Great price." });
+    expect(listHighlights(other).map((h) => [h.start, h.end])).toEqual([
+      [5, 10],
+      [20, 25],
+    ]);
   });
 
   it("move with an answer's text", () => {

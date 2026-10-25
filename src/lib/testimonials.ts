@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { getDb, schema, type Tx } from "@/db";
 import type {
   Approver,
@@ -14,18 +14,17 @@ import { CONSENTED_FIELDS, logConsentEvent } from "./consent";
 import { countWords } from "./dates";
 import { applyLegacyPatch, ensureDefaultForm } from "./forms";
 import type { LegacyFormPatch } from "./forms/defaults";
-import { DEFAULT_QUESTIONS, LEGACY_FORM_FIELDS, resolveQuestions } from "./forms/legacy";
+import { DEFAULT_QUESTIONS, DEFAULT_THANK_YOU, LEGACY_FORM_FIELDS, resolveQuestions } from "./forms/legacy";
 import { reanchorHighlights } from "./highlights";
 import { actorForSource, historyActor, recordHistory } from "./history";
-import { deleteObject, mediaUrl, MIME_BY_EXT } from "./storage";
+import { mediaUrl, MIME_BY_EXT, removeFiles } from "./storage";
 import type { Brand } from "./validation";
 import { emitTestimonialEvent } from "./webhooks";
 
 const { projects, testimonials, tags, testimonialTags, answers, testimonialImages } = schema;
 
 export const DEFAULT_PROMPT = "How has our product helped you? We'd love to hear your story.";
-export const DEFAULT_THANK_YOU = "Thank you! Your testimonial has been received.";
-export { DEFAULT_QUESTIONS };
+export { DEFAULT_QUESTIONS, DEFAULT_THANK_YOU };
 
 /** The project's prompts, one per line, falling back to the defaults. */
 export function projectQuestions(project: Pick<Project, "questions">) {
@@ -370,6 +369,13 @@ export class NoPublicConsentError extends Error {
   }
 }
 
+/** Thrown when a new platform would make the testimonial a second copy of an imported review (409). */
+export class DuplicateReviewError extends Error {
+  constructor(platform: string) {
+    super(`Another testimonial in this project is already this review on ${platform}`);
+  }
+}
+
 /** What the owner (or the API) may change on a testimonial. Trash and restore have their own calls (trash.ts). */
 export type TestimonialPatch = {
   status?: TestimonialStatus;
@@ -478,6 +484,22 @@ export function updateTestimonial(
     const before = JSON_FIELDS.has(field) ? parseJson(existing[field] as string) : existing[field];
     Object.assign(columns, { [field]: JSON_FIELDS.has(field) ? JSON.stringify(value) : value });
     diff[field] = [historyValue(before), historyValue(value)];
+  }
+  // The import dedupe index is unique on (project, platform, review id).
+  if (columns.platform && existing.sourceReviewId) {
+    const taken = db
+      .select({ id: testimonials.id })
+      .from(testimonials)
+      .where(
+        and(
+          eq(testimonials.projectId, existing.projectId),
+          eq(testimonials.platform, columns.platform),
+          eq(testimonials.sourceReviewId, existing.sourceReviewId),
+          ne(testimonials.id, id),
+        ),
+      )
+      .get();
+    if (taken) throw new DuplicateReviewError(columns.platform);
   }
   // Changing what the author wrote is allowed, but recorded.
   const edited = CONSENTED_FIELDS.filter((f) => f in diff);
@@ -599,8 +621,9 @@ export async function deleteTestimonial(id: string) {
   const keys = mediaKeysOf([id]);
   const row = getDb().delete(testimonials).where(eq(testimonials.id, id)).returning().get();
   if (!row) return false;
-  // A customer keeps the photo they sent with this testimonial.
-  await Promise.all(keys.filter((k) => !stillUsed(k)).map((k) => deleteObject(k)));
+  // A customer keeps the photo they sent with this testimonial. Files that
+  // can't be removed now are retried in the background.
+  await removeFiles(keys.filter((k) => !stillUsed(k)));
   return true;
 }
 

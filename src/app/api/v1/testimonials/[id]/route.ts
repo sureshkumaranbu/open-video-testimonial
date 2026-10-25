@@ -2,7 +2,7 @@ import { toApi } from "@/lib/api-shape";
 import { apiJson, requireApiKey } from "@/lib/api-keys";
 import { CaptionsError, normaliseCaptions } from "@/lib/captions";
 import { jsonError } from "@/lib/http";
-import { ConsentWithdrawnError, deleteTestimonial, getTestimonial, NoPublicConsentError, updateTestimonial } from "@/lib/testimonials";
+import { ConsentWithdrawnError, deleteTestimonial, DuplicateReviewError, getTestimonial, NoPublicConsentError, updateTestimonial } from "@/lib/testimonials";
 import { firstIssue, testimonialUpdateSchema } from "@/lib/validation";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -37,7 +37,9 @@ export async function PATCH(req: Request, ctx: Ctx) {
     if (!t) return jsonError(404, "Testimonial not found");
     return apiJson({ data: toApi(t) });
   } catch (err) {
-    if (err instanceof ConsentWithdrawnError || err instanceof NoPublicConsentError) return jsonError(409, err.message);
+    if (err instanceof ConsentWithdrawnError || err instanceof NoPublicConsentError || err instanceof DuplicateReviewError) {
+      return jsonError(409, err.message);
+    }
     throw err;
   }
 }

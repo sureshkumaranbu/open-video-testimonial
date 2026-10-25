@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getDb, schema } from "@/db";
 import { upsertCustomer } from "@/lib/customers";
 import { createProject } from "@/lib/testimonials";
@@ -16,7 +16,10 @@ beforeEach(() => {
   ctx = useTempDataDir();
   projectId = createProject({ name: "Acme", slug: "acme" }).id;
 });
-afterEach(() => ctx.cleanup());
+afterEach(() => {
+  vi.restoreAllMocks();
+  ctx.cleanup();
+});
 
 const rows = (id = projectId) => getDb().select().from(customers).where(eq(customers.projectId, id)).all();
 
@@ -95,14 +98,23 @@ describe("upsertCustomer", () => {
     expect(rows().map((c) => c.email)).toEqual(["tx@example.com"]);
   });
 
-  it("reads back a row another request added first, without a constraint error", () => {
-    const now = new Date();
-    getDb()
-      .insert(customers)
-      .values({ id: "c-race", projectId, email: "race@example.com", name: "Racer", createdAt: now, updatedAt: now })
-      .run();
+  it("reads back a row another request added between its lookup and its insert, without a constraint error", () => {
+    const db = getDb();
+    // The lookup misses, and the other request's row lands in that moment.
+    vi.spyOn(db, "select").mockImplementationOnce((() => ({
+      from: () => ({
+        where: () => ({
+          get: () => {
+            const now = new Date();
+            db.insert(customers).values({ id: "c-race", projectId, email: "race@example.com", name: "Racer", createdAt: now, updatedAt: now }).run();
+            return undefined;
+          },
+        }),
+      }),
+    })) as never);
     const c = upsertCustomer(projectId, { email: "race@example.com", name: "Racer Two", company: "Speedy" })!;
     expect(c).toMatchObject({ id: "c-race", name: "Racer", company: "Speedy" });
+    expect(rows()).toHaveLength(1);
   });
 
   it("goes with its project", () => {

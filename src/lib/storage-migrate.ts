@@ -4,9 +4,9 @@ import path from "node:path";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { env } from "./env";
-import { enqueue, getJob, registerJob } from "./jobs";
+import { enqueue, getJob, PermanentJobError, registerJob } from "./jobs";
 import { getRunProgress, type RunError, type RunProgress } from "./runs";
-import { isMediaKey, localDisk, mimeForKey, resolveKey, s3Storage, storageStatus } from "./storage";
+import { deleteObject, isMediaKey, localDisk, mimeForKey, resolveKey, s3Storage, STORAGE_DELETE_JOB, storageStatus } from "./storage";
 import type { S3Driver } from "./storage/s3";
 
 const { taskRuns } = schema;
@@ -170,7 +170,12 @@ export async function runStorageMigration(p: { runId: string }): Promise<void> {
         if (remote && remote.size === local.size) counts.duplicates++;
         else {
           await bucket.put(key, { path: resolveKey(key) }, mimeForKey(key));
-          counts.done++;
+          // Deleted during the upload: deleteObject removed the local copy, but
+          // found nothing in the bucket yet, so take back what was just put.
+          if (!(await localDisk.stat(key))) {
+            await bucket.remove(key);
+            counts.skipped++;
+          } else counts.done++;
         }
         if (deleteLocal) await localDisk.remove(key);
       }
@@ -195,5 +200,10 @@ export async function runStorageMigration(p: { runId: string }): Promise<void> {
 export function registerStorageJobs(): void {
   registerJob(STORAGE_MIGRATE_JOB, async (payload) => {
     await runStorageMigration(payload as { runId: string });
+  });
+  registerJob(STORAGE_DELETE_JOB, async (payload) => {
+    const { key } = (payload ?? {}) as { key?: string };
+    if (!key || !isMediaKey(key)) throw new PermanentJobError("Invalid media key");
+    await deleteObject(key); // a file that's already gone is fine
   });
 }

@@ -83,11 +83,11 @@ export function setHighlights(
   return listHighlights(testimonialId);
 }
 
-/** Where `phrase` now occurs in `text` closest to `near`, or -1. */
-function nearest(text: string, phrase: string, near: number) {
+/** Where `phrase` now occurs in `text` closest to `near` and where `ok` allows, or -1. */
+function nearest(text: string, phrase: string, near: number, ok: (at: number) => boolean) {
   let best = -1;
   for (let i = text.indexOf(phrase); i !== -1; i = text.indexOf(phrase, i + 1)) {
-    if (best === -1 || Math.abs(i - near) < Math.abs(best - near)) best = i;
+    if (ok(i) && (best === -1 || Math.abs(i - near) < Math.abs(best - near))) best = i;
   }
   return best;
 }
@@ -95,8 +95,9 @@ function nearest(text: string, phrase: string, near: number) {
 /**
  * After the main text (answerId null) or an answer changes: highlights whose
  * phrase is still at the same place stay, the others move to the nearest place
- * the phrase now appears, and the rest are dropped. Runs inside the edit's
- * transaction.
+ * the phrase now appears that no other highlight covers, and the rest are
+ * dropped, so highlights never overlap (as setHighlights requires). Runs
+ * inside the edit's transaction.
  */
 export function reanchorHighlights(tx: Tx, testimonialId: string, answerId: string | null, newText: string | null): void {
   const text = newText ?? "";
@@ -110,10 +111,15 @@ export function reanchorHighlights(tx: Tx, testimonialId: string, answerId: stri
       ),
     )
     .all();
-  for (const h of rows) {
-    if (text.slice(h.start, h.end) === h.phrase) continue;
-    const at = nearest(text, h.phrase, h.start);
+  const stays = (h: Highlight) => text.slice(h.start, h.end) === h.phrase;
+  const taken = rows.filter(stays).map((h) => [h.start, h.end] as const);
+  for (const h of rows.filter((r) => !stays(r)).sort((a, b) => a.start - b.start)) {
+    const len = h.phrase.length;
+    const at = nearest(text, h.phrase, h.start, (i) => taken.every(([s, e]) => i + len <= s || i >= e));
     if (at === -1) tx.delete(highlights).where(eq(highlights.id, h.id)).run();
-    else tx.update(highlights).set({ start: at, end: at + h.phrase.length }).where(eq(highlights.id, h.id)).run();
+    else {
+      taken.push([at, at + len]);
+      tx.update(highlights).set({ start: at, end: at + len }).where(eq(highlights.id, h.id)).run();
+    }
   }
 }

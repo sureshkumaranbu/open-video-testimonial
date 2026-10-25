@@ -50,13 +50,21 @@ export async function api<T>(url: string, init?: ApiInit): Promise<T> {
     throw new ApiError(0, "Can't reach Plaudit. Check your connection, then try again.");
   }
 
-  const text = await res.text().catch(() => "");
+  // A success must be readable JSON (or empty): callers read fields from it.
+  const unreadable = "Plaudit's answer couldn't be read. Reload the page, then try again.";
+  let text = "";
+  try {
+    text = await res.text();
+  } catch (e) {
+    if (isAbort(e)) throw e;
+    if (res.ok) throw new ApiError(res.status, unreadable);
+  }
   let data: unknown = {};
   if (text) {
     try {
       data = JSON.parse(text);
     } catch {
-      data = {};
+      if (res.ok) throw new ApiError(res.status, unreadable);
     }
   }
   if (!res.ok) {

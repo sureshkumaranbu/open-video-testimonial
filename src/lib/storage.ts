@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import path from "node:path";
 import { env } from "./env";
+import { enqueue } from "./jobs";
 import { sniffMime, UNSUPPORTED_IMAGE, UNSUPPORTED_VIDEO } from "./sniff";
 import { createLocalDriver, isMediaKey } from "./storage/local";
 import { createS3Driver, type FetchLike, type S3Driver } from "./storage/s3";
@@ -105,6 +106,25 @@ export async function deleteObject(key: string | null | undefined) {
   if (!key) return;
   if (!isMediaKey(key)) throw new UploadError("Invalid media key");
   await storage().remove(key);
+}
+
+/** Retries removing a file whose delete failed; the handler is registered by registerStorageJobs. */
+export const STORAGE_DELETE_JOB = "storage.delete";
+
+/**
+ * Removes files whose rows are already gone. A file that can't be removed now
+ * (the bucket timed out or answered 5xx) is retried in the background, since
+ * no row is left to find it again. Keys are never reused, so a retry can't
+ * remove a file something uses. Never throws; returns how many went now.
+ */
+export async function removeFiles(keys: string[]): Promise<number> {
+  const results = await Promise.allSettled(keys.map((k) => deleteObject(k)));
+  results.forEach((r, i) => {
+    if (r.status === "fulfilled") return;
+    console.error(`[storage] couldn't delete ${keys[i]}, will retry:`, r.reason);
+    if (isMediaKey(keys[i])) enqueue(STORAGE_DELETE_JOB, { key: keys[i] }, { maxAttempts: 8 });
+  });
+  return results.filter((r) => r.status === "fulfilled").length;
 }
 
 export function mediaUrl(key: string | null | undefined, base = "") {

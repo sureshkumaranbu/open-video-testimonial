@@ -1,7 +1,7 @@
 import { getRequestSession } from "@/lib/auth";
 import { CaptionsError, normaliseCaptions } from "@/lib/captions";
 import { jsonError, requireAdmin } from "@/lib/http";
-import { ConsentWithdrawnError, deleteTestimonial, NoPublicConsentError, updateTestimonial } from "@/lib/testimonials";
+import { ConsentWithdrawnError, deleteTestimonial, DuplicateReviewError, NoPublicConsentError, updateTestimonial } from "@/lib/testimonials";
 import { firstIssue, testimonialUpdateSchema } from "@/lib/validation";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -29,7 +29,9 @@ export async function PATCH(req: Request, ctx: Ctx) {
   try {
     testimonial = updateTestimonial(id, patch, { by: getRequestSession(req)?.email });
   } catch (err) {
-    if (err instanceof ConsentWithdrawnError || err instanceof NoPublicConsentError) return jsonError(409, err.message);
+    if (err instanceof ConsentWithdrawnError || err instanceof NoPublicConsentError || err instanceof DuplicateReviewError) {
+      return jsonError(409, err.message);
+    }
     throw err;
   }
   if (!testimonial) return jsonError(404, "Testimonial not found");

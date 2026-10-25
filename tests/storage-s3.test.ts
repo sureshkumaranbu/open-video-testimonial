@@ -394,6 +394,17 @@ describe("TEAM-05 STORAGE_DRIVER=s3", () => {
     expect(onDisk(avatar)).toBe(false);
   });
 
+  it("retries removing a deleted testimonial's files when the bucket won't delete them", async () => {
+    const video = await saveFile(tmpFile(WEBM_BYTES), "video/webm", "video");
+    const t = createTestimonial(projectId, { name: "Ada", videoKey: video.key, videoMime: video.mime });
+    fake.failNext((r) => r.method === "DELETE", 503);
+    expect(await deleteTestimonial(t.id)).toBe(true);
+    expect(getTestimonial(t.id)).toBeNull();
+    expect(inBucket(video.key)).toBeDefined();
+    await runDueJobs({ now: () => new Date(Date.now() + 60_000) });
+    expect(inBucket(video.key)).toBeUndefined();
+  });
+
   it("answers 503, not 500, when the bucket can't be reached", async () => {
     const { key } = await saveFile(tmpFile(WEBM_BYTES), "video/webm", "video");
     fake.failNext((r) => r.method === "HEAD", 503);
@@ -507,6 +518,24 @@ describe("TEAM-05 STORAGE_DRIVER=s3", () => {
       }
       // Served from the bucket now.
       expect((await get(keys[0], adminHeaders())).status).toBe(200);
+    });
+
+    it("takes back a file deleted while it was being copied", async () => {
+      const [gone, kept] = (await localFiles(2)).sort();
+      // The delete lands mid-upload: the local copy goes, and the bucket had nothing to delete yet.
+      resetStorage({
+        fetch: async (input, init) => {
+          const res = await fake.fetch(input, init);
+          const url = input instanceof Request ? input.url : String(input);
+          if (init?.method === "PUT" && url.endsWith(gone)) fs.rmSync(path.join(env.uploadsDir, gone), { force: true });
+          return res;
+        },
+      });
+      const { run } = await (await post({})).json();
+      await runDueJobs();
+      expect(getRunProgress(run.id)).toMatchObject({ status: "done", done: 1, skipped: 1, failed: 0 });
+      expect(inBucket(gone)).toBeUndefined();
+      expect(inBucket(kept)).toBeDefined();
     });
 
     it("records files that fail and carries on", async () => {

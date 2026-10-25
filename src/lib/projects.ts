@@ -3,7 +3,7 @@ import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { getDb, schema, type Tx } from "@/db";
 import type { Project, RedirectKind } from "@/db/schema";
 import { recordHistory } from "./history";
-import { deleteObject, saveUpload } from "./storage";
+import { deleteObject, removeFiles, saveUpload } from "./storage";
 import { createProject, getProjectById, getProjectBySlug, updateProject } from "./testimonials";
 import { discardUpload } from "./uploads";
 import { brandSchema, firstIssue, slugSchema, tagNameSchema, type Brand } from "./validation";
@@ -252,9 +252,8 @@ export async function deleteProject(id: string, o: { confirm: string }): Promise
   const open = db.select({ id: uploads.id }).from(uploads).where(eq(uploads.projectId, id)).all();
   if (!db.delete(projects).where(eq(projects.id, id)).returning({ id: projects.id }).get()) return null;
   await Promise.allSettled(open.map((u) => discardUpload(u.id)));
-  const results = await Promise.allSettled(keys.filter((k) => !fileInUse(k)).map((k) => deleteObject(k)));
-  for (const r of results) if (r.status === "rejected") console.error(`[projects] couldn't delete a file of project ${id}:`, r.reason);
-  return { files: results.filter((r) => r.status === "fulfilled").length };
+  // Files that can't be removed now are retried in the background.
+  return { files: await removeFiles(keys.filter((k) => !fileInUse(k))) };
 }
 
 // ------------------------------------------------------------ brand kit
@@ -290,7 +289,7 @@ export async function setProjectLogo(projectId: string, file: File): Promise<Pro
     await deleteObject(stored.key);
     throw notFound();
   }
-  if (existing.logoKey && existing.logoKey !== stored.key && !fileInUse(existing.logoKey)) await deleteObject(existing.logoKey);
+  if (existing.logoKey && existing.logoKey !== stored.key && !fileInUse(existing.logoKey)) await removeFiles([existing.logoKey]);
   return project;
 }
 
@@ -299,7 +298,7 @@ export async function removeProjectLogo(projectId: string): Promise<Project> {
   if (!existing) throw notFound();
   if (!existing.logoKey) return existing;
   const project = getDb().update(projects).set({ logoKey: null }).where(eq(projects.id, projectId)).returning().get();
-  if (!fileInUse(existing.logoKey)) await deleteObject(existing.logoKey);
+  if (!fileInUse(existing.logoKey)) await removeFiles([existing.logoKey]);
   return project;
 }
 

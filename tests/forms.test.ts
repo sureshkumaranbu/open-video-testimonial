@@ -32,7 +32,7 @@ import {
   updateForm,
   upgradeToSteps,
 } from "@/lib/forms";
-import { DEFAULT_PROMPT, DEFAULT_QUESTIONS, LEGACY_FORM_FIELDS, resolveQuestions } from "@/lib/forms/legacy";
+import { DEFAULT_PROMPT, DEFAULT_QUESTIONS, DEFAULT_THANK_YOU, LEGACY_FORM_FIELDS, resolveQuestions } from "@/lib/forms/legacy";
 import {
   formPagesSchema,
   parseFormRow,
@@ -249,6 +249,14 @@ describe("the mirror (D2, D3)", () => {
     q1(edited).mode = "text";
     expect(mirrorColumns(p, edited)).toEqual({ prompt: "A new question?", allowVideo: false, allowText: true });
   });
+
+  it("clearing the thank-you message puts the default wording in the column", () => {
+    const p = customProject();
+    const cleared = structuredClone(formConfigFromProject(p));
+    page(cleared, "thank_you").message = "";
+    expect(mirrorColumns(p, cleared)).toEqual({ thankYouMessage: DEFAULT_THANK_YOU });
+    expect(mirrorColumns({ ...p, thankYouMessage: DEFAULT_THANK_YOU }, cleared)).toEqual({});
+  });
 });
 
 describe("legacyPatchToFormPatch", () => {
@@ -306,6 +314,15 @@ describe("legacyPatchToFormPatch", () => {
     );
     expect(next.settings.autoApprove).toEqual(custom.settings.autoApprove);
     expect(legacyPatchToFormPatch({ autoApproveMinRating: 5 }, custom, NOW).settings.autoApprove).toMatchObject({ mode: "all", minRating: 5 });
+  });
+
+  it("turning the rule on from off applies the rating the panel shows, not a hidden lower one", () => {
+    const base = formConfigFromProject(project);
+    const off: FormConfig = { ...base, settings: { ...base.settings, autoApprove: { ...base.settings.autoApprove, mode: "off", minRating: 2 } } };
+    expect(legacyPatchToFormPatch({ autoApprove: true, autoApproveMinRating: 4 }, off, NOW).settings.autoApprove).toMatchObject({
+      mode: "rating",
+      minRating: 4,
+    });
   });
 });
 
@@ -439,6 +456,20 @@ describe("the default form", () => {
     expect(() => ensureDefaultForm(other)).not.toThrow();
     expect(ensureDefaultForm(other).id).toBe(theirs.id);
     expect(getDb().select().from(forms).where(eq(forms.projectId, other.id)).all()).toHaveLength(1);
+  });
+
+  it("keeps the default another request adds between its lookup and its insert", () => {
+    const other = bareProject({ name: "Gamma", slug: "gamma" });
+    const db = getDb();
+    let theirs: Form | undefined;
+    // The lookup misses, and the other request's form lands in that moment.
+    vi.spyOn(db, "select").mockImplementationOnce((() => ({
+      from: () => ({ where: () => ({ get: () => void (theirs = migratedDefaultForm(other.id)) }) }),
+    })) as never);
+    const form = ensureDefaultForm(other);
+    expect(theirs).toBeDefined();
+    expect(form.id).toBe(theirs!.id);
+    expect(db.select().from(forms).where(eq(forms.projectId, other.id)).all()).toHaveLength(1);
   });
 
   it("gets another link when a form already uses “default”", () => {

@@ -19,6 +19,9 @@ export const DEFAULT_QUESTIONS = [
 /** The question a project starts with (same as testimonials.ts, which can re-export it like DEFAULT_QUESTIONS). */
 export const DEFAULT_PROMPT = "How has our product helped you? We'd love to hear your story.";
 
+/** What the form says after a submission when no message is set (testimonials.ts re-exports it). */
+export const DEFAULT_THANK_YOU = "Thank you! Your testimonial has been received.";
+
 /** The project columns that mirror the default form; a patch touching any of them goes through the form. */
 export const LEGACY_FORM_FIELDS = [
   "prompt",

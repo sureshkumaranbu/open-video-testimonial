@@ -3,7 +3,7 @@ import { and, asc, count, desc, eq, ne, or } from "drizzle-orm";
 import { z } from "zod";
 import { getDb, schema, type Db, type Tx } from "@/db";
 import { FORM_STATUSES, type Form, type FormStatus, type Project, type Testimonial } from "@/db/schema";
-import { deleteObject } from "@/lib/storage";
+import { removeFiles } from "@/lib/storage";
 import { firstIssue, slugSchema } from "@/lib/validation";
 import {
   classicCompatible,
@@ -470,7 +470,7 @@ export async function deleteForm(id: string): Promise<boolean> {
   if (!form) return false;
   if (form.isDefault) throw new FormError(409, "The default form can't be deleted. Make another form the default first.");
   db.delete(forms).where(and(eq(forms.id, id), eq(forms.isDefault, false))).run();
-  if (form.logoKey && !logoInUse(db, form.logoKey)) await deleteObject(form.logoKey);
+  if (form.logoKey && !logoInUse(db, form.logoKey)) await removeFiles([form.logoKey]);
   return true;
 }
 

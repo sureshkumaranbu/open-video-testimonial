@@ -142,6 +142,21 @@ describe("api()", () => {
     await expect(api("/x")).rejects.toBe(abort);
   });
 
+  it("refuses a success it can't read, and passes a cancellation during the body through", async () => {
+    stubFetch(() => new Response("<html>Sign in to the proxy</html>", { status: 200, headers: { "content-type": "text/html" } }));
+    const err = (await api("/x").catch((e) => e)) as ApiError;
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err.status).toBe(200);
+    expect(err.message).toMatch(/Reload the page/);
+
+    const abort = new DOMException("The operation was aborted.", "AbortError");
+    const cut = new ReadableStream({ start: (c) => c.error(abort) });
+    stubFetch(() => new Response(cut, { status: 200 }));
+    await expect(api("/x")).rejects.toBe(abort);
+    stubFetch(() => new Response(new ReadableStream({ start: (c) => c.error(new TypeError("network error")) }), { status: 200 }));
+    await expect(api("/x")).rejects.toThrow(/Reload the page/);
+  });
+
   it("returns an empty object for an empty success", async () => {
     stubFetch(() => new Response(null, { status: 204 }));
     expect(await api("/x", { method: "DELETE" })).toEqual({});

@@ -157,7 +157,7 @@ Under **Settings → Webhooks**, add the URL of your endpoint. You can limit it 
 | `form.submitted`, `feedback.created`, `import.completed` | *Opt-in.* You can tick these already, but they're sent only once multi-step forms and importers are released |
 | `ping` | You pressed **Send test event** |
 
-Every way a testimonial leaves your site (rejected, hidden, trashed, deleted or withdrawn) is in the default set, so an endpoint that mirrors your testimonials elsewhere can always take them down. Hiding sends `testimonial.hidden`, never `testimonial.rejected`.
+Every way a testimonial leaves your site (rejected, hidden, trashed, deleted or withdrawn) is in the default set, so an endpoint that mirrors your testimonials elsewhere can always take them down. Hiding sends `testimonial.hidden`, never `testimonial.rejected`. The one exception is deleting a whole project: that sends no per-testimonial events, and the project's own webhooks are deleted with it, so treat a project missing from `GET /projects` as taking down all of its testimonials.
 
 Imports (CSV or archive) don't send webhooks.
 

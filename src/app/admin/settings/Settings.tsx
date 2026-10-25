@@ -268,7 +268,7 @@ function Webhooks({ events, projects }: { events: string[]; projects: { id: stri
           </div>
           <fieldset className="event-grid" style={{ border: 0, padding: 0, margin: 0 }}>
             <legend className="small" style={{ fontWeight: 600, marginBottom: "var(--space-2)" }}>
-              Events <span className="hint">(none ticked = all)</span>
+              Events <span className="hint">(none ticked = the default set; opt-in events must be ticked)</span>
             </legend>
             {events.map((ev) => (
               <label key={ev} className="check small">
@@ -320,7 +320,7 @@ function WebhookRow({ hook, projects, onChange }: { hook: Hook; projects: { id: 
         <div style={{ minWidth: 0 }}>
           <strong style={{ wordBreak: "break-all" }}>{hook.url}</strong>
           <div className="muted xsmall">
-            {project} · {hook.events.length ? hook.events.join(", ") : "all events"}
+            {project} · {hook.events.length ? hook.events.join(", ") : "default events"}
             {!hook.active && " · paused"}
           </div>
         </div>

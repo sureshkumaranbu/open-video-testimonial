@@ -1,5 +1,5 @@
 import type { Project } from "@/db/schema";
-import { DEFAULT_PROMPT, resolveQuestions, type LegacyFormField } from "./legacy";
+import { DEFAULT_PROMPT, DEFAULT_THANK_YOU, resolveQuestions, type LegacyFormField } from "./legacy";
 import {
   formDesignSchema,
   formLabelsSchema,
@@ -142,9 +142,9 @@ export function newFormConfig(p: Project): FormConfig {
 
 /**
  * The reverse, for the default form only. Rules the columns can't hold are
- * clamped (D3: minRating to 4 or 5); autoApproveSince is carried exactly. A
- * column is left out when the form has nothing it can hold (an empty thank-you
- * message means the default wording; the column needs text).
+ * clamped (D3: minRating to 4 or 5); autoApproveSince is carried exactly. An
+ * empty thank-you message means the default wording, which the column spells
+ * out (the classic submit route answers with it).
  */
 export function projectColumnsFromForm(cfg: FormConfig): Partial<Project> {
   const q = primaryQuestion(cfg);
@@ -154,7 +154,7 @@ export function projectColumnsFromForm(cfg: FormConfig): Partial<Project> {
   return {
     ...(q ? { prompt: q.title, questions: q.tips.join("\n"), ...flagsFromMode(q.mode), maxVideoSeconds: q.maxVideoSeconds } : {}),
     ...(consent ? { consentText: consent.text } : {}),
-    ...(thanks?.message ? { thankYouMessage: thanks.message } : {}),
+    ...(thanks ? { thankYouMessage: thanks.message || DEFAULT_THANK_YOU } : {}),
     ...(cfg.design.primary ? { accentColor: cfg.design.primary } : {}),
     thankYouEmail: cfg.settings.confirmationEmail.enabled,
     // D3: "all", "text", "public" and minimums below 4 show as on, at 4 or 5; the decision itself always comes from the form.
@@ -249,7 +249,12 @@ export function legacyPatchToFormPatch(patch: LegacyFormPatch, cfg: FormConfig, 
       rule.since = now;
     } else rule.since ??= now;
   }
-  if (patch.autoApproveMinRating !== undefined && patch.autoApproveMinRating !== Math.max(4, cfg.settings.autoApprove.minRating)) {
+  // Turning the rule on from off applies the rating shown: an "off" rule's lower minimum was never on screen.
+  const turnedOn = patch.autoApprove === true && cfg.settings.autoApprove.mode === "off";
+  if (
+    patch.autoApproveMinRating !== undefined &&
+    (turnedOn || patch.autoApproveMinRating !== Math.max(4, cfg.settings.autoApprove.minRating))
+  ) {
     rule.minRating = clampRating(patch.autoApproveMinRating);
   }
   if (patch.autoApproveVideo !== undefined) rule.includeVideo = patch.autoApproveVideo;
