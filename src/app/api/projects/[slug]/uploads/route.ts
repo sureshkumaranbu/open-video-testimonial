@@ -2,13 +2,13 @@ import { env } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { clientKey, rateLimit } from "@/lib/rate-limit";
 import { tooLarge } from "@/lib/sniff";
-import { getProjectBySlug } from "@/lib/testimonials";
+import { findProjectBySlugOrAlias } from "@/lib/projects";
 import { CHUNK_MAX_BYTES, createUpload, MAX_OPEN_UPLOADS_PER_PROJECT, openUploadCount } from "@/lib/uploads";
 
 /** Starts a resumable video upload for the collection page. */
 export async function POST(req: Request, ctx: { params: Promise<{ slug: string }> }) {
   const { slug } = await ctx.params;
-  const project = getProjectBySlug(slug);
+  const project = findProjectBySlugOrAlias(slug)?.project;
   if (!project) return jsonError(404, "Project not found");
   if (!project.allowVideo) return jsonError(400, "This page doesn't accept videos");
   if (!rateLimit(`upload-start:${clientKey(req)}`, 30, 10 * 60 * 1000)) {

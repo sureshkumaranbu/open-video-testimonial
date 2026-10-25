@@ -1,0 +1,239 @@
+/* Project settings (src/app/admin/projects/[id]/settings, TEAM-04). Every
+ * class starts with `ps-`; colours, type and space come from the tokens in
+ * globals.css, and the controls are the admin kit's (admin-kit.css). Every
+ * row wraps, so the page fits a 375px phone with nothing scrolling sideways. */
+
+.ps-root {
+  min-width: 0;
+}
+
+.ps-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-base);
+}
+
+.ps-subtitle {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+/* A link or path: long slugs break anywhere rather than widen the page. */
+.ps-url {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Details ---------- */
+
+.ps-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+
+/* ---------- Lists: old links and tags ---------- */
+
+.ps-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.ps-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  min-width: 0;
+}
+
+.ps-list-row + .ps-list-row {
+  border-top: 1px solid var(--line);
+}
+
+.ps-list-main {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+  flex: 1 1 12rem;
+}
+
+.ps-list-main .check {
+  align-items: center;
+}
+
+.ps-row-actions {
+  gap: var(--space-1);
+}
+
+.ps-tag {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--paper-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.ps-tag-count {
+  white-space: nowrap;
+}
+
+.ps-rename {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  flex: 1 1 100%;
+}
+
+.ps-rename .ak-field {
+  flex: 1 1 14rem;
+}
+
+/* ---------- Brand kit ---------- */
+
+.ps-logo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.ps-logo-box {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--ink-3);
+  overflow: hidden;
+}
+
+.ps-logo-box[data-empty] {
+  border-style: dashed;
+}
+
+.ps-logo-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.ps-logo-actions {
+  gap: var(--space-2);
+  min-width: 0;
+  flex: 1 1 14rem;
+}
+
+.ps-brand-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 20rem);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.ps-colors {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr));
+  gap: var(--space-4);
+}
+
+/* Room for the whole "Default (#rrggbb)" placeholder. */
+.ps-colors .ak-color-row input[type="text"] {
+  width: 12.5em;
+  max-width: calc(100% - 56px);
+}
+
+/* What a card made from the kit looks like; the colours are set inline. */
+.ps-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+}
+
+.ps-preview-logo {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.ps-preview-heading {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.ps-preview-stars {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.ps-preview-body {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.ps-preview-link {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.ps-preview-button {
+  display: inline-block;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.ps-fonts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: var(--space-6);
+}
+
+/* ---------- Delete ---------- */
+
+.ps-danger {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
+}
+
+.ps-danger .panel-head {
+  color: var(--danger);
+}
+
+@media (max-width: 760px) {
+  .ps-brand-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .ps-list-row {
+    padding-inline: var(--space-3);
+  }
+}

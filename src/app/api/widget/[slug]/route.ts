@@ -1,5 +1,6 @@
 import { CORS_HEADERS, jsonError } from "@/lib/http";
-import { getProjectBySlug, listPublicTestimonials } from "@/lib/testimonials";
+import { findProjectBySlugOrAlias } from "@/lib/projects";
+import { listPublicTestimonials } from "@/lib/testimonials";
 
 /**
  * Public, CORS-enabled feed of approved testimonials, consumed by the
@@ -7,7 +8,8 @@ import { getProjectBySlug, listPublicTestimonials } from "@/lib/testimonials";
  */
 export async function GET(req: Request, ctx: { params: Promise<{ slug: string }> }) {
   const { slug } = await ctx.params;
-  const project = getProjectBySlug(slug);
+  // An old slug is answered directly, not redirected, so embeds stay a simple CORS GET (D17).
+  const project = findProjectBySlugOrAlias(slug)?.project;
   if (!project) return jsonError(404, "Project not found", CORS_HEADERS);
 
   const url = new URL(req.url);

@@ -1,25 +1,29 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { currentConsentVersion } from "@/lib/consent";
 import { env } from "@/lib/env";
+import { findProjectBySlugOrAlias, withQuery } from "@/lib/projects";
 import { findRequestByToken } from "@/lib/requests";
-import { getProjectBySlug, projectQuestions } from "@/lib/testimonials";
+import { projectQuestions } from "@/lib/testimonials";
 import { accentStyle } from "@/lib/theme";
 import { CollectForm } from "./CollectForm";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ r?: string | string[] }> };
+type Props = { params: Promise<{ slug: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const project = getProjectBySlug((await params).slug);
+  const project = findProjectBySlugOrAlias((await params).slug)?.project;
   return { title: project ? `Share your experience with ${project.name}` : "Not found" };
 }
 
 export default async function CollectPage({ params, searchParams }: Props) {
-  const project = getProjectBySlug((await params).slug);
-  if (!project) notFound();
+  const found = findProjectBySlugOrAlias((await params).slug);
+  if (!found) notFound();
+  // An old link (the project was renamed) moves on to the new one, ?r= and all (D17).
+  if (!found.canonical) permanentRedirect(withQuery(`/c/${found.project.slug}`, await searchParams));
+  const project = found.project;
   // A personal request link (?r=…) prefills who they are.
   const token = (await searchParams).r;
   const request = typeof token === "string" ? findRequestByToken(token) : null;
