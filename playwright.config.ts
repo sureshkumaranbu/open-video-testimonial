@@ -22,6 +22,15 @@ const APPLE = {
   publicKey: appleKey.publicKey.export({ type: "spki", format: "pem" }).toString(),
 };
 
+/**
+ * The outside web for importers, discovery and chat notifications
+ * (e2e/fixtures/fixture-server.mjs): it serves tests/fixtures/** and records
+ * what the app sends it. The app reaches it only through the test-only
+ * NET_GUARD_ALLOW and IMPORTER_ORIGINS below.
+ */
+const FIXTURE_PORT = Number(process.env.E2E_FIXTURE_PORT || 3198);
+export const FIXTURE_ORIGIN = `http://127.0.0.1:${FIXTURE_PORT}`;
+
 export const E2E_ADMIN = {
   email: process.env.E2E_ADMIN_EMAIL || "owner@example.com",
   password: process.env.E2E_ADMIN_PASSWORD || "e2e-password-123",
@@ -61,6 +70,12 @@ export default defineConfig({
           },
         },
         {
+          command: "node e2e/fixtures/fixture-server.mjs",
+          url: `${FIXTURE_ORIGIN}/__health`,
+          reuseExistingServer: false,
+          env: { FIXTURE_PORT: String(FIXTURE_PORT), FIXTURE_HOST: "127.0.0.1" },
+        },
+        {
           // Production build, served by the standalone server the Docker image uses.
           command: "rm -rf .e2e-data && npm run build && npm start",
           url: baseURL,
@@ -96,6 +111,14 @@ export default defineConfig({
             APPLE_ISSUER: mockIssuer("apple"),
             // Lets the team spec sign in people other than the owner.
             ALLOWED_EMAIL_DOMAINS: "team.example",
+            // Every Phase 1 feature flag on, so specs see the new pages before release.
+            PLAUDIT_FEATURES: "all",
+            // The fixture server is on a private address; let exactly that origin
+            // through the outbound-request guard (the guard itself stays on).
+            NET_GUARD_ALLOW: `127.0.0.1:${FIXTURE_PORT}`,
+            // Importers fetch from the fixture server instead of the real sites:
+            // "*=<base>" sends adapter <id> to <base>/<id> (tests/fixtures/importers/<id>/).
+            IMPORTER_ORIGINS: `*=${FIXTURE_ORIGIN}/importers`,
           },
         },
       ],
