@@ -1,0 +1,1110 @@
+/* Admin UI kit (src/components/admin, plan §3.4). Every class starts with
+ * `ak-`; colours, type, space, layers and motion all come from the tokens in
+ * globals.css, so the dark theme and project accents follow for free.
+ * Contrast: body text uses --ink or --ink-2 (both pass 4.5:1 on --surface and
+ * --paper); --ink-3 is kept for icons and borders, where 3:1 is enough. */
+
+/* ---------- Overlays: Modal and Drawer (native <dialog>) ---------- */
+
+/* No page scrolling behind an open dialog. */
+:root:has(.ak-overlay[open]) {
+  overflow: hidden;
+  scrollbar-gutter: stable;
+}
+
+.ak-overlay {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  max-width: none;
+  max-height: none;
+  overflow: hidden;
+}
+
+.ak-overlay:focus-visible {
+  outline: none;
+}
+
+.ak-overlay::backdrop {
+  background: var(--scrim);
+}
+
+.ak-overlay-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: inherit;
+  /* Clips the header and footer to the rounded corners; the body scrolls itself. */
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: var(--shadow-3);
+}
+
+.ak-overlay-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--line);
+}
+
+.ak-overlay-titles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  /* Lines the title up with the middle of the 44px Close button. */
+  padding-top: 10px;
+}
+
+.ak-overlay-head h2 {
+  font-size: var(--text-lg);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.ak-overlay-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+}
+
+.ak-overlay-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-5);
+}
+
+.ak-overlay-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.ak-modal {
+  width: var(--modal-width);
+  max-height: calc(100dvh - 2 * var(--space-4));
+}
+
+.ak-modal[data-size="sm"] {
+  width: min(420px, calc(100vw - 2 * var(--space-4)));
+}
+
+.ak-modal[data-size="lg"] {
+  width: min(760px, calc(100vw - 2 * var(--space-4)));
+}
+
+.ak-modal .ak-overlay-panel {
+  border-radius: var(--radius-lg);
+  max-height: calc(100dvh - 2 * var(--space-4));
+}
+
+/* The drawer docks to the inline end (the right, in English) at full height. */
+.ak-drawer {
+  inset: 0;
+  margin: 0 0 0 auto;
+  margin-inline: auto 0;
+  width: var(--drawer-width);
+  height: 100dvh;
+  max-height: 100dvh;
+}
+
+.ak-drawer[data-size="lg"] {
+  width: min(760px, 100vw);
+}
+
+.ak-drawer .ak-overlay-panel {
+  border-start-start-radius: var(--radius-lg);
+  border-end-start-radius: var(--radius-lg);
+}
+
+@media (max-width: 560px) {
+  .ak-drawer .ak-overlay-panel {
+    border-radius: 0;
+  }
+  .ak-overlay-body {
+    padding: var(--space-4);
+  }
+  .ak-overlay-foot {
+    padding: var(--space-3) var(--space-4) max(var(--space-3), env(safe-area-inset-bottom));
+  }
+  .ak-overlay-foot > * {
+    flex: 1 1 auto;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ak-modal[open] {
+    animation: ak-pop var(--dur-base) var(--ease-out);
+  }
+  .ak-drawer[open] {
+    animation: ak-slide var(--dur-slow) var(--ease-out);
+  }
+  .ak-overlay[open]::backdrop {
+    animation: ak-fade var(--dur-base) var(--ease-out);
+  }
+}
+
+@keyframes ak-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@keyframes ak-slide {
+  from {
+    opacity: 0.4;
+    transform: translateX(32px);
+  }
+}
+
+@keyframes ak-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ---------- Buttons ---------- */
+
+/* A square, icon-only button that still meets the 44px house target. */
+button.ak-icon-button {
+  width: var(--tap-size);
+  min-height: var(--tap-size);
+  padding: 0;
+  flex: none;
+}
+
+button.ak-icon-button .icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* A solid red button for the confirm step of something that can't be undone. */
+button.ak-danger,
+.button.ak-danger {
+  --btn-bg: var(--danger);
+  --btn-fg: #ffffff;
+}
+
+button.ak-danger:hover:not(:disabled),
+.button.ak-danger:hover {
+  --btn-bg: color-mix(in srgb, var(--danger) 86%, black);
+}
+
+.ak-confirm-text {
+  color: var(--ink-2);
+}
+
+.ak-confirm-word {
+  font-family: var(--font-mono);
+  font-size: 0.95em;
+  background: var(--paper-2);
+  padding: 0 var(--space-1);
+  border-radius: 4px;
+  user-select: all;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Fields: labels, hints, errors ---------- */
+
+.ak-field,
+.ak-color,
+.ak-copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.ak-field > label {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+}
+
+/* Hints carry information, so they use --ink-2 (the global .hint's --ink-3 is under 4.5:1). */
+.ak-hint,
+.ak-field > label .hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+}
+
+.ak-field-error,
+.ak-field-warn {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.ak-field-error {
+  color: var(--danger);
+}
+
+.ak-field-warn {
+  color: var(--warn);
+  background: var(--warn-soft);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+}
+
+:is(.ak-field, .ak-color) :is(input, select, textarea)[aria-invalid="true"]:not(:focus) {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 1px var(--danger);
+}
+
+/* ---------- Toolbar ---------- */
+
+.ak-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
+}
+
+/* ---------- Pager ---------- */
+
+.ak-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.ak-pager-range {
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.ak-pager-pages {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.ak-pager-numbers {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ak-pager-numbers button {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0 var(--space-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The current page is filled, and bold, whatever the hover state. */
+.ak-pager-numbers button.ghost[aria-current="page"]:not(:disabled) {
+  --btn-bg: var(--ink);
+  --btn-fg: var(--paper);
+  font-weight: 700;
+}
+
+.ak-pager-gap {
+  min-width: 24px;
+  text-align: center;
+  color: var(--ink-2);
+}
+
+.ak-pager-compact {
+  display: none;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ak-pager-size {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ak-pager-size label {
+  font-weight: 400;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.ak-pager-size select {
+  width: auto;
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 560px) {
+  .ak-pager-numbers {
+    display: none;
+  }
+  .ak-pager-compact {
+    display: inline;
+  }
+  .ak-pager-pages {
+    flex: 1 1 100%;
+    justify-content: space-between;
+  }
+}
+
+/* ---------- Colour and font pickers ---------- */
+
+.ak-color-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.ak-color-row input[type="color"] {
+  width: 48px;
+  height: 48px;
+  flex: none;
+  border-radius: var(--radius-md);
+}
+
+.ak-color-row input[type="color"][data-empty] {
+  border-style: dashed;
+}
+
+.ak-color-row input[type="text"] {
+  width: 10em;
+  flex: 0 1 auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.ak-font {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.ak-font legend {
+  padding: 0;
+  margin-bottom: var(--space-2);
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+.ak-font .ak-hint {
+  margin-bottom: var(--space-2);
+}
+
+.ak-font-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+  gap: var(--space-2);
+}
+
+.ak-font-choice {
+  position: relative;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  min-height: var(--tap-size);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  font-weight: 400;
+  cursor: pointer;
+  transition: border-color var(--dur-base) var(--ease-out);
+}
+
+.ak-font-choice:hover {
+  border-color: var(--ink-3);
+}
+
+/* The radio covers the whole card: one click target, native arrow keys. */
+.ak-font-choice input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.ak-font-choice[data-checked] {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+
+/* A tick as well as the heavier border, so the choice isn't shown by colour alone. */
+.ak-font-choice[data-checked]::after {
+  content: "";
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: 10px;
+  height: 6px;
+  border-left: 2px solid var(--ink);
+  border-bottom: 2px solid var(--ink);
+  transform: rotate(-45deg);
+}
+
+.ak-font-choice:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.ak-font-choice:has(input:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ak-font-sample {
+  font-size: var(--text-2xl);
+  line-height: 1.1;
+  color: var(--ink);
+}
+
+.ak-font-name {
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+}
+
+.ak-font-choice[data-checked] .ak-font-name {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ---------- Copy field ---------- */
+
+.ak-copy-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.ak-copy-row :is(input, textarea) {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  background: var(--surface-2);
+}
+
+.ak-copy-row textarea {
+  min-height: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+
+.ak-copy-row button {
+  flex: none;
+  min-height: 48px;
+}
+
+.ak-copy[data-multiline] .ak-copy-row {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.ak-copy[data-multiline] .ak-copy-row button {
+  align-self: flex-end;
+  min-height: 36px;
+}
+
+.ak-copy-status {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--ink-2);
+}
+
+.ak-copy-status[data-state="failed"] {
+  color: var(--danger);
+}
+
+/* ---------- Empty state ---------- */
+
+.ak-empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  text-align: center;
+  padding: var(--space-12) var(--space-6);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.ak-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--paper-2);
+  color: var(--ink-2);
+}
+
+.ak-empty-icon .icon {
+  width: 26px;
+  height: 26px;
+}
+
+.ak-empty-title {
+  font-size: var(--text-lg);
+}
+
+.ak-empty-body {
+  max-width: 48ch;
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+}
+
+.ak-empty-action {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+@media (max-width: 560px) {
+  .ak-empty {
+    padding: var(--space-8) var(--space-4);
+  }
+}
+
+/* ---------- Device preview ---------- */
+
+.ak-device {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.ak-device-switch {
+  align-self: center;
+}
+
+/* overflow: hidden keeps a 1200px frame from widening the builder before it's measured. */
+.ak-device-stage {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.ak-device-frame {
+  margin-inline: auto;
+  transform-origin: top left;
+  background: var(--surface);
+}
+
+/* ---------- Tabs ---------- */
+
+.ak-tablist {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ak-tablist [role="tab"] {
+  --btn-bg: transparent;
+  --btn-fg: var(--ink-2);
+  flex: none;
+  min-height: var(--tap-size);
+  padding: 0 var(--space-4);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  margin-bottom: -1px;
+}
+
+.ak-tablist [role="tab"]:hover:not(:disabled) {
+  --btn-bg: transparent;
+  --btn-fg: var(--ink);
+}
+
+.ak-tablist [role="tab"]:active:not(:disabled) {
+  transform: none;
+}
+
+/* Selected: darker text and a 2px underline (a shape, not just a colour). */
+.ak-tablist [role="tab"][aria-selected="true"] {
+  --btn-fg: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+/* Inset, because the row's overflow would clip an outline drawn outside. */
+.ak-tablist [role="tab"]:focus-visible {
+  outline-offset: -3px;
+}
+
+.ak-tabpanel {
+  padding-top: var(--space-5);
+}
+
+.ak-tabpanel:focus-visible {
+  outline-offset: 4px;
+}
+
+@media (max-width: 480px) {
+  .ak-tablist [role="tab"] {
+    padding-inline: var(--space-3);
+  }
+}
+
+/* ---------- Chips: quick filters and filters in use ---------- */
+
+.ak-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+button.ak-chip {
+  --btn-bg: var(--surface);
+  --btn-fg: var(--ink-2);
+  --btn-border: var(--line-strong);
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+button.ak-chip:hover:not(:disabled) {
+  --btn-bg: var(--paper-2);
+  --btn-fg: var(--ink);
+  --btn-border: var(--ink-3);
+}
+
+button.ak-chip[aria-pressed="true"] {
+  --btn-bg: var(--ink);
+  --btn-fg: var(--paper);
+  --btn-border: var(--ink);
+}
+
+button.ak-chip[aria-pressed="true"]:hover:not(:disabled) {
+  --btn-bg: color-mix(in srgb, var(--ink) 86%, var(--paper));
+  --btn-fg: var(--paper);
+  --btn-border: var(--ink);
+}
+
+button.ak-chip .count {
+  color: inherit;
+}
+
+button.ak-chip[data-removable] {
+  --btn-bg: var(--paper-2);
+  --btn-fg: var(--ink);
+  --btn-border: transparent;
+  padding-inline: var(--space-3) var(--space-2);
+}
+
+button.ak-chip[data-removable] .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.ak-active {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ---------- Bulk bar ---------- */
+
+.ak-bulk {
+  position: sticky;
+  bottom: max(var(--space-4), env(safe-area-inset-bottom));
+  z-index: var(--z-sticky);
+}
+
+.ak-bulk-bar {
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-3);
+}
+
+.ak-bulk-count {
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ak-bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ak-bulk-bar {
+    animation: ak-rise var(--dur-base) var(--ease-out);
+  }
+}
+
+@keyframes ak-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* ---------- Toggle (switch) and checkbox ---------- */
+
+.ak-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.ak-toggle-label {
+  position: relative;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--tap-size);
+  width: fit-content;
+  max-width: 100%;
+  cursor: pointer;
+}
+
+/* The real checkbox sits over the track: it takes the clicks and the focus. */
+.ak-toggle-label input {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 0;
+  width: 44px;
+  height: 26px;
+  margin: 0;
+  translate: 0 -50%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.ak-toggle-track {
+  position: relative;
+  pointer-events: none;
+  flex: none;
+  width: 44px;
+  height: 26px;
+  border: 2px solid var(--ink-3);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  transition:
+    background-color var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out);
+}
+
+.ak-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  transition:
+    transform var(--dur-base) var(--ease-out),
+    background-color var(--dur-base) var(--ease-out);
+}
+
+.ak-toggle-label input:checked + .ak-toggle-track {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.ak-toggle-label input:checked + .ak-toggle-track .ak-toggle-thumb {
+  transform: translateX(18px);
+  background: var(--surface);
+}
+
+.ak-toggle-label input:focus-visible + .ak-toggle-track {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.ak-toggle-label:has(input:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ak-toggle-label:has(input:disabled) input {
+  cursor: not-allowed;
+}
+
+.ak-toggle-text {
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+/* The hint lines up with the label text, past the track. */
+.ak-toggle .ak-hint {
+  padding-inline-start: calc(44px + var(--space-3));
+}
+
+/* A row's select box: at least the 24px target WCAG 2.2 asks for. */
+.ak-check {
+  min-width: 24px;
+  min-height: 24px;
+  align-items: center;
+}
+
+.ak-check input {
+  margin: 0;
+}
+
+/* ---------- Search ---------- */
+
+.ak-search {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.ak-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.ak-search-box > .icon {
+  position: absolute;
+  left: var(--space-4);
+  color: var(--ink-3);
+  pointer-events: none;
+}
+
+.ak-search input[type="search"] {
+  appearance: none;
+  width: 100%;
+  min-height: var(--tap-size);
+  padding: 0 var(--tap-size) 0 calc(var(--space-4) + 1.15em + var(--space-2));
+  font: inherit;
+  font-size: var(--text-base);
+  font-weight: 400;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  transition:
+    border-color var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out);
+}
+
+.ak-search input[type="search"]::-webkit-search-cancel-button {
+  appearance: none;
+  display: none;
+}
+
+.ak-search input[type="search"]::placeholder {
+  color: var(--ink-3);
+}
+
+.ak-search input[type="search"]:hover {
+  border-color: var(--ink-3);
+}
+
+.ak-search input[type="search"]:focus {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--focus) 18%, transparent);
+}
+
+.ak-search-box .ak-icon-button {
+  position: absolute;
+  right: 0;
+  border-radius: var(--radius-pill);
+}
+
+/* ---------- Toast ---------- */
+
+.ak-toast-region {
+  position: fixed;
+  left: 50%;
+  bottom: max(var(--space-6), env(safe-area-inset-bottom));
+  z-index: var(--z-toast);
+  width: min(480px, calc(100vw - 2 * var(--space-4)));
+  translate: -50% 0;
+  pointer-events: none;
+}
+
+.ak-toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-1) var(--space-2) var(--space-4);
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-3);
+  pointer-events: auto;
+}
+
+.ak-toast[data-tone="error"] {
+  background: var(--danger);
+  color: #ffffff;
+}
+
+.ak-toast-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.ak-toast button.ghost {
+  --btn-fg: currentColor;
+}
+
+.ak-toast button.ghost:hover:not(:disabled) {
+  --btn-bg: rgb(255 255 255 / 0.16);
+  --btn-fg: currentColor;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ak-toast {
+    animation: ak-rise var(--dur-base) var(--ease-out);
+  }
+}
+
+/* ---------- Progress ---------- */
+
+.ak-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.ak-progress-label {
+  gap: var(--space-2);
+}
+
+.ak-progress-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.ak-progress-pct {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+
+.ak-progress progress {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 8px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--paper-2);
+  color: var(--ink);
+  overflow: hidden;
+}
+
+.ak-progress progress::-webkit-progress-bar {
+  background: var(--paper-2);
+  border-radius: var(--radius-pill);
+}
+
+.ak-progress progress::-webkit-progress-value {
+  background: var(--ink);
+  border-radius: var(--radius-pill);
+  transition: inline-size var(--dur-slow) var(--ease-out);
+}
+
+.ak-progress progress::-moz-progress-bar {
+  background: var(--ink);
+  border-radius: var(--radius-pill);
+}
+
+/* No total yet: a band that moves (it holds still with reduced motion). */
+.ak-progress progress:indeterminate {
+  background: linear-gradient(90deg, var(--paper-2) 0 35%, var(--ink-3) 35% 65%, var(--paper-2) 65%) 0 0 / 300% 100%;
+  animation: ak-working 1.4s linear infinite;
+}
+
+.ak-progress progress:indeterminate::-webkit-progress-bar {
+  background: transparent;
+}
+
+.ak-progress progress:indeterminate::-moz-progress-bar {
+  background: transparent;
+}
+
+@keyframes ak-working {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+.ak-run-errors summary {
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+/* ---------- Windows high contrast ---------- */
+
+@media (forced-colors: active) {
+  .ak-toggle-track {
+    border-color: CanvasText;
+  }
+  .ak-toggle-thumb {
+    background: CanvasText;
+  }
+  .ak-toggle-label input:checked + .ak-toggle-track {
+    background: Highlight;
+    border-color: Highlight;
+  }
+  .ak-toggle-label input:checked + .ak-toggle-track .ak-toggle-thumb {
+    background: HighlightText;
+  }
+  button.ak-chip[aria-pressed="true"],
+  .ak-pager-numbers button[aria-current="page"],
+  .ak-font-choice[data-checked] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+  .ak-search input[type="search"]:focus {
+    outline: 2px solid Highlight;
+  }
+  .ak-progress progress::-webkit-progress-value {
+    background: Highlight;
+  }
+}

@@ -1,113 +1,51 @@
-"use client";
-
-import type { ReactNode } from "react";
-import type { IconName } from "@/components/Icon";
-
 /**
  * The admin UI kit (plan §3.4), styled by src/app/admin/admin-kit.css with
- * prefixed classes. Published by WP1.1 as the contract (props and names);
- * WP1.7 owns and builds the components. Until then the overlays and fields
- * render nothing, and the wrappers render their children as they are.
+ * `ak-` classes on top of the globals.css tokens. Each component file marks
+ * itself "use client" when it needs the browser; EmptyState and ProgressBar
+ * have no state, so server pages can render them as well.
+ *
+ * Shared rules: every control has a visible or screen-reader label, state is
+ * in aria-* and data-* attributes, `testId` becomes data-testid, overlays are
+ * native modal <dialog>s, and everything works from the keyboard (WCAG 2.2 AA).
  */
 
-/** A side panel over the page (the inbox detail view). Closes on Escape and on the scrim; focus stays inside. */
-export type DrawerProps = {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children: ReactNode;
-  /** Sticky actions at the bottom. */
-  footer?: ReactNode;
-  width?: "md" | "lg";
-  testId?: string;
-};
-export function Drawer(props: DrawerProps): ReactNode {
-  return null;
-}
+export { Modal, type ModalProps } from "./Modal";
+export { Drawer, type DrawerProps } from "./Drawer";
+export { ConfirmDialog, type ConfirmDialogProps } from "./ConfirmDialog";
+export { Toolbar, type ToolbarProps } from "./Toolbar";
+export { Pager, type PagerProps } from "./Pager";
+export { ColorField, type ColorFieldProps } from "./ColorField";
+export { FontField, type FontFieldProps } from "./FontField";
+export { CopyField, type CopyFieldProps } from "./CopyField";
+export { EmptyState, type EmptyStateProps } from "./EmptyState";
+export { UnsavedGuard, type UnsavedGuardProps } from "./UnsavedGuard";
+export { DevicePreview, type DevicePreviewProps } from "./DevicePreview";
+export { Tabs, type TabItem, type TabsProps } from "./Tabs";
+export { Segmented, type SegmentedOption, type SegmentedProps } from "./Segmented";
+export {
+  ActiveFilters,
+  FilterChips,
+  type ActiveFilter,
+  type ActiveFiltersProps,
+  type FilterChip,
+  type FilterChipsProps,
+} from "./FilterChips";
+export { BulkBar, type BulkBarProps } from "./BulkBar";
+export { Toggle, type ToggleProps } from "./Toggle";
+export { Checkbox, type CheckboxProps } from "./Checkbox";
+export { Field, type FieldProps } from "./Field";
+export { SearchField, type SearchFieldProps } from "./SearchField";
+export { Toast, type ToastProps } from "./Toast";
+export { ProgressBar, type ProgressBarProps } from "./ProgressBar";
+export { RunProgressView, useRunProgress, type RunProgressViewProps } from "./RunProgress";
+export { useSelection } from "./useSelection";
 
-/** A dialog. Closes on Escape and on the scrim; focus stays inside and returns to the opener. */
-export type ModalProps = {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children: ReactNode;
-  footer?: ReactNode;
-  size?: "sm" | "md" | "lg";
-  testId?: string;
-};
-export function Modal(props: ModalProps): ReactNode {
-  return null;
-}
-
-/** A row of controls above a list (search, filters, sort, view), with role="toolbar". */
-export type ToolbarProps = { label: string; children: ReactNode };
-export function Toolbar(props: ToolbarProps): ReactNode {
-  return props.children;
-}
-
-/** Page links for server-side pages; `page` counts from 1. */
-export type PagerProps = {
-  page: number;
-  pageSize: number;
-  total: number;
-  onPage: (page: number) => void;
-  /** Shows a page-size picker when given. */
-  pageSizes?: readonly number[];
-  onPageSize?: (size: number) => void;
-};
-export function Pager(props: PagerProps): ReactNode {
-  return null;
-}
-
-/** A labelled colour picker with a hex text box. An empty value means "use the default" when `allowEmpty`. */
-export type ColorFieldProps = {
-  label: string;
-  value: string;
-  onChange: (hex: string) => void;
-  name?: string;
-  allowEmpty?: boolean;
-  hint?: string;
-};
-export function ColorField(props: ColorFieldProps): ReactNode {
-  return null;
-}
-
-/** A labelled font picker; each choice previews in its own font. */
-export type FontChoice = { id: string; label: string; fallback?: string };
-export type FontFieldProps = {
-  label: string;
-  value: string;
-  onChange: (id: string) => void;
-  choices: readonly FontChoice[];
-  name?: string;
-};
-export function FontField(props: FontFieldProps): ReactNode {
-  return null;
-}
-
-/** A read-only value (link, snippet) with a Copy button that confirms in an aria-live status. */
-export type CopyFieldProps = { label: string; value: string; multiline?: boolean; testId?: string };
-export function CopyField(props: CopyFieldProps): ReactNode {
-  return null;
-}
-
-/** What a list shows when it has nothing yet: what goes here, and the first thing to do. */
-export type EmptyStateProps = { icon?: IconName; title: string; children?: ReactNode; action?: ReactNode; testId?: string };
-export function EmptyState(props: EmptyStateProps): ReactNode {
-  return null;
-}
-
-/** Asks before leaving the page (reload, close, in-app links) only while there are unsaved changes. */
-export type UnsavedGuardProps = { dirty: boolean; message?: string };
-export function UnsavedGuard(props: UnsavedGuardProps): ReactNode {
-  return null;
-}
-
-/** Preview widths for builders. */
-export const DEVICE_WIDTHS = { desktop: 1200, tablet: 768, mobile: 375 } as const;
-export type Device = keyof typeof DEVICE_WIDTHS;
-/** Shows its children at a device's width, with a desktop / tablet / mobile switch when `onDevice` is given. */
-export type DevicePreviewProps = { device: Device; onDevice?: (d: Device) => void; label?: string; children: ReactNode };
-export function DevicePreview(props: DevicePreviewProps): ReactNode {
-  return props.children;
-}
+// Plain data and pure helpers (no "use client"), safe to import anywhere.
+export { DEVICE_LABELS, DEVICE_WIDTHS, DEVICES, fitScale, type Device } from "./device";
+export { fontFamilyOf, type FontChoice } from "./fonts";
+export { keepListed, selectRange, selectState, toggleAll, toggleId, toggleValue, type SelectState } from "./selection";
+export { describeRun } from "./run-summary";
+export { contrastRatio, formatRatio, normalizeHex, readableOn, relativeLuminance } from "./color";
+export { clampPage, pageCount, pageItems, pageRange, type PageItem } from "./paging";
+export { copyText } from "./clipboard";
+export { leavesPage } from "./navigation";
