@@ -1,18 +1,25 @@
+import { and, eq } from "drizzle-orm";
+import { getDb, schema } from "@/db";
 import type { Project, Testimonial } from "@/db/schema";
+import { autoApproveRuleFor } from "./forms";
+import type { AutoApproveRule } from "./forms/schema";
 import { getProjectById, getTestimonial, updateTestimonial } from "./testimonials";
 
 /**
- * Optional auto-approve, set per project and off by default. A new testimonial
- * from the public form (or a personal request link) goes live without a click
- * when it has enough stars, no links in its text and, for videos, when the
- * owner included videos and processing has finished. Everything else waits
- * in Pending as before. Approving goes through updateTestimonial, the same
- * path as the dashboard's Approve button, so webhooks and the public pages
- * behave exactly as for a manual approve.
+ * Optional auto-approve, set per form (the default form's rule mirrors the
+ * project's settings) and off by default. A new testimonial from a form (or a
+ * personal request link) goes live without a click when it matches the rule:
+ * everything, enough stars, text only, or anything the author agreed to make
+ * public. In every mode its text must have no links, and a video counts only
+ * when the owner included videos and processing has finished. Everything else
+ * waits in Pending as before. Approving goes through updateTestimonial, the
+ * same path as the dashboard's Approve button, so webhooks and the public
+ * pages behave exactly as for a manual approve.
  */
 
 type Settings = Pick<Project, "autoApprove" | "autoApproveMinRating" | "autoApproveVideo" | "autoApproveSince">;
-type Candidate = Pick<Testimonial, "status" | "source" | "rating" | "text" | "videoKey" | "mediaStatus" | "withdrawnAt" | "createdAt">;
+type Candidate = Pick<Testimonial, "status" | "source" | "rating" | "text" | "videoKey" | "mediaStatus" | "withdrawnAt" | "createdAt"> &
+  Partial<Pick<Testimonial, "consentPublic">>;
 
 export type AutoApproveDecision = { approve: true; rule: string } | { approve: false; reason: string };
 
@@ -27,33 +34,86 @@ export function autoApproveRule(p: Pick<Project, "autoApproveMinRating">) {
   return p.autoApproveMinRating >= 5 ? "5 stars" : `${p.autoApproveMinRating}+ stars`;
 }
 
-export function checkAutoApprove(p: Settings, t: Candidate): AutoApproveDecision {
+/** Any rule as the dashboard's history line shows it. */
+export function ruleLabel(rule: AutoApproveRule) {
+  switch (rule.mode) {
+    case "all":
+      return "every testimonial";
+    case "text":
+      return "text only";
+    case "public":
+      return "public consent";
+    default:
+      return autoApproveRule({ autoApproveMinRating: rule.minRating });
+  }
+}
+
+/** The project's own settings as a rule: what the default form's rule mirrors (D2). */
+export function ruleFromProject(p: Settings): AutoApproveRule {
+  return {
+    mode: p.autoApprove ? "rating" : "off",
+    minRating: p.autoApproveMinRating as AutoApproveRule["minRating"],
+    includeVideo: p.autoApproveVideo,
+    since: p.autoApproveSince,
+  };
+}
+
+/** Whether a testimonial matches a rule, and if not, why not (shown to the owner). */
+export function checkRule(rule: AutoApproveRule, t: Candidate): AutoApproveDecision {
   const no = (reason: string) => ({ approve: false as const, reason });
-  if (!p.autoApprove || !p.autoApproveSince) return no("auto-approve is off");
+  if (rule.mode === "off" || !rule.since) return no("auto-approve is off");
   if (!SOURCES.includes(t.source)) return no(`added by ${t.source}, not the collection form`);
-  if (t.createdAt.getTime() < p.autoApproveSince.getTime()) return no("sent before auto-approve was turned on");
+  if (t.createdAt.getTime() < rule.since.getTime()) return no("sent before auto-approve was turned on");
   if (t.withdrawnAt) return no("withdrawn");
   if (t.status !== "pending") return no(`already ${t.status}`);
-  if (t.rating == null) return no("no rating");
-  if (t.rating < p.autoApproveMinRating) return no(`rated ${t.rating}, below ${p.autoApproveMinRating}`);
+  if (t.consentPublic === false) return no("the author asked to keep it private");
+  if (rule.mode === "rating") {
+    if (t.rating == null) return no("no rating");
+    if (t.rating < rule.minRating) return no(`rated ${t.rating}, below ${rule.minRating}`);
+  }
   if (hasLink(t.text)) return no("the text contains a link");
+  if (rule.mode === "text") {
+    if (t.videoKey) return no("only text testimonials are approved automatically");
+    if (!t.text?.trim()) return no("no text");
+  }
   if (t.videoKey) {
-    if (!p.autoApproveVideo) return no("videos aren't included");
+    if (!rule.includeVideo) return no("videos aren't included");
     if (t.mediaStatus === "failed" || t.mediaStatus === "skipped") return no("the video couldn't be processed");
     if (t.mediaStatus !== "ready") return no("the video is still processing");
   }
-  return { approve: true, rule: autoApproveRule(p) };
+  return { approve: true, rule: ruleLabel(rule) };
+}
+
+/** The project's rule, exactly as before forms (kept with the same reasons for the dashboard and tests). */
+export function checkAutoApprove(p: Settings, t: Candidate): AutoApproveDecision {
+  return checkRule(ruleFromProject(p), t);
 }
 
 /**
- * Applies the project's rule to a testimonial as it stands now. Called once
- * for each new submission, and again when its video has finished processing.
+ * The rule for a testimonial: its form's, or the default form's when it has
+ * none. A default form still at config_version 0 is described by the project
+ * columns (src/lib/forms/defaults.ts formConfigFromProject), so its rule is the
+ * project's; once a form has its own config, the form decides (D3).
+ */
+export function ruleFor(t: Pick<Testimonial, "formId" | "projectId">, project: Settings): AutoApproveRule {
+  const { forms } = schema;
+  const form = getDb()
+    .select({ configVersion: forms.configVersion })
+    .from(forms)
+    .where(t.formId ? eq(forms.id, t.formId) : and(eq(forms.projectId, t.projectId), eq(forms.isDefault, true)))
+    .get();
+  return form && form.configVersion > 0 ? autoApproveRuleFor(t) : ruleFromProject(project);
+}
+
+/**
+ * Applies the rule to a testimonial as it stands now. Called once for each
+ * new submission, and again when its video has finished processing.
  */
 export function maybeAutoApprove(testimonialId: string) {
   const t = getTestimonial(testimonialId);
   const project = t && getProjectById(t.projectId);
   if (!t || !project) return null;
-  const decision = checkAutoApprove(project, t);
+  const decision = checkRule(ruleFor(t, project), t);
   if (!decision.approve) return null;
   return updateTestimonial(t.id, { status: "approved" }, { actor: "auto", rule: decision.rule });
 }
