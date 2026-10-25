@@ -268,11 +268,106 @@ export type PublicForm = {
   settings: Pick<FormSettings, "closedMessage" | "landscapePrompt">;
 };
 
-/** The row's JSON columns as a FormConfig. Never throws: invalid JSON falls back to defaults and is logged. */
-export function parseFormRow(row: Form): FormConfig {
-  throw new Error("not implemented: parseFormRow");
+/**
+ * The pages a form falls back to when its own can't be read: a rating, one
+ * main question, consent, about you and thank you. New forms start from the
+ * project instead (src/lib/forms/defaults.ts).
+ */
+export function defaultPages(): FormPage[] {
+  return formPagesSchema.parse([
+    { type: "rating" },
+    { type: "welcome" },
+    { type: "question", key: "q1", primary: true, title: "Tell us about your experience" },
+    { type: "consent" },
+    { type: "about_you" },
+    { type: "review" },
+    { type: "thank_you" },
+  ]);
 }
 
+function readJson(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+}
+
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+
+/**
+ * One JSON object column. When it doesn't parse, the keys that are still valid
+ * are kept and the rest get their defaults, so one bad value never resets the
+ * whole column (an auto-approve rule, say, when only a colour is wrong).
+ */
+function parseObject<S extends z.ZodObject>(schema: S, raw: string, report: (what: string) => void, what: string): z.output<S> {
+  const value = readJson(raw);
+  const full = schema.safeParse(value);
+  if (full.success) return full.data;
+  report(what);
+  const input = isRecord(value) ? value : {};
+  const valid = Object.fromEntries(
+    Object.entries(schema.shape).flatMap(([key, field]) =>
+      key in input && (field as z.ZodType).safeParse(input[key]).success ? [[key, input[key]]] : [],
+    ),
+  );
+  return schema.parse(valid);
+}
+
+/** The pages column: pages that no longer parse are dropped, and if what's left isn't a whole form, defaultPages(). */
+function parsePages(raw: string, report: (what: string) => void): FormPage[] {
+  const value = readJson(raw);
+  const full = formPagesSchema.safeParse(value);
+  if (full.success) return full.data;
+  report("pages");
+  const pages = (Array.isArray(value) ? value : []).flatMap((p) => {
+    const page = formPageSchema.safeParse(p);
+    return page.success ? [page.data] : [];
+  });
+  const kept = formPagesSchema.safeParse(pages);
+  return kept.success ? kept.data : defaultPages();
+}
+
+/**
+ * The row's JSON columns as a FormConfig. Never throws: invalid JSON falls back
+ * to defaults and is logged. A row still at config_version 0 (made by migration
+ * 0009) has no config of its own yet, so read forms through getForm or
+ * getDefaultForm (src/lib/forms/index.ts), which fill it in from the project.
+ */
+export function parseFormRow(row: Form): FormConfig {
+  // Unhydrated rows are expected to be empty; anything else is worth a line in the log.
+  const report = (what: string) => {
+    if (row.configVersion !== 0) console.warn(`[forms] form ${row.id}: ${what} could not be read; using defaults`);
+  };
+  return {
+    v: 1,
+    layout: row.layout,
+    pages: parsePages(row.pages, report),
+    design: parseObject(formDesignSchema, row.design, report, "design"),
+    labels: parseObject(formLabelsSchema, row.labels, report, "labels"),
+    settings: parseObject(formSettingsSchema, row.settings, report, "settings"),
+  };
+}
+
+/** Dropdown choices without their tags: which tag a choice adds is the owner's business. */
+function publicFields(fields: CustomField[]): CustomField[] {
+  return fields.map((f) => (f.options ? { ...f, options: f.options.map(({ label }) => ({ label })) } : f));
+}
+
+/** What public pages and embeds get: the pages, design and wording, but no rules (auto-approve, limits, emails, notifications). */
 export function toPublicForm(row: Form, cfg: FormConfig): PublicForm {
-  throw new Error("not implemented: toPublicForm");
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    status: row.status,
+    layout: cfg.layout,
+    language: row.language,
+    // Same URL as mediaUrl() in storage.ts, which this client-safe file can't import.
+    logoUrl: row.logoKey ? `/api/media/${row.logoKey}` : null,
+    pages: cfg.pages.map((p) => (p.type === "about_you" || p.type === "about_company" ? { ...p, custom: publicFields(p.custom) } : p)),
+    design: cfg.design,
+    labels: cfg.labels,
+    settings: { closedMessage: cfg.settings.closedMessage, landscapePrompt: cfg.settings.landscapePrompt },
+  };
 }
