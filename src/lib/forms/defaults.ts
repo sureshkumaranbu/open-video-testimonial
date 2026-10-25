@@ -281,7 +281,7 @@ export function classicCompatible(cfg: FormConfig, language = "en"): boolean {
   return cfg.pages.every((p) => {
     switch (p.type) {
       case "rating":
-        return !p.enabled || (!p.required && !p.title);
+        return !p.enabled || (!p.required && !p.title && !p.subtitle);
       case "question":
         return !p.enabled || (p.primary && p.required && !p.subtitle && !p.videoSubtitle && !p.allowImages);
       case "welcome":
@@ -300,7 +300,7 @@ export function classicCompatible(cfg: FormConfig, language = "en"): boolean {
           })
         );
       case "thank_you":
-        return !p.title && !p.cta && !p.copyText && !p.share;
+        return !p.title && !p.cta && !p.copyText && !p.share && !p.low;
     }
   });
 }

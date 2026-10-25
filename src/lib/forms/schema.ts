@@ -55,6 +55,7 @@ const ratingPage = z.object({
   enabled: z.boolean().default(true),
   required: z.boolean().default(false),
   title: copy(300).default(""),
+  subtitle: copy(500).optional(),
 });
 
 const welcomePage = z.object({
@@ -62,6 +63,8 @@ const welcomePage = z.object({
   enabled: z.boolean().default(false),
   title: copy(300).default(""),
   message: copy(2000).default(""),
+  /** Short points under the message ("Takes two minutes"…). */
+  bullets: z.array(z.string().trim().min(1).max(120)).max(6).default([]),
 });
 
 const questionPage = z.object({
@@ -89,6 +92,7 @@ const feedbackPage = z.object({
   required: z.boolean().default(false),
   title: z.string().trim().min(1).max(300),
   subtitle: copy(500).optional(),
+  placeholder: copy(200).optional(),
 });
 
 const consentPage = z.object({
@@ -128,6 +132,7 @@ const aboutCompanyPage = z.object({
 const reviewPage = z.object({
   type: z.literal("review"),
   enabled: z.boolean().default(false),
+  title: copy(300).default(""),
 });
 
 const thankYouPage = z.object({
@@ -139,6 +144,8 @@ const thankYouPage = z.object({
   copyText: z.boolean().default(false),
   /** Share links; shown only when they agreed to social use. */
   share: z.boolean().default(false),
+  /** What people who gave 3 stars or fewer see instead (empty = the same as everyone). */
+  low: z.object({ title: copy(300).default(""), message: copy(2000).default("") }).optional(),
 });
 
 export const formPageSchema = z.discriminatedUnion("type", [

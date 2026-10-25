@@ -33,3 +33,14 @@ The names, roles, companies and quotes used on the home page are fictional. Any 
 ## Test fixtures (`e2e/fixtures/`)
 
 `sample.webm` (ffmpeg `testsrc2` pattern plus a sine tone) and `avatar.png` (ffmpeg `testsrc2` frame) are generated, and MIT like the rest of the repository.
+
+## Form fonts (`public/fonts/`)
+
+Self-hosted so a form never asks a third party for a font (FORM-08).
+
+| Files | Font | Licence |
+|---|---|---|
+| `geist-latin.woff2`, `geist-mono-latin.woff2` | [Geist and Geist Mono](https://github.com/vercel/geist-font), latin subset | SIL Open Font License 1.1 |
+| `og/Geist-Regular.ttf` | Geist Regular (for generated share images; satori reads TTF only) | SIL Open Font License 1.1 |
+
+Schibsted Grotesk and Newsreader, also offered in the form designer, are the app's own fonts, self-hosted at build time by `next/font` (both SIL Open Font License 1.1).
