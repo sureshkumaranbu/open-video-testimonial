@@ -1,10 +1,11 @@
 import { z } from "zod";
-import { API_STATUSES, type ApiStatus, apiStatus, toApi } from "@/lib/api-shape";
+import { DATE_PRECISIONS } from "@/db/schema";
+import { API_STATUSES, type ApiStatus, apiExtras, apiStatus, toApi } from "@/lib/api-shape";
 import { apiJson, requireApiKey } from "@/lib/api-keys";
-import { grantConsent } from "@/lib/consent";
+import { CONSENT_SCOPES, grantConsent } from "@/lib/consent";
 import { jsonError } from "@/lib/http";
 import { createTestimonial, getProjectBySlug, getTestimonial, listTestimonials, updateTestimonial } from "@/lib/testimonials";
-import { firstIssue, tagNameSchema } from "@/lib/validation";
+import { customFieldsSchema, firstIssue, tagNameSchema } from "@/lib/validation";
 import { emitTestimonialEvent } from "@/lib/webhooks";
 
 type Ctx = { params: Promise<{ slug: string }> };
@@ -15,7 +16,10 @@ function intParam(raw: string | null, fallback: number) {
   return /^-?\d+$/.test(raw) ? Number(raw) : null;
 }
 
-/** GET /api/v1/projects/:slug/testimonials?status=&tag=&limit=&offset= */
+/**
+ * GET /api/v1/projects/:slug/testimonials?status=&tag=&limit=&offset=
+ * Testimonials in the trash are left out unless status=trashed asks for them.
+ */
 export async function GET(req: Request, ctx: Ctx) {
   const auth = requireApiKey(req, "read");
   if (auth.error) return auth.error;
@@ -30,15 +34,18 @@ export async function GET(req: Request, ctx: Ctx) {
   if (limit === null || limit < 1 || limit > 100) return jsonError(400, "limit must be a whole number from 1 to 100");
   const offset = intParam(q.get("offset"), 0);
   if (offset === null || offset < 0) return jsonError(400, "offset must be a whole number, 0 or more");
-  const all = listTestimonials(project.id, { tag: q.get("tag") || undefined }).filter(
-    (t) => !status || apiStatus(t) === status,
+  const all = listTestimonials(project.id, { tag: q.get("tag") || undefined }).filter((t) =>
+    status === "trashed" ? t.status === "trashed" : t.status !== "trashed" && (!status || apiStatus(t) === status),
   );
   const page = all.slice(offset, offset + limit);
+  const extras = apiExtras(page.map((t) => t.id));
   return apiJson({
-    data: page.map(toApi),
+    data: page.map((t) => toApi(t, extras.get(t.id))),
     pagination: { total: all.length, limit, offset, nextOffset: offset + limit < all.length ? offset + limit : null },
   });
 }
+
+const httpUrl = z.url({ protocol: /^https?$/, error: "Use an http:// or https:// address" }).max(2000);
 
 const createSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -46,12 +53,33 @@ const createSchema = z.object({
   title: z.string().trim().max(120).optional(),
   company: z.string().trim().max(120).optional(),
   rating: z.number().int().min(1).max(5).optional(),
+  headline: z.string().trim().max(200).optional(),
   text: z.string().trim().min(1).max(5000),
   status: z.enum(["pending", "approved"]).default("pending"),
   tags: z.array(tagNameSchema).max(20).optional(),
+  /** The author's (or their company's) site. */
+  website: httpUrl.optional(),
+  /** Where the review was first posted (google, g2…) and its link and date there. */
+  platform: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(40)
+    .regex(/^[a-z0-9][a-z0-9._-]*$/, "Use lowercase letters, numbers, dots and dashes for the platform")
+    .optional(),
+  sourceUrl: httpUrl.optional(),
+  sourceDate: z.union([z.iso.date(), z.iso.datetime({ offset: true })]).optional(),
+  datePrecision: z.enum(DATE_PRECISIONS).optional(),
+  language: z
+    .string()
+    .trim()
+    .max(35)
+    .regex(/^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$/, "Use a language code such as en or pt-BR")
+    .optional(),
+  customFields: customFieldsSchema.optional(),
   /** You confirm the author agreed to publication (recorded in the consent ledger). */
   consent: z.literal(true, { error: "Set consent: true to confirm the author agreed to publication" }),
-  consentScopes: z.array(z.enum(["website", "social"])).optional(),
+  consentScopes: z.array(z.enum(CONSENT_SCOPES)).optional(),
 });
 
 /** POST /api/v1/projects/:slug/testimonials (write scope): adds a text testimonial. */
@@ -62,8 +90,12 @@ export async function POST(req: Request, ctx: Ctx) {
   if (!project) return jsonError(404, "Project not found");
   const parsed = createSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonError(400, firstIssue(parsed.error));
-  const input = parsed.data;
-  const t = createTestimonial(project.id, input, { source: "api" });
+  const { website, sourceDate, ...input } = parsed.data;
+  const t = createTestimonial(
+    project.id,
+    { ...input, authorWebsite: website, sourceDate: sourceDate ? new Date(sourceDate) : undefined },
+    { source: "api" },
+  );
   grantConsent({
     testimonialId: t.id,
     project,
