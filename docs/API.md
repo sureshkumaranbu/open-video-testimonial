@@ -31,14 +31,16 @@ All paths are relative to `https://<your-plaudit>/api/v1`.
 
 | Method and path | Scope | What it does |
 |---|---|---|
-| `GET /projects` | read | Lists projects with their counts per status |
-| `GET /projects/{slug}/testimonials` | read | Lists testimonials, newest first. Query: `status` (`pending`, `approved`, `rejected` or `withdrawn`), `tag`, `limit` (1 to 100, default 50; anything else is a `400`), `offset` |
+| `GET /projects` | read | Lists projects with their counts per status (`pending`, `approved`, `rejected`, `hidden` and `trashed`) |
+| `GET /projects/{slug}/testimonials` | read | Lists testimonials, newest first. Query: `status` (`pending`, `approved`, `rejected`, `hidden`, `trashed` or `withdrawn`), `tag`, `limit` (1 to 100, default 50; anything else is a `400`), `offset`. Testimonials in the trash are left out unless you ask for `status=trashed` |
 | `POST /projects/{slug}/testimonials` | write | Adds a text testimonial (see below) |
 | `GET /testimonials/{id}` | read | Gets one testimonial |
-| `PATCH /testimonials/{id}` | write | Changes `status`, `tags`, `authorName`, `authorTitle`, `authorCompany`, `text`, `rating`, `transcript` or `captionsVtt` |
-| `DELETE /testimonials/{id}` | write | Deletes a testimonial and its media |
+| `PATCH /testimonials/{id}` | write | Changes `status` (`pending`, `approved`, `rejected` or `hidden`), `tags`, `authorName`, `authorTitle`, `authorCompany`, `text`, `rating`, `transcript` or `captionsVtt`, and the fields listed [below](#editing-a-testimonial) |
+| `DELETE /testimonials/{id}` | write | Deletes a testimonial and its media for good. It doesn't go to the trash |
 
-Errors look like `{ "error": "…" }`, with status `400` (invalid input), `401` (missing or invalid key), `403` (read-only key), `404`, `409` (for example, re-publishing a testimonial whose author withdrew consent) or `429`.
+Errors look like `{ "error": "…" }`, with status `400` (invalid input), `401` (missing or invalid key), `403` (read-only key), `404`, `409` (for example, re-publishing a testimonial whose author withdrew consent, or approving one whose author asked to keep it private) or `429`.
+
+Paths use the project's current slug. When you [change a project's link](../README.md#features-in-preview), its pages and widget keep answering the old one, but the API doesn't: use the new slug.
 
 ### A testimonial
 
@@ -46,11 +48,20 @@ Errors look like `{ "error": "…" }`, with status `400` (invalid input), `401` 
 {
   "id": "5b0d…",
   "projectId": "9e1f…",
+  "formId": "c4a2…",
   "status": "approved",
   "rating": 5,
+  "headline": "Six videos in a weekend",
   "text": "We set it up on Friday and had six videos by Monday.",
   "transcript": "Hi, I'm Ada…",
-  "author": { "name": "Ada Lovelace", "email": "ada@example.com", "title": "CTO", "company": "Engines Ltd", "avatarUrl": null },
+  "primaryQuestion": "What changed after you started using Acme?",
+  "answers": [{ "key": "q2", "title": "What would you tell a friend?", "text": "Just try it." }],
+  "images": [{ "url": "https://plaudit.example.com/api/media/images/….png", "alt": "Our dashboard" }],
+  "author": {
+    "name": "Ada Lovelace", "email": "ada@example.com", "phone": null, "title": "CTO", "company": "Engines Ltd",
+    "website": "https://engines.example", "socials": { "linkedin": "https://www.linkedin.com/in/ada" },
+    "avatarUrl": null, "companyLogoUrl": null
+  },
   "video": {
     "url": "https://plaudit.example.com/api/media/videos/….mp4",
     "mime": "video/mp4",
@@ -62,24 +73,56 @@ Errors look like `{ "error": "…" }`, with status `400` (invalid input), `401` 
   },
   "tags": ["homepage"],
   "source": "form",
+  "platform": null,
+  "sourceUrl": null,
+  "sourceDate": null,
+  "datePrecision": "day",
+  "language": "en",
+  "customFields": { "plan": "Enterprise" },
+  "hiddenFields": { "utm_source": "newsletter" },
+  "featured": false,
+  "pinOrder": null,
   "requested": true,
   "approvedBy": "owner",
   "approvedAt": "2026-10-22T10:02:11.000Z",
-  "consent": { "at": "2026-10-22T09:30:00.000Z", "scopes": ["website", "social"], "editedAfterConsent": false, "withdrawnAt": null },
+  "consent": { "at": "2026-10-22T09:30:00.000Z", "scopes": ["website", "social"], "public": true, "editedAfterConsent": false, "withdrawnAt": null },
+  "trashedAt": null,
   "createdAt": "2026-10-22T09:30:00.000Z",
   "updatedAt": "2026-10-22T10:02:11.000Z"
 }
 ```
 
-Unlike the public widget feed, API responses include **private fields** (the author's email and the consent details), because they go to your own systems. Treat API keys like passwords.
+Unlike the public widget feed, API responses include **private fields** (the author's email and phone, the consent details, and the custom and hidden fields), because they go to your own systems. Treat API keys like passwords.
 
 `approvedBy` says who approved it, while it's approved: `owner` (someone in the dashboard), `api` (an API key) or `auto` (the project's [auto-approve rule](../README.md#auto-approve)). It's `null` for testimonials that aren't approved, and for ones approved before Plaudit recorded this. `approvedAt` is when.
 
 Each project in `GET /projects` includes its auto-approve settings: `"autoApprove": { "enabled": false, "minRating": 4, "includeVideo": false }`.
 
-`status` is `pending`, `approved` or `rejected`, or **`withdrawn`** once the author withdrew consent through their private link. A withdrawn testimonial can't be published again, and `consent.withdrawnAt` says when it happened. Filtering with `status=rejected` leaves withdrawn ones out.
+`status` is one of:
 
-**Media URLs** (`avatarUrl`, `video.url`, `originalUrl`, `posterUrl`) work for anyone only while the testimonial is approved and not withdrawn. Before that, and after a rejection or withdrawal, they return `404` unless the request carries your API key (`Authorization: Bearer plk_…`) or comes from the signed-in dashboard.
+- `pending`, `approved` or `rejected`.
+- **`hidden`**: kept for your own use, and never shown on your site. A testimonial whose author asked to keep it private (`consent.public` is `false`) can be hidden but not approved.
+- **`trashed`**: in the dashboard's trash, off your site, and deleted for good `TRASH_RETENTION_DAYS` (30 by default) after `trashedAt`. Restoring puts it back with the status it had (or `rejected`, if the author withdrew consent). The API can't trash or restore; `DELETE` deletes at once.
+- **`withdrawn`** once the author withdrew consent through their private link. A withdrawn testimonial can't be published again, and `consent.withdrawnAt` says when it happened. Filtering with `status=rejected` leaves withdrawn ones out.
+
+The other fields:
+
+| Field | What it is |
+|---|---|
+| `formId` | The form it was sent through. `null` for ones added through the API, by hand or by an import |
+| `headline` | A short title above the text |
+| `primaryQuestion` | The question the text or video answers, as it was asked |
+| `answers` | Answers to the form's further questions, in order. Their videos stay private to you |
+| `images` | Photos attached to the testimonial |
+| `author.phone`, `author.website`, `author.socials`, `author.companyLogoUrl` | More about the author. `socials` has any of `x`, `linkedin`, `instagram` and `tiktok` |
+| `platform`, `sourceUrl`, `sourceDate`, `datePrecision` | Where a review was first posted (such as `google`), its link and date there. `datePrecision` is `day`, `month` or `year`: an import that only knows "Oct 2026" says `month` |
+| `language` | A language code such as `en` or `pt-BR` |
+| `customFields`, `hiddenFields` | Answers to the form's custom fields, and the hidden fields it carried (from the link, such as `utm_source`). Both are private |
+| `featured`, `pinOrder` | Whether you starred it, and its place among pinned testimonials |
+| `consent.public` | `false` when the author asked to keep it private. It's never published |
+| `trashedAt` | When it went to the trash, or `null` |
+
+**Media URLs** (`avatarUrl`, `companyLogoUrl`, `video.url`, `originalUrl`, `posterUrl` and `images[].url`) work for anyone only while the testimonial is approved and not withdrawn. Before that, and after a rejection or withdrawal, they return `404` unless the request carries your API key (`Authorization: Bearer plk_…`) or comes from the signed-in dashboard.
 
 ### Adding a testimonial
 
@@ -89,21 +132,32 @@ curl -X POST https://plaudit.example.com/api/v1/projects/acme/testimonials \
   -d '{"name":"Grace Hopper","text":"Shipped it in a day.","rating":5,"tags":["sales"],"consent":true}'
 ```
 
-`consent: true` is required. It confirms that the person agreed to publication, and it's recorded in the consent ledger as given via the API. Optional fields are `email`, `title`, `company`, `status` (`pending` or `approved`) and `consentScopes` (`["website","social"]`).
+`consent: true` is required. It confirms that the person agreed to publication, and it's recorded in the consent ledger as given via the API. Optional fields are `email`, `title`, `company`, `headline`, `website` (the author's site), `platform`, `sourceUrl`, `sourceDate` (`2026-10-12` or a full ISO timestamp), `datePrecision`, `language`, `customFields` (an object of up to 50 keys, each a string, number, boolean or `null`), `status` (`pending` or `approved`) and `consentScopes` (any of `website`, `social`, `ads`, `name` and `face`; `website` is always included).
+
+### Editing a testimonial
+
+Besides the fields in the table above, `PATCH /testimonials/{id}` accepts `headline`, `authorWebsite`, `authorPhone`, `authorSocials` (`{ "x", "linkedin", "instagram", "tiktok" }`), `sourceUrl`, `sourceDate`, `datePrecision`, `platform`, `language`, `customFields`, `isFeatured` and `pinOrder`. Send `null` (or `""`) to clear a text field. Changing what the author wrote (the text, headline, rating, or their name, title or company) marks it **edited after consent** and logs it, as in the dashboard.
 
 ## Webhooks
 
-Under **Settings → Webhooks**, add the URL of your endpoint. You can limit it to one project and to the events you care about; tick none to receive all of them.
+Under **Settings → Webhooks**, add the URL of your endpoint. You can limit it to one project and to the events you care about. Tick none to receive the **default set**: every event below except the ones marked *opt-in*, which go only to endpoints that tick them.
 
 | Event | When |
 |---|---|
 | `testimonial.created` | Someone submits a testimonial (or one is added through the API) |
 | `testimonial.approved` | A testimonial is approved, in the dashboard, through the API or by the project's auto-approve rule. `data.approvedBy` says which: `owner`, `api` or `auto` |
 | `testimonial.rejected` | A testimonial is rejected |
-| `testimonial.deleted` | A testimonial is deleted (the payload is the last state) |
+| `testimonial.hidden` | A testimonial is hidden (kept, but off your site) |
+| `testimonial.trashed` | A testimonial is moved to the trash (off your site) |
+| `testimonial.restored` | A testimonial comes back from the trash. `data.testimonial.status` is the status it went back to |
+| `testimonial.deleted` | A testimonial is deleted for good, directly or when the trash is emptied (the payload is the last state) |
 | `testimonial.transcribed` | A video's transcript and captions are ready |
 | `consent.withdrawn` | The author withdrew consent through their private link |
+| `testimonial.updated` | *Opt-in.* Someone changed its content in the dashboard or through the API: the text, an answer, the author's details, the rating, the transcript or captions, or another field the [API can edit](#editing-a-testimonial). Status and tag changes don't send it |
+| `form.submitted`, `feedback.created`, `import.completed` | *Opt-in.* You can tick these already, but they're sent only once multi-step forms and importers are released |
 | `ping` | You pressed **Send test event** |
+
+Every way a testimonial leaves your site (rejected, hidden, trashed, deleted or withdrawn) is in the default set, so an endpoint that mirrors your testimonials elsewhere can always take them down. Hiding sends `testimonial.hidden`, never `testimonial.rejected`.
 
 Imports (CSV or archive) don't send webhooks.
 

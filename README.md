@@ -29,7 +29,7 @@ More: [settings (API keys and webhooks)](docs/screenshots/settings.png) · [impo
 - [Quick start with Node.js](#quick-start-with-nodejs)
 - [First steps](#first-steps)
 - [Configuration](#configuration)
-- [Optional features](#optional-features): [sign-in and team](#sign-in-and-team) · [video conversion](#video-conversion-ffmpeg) · [email](#email-requests-reminders-and-receipts) · [transcripts](#transcripts-and-captions) · [API and webhooks](#api-and-webhooks)
+- [Optional features](#optional-features): [sign-in and team](#sign-in-and-team) · [video conversion](#video-conversion-ffmpeg) · [media storage (S3)](#media-storage-s3) · [email](#email-requests-reminders-and-receipts) · [transcripts](#transcripts-and-captions) · [API and webhooks](#api-and-webhooks) · [features in preview](#features-in-preview)
 - [Embedding](#embedding)
 - [Backups, moving and upgrading](#backups-moving-and-upgrading)
 - [Privacy and consent](#privacy-and-consent)
@@ -183,6 +183,15 @@ Every setting is an environment variable, read from `.env` (Node) or `docker-com
 | `MAX_IMPORT_MB` | `10240` | Largest export archive accepted for import |
 | `IMPORT_ALLOW_PRIVATE_URLS` | `false` | Lets CSV imports download media from private-network addresses |
 | `JOBS_WORKER`, `JOBS_POLL_MS` | on, `2000` | The background worker (video conversion, email, webhooks) runs inside the server process |
+| `STORAGE_DRIVER` | `local` | Where videos and photos are kept: `local` (`DATA_DIR/uploads`) or `s3`, any S3-compatible bucket ([media storage](#media-storage-s3)) |
+| `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | unset | For `s3`: the bucket, and a key that can read, write and delete in it |
+| `S3_ENDPOINT`, `S3_REGION` | AWS, `us-east-1` | For `s3`: the service's address, such as `https://<account>.r2.cloudflarestorage.com` or `http://localhost:9000`. Leave the endpoint empty for AWS in `S3_REGION`. Cloudflare R2 uses the region `auto` |
+| `S3_FORCE_PATH_STYLE` | `false` | `true` puts the bucket in the path (`https://host/bucket/…`) instead of the host name. MinIO usually needs it |
+| `S3_PREFIX` | none | A folder inside the bucket for Plaudit's files, such as `plaudit` |
+| `TRASH_RETENTION_DAYS` | `30` | Days a testimonial stays in the trash before it's deleted for good |
+| `PLAUDIT_FEATURES` | none | Turns on [features in preview](#features-in-preview): a comma-separated list of `forms`, `inbox2`, `widgets`, `walls`, `importers`, `notifications` and `onboarding`, or `all` |
+| `DIGEST_HOUR_UTC` | `8` | The hour (UTC, 0 to 23) when daily and weekly digest emails will go out. Not used yet: notifications are still in preview |
+| `GOOGLE_PLACES_API_KEY`, `PRODUCT_HUNT_TOKEN` | unset | Your own key for the Google review importer and token for the Product Hunt importer. Not used yet: importers are still in preview |
 
 ## Optional features
 
@@ -210,6 +219,27 @@ With ffmpeg available (the Docker image has it), each uploaded video is converte
 Players then use the MP4, which plays everywhere including Safari, with the original as a fallback. Without ffmpeg, the original file is served and the dashboard explains why. Videos uploaded before ffmpeg was installed are converted automatically once it is.
 
 To build a smaller Docker image without ffmpeg, set `INSTALL_FFMPEG=false` in `.env` before building.
+
+### Media storage (S3)
+
+Videos and photos are kept on local disk, in `DATA_DIR/uploads`, unless you choose a bucket. Any S3-compatible service works: AWS S3, Cloudflare R2, Backblaze B2, MinIO and others. For example, in `.env`:
+
+```bash
+STORAGE_DRIVER=s3
+S3_ENDPOINT=https://<account>.r2.cloudflarestorage.com   # leave empty for AWS
+S3_REGION=auto                                          # your AWS region, or auto for R2
+S3_BUCKET=plaudit-media
+S3_ACCESS_KEY_ID=…
+S3_SECRET_ACCESS_KEY=…
+```
+
+- The bucket can, and should, stay **private**. Uploads are still received and checked on your server, then stored in the bucket, and every file is streamed back through Plaudit, so who may see what is decided exactly as before.
+- The key needs to read, write and delete objects in that bucket, and to check the bucket exists. On AWS that's `s3:GetObject`, `s3:PutObject`, `s3:DeleteObject`, `s3:AbortMultipartUpload` and `s3:ListBucket`. Deleting a testimonial or a project removes its files from the bucket.
+- Restart Plaudit after changing these. **Settings → Media storage** shows where media is kept and whether the bucket works.
+- **Moving an existing server:** after the restart, files already on local disk are still served from there. The owner can press **Copy local media to S3** in **Settings → Media storage** to copy them into the bucket. It runs in the background, skips files that are already there (so it's safe to run again), and keeps the local copies unless you tick **Delete each file from local disk once it's in the bucket**.
+- **Going back to local disk:** copy the objects back into `DATA_DIR/uploads` first, keeping their paths (`videos/…` and `images/…`, without `S3_PREFIX`), for example with `aws s3 sync s3://<bucket>/<prefix> ./data/uploads` or `mc mirror`. Then set `STORAGE_DRIVER=local` and restart.
+
+To try it locally, [`docker-compose.s3.yml`](docker-compose.s3.yml) runs MinIO next to Plaudit; the file explains how.
 
 ### Email (requests, reminders and receipts)
 
@@ -277,6 +307,18 @@ Create API keys and webhooks under **Settings**. [`docs/API.md`](docs/API.md) co
 - how to verify signatures, in Node.js and Python
 - connecting n8n
 
+### Features in preview
+
+Plaudit is gaining multi-step forms, a new inbox, a widget studio, walls, review importers, notifications and a setup guide. Until each is finished it stays hidden, and everything you have keeps working the same. To try one early, list it in `PLAUDIT_FEATURES` and restart:
+
+| Flag | What it shows |
+|---|---|
+| `forms` | **Project settings** in each project: change its link (old links keep working), delete it by typing its name (owner only), a brand kit with logo, colours and fonts, and a tags manager to rename, merge and delete tags. A **Forms** tab is still a placeholder |
+| `widgets`, `walls` | Placeholder **Widgets**, **Walls** and **SEO** tabs |
+| `inbox2`, `importers`, `notifications`, `onboarding` | Nothing yet |
+
+`PLAUDIT_FEATURES=all` turns on every one. A flag only shows or hides pages: your data, the API and the public pages behave the same either way.
+
 ## Embedding
 
 The project page in the dashboard generates both snippets for you. Approve a testimonial, or let [auto-approve](#auto-approve) do it, and it shows up on your site within about a minute (the widget's feed may be cached for up to 60 seconds).
@@ -301,12 +343,12 @@ The iframe option is `/embed/<slug>?theme=dark`. It posts its height to the pare
 ## Backups, moving and upgrading
 
 - **Export a project.** Go to **Import & export → Download everything**. The .zip contains:
-  - `plaudit.json`: all data, including private fields and consent history
+  - `plaudit.json`: all data, including private fields, consent history, answers, edit history and old links
   - `testimonials.csv`
   - every video and photo
 - **Import it** on any Plaudit server from the admin home page (**Import a project**). It becomes a new project with everything restored. Imported requests never send email by themselves.
 - **Bring testimonials from elsewhere.** Go to **Import & export → Import testimonials from a CSV**. Columns are matched automatically and you can change the matches before importing. Videos and photos can be downloaded from URLs in the file.
-- **Whole-server backup.** Copy `DATA_DIR`, or the `plaudit-data` Docker volume, while Plaudit is stopped. For example:
+- **Whole-server backup.** Copy `DATA_DIR`, or the `plaudit-data` Docker volume, while Plaudit is stopped. With [media in a bucket](#media-storage-s3), back up the bucket as well. For example:
 
   ```bash
   docker compose stop
@@ -353,6 +395,8 @@ The Playwright run starts the server with these settings, so every feature is te
 
 - `MAIL_OUTBOX=true`, so the tests can read the emails.
 - A stand-in for whisper.cpp ([`e2e/fixtures/fake-whisper.mjs`](e2e/fixtures/fake-whisper.mjs)), so transcripts run without a model.
+- `PLAUDIT_FEATURES=all`, so the features in preview are tested too.
+- A fixture server ([`e2e/fixtures/fixture-server.mjs`](e2e/fixtures/fixture-server.mjs)) that stands in for the outside web. Two test-only settings let the app reach it: `NET_GUARD_ALLOW` lets exact `host:port` origins through the guard on outgoing requests, and `IMPORTER_ORIGINS` sends importers there instead of the real sites. Never set them on a real server.
 
 | Suite | Covers |
 |---|---|
@@ -365,6 +409,10 @@ The Playwright run starts the server with these settings, so every feature is te
 | `e2e/api.spec.ts` | API keys against the REST API, signed webhooks |
 | `e2e/data.spec.ts` | Export, import as a new project, CSV import with the mapper |
 | `e2e/auto-approve.spec.ts` | Auto-approve: off by default, ratings, links, videos after processing, webhooks, the label, rejecting, phone layout |
+| `e2e/sign-in.spec.ts` | The sign-in page, email links, Google and Apple, inviting and removing teammates |
+| `e2e/security.spec.ts` | Security headers and CSP, media takedown, bad private links, rate limits |
+| `e2e/project-settings.spec.ts` | Project settings: changing the link with old links still working, typed delete, brand kit, tags manager, phone layout |
+| `e2e/security-settings.spec.ts` | Project settings: headers and CSP, cross-site requests refused, the logo served safely |
 
 To test a running instance instead, for example `docker compose up`, set `E2E_BASE_URL=http://127.0.0.1:3000`. Its `E2E_ADMIN_EMAIL` and `E2E_ADMIN_PASSWORD` must match that instance's admin credentials. Tests that need the outbox, the stand-in transcriber or a local webhook receiver skip themselves when those aren't available. `UPDATE_SCREENSHOTS=1` refreshes the images in `docs/screenshots/`.
 

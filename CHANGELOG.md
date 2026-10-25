@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+- **Keep media in an S3-compatible bucket** (AWS S3, Cloudflare R2, Backblaze B2, MinIO and others) with `STORAGE_DRIVER=s3` and the `S3_*` settings. Local disk stays the default. See [Media storage](README.md#media-storage-s3).
+  - The bucket stays private: uploads are still checked on your server, and every file is streamed back through Plaudit under the same privacy rules.
+  - **Settings → Media storage** shows where media is kept and whether the bucket works. The owner can **Copy local media to S3**, which is safe to run again; files not copied yet are served from local disk meanwhile.
+  - Exports read from the bucket, and imports write to it.
+- **Hidden and trash, in the API and webhooks.** Both are new statuses, and the dashboard's buttons for them arrive with the new inbox.
+  - `hidden` keeps a testimonial for your own use and off your site. The API can set it.
+  - `trashed` testimonials are off your site and can be restored with their old status, until they're deleted for good after `TRASH_RETENTION_DAYS` (30). API lists leave them out unless you ask for `status=trashed`. `DELETE` still deletes at once.
+  - Approving a testimonial whose author asked to keep it private is refused (`409`).
+  - New webhook events `testimonial.hidden`, `testimonial.trashed` and `testimonial.restored`. Endpoints with no events ticked get them too, so every takedown reaches them. New opt-in events: `testimonial.updated` (content edits), and `form.submitted`, `feedback.created` and `import.completed`, which are sent once those features are released.
+- **More in each testimonial**, in the API, webhooks and exports: the form it came through, a headline, answers to further questions, images, the author's phone, website, social profiles and company logo, where a review was first posted and when (to the day, month or year), language, custom and hidden fields, featured and pin order, private consent and when it was trashed. `POST` and `PATCH` accept the editable ones. See [`docs/API.md`](docs/API.md#a-testimonial).
+- **Exports carry everything new**: forms, customers, private feedback, widgets, walls, SEO snippets and old links, plus answers, images, highlights and edit history. The format is still version 1:
+  - Older Plaudit versions can still import new exports. Hidden and trashed testimonials arrive there as rejected, and `statusV2` in `plaudit.json` keeps the real status.
+  - Older exports import here as before, and get a default form made from the project's settings.
+  - `testimonials.csv` keeps its columns and adds `form`, `headline`, `platform`, `source_url`, `source_date`, `language`, and a `custom:<key>` and `hidden:<key>` column for each field.
+  - An imported project never takes over another project's old link. It gets the next free one instead (`acme-2`).
+- **Features in preview**, hidden until they're finished. List them in `PLAUDIT_FEATURES` (or `all`) to try them. See [Features in preview](README.md#features-in-preview).
+  - `forms` shows **Project settings**. Change a project's link and the old one keeps working: `/c`, `/wall` and `/embed` answer with a permanent redirect that keeps the query, so emailed request links still prefill, and widgets embedded with the old name keep loading. Delete a project, with everything in it, by typing its name (owner only). Set a brand kit (logo, colours and fonts) and rename, merge or delete tags across every testimonial.
+  - The other flags show placeholder pages for now.
+- **Upgrading.** Database migrations `0009` and `0010` only add tables, columns, indexes and triggers, and fill them in; no existing data is changed or removed. Take a backup first, as always.
+  - `0009` adds the tables and columns for everything above. It gives every project a default form in today's one-page layout, made from its current settings, and links its form testimonials and requests to it. The collection page, wall, widget and iframe look and work exactly as before.
+  - `0010` builds a search index over every testimonial, for the new inbox's search. On a large database the first start after upgrading takes a little longer.
+
 - **Optional auto-approve for each project**, off by default. New testimonials from the collection page or a request link go live without a click when they have enough stars (4+ or 5) and no links in their text. Videos are included only if you turn that on, once they've been processed. Everything else waits in Pending. See [Auto-approve](README.md#auto-approve).
   - Turning it on doesn't approve what is already pending.
   - Auto-approved testimonials show an **Auto-approved** label and "Approved automatically (4+ stars)". Rejecting one takes it off your site as usual.
