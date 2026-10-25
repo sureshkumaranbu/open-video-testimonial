@@ -16,7 +16,10 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:all": "npm test && npm run test:e2e",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "db:check": "node scripts/check-migrations.mjs && node scripts/check-schema-drift.mjs",
+    "check:ownership": "node scripts/check-ownership.mjs",
+    "check:req": "node scripts/req-coverage.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",

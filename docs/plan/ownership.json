@@ -1,0 +1,520 @@
+{
+  "$comment": "Who may change what in Phase 1 (docs/v1-implementation-plan.md §4). `owns` must not overlap between packages that run at the same time (see `concurrent`); `stubs` are empty files a package creates for a later one to fill; `shared` files (integrator docs) take line appends from several packages. Globs: * within a segment, ** across segments, {a,b} choices, [..] literal. Checked by scripts/check-ownership.mjs; requirement IDs per milestone are checked by scripts/req-coverage.mjs.",
+  "base": "plaudit/v1-parity",
+  "frozen": {
+    "$comment": "Hot files frozen after WP1.1 (portability.ts after WP1.4; testimonials.ts and webhooks.ts after WP1.3). Changing one needs a contract amendment: a small serial commit on the base that every open package rebases onto.",
+    "files": [
+      "src/db/schema.ts",
+      "drizzle/**",
+      "package.json",
+      "package-lock.json",
+      "src/lib/env.ts",
+      "src/lib/worker.ts",
+      "src/lib/features.ts",
+      "src/components/Icon.tsx",
+      "src/app/admin/projects/[id]/ProjectTabs.tsx",
+      "next.config.ts",
+      "playwright.config.ts",
+      "vitest.config.mts",
+      "src/lib/portability.ts",
+      "src/lib/testimonials.ts",
+      "src/lib/webhooks.ts"
+    ]
+  },
+  "milestones": {
+    "M1": {
+      "name": "Data foundations and compatibility layers",
+      "packages": ["1.0", "1.1", "1.2", "1.3", "1.4", "1.5", "1.6", "1.7", "1.Z"],
+      "requirements": ["TEAM-04", "TEAM-05"],
+      "$comment": "M1 also lays the data side of FORM-01/10, INBOX-01/02/08/09/10, DISP-01, WALL-01 and IMP-05; those IDs are gated in the milestones that ship them."
+    },
+    "M2": {
+      "name": "Form builder v2",
+      "packages": ["2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.Z"],
+      "requirements": ["FORM-01", "FORM-02", "FORM-03", "FORM-04", "FORM-05", "FORM-06", "FORM-07", "FORM-08", "FORM-09", "FORM-10", "FORM-11", "FORM-16", "FORM-18"]
+    },
+    "M3": {
+      "name": "Inbox v2 and manual add",
+      "packages": ["3.1", "3.2", "3.3", "3.4", "3.Z"],
+      "requirements": ["INBOX-01", "INBOX-02", "INBOX-03", "INBOX-04", "INBOX-05", "INBOX-06", "INBOX-07", "INBOX-08", "INBOX-09", "INBOX-10", "INBOX-15"]
+    },
+    "M4": {
+      "name": "Widget studio",
+      "packages": ["4.1", "4.2", "4.3", "4.Z"],
+      "requirements": ["DISP-01", "DISP-02", "DISP-03", "DISP-04", "DISP-05", "DISP-06", "DISP-07", "DISP-09", "DISP-10", "DISP-11", "DISP-12", "DISP-15"]
+    },
+    "M5": {
+      "name": "Wall editor and SEO",
+      "packages": ["5.1", "5.2", "5.Z"],
+      "requirements": ["WALL-01", "WALL-02", "WALL-03", "SEO-01", "SEO-02", "SEO-03"]
+    },
+    "M6": {
+      "name": "Importers and migrations",
+      "packages": ["6.1", "6.2", "6.3", "6.4", "6.5", "6.6", "6.7", "6.8", "6.9", "6.10", "6.11", "6.12", "6.Z"],
+      "requirements": ["IMP-01", "IMP-03", "IMP-05"]
+    },
+    "M7": {
+      "name": "Notifications, onboarding, release",
+      "packages": ["7.1", "7.2", "7.3", "7.4"],
+      "requirements": ["INT-01", "INT-02", "ONB-01", "ONB-03", "ONB-04", "ONB-05", "ONB-06"]
+    }
+  },
+  "concurrent": [
+    {
+      "name": "M1 stage B",
+      "packages": ["1.2", "1.3", "1.4", "1.5", "1.6", "1.7"]
+    },
+    {
+      "name": "lanes A, B, C (widgets) and D",
+      "packages": ["2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.Z", "3.1", "3.2", "3.3", "3.4", "3.Z", "4.1", "4.2", "4.3", "4.Z", "6.1", "6.2", "6.3", "6.4", "6.5", "6.6", "6.7", "6.8", "6.9", "6.10", "6.11", "6.12", "6.Z"]
+    },
+    {
+      "name": "lanes A, B, C (walls) and D",
+      "packages": ["2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.Z", "3.1", "3.2", "3.3", "3.4", "3.Z", "5.1", "5.2", "5.Z", "6.1", "6.2", "6.3", "6.4", "6.5", "6.6", "6.7", "6.8", "6.9", "6.10", "6.11", "6.12", "6.Z"]
+    },
+    {
+      "name": "M7 notifications and onboarding",
+      "packages": ["7.1", "7.2"]
+    }
+  ],
+  "packages": {
+    "1.0": {
+      "name": "Guard rails and process",
+      "owns": [
+        "scripts/{check-migrations,check-schema-drift,check-ownership,req-coverage}.{mjs,d.mts}",
+        "docs/plan/ownership.json",
+        "package.json",
+        ".github/workflows/ci.yml",
+        ".gitignore",
+        "tests/{migrations,guard-rails,fixture-server,runs}.test.ts",
+        "tests/helpers.ts",
+        "e2e/fixtures/fixture-server.{mjs,d.mts}",
+        "e2e/helpers.ts",
+        "playwright.config.ts",
+        "src/lib/runs.ts",
+        "src/app/api/admin/runs/[id]/route.ts"
+      ]
+    },
+    "1.1": {
+      "name": "Schema, contracts, hot files",
+      "owns": [
+        "src/db/schema.ts",
+        "drizzle/{0009,0010}_*.sql",
+        "drizzle/meta/{0009,0010}_snapshot.json",
+        "drizzle/meta/_journal.json",
+        "src/lib/{env,features,worker}.ts",
+        "package.json",
+        "package-lock.json",
+        "src/components/{Icon,PlatformIcon}.tsx",
+        "src/app/admin/projects/[id]/ProjectTabs.tsx",
+        "next.config.ts",
+        "src/app/globals.css",
+        "src/app/admin/projects/[id]/data/page.tsx",
+        "src/app/admin/settings/page.tsx",
+        "src/app/admin/projects/[id]/Dashboard.tsx",
+        "src/lib/{testimonials,api-shape,openapi,portability,validation}.ts",
+        "tests/search-triggers.test.ts"
+      ],
+      "stubs": [
+        "src/lib/{maintenance,storage-migrate,onboarding}.ts",
+        "src/lib/{forms,importers,notifications}/jobs.ts",
+        "src/app/admin/projects/[id]/{forms,widgets,walls,seo,settings}/page.tsx",
+        "src/app/admin/projects/[id]/data/ImportSources.tsx",
+        "src/app/admin/settings/{Notifications,StorageStatus}.tsx",
+        "src/app/admin/projects/[id]/forms/[formId]/NotifySection.tsx",
+        "src/app/admin/projects/[id]/TestimonialExtras.tsx"
+      ]
+    },
+    "1.2": {
+      "name": "Forms core",
+      "owns": [
+        "src/lib/forms/{schema,legacy,defaults,index}.ts",
+        "src/lib/customers.ts",
+        "tests/{forms,customers}.test.ts",
+        "tests/migrations.test.ts"
+      ],
+      "$comment": "tests/migrations.test.ts: only the getDefaultForm hydration assertion left as a todo by WP1.0."
+    },
+    "1.3": {
+      "name": "Testimonial core",
+      "owns": [
+        "src/lib/{testimonials,auto-approve,consent,webhooks,webhook-admin,api-shape,openapi,validation}.ts",
+        "src/lib/{trash,history,answers,highlights,testimonial-detail,dates,maintenance}.ts",
+        "src/app/api/admin/testimonials/[id]/{route,trash/route,restore/route,history/route,detail/route}.ts",
+        "src/app/api/v1/projects/[slug]/testimonials/route.ts",
+        "src/app/api/v1/testimonials/[id]/route.ts",
+        "tests/{statuses,auto-approve-rules,webhook-defaults,testimonial-core,media-access}.test.ts"
+      ]
+    },
+    "1.4": {
+      "name": "Portability",
+      "owns": [
+        "src/lib/portability.ts",
+        "tests/{portability-v1x,portability}.test.ts"
+      ]
+    },
+    "1.5": {
+      "name": "Project settings (TEAM-04)",
+      "owns": [
+        "src/lib/projects.ts",
+        "src/app/api/admin/projects/[id]/route.ts",
+        "src/app/api/admin/projects/[id]/{slug,logo,redirects,tags}/route.ts",
+        "src/app/api/admin/redirects/[id]/route.ts",
+        "src/app/api/admin/projects/route.ts",
+        "src/app/admin/projects/[id]/settings/{page,ProjectSettings,BrandKit,TagsManager,DangerZone}.tsx",
+        "src/app/admin/project-settings.css",
+        "src/app/c/[slug]/page.tsx",
+        "src/app/wall/[slug]/page.tsx",
+        "src/app/embed/[slug]/page.tsx",
+        "src/app/api/widget/[slug]/route.ts",
+        "src/app/api/projects/[slug]/{testimonials,uploads}/route.ts",
+        "tests/project-admin.test.ts",
+        "e2e/project-settings.spec.ts"
+      ]
+    },
+    "1.6": {
+      "name": "Storage (TEAM-05)",
+      "owns": [
+        "src/lib/storage.ts",
+        "src/lib/storage/{local,s3,sigv4}.ts",
+        "src/lib/storage-migrate.ts",
+        "src/lib/{media,transcribe,uploads,system}.ts",
+        "src/app/api/media/[...key]/route.ts",
+        "src/app/api/admin/system/storage/route.ts",
+        "src/app/admin/settings/StorageStatus.tsx",
+        "tests/{storage,storage-s3}.test.ts",
+        "tests/fixtures/fake-s3.ts",
+        "docker-compose.s3.yml"
+      ]
+    },
+    "1.7": {
+      "name": "Admin UI kit",
+      "owns": [
+        "src/app/admin/api.ts",
+        "src/components/admin/**",
+        "src/app/admin/admin-kit.css"
+      ]
+    },
+    "1.Z": {
+      "name": "M1 integration",
+      "owns": [
+        "e2e/security-settings.spec.ts",
+        "scripts/check-migrations.mjs"
+      ],
+      "shared": ["README.md", "CHANGELOG.md", "docs/API.md", "docs/help/**"],
+      "$comment": "scripts/check-migrations.mjs: pins the 0009 and 0010 hashes in RELEASED once they're merged."
+    },
+    "2.1": {
+      "name": "Collect components refactor",
+      "owns": [
+        "src/components/collect/{StarInput,PhotoPicker,VideoRecorder}.tsx",
+        "src/components/collect/answer-uploads.ts",
+        "src/app/c/[slug]/{CollectForm,VideoRecorder}.tsx",
+        "e2e/collect-toggle.spec.ts"
+      ]
+    },
+    "2.2": {
+      "name": "Engine, labels, templates, design",
+      "owns": [
+        "src/lib/forms/{schema,engine,labels,templates,design}.ts",
+        "src/lib/i18n/collect/{en,es,fr,de,pt,it,nl,pl,hi,ta,ar}.ts",
+        "public/fonts/*.woff2",
+        "public/fonts/og/*.ttf",
+        "docs/CREDITS.md",
+        "tests/{form-engine,form-labels,form-templates}.test.ts"
+      ]
+    },
+    "2.3": {
+      "name": "Submission pipeline",
+      "owns": [
+        "src/lib/{submissions,feedback,images,answers,customers,auto-approve,requests,media,transcribe}.ts",
+        "src/lib/forms/jobs.ts",
+        "src/app/api/projects/[slug]/{testimonials,uploads}/route.ts",
+        "src/app/api/projects/[slug]/forms/[form]/submissions/route.ts",
+        "src/app/api/captions/[id]/route.ts",
+        "src/app/api/admin/projects/[id]/requests/route.ts",
+        "src/app/admin/projects/[id]/requests/Requests.tsx",
+        "tests/helpers.ts",
+        "e2e/helpers.ts",
+        "tests/{form-submission,answers-media,submission,requests}.test.ts"
+      ]
+    },
+    "2.4": {
+      "name": "Public runner and embeds",
+      "owns": [
+        "src/components/collect/{FormRunner,ConsentBlock,ThankYou}.tsx",
+        "src/components/collect/{steps,fields}/**",
+        "src/components/collect/runner.css",
+        "src/app/f/[project]/[form]/page.tsx",
+        "src/app/c/[slug]/page.tsx",
+        "src/app/embed/[slug]/form/[form]/page.tsx",
+        "public/form.js",
+        "e2e/{forms,forms-embed}.spec.ts"
+      ]
+    },
+    "2.5": {
+      "name": "Builder and forms admin API",
+      "owns": [
+        "src/app/admin/projects/[id]/forms/**",
+        "!src/app/admin/projects/[id]/forms/[formId]/NotifySection.tsx",
+        "src/lib/forms/admin.ts",
+        "src/app/api/admin/projects/[id]/forms/route.ts",
+        "src/app/api/admin/forms/[id]/**",
+        "src/app/api/admin/form-templates/route.ts",
+        "src/app/admin/forms-admin.css",
+        "tests/admin-forms.test.ts",
+        "e2e/form-builder.spec.ts",
+        "e2e/form-builder.spec.ts-snapshots/**"
+      ]
+    },
+    "2.6": {
+      "name": "Inbox extras",
+      "owns": [
+        "src/app/admin/projects/[id]/{TestimonialExtras,AnswersPanel}.tsx",
+        "e2e/inbox-answers.spec.ts"
+      ]
+    },
+    "2.Z": {
+      "name": "M2 integration",
+      "owns": [
+        "docs/EMBED.md",
+        "e2e/security-forms.spec.ts"
+      ],
+      "shared": ["README.md", "CHANGELOG.md", "docs/API.md", "docs/help/**"]
+    },
+    "3.1": {
+      "name": "Query, bulk and API",
+      "owns": [
+        "src/lib/{inbox,search,inbox-export}.ts",
+        "src/app/api/admin/projects/[id]/testimonials/{route,bulk/route}.ts",
+        "src/app/api/admin/projects/[id]/{feedback,export}/route.ts",
+        "src/app/api/admin/answers/[id]/route.ts",
+        "src/app/api/admin/testimonials/[id]/highlights/route.ts",
+        "src/app/api/admin/me/prefs/route.ts",
+        "tests/{inbox,inbox-bulk,export-filtered,inbox-perf}.test.ts"
+      ]
+    },
+    "3.2": {
+      "name": "Manual add lib and API",
+      "owns": [
+        "src/lib/manual-add.ts",
+        "src/app/api/admin/projects/[id]/testimonials/manual/route.ts",
+        "src/app/api/admin/uploads/route.ts",
+        "tests/manual-add.test.ts"
+      ]
+    },
+    "3.3": {
+      "name": "Inbox UI",
+      "owns": [
+        "src/app/admin/projects/[id]/{page,Dashboard}.tsx",
+        "src/app/admin/projects/[id]/inbox/**",
+        "src/app/admin/inbox.css",
+        "src/app/globals.css",
+        "src/app/admin/page.tsx",
+        "e2e/inbox.spec.ts"
+      ],
+      "$comment": "src/app/globals.css: only the status-filter phone section."
+    },
+    "3.4": {
+      "name": "Manual add UI",
+      "owns": [
+        "src/app/admin/projects/[id]/ManualAddModal.tsx",
+        "e2e/manual-add.spec.ts"
+      ]
+    },
+    "3.Z": {
+      "name": "M3 integration",
+      "shared": ["README.md", "CHANGELOG.md", "docs/API.md", "docs/help/**"]
+    },
+    "4.1": {
+      "name": "Widget data and feed",
+      "owns": [
+        "src/lib/{widget-config,widgets,public-feed,widget-html}.ts",
+        "src/app/api/widget/[slug]/{route,html/route}.ts",
+        "src/app/api/admin/projects/[id]/widgets/route.ts",
+        "src/app/api/admin/widgets/{[id]/route,[id]/duplicate/route,preview/route}.ts",
+        "tests/{widgets,public-feed,widget-html,widget}.test.ts"
+      ]
+    },
+    "4.2": {
+      "name": "Renderer",
+      "owns": [
+        "public/widget.js",
+        "public/widget/**",
+        "tests/{widget-budget,theme-parity}.test.ts",
+        "e2e/{widgets,widgets-visual}.spec.ts",
+        "e2e/widgets-visual.spec.ts-snapshots/**"
+      ]
+    },
+    "4.3": {
+      "name": "Studio UI, iframe, share",
+      "owns": [
+        "src/app/admin/projects/[id]/widgets/**",
+        "src/app/embed/[slug]/page.tsx",
+        "src/app/admin/widgets-admin.css",
+        "docs/embeds/**",
+        "e2e/widget-studio.spec.ts"
+      ]
+    },
+    "4.Z": {
+      "name": "M4 integration",
+      "owns": ["e2e/security-widgets.spec.ts"],
+      "shared": ["README.md", "CHANGELOG.md", "docs/API.md", "docs/help/**"]
+    },
+    "5.1": {
+      "name": "SEO lib and snippets",
+      "owns": [
+        "src/lib/{seo,seo-snippets}.ts",
+        "src/app/schema/[file]/route.ts",
+        "src/app/admin/projects/[id]/seo/**",
+        "src/app/api/admin/projects/[id]/seo-snippets/route.ts",
+        "src/app/api/admin/seo-snippets/[id]/route.ts",
+        "src/app/admin/seo.css",
+        "tests/seo.test.ts",
+        "e2e/seo.spec.ts"
+      ]
+    },
+    "5.2": {
+      "name": "Walls",
+      "owns": [
+        "src/lib/{walls,wall-config}.ts",
+        "src/app/wall/[slug]/page.tsx",
+        "src/app/wall/[slug]/[wall]/{page,opengraph-image}.tsx",
+        "src/app/wall/LoadMore.tsx",
+        "src/components/{WallView,TestimonialCard}.tsx",
+        "src/app/api/walls/[id]/items/route.ts",
+        "src/app/admin/projects/[id]/walls/**",
+        "src/app/api/admin/projects/[id]/walls/route.ts",
+        "src/app/api/admin/walls/[id]/**",
+        "src/app/admin/walls.css",
+        "tests/walls.test.ts",
+        "e2e/walls.spec.ts"
+      ]
+    },
+    "5.Z": {
+      "name": "M5 integration",
+      "owns": ["e2e/security-walls.spec.ts"],
+      "shared": ["README.md", "CHANGELOG.md", "docs/API.md", "docs/help/**"]
+    },
+    "6.1": {
+      "name": "Importer framework",
+      "owns": [
+        "src/lib/{net-guard,csv-import}.ts",
+        "src/lib/importers/{types,registry,run,jsonld-reviews,html,jobs}.ts",
+        "src/app/api/admin/importers/route.ts",
+        "src/app/api/admin/projects/[id]/imports/**",
+        "src/app/api/admin/runs/[id]/import/route.ts",
+        "src/app/admin/projects/[id]/data/{ImportSources,ImportWizard,ImportProgress}.tsx",
+        "src/app/admin/import.css",
+        "tests/{importers-framework,net-guard,dates}.test.ts",
+        "e2e/importers.spec.ts"
+      ],
+      "stubs": [
+        "src/lib/importers/sources/{google,trustpilot,g2,capterra,producthunt,appstore,googleplay,x,testimonial-to,senja,shapo,website}.ts"
+      ]
+    },
+    "6.2": {
+      "name": "Importer: Google",
+      "owns": ["src/lib/importers/sources/google.ts", "tests/fixtures/importers/google/**", "tests/importers/google.test.ts", "public/importers/google.svg"]
+    },
+    "6.3": {
+      "name": "Importer: Trustpilot",
+      "owns": ["src/lib/importers/sources/trustpilot.ts", "tests/fixtures/importers/trustpilot/**", "tests/importers/trustpilot.test.ts", "public/importers/trustpilot.svg"]
+    },
+    "6.4": {
+      "name": "Importer: G2",
+      "owns": ["src/lib/importers/sources/g2.ts", "tests/fixtures/importers/g2/**", "tests/importers/g2.test.ts", "public/importers/g2.svg"]
+    },
+    "6.5": {
+      "name": "Importer: Capterra",
+      "owns": ["src/lib/importers/sources/capterra.ts", "tests/fixtures/importers/capterra/**", "tests/importers/capterra.test.ts", "public/importers/capterra.svg"]
+    },
+    "6.6": {
+      "name": "Importer: Product Hunt",
+      "owns": ["src/lib/importers/sources/producthunt.ts", "tests/fixtures/importers/producthunt/**", "tests/importers/producthunt.test.ts", "public/importers/producthunt.svg"]
+    },
+    "6.7": {
+      "name": "Importer: App Store",
+      "owns": ["src/lib/importers/sources/appstore.ts", "tests/fixtures/importers/appstore/**", "tests/importers/appstore.test.ts", "public/importers/appstore.svg"]
+    },
+    "6.8": {
+      "name": "Importer: Google Play",
+      "owns": ["src/lib/importers/sources/googleplay.ts", "tests/fixtures/importers/googleplay/**", "tests/importers/googleplay.test.ts", "public/importers/googleplay.svg"]
+    },
+    "6.9": {
+      "name": "Importer: X",
+      "owns": ["src/lib/importers/sources/x.ts", "tests/fixtures/importers/x/**", "tests/importers/x.test.ts", "public/importers/x.svg"]
+    },
+    "6.10": {
+      "name": "Importer: Testimonial.to",
+      "owns": ["src/lib/importers/sources/testimonial-to.ts", "tests/fixtures/importers/testimonial-to/**", "tests/importers/testimonial-to.test.ts", "public/importers/testimonial-to.svg"]
+    },
+    "6.11": {
+      "name": "Importer: Senja",
+      "owns": ["src/lib/importers/sources/senja.ts", "tests/fixtures/importers/senja/**", "tests/importers/senja.test.ts", "public/importers/senja.svg"]
+    },
+    "6.12": {
+      "name": "Importer: Shapo",
+      "owns": ["src/lib/importers/sources/shapo.ts", "tests/fixtures/importers/shapo/**", "tests/importers/shapo.test.ts", "public/importers/shapo.svg"]
+    },
+    "6.Z": {
+      "name": "M6 integration",
+      "owns": ["docs/IMPORT.md"],
+      "shared": ["README.md", "CHANGELOG.md", "docs/API.md", "docs/help/**"]
+    },
+    "7.1": {
+      "name": "Notifications and webhook editing",
+      "owns": [
+        "src/lib/notifications/**",
+        "src/app/api/admin/notification-channels/**",
+        "src/app/api/admin/me/notifications/route.ts",
+        "src/app/admin/settings/{Notifications,Settings}.tsx",
+        "src/app/admin/projects/[id]/forms/[formId]/NotifySection.tsx",
+        "src/app/admin/notifications.css",
+        "tests/{notifications,notification-email}.test.ts",
+        "e2e/notifications.spec.ts"
+      ]
+    },
+    "7.2": {
+      "name": "Onboarding",
+      "owns": [
+        "src/lib/onboarding.ts",
+        "src/lib/importers/sources/website.ts",
+        "tests/fixtures/importers/website/**",
+        "tests/fixtures/onboarding/**",
+        "tests/importers/website.test.ts",
+        "src/app/admin/welcome/**",
+        "src/app/admin/page.tsx",
+        "src/app/admin/projects/[id]/{page,GetStarted}.tsx",
+        "src/app/api/admin/onboarding/**",
+        "src/app/api/admin/projects/[id]/checklist/route.ts",
+        "src/app/admin/onboarding.css",
+        "tests/onboarding.test.ts",
+        "e2e/onboarding.spec.ts"
+      ]
+    },
+    "7.3": {
+      "name": "Empty states and 360 px sweep",
+      "owns": [
+        "src/app/admin/projects/[id]/forms/**/FormsList.tsx",
+        "src/app/admin/projects/[id]/widgets/**/WidgetsList.tsx",
+        "src/app/admin/projects/[id]/walls/**/WallsList.tsx",
+        "src/app/admin/projects/[id]/data/ImportSources.tsx",
+        "src/app/admin/projects/[id]/requests/Requests.tsx",
+        "src/app/admin/projects/[id]/inbox/Inbox.tsx",
+        "e2e/{empty-states,mobile}.spec.ts"
+      ],
+      "$comment": "Only the empty-state markup of these list pages."
+    },
+    "7.4": {
+      "name": "Release",
+      "owns": [
+        "playwright.config.ts",
+        "src/lib/env.ts",
+        ".github/workflows/ci.yml",
+        "e2e/perf.spec.ts"
+      ],
+      "shared": ["README.md", "CHANGELOG.md", "docs/API.md", "docs/help/**"]
+    }
+  }
+}
