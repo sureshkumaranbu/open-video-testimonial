@@ -34,6 +34,9 @@ export const RELEASED = {
   "0006_media_key_indexes": { when: 1792741263470, sha256: "a9c65af41ac63c418e11cb29712183a8698e0330153e694ca55d4dd69e9aabf6" },
   "0007_sign_in": { when: 1792767534509, sha256: "4dad53ad541f8dddf1edc387442f3c6e428e90423f5eb9f05c277791c9944158" },
   "0008_auto_approve": { when: 1792854757042, sha256: "0100fb44f5c1a7241db9516c54fdb341080d427bdf8d9d65510ef4425c39e100" },
+  // Phase 1 (D19): all of its schema, final once M1 merged into plaudit/v1-parity. Later needs are 0011+.
+  "0009_phase1_foundations": { when: 1792930322975, sha256: "a45fb051b55fa77bef2aca6284d29c52ff1aca6d8a1808a96554440bfe3565c6" },
+  "0010_inbox_search": { when: 1792930389390, sha256: "e3d45c384d629fd32cfc41e7a08881449ae05205dd28b272834fef003638502a" },
 };
 
 /** SQL that rebuilds or removes tables and columns, or switches FK checks (which does nothing inside BEGIN). */
