@@ -33,9 +33,10 @@ import { reanchorHighlights } from "./highlights";
 import { parseDiff, recordHistory } from "./history";
 import { PermanentJobError } from "./jobs";
 import { queueVideoProcessing } from "./media";
+import { findProjectBySlugOrAlias } from "./projects";
 import { listRequests } from "./requests";
 import { deleteObject, saveFile, sniffMime, storage, type MediaKind } from "./storage";
-import { createProject, getProjectBySlug, listProjects, listTestimonials, type TestimonialWithTags } from "./testimonials";
+import { createProject, listProjects, listTestimonials, type TestimonialWithTags } from "./testimonials";
 import { brandSchema, slugSchema } from "./validation";
 import { extractEntry, openZip, readEntryText, ZipError, zipStream, type ZipSource } from "./zip";
 
@@ -1003,11 +1004,15 @@ export async function readManifest(zipPath: string) {
   return { zip, manifest: parsed.data };
 }
 
-/** A free slug based on `wanted` (acme, acme-2, acme-3…). */
+/**
+ * A free slug based on `wanted` (acme, acme-2, acme-3…). An old link of
+ * another project counts as taken, so an import never takes over links made
+ * before a rename (D17).
+ */
 export function freeSlug(wanted: string) {
   const base = wanted.replace(/[^a-z0-9-]/g, "").replace(/^-+|-+$/g, "").slice(0, 40) || "imported";
-  if (!getProjectBySlug(base)) return base;
-  for (let i = 2; ; i++) if (!getProjectBySlug(`${base}-${i}`)) return `${base}-${i}`;
+  if (!findProjectBySlugOrAlias(base)) return base;
+  for (let i = 2; ; i++) if (!findProjectBySlugOrAlias(`${base}-${i}`)) return `${base}-${i}`;
 }
 
 /** The name, or "Name (imported)", "Name (imported 2)"… if a project here already has it. */

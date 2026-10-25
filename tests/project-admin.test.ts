@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
+import path from "node:path";
 import { eq, sql } from "drizzle-orm";
 import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -24,6 +25,7 @@ import { createSessionToken, sessionCookieName } from "@/lib/auth";
 import { grantConsent } from "@/lib/consent";
 import { getDefaultForm } from "@/lib/forms";
 import { listHistory } from "@/lib/history";
+import { createImportTarget, exportZip, readManifest } from "@/lib/portability";
 import { findProjectBySlugOrAlias, listRedirects, parseBrand, projectMediaKeys } from "@/lib/projects";
 import { createRequests, requestToken } from "@/lib/requests";
 import { resetStorage, saveUpload, storage } from "@/lib/storage";
@@ -221,6 +223,17 @@ describe("TEAM-04 changing the link keeps old links working", () => {
     expect(findProjectBySlugOrAlias("acme")).toMatchObject({ project: { id: imported.id }, canonical: true });
     expect(await outcome(collect("acme"))).toBeNull();
     expect(listRedirects(acme.id)).toEqual([]);
+  });
+
+  it("an archive import doesn't take another project's old link: it gets the next free slug", async () => {
+    await changeSlug(acme.id, "acme-co");
+    const file = path.join(ctx.dir, "acme.zip");
+    fs.writeFileSync(file, Buffer.from(await new Response(exportZip(getProjectById(acme.id)!)).arrayBuffer()));
+    const { manifest } = await readManifest(file);
+    const copy = createImportTarget(manifest, { slug: "acme" });
+    expect(copy.slug).toBe("acme-2");
+    expect(findProjectBySlugOrAlias("acme")).toMatchObject({ project: { id: acme.id }, canonical: false });
+    expect(listRedirects(acme.id).map((r) => r.oldSlug)).toEqual(["acme"]);
   });
 
   it("renaming back to an old slug makes it live again", async () => {
