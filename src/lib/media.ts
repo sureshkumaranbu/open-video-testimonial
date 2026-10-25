@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -6,7 +7,7 @@ import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { env } from "./env";
 import { enqueue, PermanentJobError } from "./jobs";
-import { newKey, resolveKey } from "./storage";
+import { newKey, storage } from "./storage";
 
 const { testimonials } = schema;
 
@@ -179,22 +180,30 @@ export async function processVideo(testimonialId: string, opts: { willRetry?: bo
   }
   db.update(testimonials).set({ mediaStatus: "processing" }).where(eq(testimonials.id, row.id)).run();
 
-  const input = resolveKey(originalKey);
+  // ffmpeg writes to DATA_DIR/tmp; the results are then put in storage (a
+  // rename on local disk, an upload on S3), so nothing half-written is stored.
   const mp4Key = newKey("video", "mp4");
   const posterKey = newKey("image", "jpg");
-  const mp4 = resolveKey(mp4Key);
-  const poster = resolveKey(posterKey);
+  const mp4 = path.join(env.tmpDir, `convert-${crypto.randomUUID()}.mp4`);
+  const poster = path.join(env.tmpDir, `poster-${crypto.randomUUID()}.jpg`);
+  const stored: string[] = [];
   let processed = false;
   try {
-    if (!fs.existsSync(input)) throw new PermanentJobError("The original video file is missing");
-    const info = await probe(input);
-    await fs.promises.mkdir(path.dirname(mp4), { recursive: true });
-    await fs.promises.mkdir(path.dirname(poster), { recursive: true });
-    await transcodeToMp4(input, mp4);
-    await extractPoster(mp4, poster, info.durationMs);
-    const out = await probe(mp4);
+    const store = storage();
+    await fs.promises.mkdir(env.tmpDir, { recursive: true });
+    const { info, out } = await store.withLocalFile(originalKey, async (input) => {
+      if (!fs.existsSync(input)) throw new PermanentJobError("The original video file is missing");
+      const info = await probe(input);
+      await transcodeToMp4(input, mp4);
+      await extractPoster(mp4, poster, info.durationMs);
+      return { info, out: await probe(mp4) };
+    });
+    await store.put(mp4Key, { path: mp4, move: true }, "video/mp4");
+    stored.push(mp4Key);
+    await store.put(posterKey, { path: poster, move: true }, "image/jpeg");
+    stored.push(posterKey);
 
-    // The row may have been deleted while ffmpeg ran.
+    // The row may have been deleted while ffmpeg ran or the files went up.
     const current = db.select().from(testimonials).where(eq(testimonials.id, row.id)).get();
     if (!current) throw new PermanentJobError("Testimonial deleted during processing");
     const replaced = [current.videoKey, current.posterKey].filter(
@@ -215,10 +224,11 @@ export async function processVideo(testimonialId: string, opts: { willRetry?: bo
       .where(eq(testimonials.id, row.id))
       .run();
     processed = true;
-    await Promise.all(replaced.map((k) => fs.promises.rm(resolveKey(k), { force: true })));
+    await Promise.all(replaced.map((k) => store.remove(k)));
   } catch (err) {
     if (processed) throw err;
     await Promise.all([mp4, poster].map((f) => fs.promises.rm(f, { force: true })));
+    await Promise.all(stored.map((k) => storage().remove(k).catch(() => undefined)));
     const retrying = opts.willRetry && !(err instanceof PermanentJobError);
     db.update(testimonials)
       .set({ mediaStatus: retrying ? "queued" : "failed", mediaError: (err as Error).message.slice(0, 500) })

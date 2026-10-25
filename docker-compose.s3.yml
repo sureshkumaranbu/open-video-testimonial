@@ -1,0 +1,59 @@
+# Plaudit with its media in an S3-compatible bucket (MinIO), for trying
+# STORAGE_DRIVER=s3 locally and for CI jobs that run in Docker. It's an
+# override for docker-compose.yml:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.s3.yml up -d
+#
+# MinIO's console is then at http://localhost:9001 (user and password below).
+# To run only MinIO, for `npm run dev` or the unit tests' manual check:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.s3.yml up -d minio minio-bucket
+#
+# and start Plaudit with
+#   STORAGE_DRIVER=s3 S3_ENDPOINT=http://localhost:9000 S3_REGION=us-east-1
+#   S3_BUCKET=plaudit S3_FORCE_PATH_STYLE=true
+#   S3_ACCESS_KEY_ID=plaudit S3_SECRET_ACCESS_KEY=plaudit-minio-secret
+#
+# MinIO no longer publishes its own images on Docker Hub, so this uses
+# Chainguard's build of it. Set MINIO_IMAGE and MC_IMAGE to use another (for
+# example one pinned by digest). The credentials are for local use only.
+
+services:
+  minio:
+    image: ${MINIO_IMAGE:-chainguard/minio:latest}
+    command: ["server", "/data", "--console-address", ":9001"]
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-plaudit}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-plaudit-minio-secret}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio-data:/data
+
+  # Creates the bucket once MinIO answers (it retries until then), then exits.
+  minio-bucket:
+    image: ${MC_IMAGE:-chainguard/minio-client:latest}
+    depends_on:
+      - minio
+    restart: on-failure
+    environment:
+      # mc reads an alias from MC_HOST_<name>, so no shell is needed.
+      MC_HOST_local: http://${MINIO_ROOT_USER:-plaudit}:${MINIO_ROOT_PASSWORD:-plaudit-minio-secret}@minio:9000
+    command: ["mb", "--ignore-existing", "local/${S3_BUCKET:-plaudit}"]
+
+  plaudit:
+    depends_on:
+      - minio-bucket
+    environment:
+      STORAGE_DRIVER: s3
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: ${S3_BUCKET:-plaudit}
+      S3_FORCE_PATH_STYLE: "true"
+      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-plaudit}
+      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-plaudit-minio-secret}
+
+volumes:
+  minio-data:
