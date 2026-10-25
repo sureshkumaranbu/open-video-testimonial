@@ -2,10 +2,12 @@ import crypto from "node:crypto";
 import { and, desc, eq, inArray, isNotNull, lte } from "drizzle-orm";
 import { z } from "zod";
 import { getDb, schema } from "@/db";
-import type { Project, TestimonialRequest } from "@/db/schema";
+import type { Form, Project, TestimonialRequest } from "@/db/schema";
 import { parseCsv } from "./csv";
 import { emailEnabled, fillTemplate, headerSafe, isPermanentSmtpError, sendMail } from "./email";
 import { env } from "./env";
+import { formUrl, getForm } from "./forms";
+import { parseFormRow } from "./forms/schema";
 import { enqueue, PermanentJobError } from "./jobs";
 
 const { requests, projects } = schema;
@@ -54,13 +56,25 @@ export const unsubscribeToken = (id: string) => token("unsubscribe", id);
 export const findRequestByToken = (value: string | null | undefined) => verify("request", value);
 export const findRequestByUnsubscribeToken = (value: string | null | undefined) => verify("unsubscribe", value);
 
-export function requestLink(project: Pick<Project, "slug">, id: string) {
-  return `${env.publicUrl}/c/${project.slug}?r=${requestToken(id)}`;
+/**
+ * The personal link: the request's form when it has one (/f/<project>/<form>),
+ * otherwise the project's default form, which /c/<project> opens (and sends
+ * on to /f when the default is step by step, ?r= kept).
+ */
+export function requestLink(project: Pick<Project, "slug">, id: string, form?: Pick<Form, "slug" | "isDefault" | "layout"> | null) {
+  const path = form ? formUrl(project, form) : `/c/${project.slug}`;
+  return `${env.publicUrl}${path}?r=${requestToken(id)}`;
+}
+
+/** The request's own form, if it still belongs to the project. */
+function formOf(project: Pick<Project, "id">, r: { formId?: string | null }) {
+  const form = r.formId ? getForm(r.formId) : null;
+  return form && form.projectId === project.id ? form : null;
 }
 
 /** A request as the dashboard sees it: with its personal link. */
-export function withLink<T extends { id: string }>(project: Pick<Project, "slug">, r: T) {
-  return { ...r, link: requestLink(project, r.id) };
+export function withLink<T extends { id: string; formId?: string | null }>(project: Pick<Project, "id" | "slug">, r: T) {
+  return { ...r, link: requestLink(project, r.id, formOf(project, r)) };
 }
 
 export function unsubscribeLink(id: string) {
@@ -130,7 +144,7 @@ export function deleteRequest(id: string) {
  * Creates requests, skipping people who already have an open request or
  * unsubscribed from this project. Optionally queues invitation emails.
  */
-export function createRequests(project: Project, rows: RequestRow[], opts: { send: boolean }) {
+export function createRequests(project: Project, rows: RequestRow[], opts: { send: boolean; formId?: string | null }) {
   const db = getDb();
   const emails = [...new Set(rows.map((r) => r.email))];
   const existing = emails.length
@@ -156,6 +170,7 @@ export function createRequests(project: Project, rows: RequestRow[], opts: { sen
         email: row.email,
         name: row.name ?? null,
         company: row.company ?? null,
+        formId: opts.formId ?? null,
         createdAt: new Date(),
       })
       .returning()
@@ -173,7 +188,7 @@ function inviteEmail(project: Project, r: TestimonialRequest, kind: EmailKind) {
   const values = {
     name: r.name?.split(" ")[0] || "there",
     project: project.name,
-    link: requestLink(project, r.id),
+    link: requestLink(project, r.id, formOf(project, r)),
   };
   const subject = fillTemplate(project.inviteSubject.trim() || DEFAULT_INVITE_SUBJECT, values);
   let body = fillTemplate(project.inviteMessage.trim() || DEFAULT_INVITE_MESSAGE, values);
@@ -279,26 +294,38 @@ export const THANK_YOU_JOB = "email.thank-you";
  * After a submission that came through a personal request link: a receipt
  * with the private withdrawal link, sent to the address the owner invited.
  * Open-form submissions get no email, so the public form can't be used to
- * send mail from the owner's server to arbitrary addresses.
+ * send mail from the owner's server to arbitrary addresses. `form` is the
+ * form it was sent through: its confirmation setting and template apply.
  */
-export function queueThankYou(project: Project, request: TestimonialRequest | null, withdrawUrl: string) {
+export function queueThankYou(project: Project, request: TestimonialRequest | null, withdrawUrl: string, form?: Form | null) {
   const to = request?.email;
-  if (!to || !project.thankYouEmail || !emailEnabled()) return false;
-  enqueue(THANK_YOU_JOB, { projectId: project.id, to, withdrawUrl }, { maxAttempts: 4 });
+  const enabled = form ? parseFormRow(form).settings.confirmationEmail.enabled : project.thankYouEmail;
+  if (!to || !enabled || !emailEnabled()) return false;
+  enqueue(THANK_YOU_JOB, { projectId: project.id, to, withdrawUrl, ...(form ? { formId: form.id } : {}) }, { maxAttempts: 4 });
   return true;
 }
 
-export async function sendThankYou(payload: { projectId: string; to: string; withdrawUrl: string }) {
+export async function sendThankYou(payload: { projectId: string; to: string; withdrawUrl: string; formId?: string }) {
   const project = getDb().select().from(projects).where(eq(projects.id, payload.projectId)).get();
   if (!project) return;
+  const form = payload.formId ? getForm(payload.formId) : null;
+  const settings = form && form.projectId === project.id ? parseFormRow(form).settings : null;
+  const autoApproves = settings ? settings.autoApprove.mode !== "off" : project.autoApprove;
+  const values = { project: project.name, link: payload.withdrawUrl };
+  const subject = settings?.confirmationEmail.subject.trim();
+  let body = settings?.confirmationEmail.body.trim() ? fillTemplate(settings.confirmationEmail.body, values) : null;
+  // The withdrawal link is always in the mail, even if the owner's template dropped it.
+  if (body && !body.includes(payload.withdrawUrl)) body += `\n\nTo withdraw your testimonial at any time: ${payload.withdrawUrl}`;
   try {
     await sendMail({
       to: payload.to,
-      subject: `Thanks for your testimonial for ${project.name}`,
+      subject: subject ? headerSafe(fillTemplate(subject, values)) : `Thanks for your testimonial for ${project.name}`,
       // With auto-approve on it may go live without a review, so don't promise one.
-      text: `Thank you for taking the time to share your experience with ${project.name}. ${
-        project.autoApprove ? "It may appear on their website soon." : "They'll review it before it appears anywhere."
-      }
+      text:
+        body ??
+        `Thank you for taking the time to share your experience with ${project.name}. ${
+          autoApproves ? "It may appear on their website soon." : "They'll review it before it appears anywhere."
+        }
 
 If you change your mind, you can withdraw your testimonial at any time with this private link:
 ${payload.withdrawUrl}

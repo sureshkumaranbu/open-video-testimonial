@@ -1,6 +1,6 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { getDb, schema } from "@/db";
-import type { Project, Testimonial } from "@/db/schema";
+import type { MediaStatus, Project, Testimonial } from "@/db/schema";
 import { autoApproveRuleFor } from "./forms";
 import type { AutoApproveRule } from "./forms/schema";
 import { getProjectById, getTestimonial, updateTestimonial } from "./testimonials";
@@ -58,8 +58,13 @@ export function ruleFromProject(p: Settings): AutoApproveRule {
   };
 }
 
-/** Whether a testimonial matches a rule, and if not, why not (shown to the owner). */
-export function checkRule(rule: AutoApproveRule, t: Candidate): AutoApproveDecision {
+/**
+ * Whether a testimonial matches a rule, and if not, why not (shown to the
+ * owner). `answerMedia` is the status of each video answering a further
+ * question: those are held to the same rule as the main video, and every one
+ * must be ready first (WP2.3 pendingMedia).
+ */
+export function checkRule(rule: AutoApproveRule, t: Candidate, o: { answerMedia?: MediaStatus[] } = {}): AutoApproveDecision {
   const no = (reason: string) => ({ approve: false as const, reason });
   if (rule.mode === "off" || !rule.since) return no("auto-approve is off");
   if (!SOURCES.includes(t.source)) return no(`added by ${t.source}, not the collection form`);
@@ -80,6 +85,13 @@ export function checkRule(rule: AutoApproveRule, t: Candidate): AutoApproveDecis
     if (!rule.includeVideo) return no("videos aren't included");
     if (t.mediaStatus === "failed" || t.mediaStatus === "skipped") return no("the video couldn't be processed");
     if (t.mediaStatus !== "ready") return no("the video is still processing");
+  }
+  const answerMedia = o.answerMedia ?? [];
+  if (answerMedia.length) {
+    if (rule.mode === "text") return no("only text testimonials are approved automatically");
+    if (!rule.includeVideo) return no("videos aren't included");
+    if (answerMedia.some((m) => m === "failed" || m === "skipped")) return no("a video answer couldn't be processed");
+    if (answerMedia.some((m) => m !== "ready")) return no("a video answer is still processing");
   }
   return { approve: true, rule: ruleLabel(rule) };
 }
@@ -113,7 +125,14 @@ export function maybeAutoApprove(testimonialId: string) {
   const t = getTestimonial(testimonialId);
   const project = t && getProjectById(t.projectId);
   if (!t || !project) return null;
-  const decision = checkRule(ruleFor(t, project), t);
+  const { answers } = schema;
+  const answerMedia = getDb()
+    .select({ status: answers.mediaStatus })
+    .from(answers)
+    .where(and(eq(answers.testimonialId, t.id), isNotNull(answers.videoKey)))
+    .all()
+    .map((a) => a.status);
+  const decision = checkRule(ruleFor(t, project), t, { answerMedia });
   if (!decision.approve) return null;
   return updateTestimonial(t.id, { status: "approved" }, { actor: "auto", rule: decision.rule });
 }

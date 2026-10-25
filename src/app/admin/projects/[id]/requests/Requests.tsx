@@ -60,10 +60,17 @@ export function Requests({ project, email, defaults }: Props) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [forms, setForms] = useState<{ id: string; name: string; isDefault: boolean; status: string }[]>([]);
+  /** The form new links open; "" is the default form. */
+  const [formId, setFormId] = useState("");
 
   const load = useCallback(async () => {
     try {
-      setRows((await api<{ requests: Row[] }>(`/api/admin/projects/${project.id}/requests`)).requests);
+      const body = await api<{ requests: Row[]; forms?: { id: string; name: string; isDefault: boolean; status: string }[] }>(
+        `/api/admin/projects/${project.id}/requests`,
+      );
+      setRows(body.requests);
+      setForms(body.forms ?? []);
     } catch (err) {
       setError((err as Error).message);
     }
@@ -89,7 +96,7 @@ export function Requests({ project, email, defaults }: Props) {
     try {
       const res = await api<{ created: Row[]; skipped: { email: string; reason: string }[]; invalid: string[] }>(
         `/api/admin/projects/${project.id}/requests`,
-        { method: "POST", body: JSON.stringify({ recipients, send }) },
+        { method: "POST", body: JSON.stringify({ recipients, send, ...(formId ? { formId } : {}) }) },
       );
       const parts = [`Added ${res.created.length} ${res.created.length === 1 ? "person" : "people"}.`];
       if (res.skipped.length) {
@@ -263,6 +270,20 @@ export function Requests({ project, email, defaults }: Props) {
                   }}
                 />
               </label>
+              {forms.length > 1 && (
+                <label>
+                  Form the links open
+                  <select value={formId} onChange={(e) => setFormId(e.target.value)} data-testid="request-form">
+                    {forms.map((f) => (
+                      <option key={f.id} value={f.isDefault ? "" : f.id}>
+                        {f.name}
+                        {f.isDefault ? " (default)" : ""}
+                        {f.status === "paused" ? " · paused" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <label className="check">
                 <input
                   type="checkbox"

@@ -19,6 +19,7 @@ import {
   requestToken,
   unsubscribeToken,
 } from "@/lib/requests";
+import { createForm, getDefaultForm, upgradeToSteps } from "@/lib/forms";
 import { createProject, getProjectById, getTestimonial, updateProject } from "@/lib/testimonials";
 import { registerJobs } from "@/lib/worker";
 import { adminHeaders, params, submissionForm, submitRequest, useTempDataDir } from "./helpers";
@@ -292,5 +293,45 @@ describe("requests", () => {
     const id = body.created[0].id;
     for (let i = 0; i < 4; i++) await runDueJobs({ now: () => new Date(Date.now() + (i + 1) * 7 * 60 * 60 * 1000) });
     expect(getRequest(id)).toMatchObject({ emailStatus: "failed", emailError: expect.stringMatching(/ECONNREFUSED|connect/i) });
+  });
+});
+
+describe("requests for a form", () => {
+  it("FORM-01 a batch of links can open another form; the default stays on /c", async () => {
+    const form = createForm(projectId, { name: "Onboarding", slug: "onboarding" });
+    const res = await createRoute(
+      admin(`/api/admin/projects/${projectId}/requests`, {
+        method: "POST",
+        body: JSON.stringify({ recipients: "ada@example.com", send: false, formId: form.id }),
+      }),
+      params({ id: projectId }),
+    );
+    expect(res.status).toBe(201);
+    const [made] = (await res.json()).created;
+    expect(made.formId).toBe(form.id);
+    expect(made.link).toMatch(/\/f\/acme\/onboarding\?r=/);
+    const plain = await ask("grace@example.com", false);
+    expect(plain.body.created[0].link).toMatch(/\/c\/acme\?r=/);
+    const list = await (await listRoute(admin(`/api/admin/projects/${projectId}/requests`), params({ id: projectId }))).json();
+    expect(list.forms.map((f: { name: string }) => f.name)).toEqual(["Default form", "Onboarding"]);
+  });
+
+  it("FORM-01 refuses a form from another project", async () => {
+    const other = createProject({ name: "Other", slug: "other" });
+    const foreign = createForm(other.id, { name: "Theirs" });
+    const res = await createRoute(
+      admin(`/api/admin/projects/${projectId}/requests`, {
+        method: "POST",
+        body: JSON.stringify({ recipients: "ada@example.com", formId: foreign.id }),
+      }),
+      params({ id: projectId }),
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("FORM-01 links without a form keep /c once the default is step by step (/c then sends them on)", async () => {
+    upgradeToSteps(getDefaultForm(projectId).id);
+    const { body } = await ask("ada@example.com", false);
+    expect(body.created[0].link).toMatch(/\/c\/acme\?r=/);
   });
 });

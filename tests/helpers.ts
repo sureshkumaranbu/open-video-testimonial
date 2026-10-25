@@ -119,3 +119,24 @@ export function hasFfmpeg() {
   }
   return ffmpegChecked;
 }
+
+/**
+ * A step-by-step form submission: the JSON `payload` plus files (`avatar`,
+ * `companyLogo`, `images:<questionKey>`) and any extra top-level field, such
+ * as the `website` honeypot.
+ */
+export function formSubmission(payload: object, files: Record<string, File | File[]> = {}, extra: Record<string, string> = {}) {
+  const form = new FormData();
+  form.set("payload", JSON.stringify(payload));
+  for (const [k, v] of Object.entries(files)) for (const f of Array.isArray(v) ? v : [v]) form.append(k, f);
+  for (const [k, v] of Object.entries(extra)) form.set(k, v);
+  return form;
+}
+
+export function submitFormRequest(slug: string, formSlug: string, form: FormData, ip = "203.0.113.7") {
+  return new Request(`http://localhost/api/projects/${slug}/forms/${formSlug}/submissions`, {
+    method: "POST",
+    body: form,
+    headers: { "x-forwarded-for": ip },
+  });
+}

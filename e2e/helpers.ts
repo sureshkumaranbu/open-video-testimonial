@@ -62,12 +62,48 @@ export type Seed = {
   video?: boolean;
   status?: "pending" | "approved" | "rejected";
   tags?: string[];
+  /** Send through this step-by-step form instead of the classic endpoint. */
+  formSlug?: string;
+  /** Written answers by question key (form mode); `text` answers the first question when left out. */
+  answers?: Record<string, string>;
+  customFields?: Record<string, string | number | boolean>;
+  hiddenFields?: Record<string, string>;
 };
+
+/** One seed through a form's submissions endpoint (written answers only). */
+async function seedThroughForm(api: APIRequestContext, slug: string, item: Seed) {
+  const answers = Object.entries(item.answers ?? { q1: item.text ?? "" }).map(([key, text]) => ({ key, text }));
+  const payload = {
+    ...(item.rating ? { rating: item.rating } : {}),
+    answers,
+    person: { name: item.name, ...(item.email ? { email: item.email } : {}) },
+    customFields: item.customFields ?? {},
+    hiddenFields: item.hiddenFields ?? {},
+    consent: { agreed: true },
+  };
+  return api.post(`/api/projects/${slug}/forms/${item.formSlug}/submissions`, {
+    multipart: { payload: JSON.stringify(payload) },
+    headers: { "x-forwarded-for": freshIp() },
+  });
+}
 
 /** Submits through the public endpoint (as a customer would), then moderates. */
 export async function seed(api: APIRequestContext, slug: string, items: Seed[]) {
   const ids: string[] = [];
   for (const item of items) {
+    if (item.formSlug) {
+      const res = await seedThroughForm(api, slug, item);
+      expect(res.status(), await res.text()).toBe(201);
+      const { id } = await res.json();
+      ids.push(id);
+      if (item.status || item.tags) {
+        const patch = await api.patch(`/api/admin/testimonials/${id}`, {
+          data: { ...(item.status ? { status: item.status } : {}), ...(item.tags ? { tags: item.tags } : {}) },
+        });
+        expect(patch.ok()).toBe(true);
+      }
+      continue;
+    }
     const multipart: Record<string, string | { name: string; mimeType: string; buffer: Buffer }> = {
       name: item.name,
       consent: "on",

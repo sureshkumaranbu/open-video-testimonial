@@ -12,7 +12,7 @@ import { storage } from "./storage";
 import { getTestimonial } from "./testimonials";
 import { emitTestimonialEvent } from "./webhooks";
 
-const { testimonials } = schema;
+const { testimonials, answers } = schema;
 
 /**
  * Transcripts and captions. Audio is extracted with ffmpeg (16 kHz mono WAV)
@@ -151,6 +151,58 @@ export async function transcribeTestimonial(testimonialId: string, opts: { willR
       transcriptStatus: retrying ? "queued" : "failed",
       transcriptError: (err as Error).message.slice(0, 500),
     });
+    throw err;
+  } finally {
+    await fs.promises.rm(wav, { force: true });
+  }
+}
+
+// ---------------------------------------------------------------- answers
+
+/** Transcripts for the videos answering a form's further questions (owner-only, D13). */
+export const TRANSCRIBE_ANSWER_JOB = "media.transcribe-answer";
+
+function setAnswer(id: string, fields: Partial<typeof answers.$inferInsert>) {
+  getDb().update(answers).set(fields).where(eq(answers.id, id)).run();
+}
+
+export function queueAnswerTranscription(answerId: string) {
+  if (!transcriptionEnabled()) return false;
+  setAnswer(answerId, { transcriptStatus: "queued", transcriptError: null });
+  enqueue(TRANSCRIBE_ANSWER_JOB, { answerId }, { maxAttempts: 3 });
+  return true;
+}
+
+export async function transcribeAnswer(answerId: string, opts: { willRetry?: boolean } = {}) {
+  const row = getDb().select().from(answers).where(eq(answers.id, answerId)).get();
+  if (!row) return;
+  const key = row.videoOriginalKey ?? row.videoKey;
+  if (!key) throw new PermanentJobError("This answer has no video");
+  if (!(await ffmpegAvailable())) {
+    setAnswer(row.id, { transcriptStatus: "failed", transcriptError: "ffmpeg is needed to read the audio" });
+    throw new PermanentJobError("ffmpeg is needed to read the audio");
+  }
+  setAnswer(row.id, { transcriptStatus: "processing", transcriptError: null });
+  await fs.promises.mkdir(env.tmpDir, { recursive: true });
+  const wav = path.join(env.tmpDir, `audio-${crypto.randomUUID()}.wav`);
+  try {
+    await storage().withLocalFile(key, async (input) => {
+      if (!(await probe(input)).hasAudio) throw new PermanentJobError("The video has no sound to transcribe");
+      await extractAudio(input, wav);
+    });
+    const result = await transcribeFile(wav);
+    if (!getDb().select({ id: answers.id }).from(answers).where(eq(answers.id, row.id)).get()) return;
+    setAnswer(row.id, {
+      transcript: result.transcript || null,
+      captionsVtt: result.vtt,
+      transcriptStatus: "ready",
+      transcriptError: null,
+      updatedAt: new Date(),
+    });
+    return result;
+  } catch (err) {
+    const retrying = opts.willRetry && !(err instanceof PermanentJobError);
+    setAnswer(row.id, { transcriptStatus: retrying ? "queued" : "failed", transcriptError: (err as Error).message.slice(0, 500) });
     throw err;
   } finally {
     await fs.promises.rm(wav, { force: true });
