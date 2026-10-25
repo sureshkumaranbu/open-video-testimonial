@@ -1,11 +1,12 @@
 import { clientIp, clientKey, rateLimit } from "@/lib/rate-limit";
 import { grantConsent, withdrawUrl } from "@/lib/consent";
 import { maybeAutoApprove } from "@/lib/auto-approve";
+import { findProjectBySlugOrAlias } from "@/lib/projects";
 import { queueVideoProcessing } from "@/lib/media";
 import { findRequestByToken, markResponded, queueThankYou } from "@/lib/requests";
 import { deleteObject, saveUpload, UploadError } from "@/lib/storage";
 import { claimUpload, getUpload } from "@/lib/uploads";
-import { createTestimonial, getProjectBySlug, getTestimonial } from "@/lib/testimonials";
+import { createTestimonial, getTestimonial } from "@/lib/testimonials";
 import { emitTestimonialEvent } from "@/lib/webhooks";
 import { firstIssue, submissionSchema } from "@/lib/validation";
 import { jsonError } from "@/lib/http";
@@ -21,7 +22,7 @@ function fileField(form: FormData, name: string) {
 /** Public endpoint behind the collection page. New testimonials start as pending, unless the project auto-approves them. */
 export async function POST(req: Request, ctx: { params: Promise<{ slug: string }> }) {
   const { slug } = await ctx.params;
-  const project = getProjectBySlug(slug);
+  const project = findProjectBySlugOrAlias(slug)?.project;
   if (!project) return jsonError(404, "Project not found");
 
   if (!rateLimit(`submit:${clientKey(req)}`, SUBMISSIONS_PER_WINDOW, WINDOW_MS)) {
