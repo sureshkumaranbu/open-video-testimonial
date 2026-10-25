@@ -256,7 +256,7 @@ const FIELD_RULES: Record<string, string> = {
   accentColor: "Accent colour must be a hex colour such as #e2463f",
   maxVideoSeconds: "Maximum video length must be a whole number of seconds from 15 to 600",
   scope: "Access must be read or write",
-  status: "Status must be pending, approved or rejected",
+  status: "Status must be pending, approved, rejected or hidden",
   // Phase 1
   datePrecision: "Date precision must be day, month or year",
   minRating: "Minimum rating must be a whole number from 1 to 5",
