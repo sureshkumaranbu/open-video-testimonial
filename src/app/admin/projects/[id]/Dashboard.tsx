@@ -6,6 +6,7 @@ import type { SystemStatus } from "@/lib/system";
 import { Icon } from "@/components/Icon";
 import { Avatar, Stars } from "@/components/TestimonialCard";
 import { accentStyle } from "@/lib/theme";
+import { TestimonialExtras } from "./TestimonialExtras";
 
 type AdminTestimonial = {
   id: string;
@@ -38,7 +39,8 @@ type AdminTestimonial = {
   tags: string[];
 };
 
-type Filter = TestimonialStatus | "all";
+// Hidden and trashed get their own tabs with Inbox v2; until then they show under All.
+type Filter = "pending" | "approved" | "rejected" | "all";
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "pending", label: "Pending" },
   { id: "approved", label: "Approved" },
@@ -359,6 +361,7 @@ function TestimonialRow({
       )}
       {t.rating ? <Stars rating={t.rating} /> : null}
       {t.text && <p className="quote" style={{ fontSize: "var(--text-lg)" }}>{t.text}</p>}
+      <TestimonialExtras testimonial={t} />
 
       <div className="edit">
         <label>

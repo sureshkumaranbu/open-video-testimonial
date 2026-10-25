@@ -54,13 +54,16 @@ describe("migration files", () => {
     );
   }
 
+  /** The tag the next migration gets, e.g. 0011_<name> once 0010 exists. */
+  const nextTag = (name: string) => `${String(journal().entries.length).padStart(4, "0")}_${name}`;
+
   it("pass every static guard", () => {
     expect(checkMigrations(MIGRATIONS_DIR)).toEqual([]);
   });
 
   it("allow an additive migration with hand-fixed ON DELETE clauses", () => {
     addMigration(
-      "0009_additive",
+      nextTag("additive"),
       [
         "CREATE TABLE `forms` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`project_id` text NOT NULL,\n\t`renamed_at` integer,\n\tFOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade\n);\n",
         "\nALTER TABLE `testimonials` ADD `form_id` text REFERENCES forms(id) ON DELETE set null;",
@@ -73,7 +76,7 @@ describe("migration files", () => {
 
   it("catch a table rebuild, a missing ON DELETE, a skewed journal and a trailing breakpoint", () => {
     addMigration(
-      "0009_rebuild",
+      nextTag("rebuild"),
       [
         "ALTER TABLE `testimonials` ADD `form_id` text REFERENCES forms(id);",
         "\nCREATE TABLE `__new_tags` (`id` text PRIMARY KEY NOT NULL);",

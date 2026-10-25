@@ -241,7 +241,7 @@ export function isMediaPublic(key: string) {
 }
 
 export function countByStatus(projectId: string) {
-  const counts: Record<TestimonialStatus, number> = { pending: 0, approved: 0, rejected: 0 };
+  const counts: Record<TestimonialStatus, number> = { pending: 0, approved: 0, rejected: 0, hidden: 0, trashed: 0 };
   const rows = getDb()
     .select({ status: testimonials.status })
     .from(testimonials)

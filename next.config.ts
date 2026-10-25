@@ -42,6 +42,12 @@ const nextConfig: NextConfig = {
         source: "/:prefix(w|u)/:path*",
         headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
       },
+      {
+        // Widgets put @font-face rules in the host page's <head> (a shadow root
+        // ignores them), so customers' sites load these fonts cross-origin.
+        source: "/fonts/:path*",
+        headers: [{ key: "Access-Control-Allow-Origin", value: "*" }],
+      },
     ];
   },
 };

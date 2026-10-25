@@ -3,7 +3,7 @@ import { env } from "./env";
 import { mediaUrl } from "./storage";
 import type { TestimonialWithTags } from "./testimonials";
 
-export const API_STATUSES = ["pending", "approved", "rejected", "withdrawn"] as const;
+export const API_STATUSES = ["pending", "approved", "rejected", "withdrawn", "hidden", "trashed"] as const;
 export type ApiStatus = (typeof API_STATUSES)[number];
 
 export function apiStatus(t: Pick<TestimonialWithTags, "status" | "withdrawnAt">): ApiStatus {

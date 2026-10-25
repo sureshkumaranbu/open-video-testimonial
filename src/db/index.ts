@@ -7,6 +7,8 @@ import { env } from "@/lib/env";
 import * as schema from "./schema";
 
 export type Db = BetterSQLite3Database<typeof schema>;
+/** The `tx` a synchronous db.transaction() callback gets, for helpers that write inside one. */
+export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 let instance: { db: Db; sqlite: Database.Database } | null = null;
 

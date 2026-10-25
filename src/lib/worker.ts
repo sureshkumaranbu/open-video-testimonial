@@ -2,14 +2,20 @@ import fs from "node:fs";
 import { maybeAutoApprove } from "./auto-approve";
 import { fetchImportedMedia, FETCH_MEDIA_JOB } from "./csv-import";
 import { env } from "./env";
+import { registerFormJobs } from "./forms/jobs";
+import { registerImportJobs } from "./importers/jobs";
 import { importArchive, IMPORT_JOB } from "./portability";
 import { registerJob, registerPeriodic, startWorker } from "./jobs";
+import { registerMaintenanceJobs } from "./maintenance";
 import { processVideo, PROCESS_VIDEO_JOB, queueUnprocessedVideos } from "./media";
 import { queueDueReminders, SEND_EMAIL_JOB, sendRequestEmail, sendThankYou, THANK_YOU_JOB } from "./requests";
 import { getTestimonial } from "./testimonials";
 import { queueTranscription, TRANSCRIBE_JOB, transcribeTestimonial } from "./transcribe";
 import { cleanupExpiredUploads } from "./uploads";
 import { cleanupLoginTokens } from "./login-links";
+import { registerNotificationJobs } from "./notifications/jobs";
+import { registerOnboardingJobs } from "./onboarding";
+import { registerStorageJobs } from "./storage-migrate";
 import { deliver, DELIVER_JOB } from "./webhooks";
 
 /** Wires every background job type and periodic task to its handler. */
@@ -51,6 +57,13 @@ export function registerJobs() {
   registerPeriodic("login-links.cleanup", 60 * 60 * 1000, () => cleanupLoginTokens());
   // Hourly: converts older videos, and ones uploaded while ffmpeg was missing.
   registerPeriodic("media.backfill", 60 * 60 * 1000, () => queueUnprocessedVideos());
+  // Phase 1 areas register their own jobs and periodic tasks, so this file stays as it is.
+  registerMaintenanceJobs();
+  registerStorageJobs();
+  registerFormJobs();
+  registerImportJobs();
+  registerNotificationJobs();
+  registerOnboardingJobs();
 }
 
 export function startBackgroundWorker() {

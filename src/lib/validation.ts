@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { TESTIMONIAL_STATUSES } from "@/db/schema";
 
 const optionalText = (max: number) =>
   z
@@ -92,7 +91,8 @@ export const projectUpdateSchema = projectSchema
 export const tagNameSchema = z.string().trim().min(1).max(32);
 
 export const testimonialUpdateSchema = z.object({
-  status: z.enum(TESTIMONIAL_STATUSES).optional(),
+  // Not every status: hidden and trashed need their own handling first (trash only through POST …/trash).
+  status: z.enum(["pending", "approved", "rejected"]).optional(),
   authorName: z.string().trim().min(1).max(120).optional(),
   authorTitle: z.string().trim().max(120).nullable().optional(),
   authorCompany: z.string().trim().max(120).nullable().optional(),
@@ -130,6 +130,46 @@ const FIELD_LABELS: Record<string, string> = {
   tags: "Tags",
   consentScopes: "Consent scopes",
   projectId: "Project",
+  // Phase 1
+  headline: "Headline",
+  authorWebsite: "Website",
+  authorPhone: "Phone",
+  authorSocials: "Social profiles",
+  companyLogo: "Company logo",
+  sourceUrl: "Source link",
+  sourceDate: "Date",
+  datePrecision: "Date precision",
+  sourceReviewId: "Review ID",
+  platform: "Platform",
+  language: "Language",
+  customFields: "Custom fields",
+  hiddenFields: "Hidden fields",
+  isFeatured: "Featured",
+  pinOrder: "Pin order",
+  primaryQuestion: "Question",
+  formId: "Form",
+  formIds: "Forms",
+  customerId: "Customer",
+  website: "Website",
+  businessType: "Business type",
+  brand: "Brand kit",
+  logo: "Logo",
+  confirm: "Confirmation",
+  pages: "Form pages",
+  design: "Design",
+  labels: "Labels",
+  layout: "Layout",
+  closedMessage: "Closed message",
+  autoTags: "Automatic tags",
+  maxPerIpPerDay: "Daily limit per visitor",
+  selectionMode: "Selection",
+  manualIds: "Chosen testimonials",
+  pinnedIds: "Pinned testimonials",
+  connectedFormId: "Connected form",
+  schemaType: "Schema type",
+  target: "Destination",
+  ids: "Testimonials",
+  q: "Search",
 };
 
 /** Fields whose rule is easier to state whole than to derive from the failed check. */
@@ -139,6 +179,13 @@ const FIELD_RULES: Record<string, string> = {
   maxVideoSeconds: "Maximum video length must be a whole number of seconds from 15 to 600",
   scope: "Access must be read or write",
   status: "Status must be pending, approved or rejected",
+  // Phase 1
+  datePrecision: "Date precision must be day, month or year",
+  minRating: "Minimum rating must be a whole number from 1 to 5",
+  allowImages: "Images per answer must be a whole number from 0 to 3",
+  pageSize: "Page size must be 25, 50 or 100",
+  selectionMode: "Selection must be auto or manual",
+  schemaType: "Schema type must be Product, Organization, LocalBusiness, SoftwareApplication or Course",
 };
 
 function fieldOf(path: readonly PropertyKey[] | undefined) {

@@ -48,7 +48,7 @@ export function openApiSpec(serverUrl: string) {
               name: "status",
               in: "query",
               description: "rejected excludes withdrawn testimonials; ask for withdrawn to get those",
-              schema: { type: "string", enum: ["pending", "approved", "rejected", "withdrawn"] },
+              schema: { type: "string", enum: ["pending", "approved", "rejected", "withdrawn", "hidden", "trashed"] },
             },
             { name: "tag", in: "query", schema: { type: "string" } },
             {
@@ -145,7 +145,13 @@ export function openApiSpec(serverUrl: string) {
             createdAt: { type: "string", format: "date-time" },
             counts: {
               type: "object",
-              properties: { pending: { type: "integer" }, approved: { type: "integer" }, rejected: { type: "integer" } },
+              properties: {
+                pending: { type: "integer" },
+                approved: { type: "integer" },
+                rejected: { type: "integer" },
+                hidden: { type: "integer" },
+                trashed: { type: "integer" },
+              },
             },
           },
         },
@@ -156,8 +162,9 @@ export function openApiSpec(serverUrl: string) {
             projectId: { type: "string" },
             status: {
               type: "string",
-              enum: ["pending", "approved", "rejected", "withdrawn"],
-              description: "withdrawn: the author withdrew consent; it can't be published again",
+              enum: ["pending", "approved", "rejected", "withdrawn", "hidden", "trashed"],
+              description:
+                "withdrawn: the author withdrew consent; it can't be published again. hidden: kept for internal use, never public. trashed: in the trash, restorable until it's purged",
             },
             rating: nullable("integer", { minimum: 1, maximum: 5 }),
             text: nullable("string"),

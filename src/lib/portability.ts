@@ -4,7 +4,7 @@ import path from "node:path";
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb, schema } from "@/db";
-import { APPROVERS, type Project } from "@/db/schema";
+import { APPROVERS, type Project, TESTIMONIAL_STATUSES } from "@/db/schema";
 import { listConsentEvents, listConsentVersions, logConsentEvent } from "./consent";
 import { toCsv } from "./csv";
 import { env } from "./env";
@@ -221,7 +221,8 @@ const manifestSchema = z.object({
   testimonials: z.array(
     z.object({
       id: z.string(),
-      status: z.enum(["pending", "approved", "rejected"]),
+      // Every status, so an archive holding hidden or trashed rows still imports.
+      status: z.enum(TESTIMONIAL_STATUSES),
       rating: z.number().int().min(1).max(5).nullable(),
       text: z.string().max(5000).nullable(),
       transcript: z.string().max(50_000).nullable().default(null),

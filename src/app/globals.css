@@ -30,6 +30,12 @@
   --accent: #161b2e;
   --on-accent: #ffffff;
   --stage: #0d1020;
+  /* Phase 1: informational notes, highlighted phrases (INBOX-08), and the shade behind drawers and dialogs. */
+  --info: #2f5bd3;
+  --info-soft: #e8eefc;
+  --highlight: #fff0a8;
+  --highlight-ink: #4a3b00;
+  --scrim: rgb(13 16 32 / 0.48);
 
   /* Type */
   --font-ui: var(--font-schibsted), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -74,6 +80,16 @@
   --dur-base: 180ms;
   --dur-slow: 420ms;
 
+  /* Layers and panels (admin kit: drawer, modal, toast) */
+  --z-sticky: 10;
+  --z-drawer: 40;
+  --z-modal: 50;
+  --z-toast: 60;
+  --drawer-width: min(560px, 100vw);
+  --modal-width: min(520px, calc(100vw - 2 * var(--space-4)));
+  /* Smallest comfortable touch target (WCAG 2.2 asks for 24px; 44px is the house rule). */
+  --tap-size: 44px;
+
   color-scheme: light;
 }
 
@@ -93,6 +109,11 @@
   --warn: #f0b252;
   --warn-soft: #2e2412;
   --danger-soft: #34191a;
+  --info: #8aa8ff;
+  --info-soft: #18213d;
+  --highlight: #4d4216;
+  --highlight-ink: #fff3c4;
+  --scrim: rgb(0 0 0 / 0.6);
   --shadow-1: none;
   --shadow-2: 0 8px 24px -8px rgb(0 0 0 / 0.5);
   --shadow-3: 0 24px 60px -18px rgb(0 0 0 / 0.6);

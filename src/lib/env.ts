@@ -197,4 +197,83 @@ export const env = {
   get jobsPollMs() {
     return Math.max(Number(process.env.JOBS_POLL_MS || 2000), 100);
   },
+
+  // ------------------------------------------------------------- Phase 1
+
+  /** Phase 1 sections that are switched on (see src/lib/features.ts): a comma list, or "all". Off until release. */
+  get features() {
+    return list(process.env.PLAUDIT_FEATURES);
+  },
+  /** Where media files live: "local" (DATA_DIR/uploads, the default) or "s3" (any S3-compatible service). */
+  get storageDriver(): "local" | "s3" {
+    return (process.env.STORAGE_DRIVER || "").trim().toLowerCase() === "s3" ? "s3" : "local";
+  },
+  /** e.g. https://<account>.r2.cloudflarestorage.com or http://localhost:9000 (MinIO). Empty means AWS in S3_REGION. */
+  get s3Endpoint() {
+    const set = (process.env.S3_ENDPOINT || "").trim().replace(/\/+$/, "");
+    return set || `https://s3.${this.s3Region}.amazonaws.com`;
+  },
+  /** R2 uses "auto". */
+  get s3Region() {
+    return (process.env.S3_REGION || "").trim() || "us-east-1";
+  },
+  get s3Bucket() {
+    return (process.env.S3_BUCKET || "").trim();
+  },
+  get s3AccessKeyId() {
+    return process.env.S3_ACCESS_KEY_ID || "";
+  },
+  get s3SecretAccessKey() {
+    return process.env.S3_SECRET_ACCESS_KEY || "";
+  },
+  /** Bucket in the path (http://host/bucket/key) rather than the host name. MinIO usually needs it. */
+  get s3ForcePathStyle() {
+    return process.env.S3_FORCE_PATH_STYLE === "true";
+  },
+  /** Folder for Plaudit's objects inside the bucket: "" or "name/" (always one trailing slash). */
+  get s3Prefix() {
+    const p = (process.env.S3_PREFIX || "").trim().replace(/^\/+|\/+$/g, "");
+    return p ? `${p}/` : "";
+  },
+  /** Your own key for the Google review importer (Places API). */
+  get googlePlacesApiKey() {
+    return process.env.GOOGLE_PLACES_API_KEY || "";
+  },
+  /** Your own token for the Product Hunt importer (GraphQL API v2). */
+  get productHuntToken() {
+    return process.env.PRODUCT_HUNT_TOKEN || "";
+  },
+  /** Days a trashed testimonial is kept before it's deleted for good. */
+  get trashRetentionDays() {
+    const n = Number(process.env.TRASH_RETENTION_DAYS || 30);
+    return Number.isInteger(n) && n > 0 ? n : 30;
+  },
+  /** Hour of the day (UTC, 0–23) when daily and weekly digest emails go out. */
+  get digestHourUtc() {
+    const n = Number(process.env.DIGEST_HOUR_UTC || 8);
+    return Number.isInteger(n) && n >= 0 && n <= 23 ? n : 8;
+  },
+  /**
+   * Only for tests: exact host:port origins (e.g. "127.0.0.1:3198") that
+   * outbound requests may reach although they're private addresses or not on a
+   * chat channel's host allowlist. The guard itself stays on.
+   */
+  get netGuardAllow() {
+    return list(process.env.NET_GUARD_ALLOW);
+  },
+  /**
+   * Only for tests: where importers fetch from instead of the real sites, as
+   * "<adapter>=<base>" pairs. "*=<base>" sends every adapter to <base>/<adapter>.
+   */
+  get importerOrigins(): Record<string, string> {
+    const map: Record<string, string> = {};
+    for (const pair of (process.env.IMPORTER_ORIGINS || "").split(",")) {
+      const at = pair.indexOf("=");
+      if (at <= 0) continue;
+      const id = pair.slice(0, at).trim().toLowerCase();
+      const base = pair.slice(at + 1).trim().replace(/\/+$/, "");
+      if (id && base) map[id] = base;
+    }
+    return map;
+  },
 };
