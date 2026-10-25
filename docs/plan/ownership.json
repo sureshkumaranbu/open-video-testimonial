@@ -192,7 +192,8 @@
       "owns": [
         "src/app/admin/api.ts",
         "src/components/admin/**",
-        "src/app/admin/admin-kit.css"
+        "src/app/admin/admin-kit.css",
+        "tests/admin-kit.test.ts"
       ]
     },
     "1.Z": {
