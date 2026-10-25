@@ -7,7 +7,11 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { GET as widgetFeed } from "@/app/api/widget/[slug]/route";
 import { getDb } from "@/db";
 import { env } from "@/lib/env";
-import { listPublicTestimonials } from "@/lib/testimonials";
+import { getDefaultForm } from "@/lib/forms";
+import { formConfigFromProject, primaryQuestion } from "@/lib/forms/defaults";
+import { DEFAULT_QUESTIONS } from "@/lib/forms/legacy";
+import { parseFormRow } from "@/lib/forms/schema";
+import { getProjectById, listPublicTestimonials } from "@/lib/testimonials";
 import { checkMigrations } from "../scripts/check-migrations.mjs";
 import { checkSchemaDrift } from "../scripts/check-schema-drift.mjs";
 import { MIGRATIONS_DIR, params, useMigrationsUpTo, useTempDataDir } from "./helpers";
@@ -421,7 +425,22 @@ describe("upgrading a 0008 database", () => {
     expect(search("zephyr")).toEqual(["t-beta"]);
   });
 
-  it.todo("hydrates each default form to formConfigFromProject, with DEFAULT_QUESTIONS for empty questions (WP1.2)");
+  it("hydrates each default form to formConfigFromProject, with DEFAULT_QUESTIONS for empty questions (WP1.2)", ({ skip }) => {
+    skip(!tableExists("forms"), NO_FORMS);
+    const projectsBefore = rows("SELECT * FROM projects ORDER BY id");
+    for (const id of ["p-acme", "p-beta"]) {
+      const form = getDefaultForm(id);
+      expect(form.id).toBe(defaultForms()[id]);
+      expect(form).toMatchObject({ layout: "classic", configVersion: 1 });
+      expect(parseFormRow(form)).toEqual(formConfigFromProject(getProjectById(id)!));
+    }
+    const acme = parseFormRow(getDefaultForm("p-acme"));
+    expect(primaryQuestion(acme)?.tips).toEqual(DEFAULT_QUESTIONS);
+    expect(acme.settings.autoApprove).toEqual({ mode: "rating", minRating: 4, includeVideo: false, since: new Date(1792800000000) });
+    expect(primaryQuestion(parseFormRow(getDefaultForm("p-beta")))).toMatchObject({ mode: "video", tips: ["What changed?", "Would you recommend us?"] });
+    // Filling the forms in never touches the project columns they came from.
+    expect(rows("SELECT * FROM projects ORDER BY id")).toEqual(projectsBefore);
+  });
 
   // Last: it changes the database the tests above read.
   it("lets a form be deleted, nulling form_id with no foreign key error (0009)", ({ skip }) => {
