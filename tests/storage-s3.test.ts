@@ -264,6 +264,14 @@ describe("TEAM-05 S3 driver against the fake S3", () => {
     expect(err).toMatchObject({ status: 403, code: "SignatureDoesNotMatch" });
     await expect(wrong.check()).rejects.toThrow(/403.*access denied/);
     await expect(driver({ bucket: "nope" }).check()).rejects.toThrow(/404.*no such bucket/);
+    const refused = async () => {
+      throw new TypeError("fetch failed", { cause: Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }) });
+    };
+    await expect(driver({ fetch: refused }).check()).rejects.toThrow("Couldn't reach S3 at s3.test:9000: ECONNREFUSED (check S3_ENDPOINT)");
+    const slow = async () => {
+      throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+    };
+    await expect(driver({ fetch: slow }).stat(newKey("image", "png"))).rejects.toThrow("S3 at s3.test:9000 didn't answer in time");
     expect(() => driver({ bucket: "" })).toThrow("S3 storage needs S3_BUCKET");
     expect(() => driver({ secretAccessKey: "" })).toThrow("S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY");
     expect(() => driver({ endpoint: "ftp://example.com" })).toThrow("https:// or http://");

@@ -136,7 +136,7 @@ export function createS3Driver(cfg: S3Config): S3Driver {
   ) {
     const signed = signRequest({ method, url, headers: o.headers, payloadHash: o.payloadHash ?? EMPTY_SHA256 }, credentials, scope);
     const waiting = o.headersTimeoutMs ? new AbortController() : null;
-    const timer = waiting ? setTimeout(() => waiting.abort(new Error("S3 didn't answer in time")), o.headersTimeoutMs) : null;
+    const timer = waiting ? setTimeout(() => waiting.abort(), o.headersTimeoutMs) : null;
     try {
       return await doFetch(url, {
         method,
@@ -144,6 +144,14 @@ export function createS3Driver(cfg: S3Config): S3Driver {
         body: o.body,
         signal: waiting?.signal ?? (o.timeoutMs ? AbortSignal.timeout(o.timeoutMs) : undefined),
       });
+    } catch (err) {
+      // fetch only says "fetch failed"; say where, and why.
+      const e = err as Error & { cause?: { code?: string; message?: string } };
+      if (waiting?.signal.aborted || e.name === "TimeoutError" || e.name === "AbortError") {
+        throw new S3Error(0, "Timeout", `S3 at ${url.host} didn't answer in time`);
+      }
+      const why = e.cause?.code ?? e.cause?.message ?? e.message;
+      throw new S3Error(0, e.cause?.code ?? null, `Couldn't reach S3 at ${url.host}: ${why} (check S3_ENDPOINT)`);
     } finally {
       if (timer) clearTimeout(timer);
     }

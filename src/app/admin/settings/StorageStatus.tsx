@@ -110,7 +110,7 @@ export function StorageStatus({ isOwner }: { isOwner: boolean }) {
         <div className="panel-body stack">
           <dl className="status-list">
             <dt>Where</dt>
-            <dd>{s.driver === "s3" ? `S3-compatible bucket "${s.bucket ?? ""}"${s.prefix ? `, folder ${s.prefix}` : ""}` : "Local disk (DATA_DIR/uploads)"}</dd>
+            <dd>{s.driver === "s3" ? `S3-compatible bucket “${s.bucket ?? ""}”${s.prefix ? `, folder ${s.prefix}` : ""}` : "Local disk (DATA_DIR/uploads)"}</dd>
             {s.driver === "s3" && (
               <>
                 <dt>Endpoint</dt>
