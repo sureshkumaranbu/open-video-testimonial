@@ -412,7 +412,7 @@ The Playwright run starts the server with these settings, so every feature is te
 | `e2e/sign-in.spec.ts` | The sign-in page, email links, Google and Apple, inviting and removing teammates |
 | `e2e/security.spec.ts` | Security headers and CSP, media takedown, bad private links, rate limits |
 | `e2e/project-settings.spec.ts` | Project settings: changing the link with old links still working, typed delete, brand kit, tags manager, phone layout |
-| `e2e/security-settings.spec.ts` | Project settings: headers and CSP, cross-site requests refused, the logo served safely |
+| `e2e/security-settings.spec.ts` | Project settings: headers and CSP, cross-site changes refused, the logo served only as an image, old links that stay on this server |
 
 To test a running instance instead, for example `docker compose up`, set `E2E_BASE_URL=http://127.0.0.1:3000`. Its `E2E_ADMIN_EMAIL` and `E2E_ADMIN_PASSWORD` must match that instance's admin credentials. Tests that need the outbox, the stand-in transcriber or a local webhook receiver skip themselves when those aren't available. `UPDATE_SCREENSHOTS=1` refreshes the images in `docs/screenshots/`.
 
