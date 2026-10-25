@@ -8,7 +8,7 @@ import { normaliseCaptions, vttToText } from "./captions";
 import { env } from "./env";
 import { enqueue, PermanentJobError } from "./jobs";
 import { extractAudio, ffmpegAvailable, probe } from "./media";
-import { resolveKey } from "./storage";
+import { storage } from "./storage";
 import { getTestimonial } from "./testimonials";
 import { emitTestimonialEvent } from "./webhooks";
 
@@ -129,9 +129,11 @@ export async function transcribeTestimonial(testimonialId: string, opts: { willR
   await fs.promises.mkdir(env.tmpDir, { recursive: true });
   const wav = path.join(env.tmpDir, `audio-${crypto.randomUUID()}.wav`);
   try {
-    const input = resolveKey(key);
-    if (!(await probe(input)).hasAudio) throw new PermanentJobError("The video has no sound to transcribe");
-    await extractAudio(input, wav);
+    // On S3 the video is downloaded only while its audio is extracted.
+    await storage().withLocalFile(key, async (input) => {
+      if (!(await probe(input)).hasAudio) throw new PermanentJobError("The video has no sound to transcribe");
+      await extractAudio(input, wav);
+    });
     const result = await transcribeFile(wav);
     if (!getDb().select({ id: testimonials.id }).from(testimonials).where(eq(testimonials.id, row.id)).get()) return;
     setStatus(row.id, {
