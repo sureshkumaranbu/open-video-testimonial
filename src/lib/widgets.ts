@@ -16,6 +16,7 @@ import {
   type WidgetPayload,
 } from "./widget-config";
 import { feedAggregate, listFeed } from "./public-feed";
+import { accentStyle } from "./theme";
 import { firstIssue } from "./validation";
 
 export * from "./widget-config";
@@ -224,16 +225,17 @@ export function ctaLinks(project: Pick<Project, "id" | "slug">, formId: string |
 export function toPublicWidget(
   w: Pick<Widget, "id">,
   cfg: WidgetConfig,
-  ctx: { cta: { url: string; embedUrl: string } | null; wallUrl: string },
+  ctx: { cta: { url: string; embedUrl: string } | null; wallUrl: string; projectAccent?: string },
 ): PublicWidget {
   const { font, firstNameOnly, ...design } = cfg.design;
   void firstNameOnly;
   const f = WIDGET_FONTS.find((x) => x.id === font) ?? WIDGET_FONTS[0];
+  const accent = design.accent || ctx.projectAccent || "#0f766e";
   return {
     id: w.id,
     layout: cfg.layout,
     sort: cfg.filters.sort === "random" ? "random" : null,
-    design: { ...design, fontFamily: f.family, fontFile: f.file },
+    design: { ...design, fontFamily: f.family, fontFile: f.file, accent, onAccent: accentStyle(accent)["--on-accent"] },
     options: { ...cfg.options },
     labels: { ...cfg.labels },
     cta: cfg.cta.enabled && ctx.cta ? { mode: cfg.cta.mode, url: ctx.cta.url, embedUrl: ctx.cta.embedUrl } : null,
@@ -279,7 +281,7 @@ export function widgetPayload(
   const aggregate = feedAggregate(project.id, cfg.filters, { scope: cfg.aggregate.scope, mode: sel.mode, manualIds: sel.manualIds });
   return {
     project: { name: project.name, slug: project.slug, accentColor: project.accentColor },
-    widget: toPublicWidget(w, cfg, { cta: ctaLinks(project, w.connectedFormId), wallUrl: `/wall/${project.slug}` }),
+    widget: toPublicWidget(w, cfg, { cta: ctaLinks(project, w.connectedFormId), wallUrl: `/wall/${project.slug}`, projectAccent: project.accentColor }),
     testimonials,
     aggregate,
   };

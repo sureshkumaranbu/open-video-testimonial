@@ -3,6 +3,7 @@ import { TestimonialGrid } from "@/components/TestimonialCard";
 import { findProjectBySlugOrAlias, withQuery } from "@/lib/projects";
 import { listPublicTestimonials } from "@/lib/testimonials";
 import { accentStyle, parseTheme } from "@/lib/theme";
+import { getWidget, WIDGET_ID } from "@/lib/widgets";
 
 export const dynamic = "force-dynamic";
 
@@ -22,9 +23,29 @@ const RESIZE_SCRIPT = `(function(){
   window.addEventListener("load", send);
 })();`;
 
-/** Iframe-embeddable grid of approved testimonials. */
+/**
+ * The hosted link of a saved widget (D8: /embed/w_…), also used as its iframe
+ * snippet. It runs the real widget.js, so it looks exactly like the script
+ * embed, and posts its height like the project embed does.
+ */
+function HostedWidget({ id }: { id: string }) {
+  return (
+    <div id="plaudit-embed" data-slug={id} className="embed-body">
+      <style>{`html,body{background:transparent!important;margin:0}#plaudit-root{padding:12px}`}</style>
+      <div id="plaudit-root" />
+      <script src="/widget.js" data-widget={id} data-target="#plaudit-root" />
+      <script dangerouslySetInnerHTML={{ __html: RESIZE_SCRIPT }} />
+    </div>
+  );
+}
+
+/** Iframe-embeddable grid of approved testimonials, or a saved widget for a `w_…` id. */
 export default async function EmbedPage({ params, searchParams }: Props) {
   const { slug } = await params;
+  if (WIDGET_ID.test(slug)) {
+    if (!getWidget(slug)) notFound();
+    return <HostedWidget id={slug} />;
+  }
   const query = await searchParams;
   const { theme, tag, limit } = query;
   const found = findProjectBySlugOrAlias(slug);

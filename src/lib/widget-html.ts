@@ -87,7 +87,7 @@ function css(w: PublicWidget, accent: string) {
   const p = (light: string, darkV: string) => (dark ? darkV : light);
   const root = ".plaudit-include";
   return (
-    `${root}{--accent:${hexOr(d.accent, accent)};--card:${hexOr(d.card, p("#ffffff", "#171b2b"))};--text:${hexOr(d.text, p("#161b2e", "#eef0f6"))};` +
+    `${root}{--accent:${hexOr(d.accent, accent)};--on:${d.onAccent};--card:${hexOr(d.card, p("#ffffff", "#171b2b"))};--text:${hexOr(d.text, p("#161b2e", "#eef0f6"))};` +
     `--muted:${hexOr(d.dateColor, p("#545c70", "#a4abbd"))};--border:${hexOr(d.border, p("#e3e6ec", "#262c40"))};--star:${hexOr(d.star, "#f2a93b")};` +
     `--star-off:${p("#dfe2e8", "#343b52")};background:${hexOr(d.background, "transparent")};color:var(--text);` +
     `font-family:${d.fontFamily || "ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif"};line-height:1.55;` +

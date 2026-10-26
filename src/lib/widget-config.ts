@@ -189,6 +189,8 @@ export const labelsSchema = z.object({
   previous: label("Previous"),
   next: label("Next"),
   dismiss: label("Dismiss"),
+  pause: label("Pause"),
+  play: label("Play"),
 });
 
 /** DISP-06. */
@@ -251,7 +253,13 @@ export type PublicWidget = {
   id: string;
   layout: WidgetLayout;
   sort: "random" | null;
-  design: Omit<WidgetDesign, "font" | "firstNameOnly"> & { fontFamily: string; fontFile: string | null };
+  design: Omit<WidgetDesign, "font" | "firstNameOnly"> & {
+    fontFamily: string;
+    fontFile: string | null;
+    /** The accent actually used (the design's, else the project's) and readable text on it (same formula as the app). */
+    accent: string;
+    onAccent: string;
+  };
   options: WidgetOptions;
   labels: WidgetLabels;
   cta: { mode: "link" | "popup"; url: string; embedUrl: string } | null;
