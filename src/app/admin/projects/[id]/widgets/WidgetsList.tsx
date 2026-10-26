@@ -73,7 +73,7 @@ export function WidgetsList({ projectId, initial }: Props) {
           <div className="ws-new">
             <label>
               New widget name
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} required placeholder="Home page wall" />
+              <input id="new-widget-name" type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} required placeholder="Home page wall" />
             </label>
             <label>
               Where it goes
@@ -122,7 +122,16 @@ export function WidgetsList({ projectId, initial }: Props) {
       )}
 
       {widgets.length === 0 ? (
-        <EmptyState icon="layout" title="No widgets yet" testId="widgets-empty">
+        <EmptyState
+          icon="layout"
+          title="No widgets yet"
+          testId="widgets-empty"
+          action={
+            <button type="button" onClick={() => document.getElementById("new-widget-name")?.focus()}>
+              Create a widget
+            </button>
+          }
+        >
           <p>Create one above to show your testimonials on your site. Embeds that use your project&apos;s slug keep working.</p>
         </EmptyState>
       ) : (

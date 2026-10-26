@@ -108,7 +108,16 @@ export function FormsList({ projectId, initial, templates }: Props) {
         </p>
       )}
       {shown.length === 0 ? (
-        <EmptyState title="No forms match" icon="search">
+        <EmptyState
+          title="No forms match"
+          icon="search"
+          testId="forms-empty"
+          action={
+            <button type="button" className="secondary" onClick={() => setQ("")}>
+              Clear the search
+            </button>
+          }
+        >
           Try another word, or clear the search.
         </EmptyState>
       ) : (

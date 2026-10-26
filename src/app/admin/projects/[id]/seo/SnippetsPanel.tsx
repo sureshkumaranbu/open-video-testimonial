@@ -95,7 +95,16 @@ export function SnippetsPanel({ projectId, projectName, origin, tags, forms, ini
       )}
 
       {snippets.length === 0 && !creating && (
-        <EmptyState icon="code" title="No snippets yet" testId="snippets-empty">
+        <EmptyState
+          icon="code"
+          title="No snippets yet"
+          testId="snippets-empty"
+          action={
+            <button type="button" onClick={() => setCreating(true)}>
+              Create a snippet
+            </button>
+          }
+        >
           <p>Create one to add review stars data to a page on your own site.</p>
         </EmptyState>
       )}

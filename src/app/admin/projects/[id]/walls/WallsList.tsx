@@ -45,7 +45,7 @@ export function WallsList({ projectId, projectSlug, initial }: Props) {
         <div className="panel-body wl-new">
           <label>
             New wall name
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} required placeholder="Customer love" />
+            <input id="new-wall-name" type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} required placeholder="Customer love" />
           </label>
           <button type="submit" className="accent" disabled={busy || !name.trim()}>
             <Icon name="plus" />
@@ -76,7 +76,16 @@ export function WallsList({ projectId, projectSlug, initial }: Props) {
       )}
 
       {walls.length === 0 ? (
-        <EmptyState icon="star" title="No walls yet" testId="walls-empty">
+        <EmptyState
+          icon="star"
+          title="No walls yet"
+          testId="walls-empty"
+          action={
+            <button type="button" onClick={() => document.getElementById("new-wall-name")?.focus()}>
+              Create a wall
+            </button>
+          }
+        >
           <p>Create one above. Your current wall page stays as it is.</p>
         </EmptyState>
       ) : (

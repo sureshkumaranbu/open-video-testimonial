@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { EmailStatus, Project, RequestStatus } from "@/db/schema";
+import { EmptyState } from "@/components/admin";
 import { Icon } from "@/components/Icon";
 
 type Row = {
@@ -180,10 +181,18 @@ export function Requests({ project, email, defaults }: Props) {
             </p>
           )}
           {rows.length === 0 ? (
-            <div className="empty">
-              <Icon name="inbox" />
-              <p>Nobody asked yet. Add people on the right.</p>
-            </div>
+            <EmptyState
+              icon="mail"
+              title="No requests yet"
+              testId="requests-empty"
+              action={
+                <button type="button" onClick={() => document.getElementById("request-people")?.focus()}>
+                  Invite people
+                </button>
+              }
+            >
+              <p>Nobody asked yet. Add people to email them a personal link to your form.</p>
+            </EmptyState>
           ) : (
             <div className="table-wrap panel">
               <table className="data-table">
@@ -248,6 +257,7 @@ export function Requests({ project, email, defaults }: Props) {
                   People <span className="hint">(one per line: name, email, company; or paste a CSV with a header row)</span>
                 </span>
                 <textarea
+                  id="request-people"
                   rows={6}
                   value={recipients}
                   onChange={(e) => setRecipients(e.target.value)}

@@ -6,7 +6,7 @@ import type { SystemStatus } from "@/lib/system";
 import { accentStyle } from "@/lib/theme";
 import { toInboxParams, type InboxPrefs, type InboxQuery } from "@/lib/inbox-query";
 import { api, errorMessage } from "@/app/admin/api";
-import { Toast, useSelection } from "@/components/admin";
+import { EmptyState, Toast, useSelection } from "@/components/admin";
 import { Icon } from "@/components/Icon";
 import { AutoApprovePanel, EmbedPanel, ProjectHead, SettingsPanel } from "../Dashboard";
 import { ManualAddModal } from "../ManualAddModal";
@@ -340,7 +340,21 @@ export function Inbox({
           ) : (
             <>
               {!page && !error && <p className="muted">Loading testimonials…</p>}
-              {page && items.length === 0 && (
+              {page && items.length === 0 && !filters.length && !query.q && tab !== "trash" && page.counts.all === 0 && (page.counts.trash ?? 0) === 0 ? (
+                // ONB-06: a project with nothing yet gets one clear next step.
+                <EmptyState
+                  icon="inbox"
+                  title="No testimonials yet"
+                  testId="inbox-empty"
+                  action={
+                    <a className="button" href={`${publicUrl}/c/${project.slug}`} target="_blank" rel="noreferrer">
+                      Open your collection form
+                    </a>
+                  }
+                >
+                  <p>{EMPTY_TEXT[tab]} Share the link with customers, or import reviews you already have from Import &amp; export.</p>
+                </EmptyState>
+              ) : page && items.length === 0 && (
                 <div className="empty">
                   <Icon name="inbox" />
                   <p>{filters.length || query.q ? "Nothing matches these filters. Remove one to see more." : EMPTY_TEXT[tab]}</p>
