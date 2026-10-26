@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Forms** (behind the `forms` preview flag). See [`docs/help/forms.md`](docs/help/forms.md).
+  - Several forms per project, each at `/f/<project>/<form>`, made blank or from one of 8 templates. A step-by-step page shows one step per screen with a progress bar; Back keeps every answer, and a recording keeps uploading while people move between steps.
+  - Up to 10 questions, each answered by video, text or either, with its own tips, video length and up to 3 images. Questions can be **optional**. Private questions go to private feedback, never published.
+  - Custom fields (text, dropdown with an optional tag per choice, checkbox, NPS, web address, number), hidden fields from the link (`?utm_source=`), prefill (`?name=&email=…`) that can be locked, and "keep it private" consent.
+  - Design (logo, colours, self-hosted fonts, width, buttons, radius, light or dark) and 11 languages, with right-to-left Arabic. Translations other than English need native review.
+  - Per-form rules: auto-approve (every testimonial, a minimum rating, text only, or public consent), auto-tags, pause with a closed message, a per-IP daily limit, the receipt template, and form webhooks. They apply to the classic page too.
+  - The builder previews every change with the real form at desktop, tablet and phone width, and asks before leaving only when something is unsaved. The share panel has the link, a QR code (PNG or SVG) and inline, popup and iframe embeds (`/form.js`, [`docs/EMBED.md`](docs/EMBED.md)).
+  - The thank-you page can offer "copy my words" and share links (only with social consent), and a different message for 3 stars or fewer.
+  - The inbox card shows a form submission's other answers (videos with captions), private feedback, custom and hidden fields. Answer videos are converted and transcribed like the main one, stay private, and auto-approve waits for all of them.
+  - Request links can open a chosen form. Webhooks `form.submitted` and `feedback.created` (opt-in) are now sent.
+  - The classic page at `/c/<project>` is unchanged until you **Switch to step-by-step**; then it forwards visitors, `?r=` and all, to the new page. Switching Video → Write → Video on the classic page no longer loses the recording.
 - **Keep media in an S3-compatible bucket** (AWS S3, Cloudflare R2, Backblaze B2, MinIO and others) with `STORAGE_DRIVER=s3` and the `S3_*` settings. Local disk stays the default. See [Media storage](README.md#media-storage-s3).
   - The bucket stays private: uploads are still checked on your server, and every file is streamed back through Plaudit under the same privacy rules.
   - **Settings → Media storage** shows where media is kept and whether the bucket works. The owner can **Copy local media to S3**, which is safe to run again; files not copied yet are served from local disk meanwhile.
@@ -10,7 +21,7 @@
   - `hidden` keeps a testimonial for your own use and off your site. The API can set it.
   - `trashed` testimonials are off your site and can be restored with their old status, until they're deleted for good after `TRASH_RETENTION_DAYS` (30). API lists leave them out unless you ask for `status=trashed`. `DELETE` still deletes at once.
   - Approving a testimonial whose author asked to keep it private is refused (`409`).
-  - New webhook events `testimonial.hidden`, `testimonial.trashed` and `testimonial.restored`. Endpoints with no events ticked get them too, so every takedown reaches them. New opt-in events: `testimonial.updated` (content edits), and `form.submitted`, `feedback.created` and `import.completed`, which are sent once those features are released.
+  - New webhook events `testimonial.hidden`, `testimonial.trashed` and `testimonial.restored`. Endpoints with no events ticked get them too, so every takedown reaches them. New opt-in events: `testimonial.updated` (content edits), `form.submitted` and `feedback.created`, and `import.completed`, which is sent once importers are released.
 - **More in each testimonial**, in the API, webhooks and exports: the form it came through, a headline, answers to further questions, images, the author's phone, website, social profiles and company logo, where a review was first posted and when (to the day, month or year), language, custom and hidden fields, featured and pin order, private consent and when it was trashed. `POST` and `PATCH` accept the editable ones. See [`docs/API.md`](docs/API.md#a-testimonial).
 - **Exports carry everything new**: forms, customers, private feedback, widgets, walls, SEO snippets and old links, plus answers, images, highlights and edit history. The format is still version 1:
   - Older Plaudit versions can still import new exports. Hidden and trashed testimonials arrive there as rejected, and `statusV2` in `plaudit.json` keeps the real status.

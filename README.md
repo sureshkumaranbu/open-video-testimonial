@@ -313,7 +313,7 @@ Plaudit is gaining multi-step forms, a new inbox, a widget studio, walls, review
 
 | Flag | What it shows |
 |---|---|
-| `forms` | **Project settings** in each project: change its link (old links keep working), delete it by typing its name (owner only), a brand kit with logo, colours and fonts, and a tags manager to rename, merge and delete tags. A **Forms** tab is still a placeholder |
+| `forms` | **Forms**: several forms per project with a builder (questions answered by video or text, optional questions, custom and hidden fields, design, 11 languages, per-form rules, templates) and a share panel with QR codes and embeds. See [`docs/help/forms.md`](docs/help/forms.md) and [`docs/EMBED.md`](docs/EMBED.md). Also **Project settings**: change a project's link (old links keep working), delete it by typing its name (owner only), a brand kit with logo, colours and fonts, and a tags manager |
 | `widgets`, `walls` | Placeholder **Widgets**, **Walls** and **SEO** tabs |
 | `inbox2`, `importers`, `notifications`, `onboarding` | Nothing yet |
 
@@ -431,6 +431,7 @@ To test a running instance instead, for example `docker compose up`, set `E2E_BA
 - [`docs/AUTH.md`](docs/AUTH.md): sign-in with Google, Apple or an email link, and your team.
 - [`docs/EMAIL.md`](docs/EMAIL.md): setting up email.
 - [`docs/API.md`](docs/API.md): REST API and webhooks.
+- [`docs/help/forms.md`](docs/help/forms.md): forms and the form builder; [`docs/EMBED.md`](docs/EMBED.md): embedding a form on your site.
 - [`docs/SPEC.md`](docs/SPEC.md): product spec, what's shipped, and the roadmap.
 - [`docs/research/feature-opportunities.md`](docs/research/feature-opportunities.md): the research behind the current features.
 - [`docs/research/senja-teardown.md`](docs/research/senja-teardown.md): clean-room notes on how an existing commercial tool behaves.

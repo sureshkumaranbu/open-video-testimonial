@@ -10,6 +10,10 @@ import type { Form, FormLayout, FormStatus } from "@/db/schema";
  * toPublicForm (WP2.2 extends the page types later).
  */
 
+// In the browser zod would probe `new Function` for its fast path, which the
+// pages' Content Security Policy reports as a violation: run without it there.
+if (typeof window !== "undefined") z.config({ jitless: true });
+
 export const PAGE_TYPES = ["rating", "welcome", "question", "feedback", "consent", "about_you", "about_company", "review", "thank_you"] as const;
 export type PageType = (typeof PAGE_TYPES)[number];
 /** How a question may be answered. */
