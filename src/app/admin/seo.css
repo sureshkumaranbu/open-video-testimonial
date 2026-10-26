@@ -1,0 +1,104 @@
+/* SEO page (SEO-01, SEO-02): review snippets and the result preview. */
+
+.seo-title {
+  font-size: var(--text-lg, 1.125rem);
+  margin: 0;
+}
+
+.seo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.seo-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.seo-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.seo-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: var(--space-3) var(--space-4);
+}
+
+.seo-guidance {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.seo-guidance li {
+  padding: var(--space-2) var(--space-3);
+  border-radius: 8px;
+  background: var(--surface-2);
+  border-left: 3px solid var(--line-strong);
+  color: var(--ink-2);
+  font-size: 0.92rem;
+}
+
+.seo-guidance li[data-level="warn"] {
+  border-left-color: #c2410c;
+  background: color-mix(in srgb, #f59e0b 12%, var(--surface));
+  color: var(--ink);
+}
+
+.seo-result {
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px dashed var(--line-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  max-width: 600px;
+  display: grid;
+  gap: 2px;
+}
+
+.seo-result figcaption {
+  font-size: 0.78rem;
+  margin-bottom: var(--space-2);
+}
+
+.seo-result-url {
+  font-size: 0.85rem;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+.seo-result-title {
+  font-size: 1.15rem;
+  color: #1a4fd1;
+}
+
+[data-theme="dark"] .seo-result-title {
+  color: #8fb0ff;
+}
+
+.seo-result-stars {
+  font-size: 0.88rem;
+  color: var(--ink-2);
+}
+
+.seo-result-stars span {
+  color: #e8a33d;
+  letter-spacing: 1px;
+}
+
+.seo-result-text {
+  font-size: 0.9rem;
+  color: var(--ink-2);
+}

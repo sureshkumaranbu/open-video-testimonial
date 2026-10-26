@@ -147,6 +147,22 @@ export function feedAggregate(
   return { count: row?.n ?? 0, average: avg == null ? null : Math.round(avg * 10) / 10 };
 }
 
+/**
+ * Rated public testimonials that match `filters` (before any LIMIT): their
+ * count and average. schema.org's AggregateRating counts ratings, so the
+ * unrated ones that feedAggregate counts are left out (SEO-01, WALL-03).
+ */
+export function ratingSummary(projectId: string, filters: PublicFilters): FeedAggregate {
+  const f = publicFiltersSchema.parse(filters ?? {});
+  const row = getDb()
+    .select({ n: sql<number>`count(${testimonials.rating})`, avg: sql<number | null>`avg(${testimonials.rating})` })
+    .from(testimonials)
+    .where(and(...filterConditions(projectId, f), sql`${testimonials.rating} BETWEEN 1 AND 5`))
+    .get();
+  const avg = row?.avg;
+  return { count: row?.n ?? 0, average: avg == null ? null : Math.round(avg * 10) / 10 };
+}
+
 const firstName = (name: string) => name.trim().split(/\s+/)[0] || name;
 const httpOnly = (url: string | null) => (url && /^https?:\/\//i.test(url) ? url : null);
 
