@@ -3,6 +3,8 @@ import { CaptionsError, normaliseCaptions } from "@/lib/captions";
 import { jsonError, requireAdmin } from "@/lib/http";
 import { ConsentWithdrawnError, deleteTestimonial, DuplicateReviewError, NoPublicConsentError, updateTestimonial } from "@/lib/testimonials";
 import { firstIssue, testimonialUpdateSchema } from "@/lib/validation";
+// Registers the notifications listener in this route's bundle (approvals post to chat channels).
+import "@/lib/notifications";
 
 type Ctx = { params: Promise<{ id: string }> };
 

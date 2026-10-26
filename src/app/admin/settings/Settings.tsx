@@ -19,9 +19,12 @@ type Hook = {
   secret: string;
   events: string[];
   projectId: string | null;
+  formId: string | null;
   active: boolean;
   createdAt: string;
 };
+
+type FormOption = { id: string; name: string; projectId: string };
 
 type Delivery = {
   id: string;
@@ -65,15 +68,18 @@ export function Settings({
   apiBase,
   events,
   projects,
+  forms = [],
 }: {
   apiBase: string;
   events: string[];
   projects: { id: string; name: string }[];
+  /** For the webhook editor's "only this form" choice (FORM-10). */
+  forms?: FormOption[];
 }) {
   return (
     <>
       <ApiKeys apiBase={apiBase} />
-      <Webhooks events={events} projects={projects} />
+      <Webhooks events={events} projects={projects} forms={forms} />
     </>
   );
 }
@@ -203,7 +209,7 @@ function ApiKeys({ apiBase }: { apiBase: string }) {
   );
 }
 
-function Webhooks({ events, projects }: { events: string[]; projects: { id: string; name: string }[] }) {
+function Webhooks({ events, projects, forms }: { events: string[]; projects: { id: string; name: string }[]; forms: FormOption[] }) {
   const [hooks, setHooks] = useState<Hook[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -287,16 +293,29 @@ function Webhooks({ events, projects }: { events: string[]; projects: { id: stri
           </p>
         )}
         {hooks.map((h) => (
-          <WebhookRow key={h.id} hook={h} projects={projects} onChange={load} />
+          <WebhookRow key={h.id} hook={h} projects={projects} forms={forms} events={events} onChange={load} />
         ))}
       </div>
     </section>
   );
 }
 
-function WebhookRow({ hook, projects, onChange }: { hook: Hook; projects: { id: string; name: string }[]; onChange: () => Promise<void> }) {
+function WebhookRow({
+  hook,
+  projects,
+  forms,
+  events,
+  onChange,
+}: {
+  hook: Hook;
+  projects: { id: string; name: string }[];
+  forms: FormOption[];
+  events: string[];
+  onChange: () => Promise<void>;
+}) {
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [showSecret, setShowSecret] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const loadDeliveries = useCallback(async () => {
     setDeliveries((await api<{ deliveries: Delivery[] }>(`/api/admin/webhooks/${hook.id}/deliveries`)).deliveries);
@@ -313,6 +332,7 @@ function WebhookRow({ hook, projects, onChange }: { hook: Hook; projects: { id: 
   }, [pending, loadDeliveries]);
 
   const project = projects.find((p) => p.id === hook.projectId)?.name ?? "All projects";
+  const formName = hook.formId ? (forms.find((f) => f.id === hook.formId)?.name ?? "one form") : null;
 
   return (
     <article className="card stack" data-testid="webhook" data-active={hook.active}>
@@ -320,7 +340,8 @@ function WebhookRow({ hook, projects, onChange }: { hook: Hook; projects: { id: 
         <div style={{ minWidth: 0 }}>
           <strong style={{ wordBreak: "break-all" }}>{hook.url}</strong>
           <div className="muted xsmall">
-            {project} · {hook.events.length ? hook.events.join(", ") : "default events"}
+            {project}
+            {formName && ` · only “${formName}”`} · {hook.events.length ? hook.events.join(", ") : "default events"}
             {!hook.active && " · paused"}
           </div>
         </div>
@@ -334,6 +355,9 @@ function WebhookRow({ hook, projects, onChange }: { hook: Hook; projects: { id: 
             }}
           >
             Send test event
+          </button>
+          <button type="button" className="ghost small" aria-expanded={editing} onClick={() => setEditing((v) => !v)}>
+            Edit
           </button>
           <button
             type="button"
@@ -359,6 +383,18 @@ function WebhookRow({ hook, projects, onChange }: { hook: Hook; projects: { id: 
           </button>
         </div>
       </div>
+      {editing && (
+        <WebhookEditor
+          hook={hook}
+          projects={projects}
+          forms={forms}
+          events={events}
+          onDone={async (saved) => {
+            setEditing(false);
+            if (saved) await onChange();
+          }}
+        />
+      )}
       <div className="row small">
         <span>Signing secret:</span>
         {showSecret ? (
@@ -442,5 +478,110 @@ function WebhookRow({ hook, projects, onChange }: { hook: Hook; projects: { id: 
         )}
       </details>
     </article>
+  );
+}
+
+/** Changes a webhook's URL, events, project and form in place (PRD §19); the secret and the delivery log stay. */
+function WebhookEditor({
+  hook,
+  projects,
+  forms,
+  events,
+  onDone,
+}: {
+  hook: Hook;
+  projects: { id: string; name: string }[];
+  forms: FormOption[];
+  events: string[];
+  onDone: (saved: boolean) => Promise<void>;
+}) {
+  const [url, setUrl] = useState(hook.url);
+  const [projectId, setProjectId] = useState(hook.projectId ?? "");
+  const [formId, setFormId] = useState(hook.formId ?? "");
+  const [chosen, setChosen] = useState<string[]>(hook.events);
+  const [error, setError] = useState<string | null>(null);
+  const projectForms = forms.filter((f) => f.projectId === projectId);
+  return (
+    <form
+      className="stack"
+      data-testid="webhook-editor"
+      style={{ borderTop: "1px solid var(--line)", paddingTop: "var(--space-3)" }}
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setError(null);
+        try {
+          await api(`/api/admin/webhooks/${hook.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ url, events: chosen, projectId: projectId || null, formId: projectId && formId ? formId : null }),
+          });
+          await onDone(true);
+        } catch (err) {
+          setError((err as Error).message);
+        }
+      }}
+    >
+      <div className="row">
+        <label style={{ flex: "2 1 260px" }}>
+          Endpoint URL
+          <input type="url" required value={url} onChange={(e) => setUrl(e.target.value)} />
+        </label>
+        <label style={{ flex: "1 1 160px" }}>
+          Project
+          <select
+            value={projectId}
+            onChange={(e) => {
+              setProjectId(e.target.value);
+              setFormId("");
+            }}
+          >
+            <option value="">All projects</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {projectId && projectForms.length > 0 && (
+          <label style={{ flex: "1 1 160px" }}>
+            Form
+            <select value={formId} onChange={(e) => setFormId(e.target.value)}>
+              <option value="">Every form</option>
+              {projectForms.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
+      <fieldset className="event-grid" style={{ border: 0, padding: 0, margin: 0 }}>
+        <legend className="small" style={{ fontWeight: 600, marginBottom: "var(--space-2)" }}>
+          Events <span className="hint">(none ticked = the default set)</span>
+        </legend>
+        {events.map((ev) => (
+          <label key={ev} className="check small">
+            <input
+              type="checkbox"
+              checked={chosen.includes(ev)}
+              onChange={(e) => setChosen(e.target.checked ? [...chosen, ev] : chosen.filter((x) => x !== ev))}
+            />
+            <code>{ev}</code>
+          </label>
+        ))}
+      </fieldset>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="row">
+        <button type="submit">Save webhook</button>
+        <button type="button" className="ghost" onClick={() => void onDone(false)}>
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }

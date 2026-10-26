@@ -272,7 +272,7 @@ export function SettingsEditor({
       <Toggle label="Suggest turning the phone sideways before recording" checked={s.landscapePrompt} onChange={(landscapePrompt) => set({ landscapePrompt })} />
       <Toggle label="Hide this form from search engines" checked={s.noindex} onChange={(noindex) => set({ noindex })} />
 
-      <NotifySection projectId={project.id} formId={form.id} />
+      <NotifySection projectId={project.id} formId={form.id} value={s.notify.channelIds} onChange={(channelIds) => set({ notify: { channelIds } })} />
       <FormWebhooks projectId={project.id} formId={form.id} />
     </div>
   );

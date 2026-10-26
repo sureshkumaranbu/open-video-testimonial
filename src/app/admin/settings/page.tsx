@@ -5,6 +5,7 @@ import { callbackUrl } from "@/lib/oidc";
 import { requireAdminPage } from "@/lib/server-session";
 import { signInMethods } from "@/lib/sign-in";
 import { systemStatus } from "@/lib/system";
+import { listForms } from "@/lib/forms";
 import { listProjects } from "@/lib/testimonials";
 import { AppBar } from "../AppBar";
 import { EmailTest } from "./EmailTest";
@@ -21,7 +22,9 @@ export default async function SettingsPage() {
   const system = await systemStatus();
   const signIn = signInMethods();
   const missing = (list: string[]) => `Off: set ${list.join(", ")}`;
-  const projects = listProjects().map((p) => ({ id: p.id, name: p.name }));
+  const projectRows = listProjects();
+  const projects = projectRows.map((p) => ({ id: p.id, name: p.name }));
+  const forms = projectRows.flatMap((p) => listForms(p.id).map((f) => ({ id: f.id, name: f.name, projectId: p.id })));
   return (
     <>
       <AppBar trail={[{ label: "Settings" }]} />
@@ -102,7 +105,7 @@ export default async function SettingsPage() {
 
         {featureOn("notifications") && <Notifications email={session.email} projects={projects} />}
 
-        <Settings apiBase={`${env.publicUrl}/api/v1`} events={[...WEBHOOK_EVENTS]} projects={projects} />
+        <Settings apiBase={`${env.publicUrl}/api/v1`} events={[...WEBHOOK_EVENTS]} projects={projects} forms={forms} />
       </main>
     </>
   );

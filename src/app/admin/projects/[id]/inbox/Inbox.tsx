@@ -67,6 +67,7 @@ export function Inbox({
   initialQuery,
   initialPrefs,
   widgetStudio,
+  initialOpenId,
 }: {
   project: Project;
   publicUrl: string;
@@ -74,6 +75,8 @@ export function Inbox({
   initialQuery: InboxQuery;
   initialPrefs: InboxPrefs;
   widgetStudio?: string;
+  /** Opens this testimonial in the drawer at once (the "Review and approve" link in notifications). */
+  initialOpenId?: string;
 }) {
   const [project, setProject] = useState(initialProject);
   const [query, setQuery] = useState<InboxQuery>(initialQuery);
@@ -84,7 +87,7 @@ export function Inbox({
   const [toast, setToast] = useState<{ message: string; tone?: "error" } | null>(null);
   const [bulkResult, setBulkResult] = useState<{ action: string; result: BulkResult } | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(initialOpenId ?? null);
   const [feedbackVersion, setFeedbackVersion] = useState(0);
   const seq = useRef(0);
 

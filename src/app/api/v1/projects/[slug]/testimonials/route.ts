@@ -7,6 +7,8 @@ import { jsonError } from "@/lib/http";
 import { createTestimonial, getProjectBySlug, getTestimonial, listTestimonials, updateTestimonial } from "@/lib/testimonials";
 import { customFieldsSchema, firstIssue, tagNameSchema } from "@/lib/validation";
 import { emitTestimonialEvent } from "@/lib/webhooks";
+// Registers the notifications listener in this route's bundle.
+import "@/lib/notifications";
 
 type Ctx = { params: Promise<{ slug: string }> };
 

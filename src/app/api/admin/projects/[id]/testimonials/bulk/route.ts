@@ -4,6 +4,8 @@ import { jsonError, requireAdmin } from "@/lib/http";
 import { BULK_ACTIONS, BulkError, bulkUpdate, MAX_BULK } from "@/lib/inbox";
 import { getProjectById } from "@/lib/testimonials";
 import { firstIssue, tagNameSchema } from "@/lib/validation";
+// Registers the notifications listener in this route's bundle (approvals post to chat channels).
+import "@/lib/notifications";
 
 type Ctx = { params: Promise<{ id: string }> };
 

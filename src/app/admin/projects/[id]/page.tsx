@@ -42,7 +42,9 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
 
   // The view comes from the address bar; without a sort or page size, the person's remembered ones.
   const prefs = getInboxPrefs(session.email);
-  const query = parseInboxParams(toSearchParams(await searchParams), { sort: prefs.inboxSort, dir: prefs.inboxDir, pageSize: prefs.pageSize });
+  const sp = await searchParams;
+  const query = parseInboxParams(toSearchParams(sp), { sort: prefs.inboxSort, dir: prefs.inboxDir, pageSize: prefs.pageSize });
+  const open = typeof sp.open === "string" && /^[\w-]{1,64}$/.test(sp.open) ? sp.open : undefined;
   return (
     <>
       <AppBar trail={[{ href: "/admin", label: "Projects" }, { label: project.name }]} />
@@ -55,6 +57,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           initialQuery={query}
           initialPrefs={prefs}
           widgetStudio={featureOn("widgets") ? `/admin/projects/${project.id}/widgets` : undefined}
+          initialOpenId={open}
         />
       </main>
     </>

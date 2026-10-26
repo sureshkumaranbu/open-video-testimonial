@@ -20,6 +20,8 @@ import { fillLabel, resolveLabels } from "./forms/labels";
 import { parseFormRow, type FormConfig } from "./forms/schema";
 import { insertImages, MAX_IMAGES_PER_QUESTION, type NewImage } from "./images";
 import { emitEvent, emitTestimonialEvent } from "./webhooks";
+// Registers the notifications listener in this bundle too (route handlers and the worker can load separate module copies).
+import "./notifications";
 import { queueAnswerVideo, queueVideoProcessing } from "./media";
 import { clientIp, clientKey, rateLimit } from "./rate-limit";
 import { findRequestByToken, markResponded, queueThankYou } from "./requests";
