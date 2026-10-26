@@ -42,7 +42,7 @@ test.describe("chat channels", () => {
     await channels.getByLabel("Service").selectOption("slack");
     await channels.getByLabel("Channel name").fill("#testimonials");
     await channels.getByLabel("Webhook URL").fill(fixtureUrl(hook));
-    await channels.getByLabel("Project").selectOption({ label: "Notify Co" });
+    await channels.getByLabel("Posts for").selectOption({ label: "Notify Co" });
     await channels.getByRole("button", { name: "Add channel" }).click();
     const row = channels.getByTestId("notify-channel").filter({ hasText: "#testimonials" });
     await expect(row).toBeVisible();

@@ -239,7 +239,8 @@ async function applyBrand(project: Project, brand: SiteBrand) {
     const file = path.join(dir, `logo-${crypto.randomUUID()}`);
     try {
       await fs.promises.mkdir(dir, { recursive: true });
-      await downloadPublic(brand.logoUrl, file, 2 * 1024 * 1024);
+      // Never private addresses (whatever IMPORT_ALLOW_PRIVATE_URLS says for CSV media), and not for long.
+      await downloadPublic(brand.logoUrl, file, 2 * 1024 * 1024, { allowPrivate: false, timeoutMs: 10_000 });
       const bytes = await fs.promises.readFile(file);
       // saveUpload sniffs the bytes and refuses anything that isn't PNG, JPEG, WebP or GIF.
       await setProjectLogo(project.id, new File([bytes], "logo", { type: "application/octet-stream" }));
@@ -383,16 +384,6 @@ export function setWelcome(email: string, value: "done" | "skipped") {
     .values({ email: key, ui, updatedAt: now })
     .onConflictDoUpdate({ target: memberPrefs.email, set: { ui, updatedAt: now } })
     .run();
-}
-
-/** Projects whose checklist is still showing, for the dashboard's project cards. */
-export function openChecklists(): Map<string, Checklist> {
-  const out = new Map<string, Checklist>();
-  for (const p of getDb().select({ id: schema.projects.id }).from(schema.projects).all()) {
-    const c = checklistState(p.id);
-    if (c.shown) out.set(p.id, c);
-  }
-  return out;
 }
 
 /** Nothing runs in the background for onboarding: discovery is one short request, imports use the importer job. */

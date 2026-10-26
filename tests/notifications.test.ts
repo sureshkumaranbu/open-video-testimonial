@@ -35,6 +35,10 @@ beforeAll(async () => {
     const chunks: Buffer[] = [];
     req.on("data", (c: Buffer) => chunks.push(c));
     req.on("end", () => {
+      if (req.url === "/redirect") {
+        res.writeHead(307, { location: "http://169.254.169.254/latest/meta-data/" }).end();
+        return;
+      }
       if (failNext > 0) {
         failNext--;
         res.writeHead(404, { "content-type": "text/plain" }).end("no_service");
@@ -120,6 +124,9 @@ describe("chat payloads", () => {
     expect(discord.embeds[0].url).toBe(sample.url);
     const teams = JSON.stringify(formatTeams(sample));
     expect(teams).toContain("AdaptiveCard");
+    expect(teams).toContain("\\\\*product\\\\*");
+    expect(JSON.stringify(formatTeams({ ...sample, quote: "[click](https://evil.example)" }))).not.toContain("[click](https");
+    expect((formatSlack({ ...sample, author: "<https://evil.example|Click>" }) as { text: string }).text).not.toContain("<https://evil");
     expect(teams).toContain("Action.OpenUrl");
     const tg = formatTelegram(sample) as { text: string; parse_mode: string };
     expect(tg.parse_mode).toBe("HTML");
@@ -213,6 +220,16 @@ describe("chat payloads", () => {
     await submitText("Third one");
     await runDueJobs();
     expect(received.map((r) => r.path).sort()).toEqual(["/a", "/b"]);
+  });
+
+  it("INT-02 a chat post never follows a redirect", async () => {
+    const { body } = await addChannel({ type: "slack", name: "R", target: `${origin}/redirect` });
+    await submitText();
+    await runDueJobs();
+    const row = getDb().select().from(schema.notificationChannels).all()[0];
+    expect(row.id).toBe(body.channel.id);
+    expect(row.lastError).toMatch(/redirect/);
+    expect(received).toEqual([]);
   });
 
   it("INT-02 a hook that answers 4xx stops retrying and shows the error", async () => {

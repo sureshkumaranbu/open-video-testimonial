@@ -98,8 +98,10 @@ export async function deliverChannelJob(p: ChannelJob, o: { final?: boolean } = 
     noteResult(c.id, null);
   } catch (err) {
     const message = (err as Error).message || "Couldn't send";
-    if (err instanceof ChannelGoneError || o.final) noteResult(c.id, message);
-    if (err instanceof ChannelGoneError) throw new PermanentJobError(message);
+    // Refused by the guard, a redirect, or a 4xx: retrying won't help (ChannelGoneError is one of these).
+    const permanent = err instanceof PermanentJobError || err instanceof ChannelGoneError;
+    if (permanent || o.final) noteResult(c.id, message);
+    if (permanent) throw new PermanentJobError(message);
     throw err;
   }
 }

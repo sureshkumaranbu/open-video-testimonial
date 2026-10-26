@@ -125,7 +125,7 @@ async function follow(start: string, o: RequestOptions & { maxRedirects: number 
     }
     return { res, url: current };
   }
-  throw new NetGuardError("Too many redirects");
+  throw new NetGuardError(o.maxRedirects === 0 ? "The address answered with a redirect, which isn't followed" : "Too many redirects");
 }
 
 function timeoutSignal(ms: number, host: string) {
@@ -152,6 +152,8 @@ export type PublicTextOptions = {
   headers?: Record<string, string>;
   method?: "GET" | "POST";
   body?: string;
+  /** Redirects to follow (each hop checked again); 0 refuses any redirect. Default 5. */
+  maxRedirects?: number;
 };
 
 export type PublicText = { status: number; text: string; finalUrl: string; contentType: string };
@@ -177,7 +179,7 @@ export async function fetchPublicText(url: string, o: PublicTextOptions = {}): P
       body: o.body,
       signal: timer.signal,
       allowPrivate: false,
-      maxRedirects: 5,
+      maxRedirects: o.maxRedirects ?? 5,
     });
     if (Number(res.headers["content-length"] || 0) > maxBytes) {
       res.destroy();
@@ -213,6 +215,7 @@ export async function fetchPublicText(url: string, o: PublicTextOptions = {}): P
 /**
  * POSTs JSON to a public endpoint (chat webhooks). `allowHosts` limits the
  * host names further; an origin in NET_GUARD_ALLOW passes that list too.
+ * Redirects aren't followed, so an allowed host can't pass the post on.
  */
 export async function postPublicJson(url: string, body: unknown, o: { timeoutMs?: number; allowHosts?: RegExp[] } = {}) {
   let parsed: URL;
@@ -224,7 +227,7 @@ export async function postPublicJson(url: string, body: unknown, o: { timeoutMs?
   if (o.allowHosts && !isAllowedOrigin(parsed) && !o.allowHosts.some((re) => re.test(parsed.hostname))) {
     throw new NetGuardError(`Sending to ${parsed.hostname} isn't allowed`);
   }
-  const res = await fetchPublicText(url, { method: "POST", body: JSON.stringify(body), timeoutMs: o.timeoutMs ?? 10_000, maxBytes: 64 * 1024 });
+  const res = await fetchPublicText(url, { method: "POST", body: JSON.stringify(body), timeoutMs: o.timeoutMs ?? 10_000, maxBytes: 64 * 1024, maxRedirects: 0 });
   return { status: res.status, text: res.text };
 }
 
@@ -234,14 +237,14 @@ export async function postPublicJson(url: string, body: unknown, o: { timeoutMs?
  * shouldn't make the server fetch internal URLs) unless
  * IMPORT_ALLOW_PRIVATE_URLS=true. Returns the size in bytes.
  */
-export async function downloadPublic(url: string, dest: string, maxBytes: number) {
-  const timer = timeoutSignal(10 * 60_000, hostOf(url));
+export async function downloadPublic(url: string, dest: string, maxBytes: number, o: { allowPrivate?: boolean; timeoutMs?: number } = {}) {
+  const timer = timeoutSignal(o.timeoutMs ?? 10 * 60_000, hostOf(url));
   try {
     const { res, url: final } = await follow(url, {
       method: "GET",
       headers: { "user-agent": "Plaudit importer" },
       signal: timer.signal,
-      allowPrivate: env.importAllowPrivateUrls,
+      allowPrivate: o.allowPrivate ?? env.importAllowPrivateUrls,
       maxRedirects: 5,
     });
     if (res.statusCode !== 200) {

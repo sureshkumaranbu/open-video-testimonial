@@ -121,7 +121,7 @@ function EmailPrefs({ email, projects }: { email: string; projects: ProjectOptio
           <legend className="small">Projects</legend>
           <label className="check small">
             <input type="radio" name="nt-scope" checked={allProjects} onChange={() => set({ projectIds: [] })} />
-            All projects
+            All of them
           </label>
           <label className="check small">
             <input type="radio" name="nt-scope" checked={!allProjects} onChange={() => set({ projectIds: [projects[0].id] })} />
@@ -258,9 +258,10 @@ function Channels({ projects }: { projects: ProjectOption[] }) {
             Channel name
             <input type="text" name="name" required maxLength={80} placeholder="#testimonials" />
           </label>
-          <label style={{ flex: "1 1 160px" }}>
-            Project
-            <select name="projectId" defaultValue="">
+          {/* Not wrapped in its label: the option text would join the label's text. */}
+          <div className="nt-select field" style={{ flex: "1 1 160px" }}>
+            <label htmlFor="nt-new-project">Posts for</label>
+            <select id="nt-new-project" name="projectId" defaultValue="">
               <option value="">All projects</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -268,7 +269,7 @@ function Channels({ projects }: { projects: ProjectOption[] }) {
                 </option>
               ))}
             </select>
-          </label>
+          </div>
         </div>
         <p className="muted xsmall">{hint}</p>
         <TargetFields type={type} required />
@@ -406,9 +407,9 @@ function ChannelRow({ channel: c, projects, onChange }: { channel: Channel; proj
               Channel name
               <input type="text" name="name" required maxLength={80} defaultValue={c.name} />
             </label>
-            <label style={{ flex: "1 1 160px" }}>
-              Project
-              <select name="projectId" defaultValue={c.projectId ?? ""}>
+            <div className="nt-select field" style={{ flex: "1 1 160px" }}>
+              <label htmlFor={`nt-project-${c.id}`}>Posts for</label>
+              <select id={`nt-project-${c.id}`} name="projectId" defaultValue={c.projectId ?? ""}>
                 <option value="">All projects</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -416,7 +417,7 @@ function ChannelRow({ channel: c, projects, onChange }: { channel: Channel; proj
                   </option>
                 ))}
               </select>
-            </label>
+            </div>
           </div>
           <TargetFields type={c.type} required={false} />
           <p className="muted xsmall">Leave the {c.type === "telegram" ? "token and chat id" : "URL"} empty to keep the current one.</p>

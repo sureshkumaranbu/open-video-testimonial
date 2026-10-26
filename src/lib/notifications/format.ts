@@ -80,7 +80,7 @@ export function formatSlack(m: NotifyMessage): object {
   const rating = stars(m.rating);
   const quote = m.quote ? slackEscape(m.quote).split("\n").map((l) => `>${l}`).join("\n") : "";
   return {
-    text: `${m.title}: ${rating ? `${rating} ` : ""}from ${who(m)}`,
+    text: slackEscape(`${m.title}: ${rating ? `${rating} ` : ""}from ${who(m)}`),
     unfurl_links: false,
     unfurl_media: false,
     blocks: [
@@ -116,7 +116,10 @@ export function formatDiscord(m: NotifyMessage): object {
 
 // ---------------------------------------------------------------- Teams
 
-/** Teams Workflows (and the older connectors) take an Adaptive Card; TextBlocks are plain text by default here. */
+/** Adaptive Card TextBlocks understand a little markdown (links, bold, lists): backslash-escape it. */
+const teamsEscape = (s: string) => s.replace(/([\\*_\[\]()#+\-`>~|!])/g, "\\$1");
+
+/** Teams Workflows (and the older connectors) take an Adaptive Card. */
 export function formatTeams(m: NotifyMessage): object {
   const rating = stars(m.rating);
   return {
@@ -130,10 +133,10 @@ export function formatTeams(m: NotifyMessage): object {
           type: "AdaptiveCard",
           version: "1.4",
           body: [
-            { type: "TextBlock", text: m.title, weight: "Bolder", size: "Medium", wrap: true },
+            { type: "TextBlock", text: teamsEscape(m.title), weight: "Bolder", size: "Medium", wrap: true },
             ...(rating ? [{ type: "TextBlock", text: rating, color: "Warning", wrap: false }] : []),
-            ...(m.quote ? [{ type: "TextBlock", text: `“${m.quote}”`, wrap: true, isSubtle: false }] : []),
-            { type: "TextBlock", text: `— ${who(m)}`, wrap: true, isSubtle: true, spacing: "Small" },
+            ...(m.quote ? [{ type: "TextBlock", text: `“${teamsEscape(m.quote)}”`, wrap: true, isSubtle: false }] : []),
+            { type: "TextBlock", text: `— ${teamsEscape(who(m))}`, wrap: true, isSubtle: true, spacing: "Small" },
           ],
           actions: [{ type: "Action.OpenUrl", title: m.linkLabel, url: m.url }],
         },
