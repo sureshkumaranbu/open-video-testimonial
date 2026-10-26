@@ -1,6 +1,6 @@
 import { getRequestSession } from "@/lib/auth";
 import { jsonError, requireAdmin } from "@/lib/http";
-import { getInboxPrefs, inboxCounts, inboxFacets, parseInboxParams, queryTestimonials } from "@/lib/inbox";
+import { getInboxPrefs, inboxCounts, inboxFacets, inboxStats, parseInboxParams, queryTestimonials } from "@/lib/inbox";
 import { getProjectById } from "@/lib/testimonials";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -10,6 +10,7 @@ type Ctx = { params: Promise<{ id: string }> };
  * (lib/inbox.ts parseInboxParams), with every tab's count under the same
  * search and filters. `facets=1` adds what the filter panel offers. Without
  * a sort or page size, the signed-in person's remembered ones apply.
+ * `stats` are the whole project's, for the stat tiles.
  */
 export async function GET(req: Request, ctx: Ctx) {
   const denied = requireAdmin(req);
@@ -26,6 +27,7 @@ export async function GET(req: Request, ctx: Ctx) {
     page: q.page,
     pageSize: q.pageSize,
     counts: inboxCounts(project.id, q),
+    stats: inboxStats(project.id),
     ...(sp.get("facets") === "1" ? { facets: inboxFacets(project.id) } : {}),
   });
 }

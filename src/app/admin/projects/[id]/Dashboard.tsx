@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { Approver, MediaStatus, Project, TestimonialStatus, TranscriptStatus } from "@/db/schema";
 import type { SystemStatus } from "@/lib/system";
 import { Icon } from "@/components/Icon";
@@ -8,7 +8,7 @@ import { Avatar, Stars } from "@/components/TestimonialCard";
 import { accentStyle } from "@/lib/theme";
 import { TestimonialExtras } from "./TestimonialExtras";
 
-type AdminTestimonial = {
+export type AdminTestimonial = {
   id: string;
   status: TestimonialStatus;
   rating: number | null;
@@ -36,6 +36,7 @@ type AdminTestimonial = {
   approvedAt: string | null;
   approvalRule: string | null;
   createdAt: string;
+  updatedAt?: string;
   tags: string[];
 };
 
@@ -65,7 +66,7 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-function timeAgo(iso: string) {
+export function timeAgo(iso: string) {
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
   if (s < 60) return "just now";
   if (s < 3600) return `${Math.floor(s / 60)} min ago`;
@@ -73,6 +74,7 @@ function timeAgo(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
+/** The project page as it was before Inbox v2; still shown while the inbox2 feature flag is off. */
 export function Dashboard({
   project: initial,
   publicUrl,
@@ -160,29 +162,7 @@ export function Dashboard({
 
   return (
     <div className="stack-lg" style={accentStyle(project.accentColor)}>
-      <div className="page-head">
-        <div className="row" style={{ flexWrap: "nowrap", gap: "var(--space-4)" }}>
-          <span className="org-mark" aria-hidden style={{ width: 52, height: 52, fontSize: "var(--text-xl)" }}>
-            {project.name.trim().charAt(0).toUpperCase()}
-          </span>
-          <div>
-            <h1>{project.name}</h1>
-            <p className="muted small" style={{ marginTop: 2 }}>
-              Collecting at /c/{project.slug}
-            </p>
-          </div>
-        </div>
-        <div className="row">
-          <a className="button secondary small" href={`/c/${project.slug}`} target="_blank" rel="noreferrer">
-            Collection page
-            <Icon name="external" />
-          </a>
-          <a className="button secondary small" href={`/wall/${project.slug}`} target="_blank" rel="noreferrer">
-            Wall of love
-            <Icon name="external" />
-          </a>
-        </div>
-      </div>
+      <ProjectHead project={project} />
 
       <div className="stat-row">
         <div className="stat pending">
@@ -246,6 +226,36 @@ export function Dashboard({
   );
 }
 
+/** The project's name, its collection link and the links to its public pages. */
+export function ProjectHead({ project, actions }: { project: Project; actions?: ReactNode }) {
+  return (
+    <div className="page-head">
+      <div className="row" style={{ flexWrap: "nowrap", gap: "var(--space-4)" }}>
+        <span className="org-mark" aria-hidden style={{ width: 52, height: 52, fontSize: "var(--text-xl)" }}>
+          {project.name.trim().charAt(0).toUpperCase()}
+        </span>
+        <div>
+          <h1>{project.name}</h1>
+          <p className="muted small" style={{ marginTop: 2 }}>
+            Collecting at /c/{project.slug}
+          </p>
+        </div>
+      </div>
+      <div className="row">
+        {actions}
+        <a className="button secondary small" href={`/c/${project.slug}`} target="_blank" rel="noreferrer">
+          Collection page
+          <Icon name="external" />
+        </a>
+        <a className="button secondary small" href={`/wall/${project.slug}`} target="_blank" rel="noreferrer">
+          Wall of love
+          <Icon name="external" />
+        </a>
+      </div>
+    </div>
+  );
+}
+
 const APPROVED_BY: Record<Approver, string> = {
   owner: "Approved in the dashboard",
   api: "Approved through the API",
@@ -258,20 +268,34 @@ const MEDIA_NOTE: Partial<Record<MediaStatus, string>> = {
   skipped: "ffmpeg isn't installed, so the original file is served as uploaded. Some browsers may not play it.",
 };
 
-function TestimonialRow({
+/** What Inbox v2 adds to a card: the trash instead of deleting for good, Hide, and opening the detail drawer. */
+export type InboxCardActions = {
+  onHide: () => void;
+  onRestore: () => void;
+  onDeleteForever: () => void;
+  onOpen: () => void;
+};
+
+export function TestimonialRow({
   t,
   onUpdate,
   onDelete,
   onReprocess,
   onTranscribe,
   transcription,
+  inbox,
+  select,
 }: {
   t: AdminTestimonial;
   onUpdate: (patch: Record<string, unknown>) => Promise<void> | void;
+  /** Deletes for good on the classic dashboard; in Inbox v2 it moves the testimonial to the trash. */
   onDelete: () => void;
   onReprocess: () => void;
   onTranscribe: () => void;
   transcription: boolean;
+  inbox?: InboxCardActions;
+  /** A selection checkbox, before the author. */
+  select?: ReactNode;
 }) {
   const [name, setName] = useState(t.authorName);
   const [tags, setTags] = useState(t.tags.join(", "));
@@ -284,11 +308,13 @@ function TestimonialRow({
   const avatarUrl = t.avatarKey ? `/api/media/${t.avatarKey}` : null;
   const dirty = name.trim() !== t.authorName || tags !== t.tags.join(", ");
   const byline = [t.authorTitle, t.authorCompany].filter(Boolean).join(", ");
+  const trashed = t.status === "trashed";
 
   return (
     <article className="panel review" data-testid="admin-testimonial" data-status={t.status}>
       <div className="row spread" style={{ alignItems: "flex-start" }}>
         <div className="who">
+          {select}
           <Avatar name={t.authorName} url={avatarUrl} />
           <div style={{ minWidth: 0 }}>
             <strong>{t.authorName}</strong>
@@ -392,6 +418,22 @@ function TestimonialRow({
 
       <ConsentPanel t={t} />
 
+      {inbox && trashed ? (
+        <div className="review-actions">
+          <button type="button" className="secondary small" onClick={inbox.onRestore}>
+            <Icon name="restore" />
+            Restore
+          </button>
+          <button type="button" className="ghost small" onClick={inbox.onOpen}>
+            <Icon name="eye" />
+            Details
+          </button>
+          <button type="button" className="danger small" onClick={inbox.onDeleteForever}>
+            <Icon name="trash" />
+            Delete forever
+          </button>
+        </div>
+      ) : (
       <div className="review-actions">
         {t.status !== "approved" && !t.withdrawnAt && (
           <button type="button" className="approve small" onClick={() => onUpdate({ status: "approved" })}>
@@ -405,17 +447,30 @@ function TestimonialRow({
             Reject
           </button>
         )}
+        {inbox && t.status !== "hidden" && !t.withdrawnAt && (
+          <button type="button" className="secondary small" onClick={inbox.onHide} title="Keep it for internal use, off your public pages">
+            <Icon name="lock" />
+            Hide
+          </button>
+        )}
         {t.status !== "pending" && !t.withdrawnAt && (
           <button type="button" className="ghost small" onClick={() => onUpdate({ status: "pending" })}>
             <Icon name="undo" />
             Move to pending
           </button>
         )}
-        <button type="button" className="danger small" onClick={onDelete}>
+        {inbox && (
+          <button type="button" className="ghost small" onClick={inbox.onOpen}>
+            <Icon name="eye" />
+            Details
+          </button>
+        )}
+        <button type="button" className="danger small" onClick={onDelete} title={inbox ? "Move to the trash; you can restore it for 30 days" : undefined}>
           <Icon name="trash" />
           Delete
         </button>
       </div>
+      )}
     </article>
   );
 }
@@ -443,7 +498,7 @@ const EVENT_LABEL: Record<ConsentRecord["events"][number]["type"], string> = {
 const SCOPE_LABEL: Record<string, string> = { website: "website and marketing", social: "social media" };
 
 /** The append-only consent history, loaded when opened. */
-function ConsentPanel({ t }: { t: AdminTestimonial }) {
+export function ConsentPanel({ t }: { t: AdminTestimonial }) {
   const [record, setRecord] = useState<ConsentRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
   const scopes = (() => {
@@ -604,7 +659,7 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function EmbedPanel({ slug, publicUrl }: { slug: string; publicUrl: string }) {
+export function EmbedPanel({ slug, publicUrl, widgetStudio }: { slug: string; publicUrl: string; widgetStudio?: string }) {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const link = `${publicUrl}/c/${slug}`;
   const script = `<script src="${publicUrl}/widget.js" data-project="${slug}" data-theme="${theme}" async></script>`;
@@ -656,6 +711,12 @@ function EmbedPanel({ slug, publicUrl }: { slug: string; publicUrl: string }) {
             <CopyButton text={iframe} />
           </div>
         </div>
+        {widgetStudio && (
+          <a className="button secondary small" href={widgetStudio} data-testid="widget-studio-link">
+            <Icon name="layout" />
+            Open widget studio
+          </a>
+        )}
       </div>
     </section>
   );
@@ -681,7 +742,7 @@ function CopyLink({ text }: { text: string }) {
 }
 
 /** The project's optional auto-approve rule. Off by default. */
-function AutoApprovePanel({ project, onSaved }: { project: Project; onSaved: (p: Project) => void }) {
+export function AutoApprovePanel({ project, onSaved }: { project: Project; onSaved: (p: Project) => void }) {
   const [enabled, setEnabled] = useState(project.autoApprove);
   const [minRating, setMinRating] = useState(project.autoApproveMinRating);
   const [video, setVideo] = useState(project.autoApproveVideo);
@@ -755,7 +816,7 @@ function AutoApprovePanel({ project, onSaved }: { project: Project; onSaved: (p:
   );
 }
 
-function SettingsPanel({ project, onSaved }: { project: Project; onSaved: (p: Project) => void }) {
+export function SettingsPanel({ project, onSaved }: { project: Project; onSaved: (p: Project) => void }) {
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 

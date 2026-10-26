@@ -2032,7 +2032,8 @@ textarea.mono {
   }
 }
 
-/* The dashboard's status filter: on phones, four equal cells with the count under the label. */
+/* The dashboard's status filter: on phones, four equal cells with the count under the label
+   (Inbox v2's seven tabs make two rows of four). */
 @media (max-width: 560px) {
   .segmented.status-filter {
     display: grid;
