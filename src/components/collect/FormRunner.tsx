@@ -76,6 +76,9 @@ export function FormRunner(props: FormRunnerProps) {
     ),
   );
   const doneRef = useRef(false);
+  // Marks the page interactive (scripts loaded), for people's tools and tests alike.
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
   // Leaving the form without sending throws its uploads away.
   useEffect(() => () => {
     if (!doneRef.current) uploads.abortAll();
@@ -95,6 +98,16 @@ export function FormRunner(props: FormRunnerProps) {
     observer.observe(root);
     post();
     return () => observer.disconnect();
+  }, [embed, form.id, form.slug]);
+
+  // Escape inside the embed reaches only this frame: ask the host to close its popup.
+  useEffect(() => {
+    if (!embed) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") tellHost({ type: "plaudit:form-close", form: form.id, slug: form.slug });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [embed, form.id, form.slug]);
 
   // A new step: start at its top and move focus to its heading (not on first load).
@@ -349,6 +362,7 @@ export function FormRunner(props: FormRunnerProps) {
       data-theme={form.design.theme}
       data-button={form.design.buttonStyle}
       data-testid="form-runner"
+      data-ready={ready || undefined}
       style={formDesignStyle(form.design, props.accent) as React.CSSProperties}
     >
       {fontFaceCss(form.design) && <style>{fontFaceCss(form.design)}</style>}

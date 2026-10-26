@@ -34,7 +34,9 @@
     iframe.setAttribute("allow", "camera; microphone; clipboard-write");
     iframe.setAttribute("loading", "lazy");
     iframe.style.cssText = "display:block;width:100%;border:0;height:640px;background:transparent;color-scheme:normal";
-    frames.push({ iframe: iframe, el: el });
+    var entry = { iframe: iframe, el: el, close: null };
+    frames.push(entry);
+    iframe.plauditEntry = entry;
     return iframe;
   }
 
@@ -52,6 +54,7 @@
     var opener = null;
     function close() {
       if (!overlay) return;
+      for (var i = frames.length - 1; i >= 0; i--) if (overlay.contains(frames[i].iframe)) frames.splice(i, 1);
       overlay.parentNode.removeChild(overlay);
       overlay = null;
       document.removeEventListener("keydown", onKey);
@@ -85,7 +88,10 @@
         if (e.target === overlay) close();
       });
       box.appendChild(x);
-      box.appendChild(frameFor(el));
+      var frame = frameFor(el);
+      // Escape pressed inside the form arrives as a message (see the listener below).
+      frame.plauditEntry.close = close;
+      box.appendChild(frame);
       overlay.appendChild(box);
       document.body.appendChild(overlay);
       document.addEventListener("keydown", onKey);
@@ -112,6 +118,8 @@
       if (f.iframe.contentWindow !== e.source) continue;
       if (e.data.type === "plaudit:form-resize" && typeof e.data.height === "number") {
         f.iframe.style.height = Math.max(200, Math.min(e.data.height, 20000)) + "px";
+      } else if (e.data.type === "plaudit:form-close") {
+        if (f.close) f.close();
       } else if (e.data.type === "plaudit:form-submitted") {
         var ev;
         try {
