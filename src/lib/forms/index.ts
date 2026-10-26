@@ -449,7 +449,7 @@ export function duplicateForm(id: string): Form | null {
 }
 
 /** Whether a stored file is still used as a logo or cover somewhere, so a deleted form's (possibly shared) logo is only removed when it was the last. */
-function logoInUse(db: Conn, key: string): boolean {
+export function logoInUse(key: string, db: Conn = getDb()): boolean {
   const used = (n: { n: number } | undefined) => (n?.n ?? 0) > 0;
   return (
     used(db.select({ n: count() }).from(forms).where(eq(forms.logoKey, key)).get()) ||
@@ -470,7 +470,7 @@ export async function deleteForm(id: string): Promise<boolean> {
   if (!form) return false;
   if (form.isDefault) throw new FormError(409, "The default form can't be deleted. Make another form the default first.");
   db.delete(forms).where(and(eq(forms.id, id), eq(forms.isDefault, false))).run();
-  if (form.logoKey && !logoInUse(db, form.logoKey)) await removeFiles([form.logoKey]);
+  if (form.logoKey && !logoInUse(form.logoKey, db)) await removeFiles([form.logoKey]);
   return true;
 }
 
