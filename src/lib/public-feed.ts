@@ -25,6 +25,8 @@ export type FeedOptions = {
   limit: number;
   /** Sends "Ada" for "Ada Lovelace", so the surname never leaves the server. */
   firstNameOnly?: boolean;
+  /** Auto mode without pins: skip this many (a wall's "load more" pages). */
+  offset?: number;
 };
 
 const hasImage = sql`EXISTS (SELECT 1 FROM testimonial_images i WHERE i.testimonial_id = ${testimonials.id})`;
@@ -118,6 +120,7 @@ export function listFeed(projectId: string, filters: PublicFilters, o: FeedOptio
           .where(and(...where, ...(pins.length ? [notInArray(testimonials.id, pins.map((p) => p.id))] : [])))
           .orderBy(...orderBy(f))
           .limit(rest)
+          .offset(pins.length ? 0 : Math.max(0, Math.floor(o.offset ?? 0)))
           .all()
       : [];
     rows = [...pins, ...others];

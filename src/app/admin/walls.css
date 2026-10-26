@@ -1,0 +1,210 @@
+/* Walls admin (WALL-01): the walls list and the editor. The public page's styles are in src/components/wall-view.css. */
+
+.wl-new {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.wl-new label {
+  flex: 1 1 260px;
+}
+
+.wl-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.wl-table th,
+.wl-table td {
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.wl-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.wl-name {
+  font-weight: 600;
+}
+
+.wl-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.wl-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-right: 6px;
+  background: var(--paper-2);
+  color: var(--ink-2);
+  border: 1px solid var(--line);
+}
+
+.wl-badge[data-state="published"] {
+  background: color-mix(in srgb, #16a34a 14%, var(--surface));
+  color: #166534;
+  border-color: color-mix(in srgb, #16a34a 35%, transparent);
+}
+
+.wl-badge[data-state="main"] {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+
+.wl-editor {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 1100px) {
+  .wl-editor {
+    grid-template-columns: minmax(340px, 400px) minmax(0, 1fr);
+    align-items: start;
+  }
+  .wl-preview {
+    position: sticky;
+    top: var(--space-4);
+  }
+}
+
+.wl-panel {
+  min-width: 0;
+}
+
+.wl-fields {
+  display: grid;
+  gap: var(--space-4);
+  padding-top: var(--space-3);
+}
+
+.wl-fields fieldset {
+  display: grid;
+  gap: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  margin: 0;
+}
+
+.wl-fields legend {
+  font-weight: 600;
+  padding: 0 4px;
+}
+
+.wl-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-3);
+}
+
+.wl-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto;
+  gap: var(--space-2);
+  align-items: end;
+}
+
+.wl-default {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-bottom: 8px;
+  white-space: nowrap;
+}
+
+.wl-themes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--space-2);
+}
+
+.wl-theme {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  text-align: left;
+  padding: var(--space-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.wl-theme[aria-checked="true"] {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+.wl-swatch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 44px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+}
+
+.wl-swatch span {
+  width: 50%;
+  height: 22px;
+  border-radius: 4px;
+  border: 2px solid;
+}
+
+.wl-image {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.wl-image img,
+.wl-image-empty {
+  width: 96px;
+  height: 56px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-3);
+}
+
+.wl-slug {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.wl-slug-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wl-preview {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.wl-preview .wl-page {
+  min-height: 0;
+}

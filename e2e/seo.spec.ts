@@ -100,7 +100,7 @@ test("SEO-02 no warning once there are 5 rated reviews; editing changes the scop
   await card.getByRole("button", { name: "Edit" }).click();
   const edit = page.getByTestId("snippet-form");
   await edit.getByTestId("snippet-scope").getByRole("button", { name: "Some tags" }).click();
-  await edit.getByLabel("pro").check();
+  await edit.getByRole("checkbox", { name: "pro" }).check();
   await edit.getByRole("button", { name: "Save changes" }).click();
   await expect(card.getByTestId("snippet-count")).toHaveText("2 reviews");
   await expect(card.getByTestId("snippet-guidance").locator('[data-level="warn"]')).toContainText("Only 2 reviews");
