@@ -1,0 +1,92 @@
+import { expect, test } from "@playwright/test";
+import { adminApi, fixtureUrl, signIn, useFreshIp } from "./helpers";
+
+/**
+ * The first-run wizard (ONB-01, ONB-03..05), opened at /admin/welcome
+ * directly: /admin never redirects there (D10). The fixture server stands in
+ * for the owner's website.
+ */
+
+const RUN = Date.now().toString(36);
+
+test.skip(process.env.E2E_SERVER_IN_CONTAINER === "true" || Boolean(process.env.E2E_BASE_URL), "Needs the suite's own server, which reaches the fixture server");
+
+test.beforeEach(async ({ page }) => {
+  await useFreshIp(page);
+});
+
+// The wizard's "Email me new testimonials" box is ticked by default: switch it off again for later specs.
+test.afterEach(async ({ baseURL }) => {
+  const api = await adminApi(baseURL!);
+  await api.put("/api/admin/me/notifications", { data: { notifications: { newTestimonial: "off" } } });
+});
+
+test("ONB-01 the wizard finds 4 testimonials on the site, imports them as approved and sets up branded starter assets; the checklist shows 1/4", async ({ page, baseURL }) => {
+  await signIn(page);
+  // D10: the dashboard offers the wizard, it doesn't redirect to it.
+  await expect(page).toHaveURL(/\/admin$/);
+  await page.goto("/admin/welcome");
+  const wizard = page.getByTestId("welcome-wizard");
+  await wizard.getByLabel("Project name").fill(`Larkspur ${RUN}`);
+  await wizard.getByLabel(/Your website/).fill(fixtureUrl("onboarding/site/"));
+  await wizard.getByLabel("What do you sell?").selectOption("local");
+  await expect(wizard.getByLabel(/Email me new testimonials/)).toBeChecked();
+  await wizard.getByRole("button", { name: "Continue" }).click();
+
+  const found = page.getByTestId("welcome-found");
+  await expect(found.getByRole("heading")).toHaveText("We found 4 testimonials on your site");
+  await expect(found.getByTestId("welcome-found-item")).toHaveCount(4);
+  await expect(found).toContainText("Ada Lovelace");
+  await expect(found).toContainText("Office manager, Engines Ltd");
+  await found.getByRole("button", { name: "Clear" }).click();
+  await expect(found.getByRole("button", { name: "Import 0 as approved" })).toBeDisabled();
+  await found.getByRole("button", { name: "Select all" }).click();
+  await found.getByRole("button", { name: "Import 4 as approved" }).click();
+
+  const done = page.getByTestId("welcome-done");
+  await expect(done).toContainText("4 testimonials imported", { timeout: 20_000 });
+  await done.getByRole("button", { name: "Go to your project" }).click();
+  await expect(page).toHaveURL(/\/admin\/projects\/[0-9a-f-]{36}$/);
+  const projectId = page.url().split("/").pop()!;
+
+  const list = page.getByTestId("get-started");
+  await expect(list.getByTestId("get-started-progress")).toHaveText("1/4 done");
+  await expect(list.getByTestId("get-started-collect")).toHaveAttribute("data-done", "true");
+
+  // What the wizard made, through the API.
+  const api = await adminApi(baseURL!);
+  const detail = await (await api.get(`/api/admin/projects/${projectId}`)).json();
+  const testimonials = detail.testimonials as { status: string; platform: string }[];
+  expect(testimonials).toHaveLength(4);
+  expect(testimonials.every((t) => t.status === "approved" && t.platform === "website")).toBe(true);
+  const forms = (await (await api.get(`/api/admin/projects/${projectId}/forms`)).json()).forms as { isDefault: boolean; layout: string; config: { design: { primary?: string } } }[];
+  const form = forms.find((f) => f.isDefault)!;
+  expect(form.layout).toBe("steps");
+  expect(form.config.design.primary).toBe("#2f6b4f");
+  const walls = (await (await api.get(`/api/admin/projects/${projectId}/walls`)).json()).walls as { isMain: boolean; published: boolean }[];
+  expect(walls).toEqual([expect.objectContaining({ isMain: true, published: true })]);
+  const widgets = (await (await api.get(`/api/admin/projects/${projectId}/widgets`)).json()).widgets as { layout: string }[];
+  expect(widgets.map((w) => w.layout).sort()).toEqual(["carousel", "grid"]);
+  expect(detail.project.logoKey).toMatch(/^images\//);
+
+  // The install step is a manual tick; skipping and undoing work too.
+  await list.getByRole("button", { name: "I've added it" }).click();
+  await expect(list.getByTestId("get-started-progress")).toHaveText("2/4 done");
+  await list.getByRole("button", { name: "Skip: Customise a widget" }).click();
+  await expect(list.getByTestId("get-started-widget")).toHaveAttribute("data-skipped", "true");
+  await expect(list.getByRole("button", { name: "Hide this list" })).toHaveCount(0);
+});
+
+test("ONB-03 a site with nothing to find says so, and the project is still made", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/admin/welcome");
+  const wizard = page.getByTestId("welcome-wizard");
+  await wizard.getByLabel("Project name").fill(`Empty ${RUN}`);
+  await wizard.getByLabel(/Your website/).fill(fixtureUrl("onboarding/empty/"));
+  await wizard.getByLabel(/Email me new testimonials/).uncheck();
+  await wizard.getByRole("button", { name: "Continue" }).click();
+  const found = page.getByTestId("welcome-found");
+  await expect(found.getByRole("heading")).toHaveText("No testimonials found on your site");
+  await found.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByTestId("welcome-done")).toContainText(`Empty ${RUN} is ready`);
+});

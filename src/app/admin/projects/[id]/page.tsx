@@ -1,12 +1,15 @@
 import { notFound } from "next/navigation";
 import { env } from "@/lib/env";
 import { featureOn } from "@/lib/features";
+import { formUrl, getDefaultForm } from "@/lib/forms";
 import { getInboxPrefs, parseInboxParams } from "@/lib/inbox";
+import { checklistState } from "@/lib/onboarding";
 import { requireAdminPage } from "@/lib/server-session";
 import { systemStatus } from "@/lib/system";
 import { getProjectById } from "@/lib/testimonials";
 import { AppBar } from "../../AppBar";
 import { Dashboard } from "./Dashboard";
+import { GetStarted } from "./GetStarted";
 import { Inbox } from "./inbox/Inbox";
 import { ProjectTabs } from "./ProjectTabs";
 
@@ -26,6 +29,11 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const project = getProjectById((await params).id);
   if (!project) notFound();
   const system = await systemStatus();
+  // ONB-05: the Get started checklist, for projects the wizard made, until it's dismissed.
+  const checklist = featureOn("onboarding") ? checklistState(project.id) : null;
+  const getStarted = checklist?.shown ? (
+    <GetStarted projectId={project.id} initial={checklist} formLink={`${env.publicUrl}${formUrl(project, getDefaultForm(project.id))}`} />
+  ) : null;
 
   // Inbox v2 behind its flag (D20); the classic dashboard otherwise.
   if (!featureOn("inbox2")) {
@@ -34,6 +42,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         <AppBar trail={[{ href: "/admin", label: "Projects" }, { label: project.name }]} />
         <main className="container stack-lg">
           <ProjectTabs projectId={project.id} active="testimonials" />
+          {getStarted}
           <Dashboard project={project} publicUrl={env.publicUrl} system={system} />
         </main>
       </>
@@ -50,6 +59,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
       <AppBar trail={[{ href: "/admin", label: "Projects" }, { label: project.name }]} />
       <main className="container stack-lg">
         <ProjectTabs projectId={project.id} active="testimonials" />
+        {getStarted}
         <Inbox
           project={project}
           publicUrl={env.publicUrl}

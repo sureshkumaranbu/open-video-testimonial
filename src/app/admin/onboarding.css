@@ -1,0 +1,97 @@
+/* The first-run wizard, the dashboard's Get started card and the project checklist (WP7.2). */
+.ob-wizard {
+  max-width: 44rem;
+}
+.ob-found {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.ob-found-item {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-weight: normal;
+}
+.ob-found-item input {
+  margin-top: 0.2em;
+  flex: none;
+}
+.ob-found-item > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ob-quote {
+  display: block;
+  margin-top: var(--space-1);
+}
+.ob-stars {
+  color: var(--star);
+}
+.ob-made {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.ob-made li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.ob-welcome h2 {
+  margin: 0 0 var(--space-1);
+}
+.ob-steps {
+  list-style: none;
+  margin: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+.ob-step {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2) var(--space-3);
+  align-items: start;
+}
+.ob-step-mark {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line-strong);
+  font-size: var(--text-sm, 0.875rem);
+}
+.ob-step[data-done="true"] .ob-step-mark {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: #fff;
+}
+.ob-step[data-skipped="true"] .ob-step-body {
+  opacity: 0.7;
+}
+.ob-step-body p {
+  margin: var(--space-1) 0 0;
+}
+.ob-step-actions {
+  grid-column: 2;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+@media (min-width: 640px) {
+  .ob-step {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .ob-step-actions {
+    grid-column: 3;
+  }
+}
