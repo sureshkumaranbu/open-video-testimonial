@@ -13,6 +13,14 @@
   - The inbox card shows a form submission's other answers (videos with captions), private feedback, custom and hidden fields. Answer videos are converted and transcribed like the main one, stay private, and auto-approve waits for all of them.
   - Request links can open a chosen form. Webhooks `form.submitted` and `feedback.created` (opt-in) are now sent.
   - The classic page at `/c/<project>` is unchanged until you **Switch to step-by-step**; then it forwards visitors, `?r=` and all, to the new page. Switching Video → Write → Video on the classic page no longer loses the recording.
+- **Inbox v2** (behind the `inbox2` preview flag). See [`docs/help/inbox.md`](docs/help/inbox.md).
+  - Seven tabs with live counts: All, Pending, Approved, Hidden, Rejected, Feedback (private answers) and Trash. On phones they make two rows of four.
+  - Search over names, emails, companies, text, transcripts, every answer and tags, quick with tens of thousands of testimonials. Filters for rating, tags (any or all), source, how it arrived, type, form, language, consent, word count, date and attachments; sort by date added, date posted, rating, name or word count. The whole view is in the address bar, so a link shares it; your sort, view and page size are remembered.
+  - Card and table views, pages of 25, 50 or 100, and bulk approve, hide, reject, tag, untag, export and trash for up to 500 at a time. Rows that can't take an action are skipped with the reason, and each change gets its own history entry and webhook.
+  - A detail drawer with every answer, media and captions, fields, source, consent and history; keys j, k, a and h. Edit every answer, not just the main one, and highlight phrases. Edits are marked "edited after consent" and logged.
+  - **Delete** now moves a testimonial to the trash, from which it can be restored with its status and media for 30 days; **Delete forever** is in the trash.
+  - Export the current view, or a selection, as CSV or JSON with a column per custom and hidden field.
+  - **Add testimonial**: add one you received elsewhere by hand, as text, a video or a screenshot, approved by default.
 - **Keep media in an S3-compatible bucket** (AWS S3, Cloudflare R2, Backblaze B2, MinIO and others) with `STORAGE_DRIVER=s3` and the `S3_*` settings. Local disk stays the default. See [Media storage](README.md#media-storage-s3).
   - The bucket stays private: uploads are still checked on your server, and every file is streamed back through Plaudit under the same privacy rules.
   - **Settings → Media storage** shows where media is kept and whether the bucket works. The owner can **Copy local media to S3**, which is safe to run again; files not copied yet are served from local disk meanwhile.

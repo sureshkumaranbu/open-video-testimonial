@@ -1,6 +1,9 @@
 import { z } from "zod";
 import type { ConsentScope } from "./consent";
 
+// In the browser zod must not compile parsers with new Function: the admin CSP has no 'unsafe-eval'.
+if (typeof window !== "undefined") z.config({ jitless: true });
+
 /**
  * The inbox view (INBOX-01..05) as data: tabs, filters, sort and page, and
  * how they read from and write to the address bar, so a view can be shared

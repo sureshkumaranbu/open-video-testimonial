@@ -138,6 +138,12 @@ curl -X POST https://plaudit.example.com/api/v1/projects/acme/testimonials \
 
 Besides the fields in the table above, `PATCH /testimonials/{id}` accepts `headline`, `authorWebsite`, `authorPhone`, `authorSocials` (`{ "x", "linkedin", "instagram", "tiktok" }`), `sourceUrl`, `sourceDate`, `datePrecision`, `platform`, `language`, `customFields`, `isFeatured` and `pinOrder`. Send `null` (or `""`) to clear a text field. Changing what the author wrote (the text, headline, rating, or their name, title or company) marks it **edited after consent** and logs it, as in the dashboard.
 
+### Hidden, trash and restore
+
+`PATCH` can set `status` to `hidden` (kept for your own use, never public). The API can't move a testimonial to the trash: `DELETE /testimonials/{id}` still deletes it at once, files and all. Testimonials someone moved to the trash in the dashboard are left out of lists unless you ask for `status=trashed`, and they show `"status": "trashed"`.
+
+The dashboard's own endpoints (signed-in session, same-origin requests only) are not part of the versioned API and may change, but for reference: `POST /api/admin/testimonials/{id}/trash` moves one to the trash, remembering its status, and `POST /api/admin/testimonials/{id}/restore` puts it back (a withdrawn one as `rejected`). Both answer `{ "testimonial": … }` and send `testimonial.trashed` or `testimonial.restored`. The inbox also uses `GET /api/admin/projects/{id}/testimonials` (the view's query, as in the dashboard's address bar), `POST /api/admin/projects/{id}/testimonials/bulk` (`{ "action", "ids", "tags"? }`, up to 500 ids, answering `{ "updated", "skipped": [{ "id", "reason" }] }`), `GET /api/admin/projects/{id}/export?format=csv|json&<view>` and `POST /api/admin/projects/{id}/testimonials/manual`.
+
 ## Webhooks
 
 Under **Settings → Webhooks**, add the URL of your endpoint. You can limit it to one project and to the events you care about. Tick none to receive the **default set**: every event below except the ones marked *opt-in*, which go only to endpoints that tick them.
