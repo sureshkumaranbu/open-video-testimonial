@@ -314,7 +314,8 @@ Plaudit is gaining multi-step forms, a new inbox, a widget studio, walls, review
 | Flag | What it shows |
 |---|---|
 | `forms` | **Forms**: several forms per project with a builder (questions answered by video or text, optional questions, custom and hidden fields, design, 11 languages, per-form rules, templates) and a share panel with QR codes and embeds. See [`docs/help/forms.md`](docs/help/forms.md) and [`docs/EMBED.md`](docs/EMBED.md). Also **Project settings**: change a project's link (old links keep working), delete it by typing its name (owner only), a brand kit with logo, colours and fonts, and a tags manager |
-| `widgets`, `walls` | Placeholder **Widgets**, **Walls** and **SEO** tabs |
+| `widgets` | **Widgets**: saved widgets in 8 layouts (masonry grid, list, carousel, multi-card slider, marquee, single featured, rating badge, floating toast) with a studio: hand-picked or automatic testimonials, pins, filters, design, labels, a rating summary, a "Leave a testimonial" button and a live preview. Embed by script, iframe, hosted link, React component or a server-side HTML include for search engines. See [`docs/help/widgets.md`](docs/help/widgets.md) and [`docs/embeds/`](docs/embeds/README.md) |
+| `walls` | Placeholder **Walls** and **SEO** tabs |
 | `inbox2`, `importers`, `notifications`, `onboarding` | Nothing yet |
 
 `PLAUDIT_FEATURES=all` turns on every one. A flag only shows or hides pages: your data, the API and the public pages behave the same either way.
@@ -339,6 +340,8 @@ The project page in the dashboard generates both snippets for you. Approve a tes
 The JSON behind the widget is at `GET /api/widget/<slug>`. It is CORS-enabled and contains public fields only: never email addresses or consent records.
 
 The iframe option is `/embed/<slug>?theme=dark`. It posts its height to the parent page so the snippet can size the iframe to fit.
+
+A **saved widget** from the widget studio (preview flag `widgets`) is embedded by its id instead: `<script src="https://your-plaudit.example/widget.js" data-widget="w_abc123def456" async></script>`. Its layout, look and testimonials are set in the dashboard, and `data-project` embeds keep working exactly as before. See [`docs/EMBED.md`](docs/EMBED.md#saved-widgets).
 
 ## Backups, moving and upgrading
 

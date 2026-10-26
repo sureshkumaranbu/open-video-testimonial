@@ -6,6 +6,7 @@ Plaudit has a small REST API and signed webhooks, so you can connect it to n8n, 
 - [Webhooks](#webhooks)
 - [Verifying webhook signatures](#verifying-webhook-signatures)
 - [Connecting n8n](#connecting-n8n)
+- [Public widget feed](#public-widget-feed)
 
 The machine-readable description is served by your instance at **`/api/v1/openapi.json`** (OpenAPI 3.1). You can import it into Postman, Insomnia or an API client generator.
 
@@ -253,3 +254,24 @@ def verify_plaudit(secret: str, signature_header: str, raw_body: bytes, toleranc
 4. To call Plaudit from n8n, use an **HTTP Request** node with header `Authorization: Bearer plk_…`, or import `/api/v1/openapi.json`.
 
 Zapier ("Webhooks by Zapier → Catch Hook"), Make ("Custom webhook") and Activepieces ("Webhook trigger") work the same way. These steps describe n8n's standard nodes and haven't been run against a live n8n instance as part of Plaudit's tests. The signature scheme itself is covered by the automated tests.
+
+## Public widget feed
+
+What `widget.js` reads. No key is needed, responses are CORS-enabled (`Access-Control-Allow-Origin: *`) and cached for 60 seconds, and they carry public fields only: never an email address, phone number, consent record, custom or hidden field.
+
+- **`GET /api/widget/<project-slug>`** (`?tag=&limit=`): `{project, testimonials}`, unchanged from earlier versions.
+- **`GET /api/widget/w_<id>`**: a saved widget (preview flag `widgets` for the studio; the feed itself is always on). Returns
+
+  ```json
+  {
+    "project": { "name": "Acme", "slug": "acme", "accentColor": "#0f766e" },
+    "widget": { "id": "w_abc123def456", "layout": "carousel", "sort": null, "design": { "theme": "dark", "accent": "#0f766e", "onAccent": "#ffffff", "...": "…" }, "options": { "...": "…" }, "labels": { "...": "…" }, "cta": null, "aggregate": { "show": true }, "wallUrl": "/wall/acme" },
+    "testimonials": [{ "id": "…", "name": "Ada", "rating": 5, "text": "…", "video": null, "tags": [], "createdAt": "…", "extra": { "headline": null, "date": "…", "datePrecision": "day", "platform": null, "sourceUrl": null, "verified": true, "images": [], "companyLogoUrl": null, "highlights": [] } }],
+    "aggregate": { "count": 12, "average": 4.8 }
+  }
+  ```
+
+  Each testimonial has the same fields as the slug feed plus `extra`. The widget's filters, picks and pins are applied on the server before the limit; its filters, picked ids and form id are never sent. With **first name only** on, the surname never leaves the server. A deleted widget answers `{"project": null, "widget": null, "testimonials": [], "aggregate": {"count": 0, "average": null}}`; an unknown id answers 404.
+- **`GET /api/widget/w_<id>/html`** (`?jsonld=1`): the same widget as escaped HTML for a server-side include ([`EMBED.md`](EMBED.md#seo-html-include)).
+
+Widgets are managed in the dashboard; there is no `/api/v1` endpoint for them yet.

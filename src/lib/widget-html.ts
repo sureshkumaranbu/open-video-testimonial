@@ -122,7 +122,7 @@ export function renderWidgetHtml(
 ): string {
   const abs = (u: string) => (/^https?:\/\//i.test(u) ? u : `${o.origin}${u.startsWith("/") ? "" : "/"}${u}`);
   const parts: string[] = [
-    `<div class="plaudit-include" data-plaudit-widget="${escapeHtml(w.id)}" data-layout="${escapeHtml(w.layout)}">`,
+    `<div class="plaudit-include" data-plaudit-include="${escapeHtml(w.id)}" data-layout="${escapeHtml(w.layout)}">`,
     `<style>${css(w, project.accentColor)}</style>`,
   ];
   if ((w.aggregate.show || w.layout === "badge") && agg.count) {

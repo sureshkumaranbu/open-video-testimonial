@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Widget studio** (behind the `widgets` preview flag). See [`docs/help/widgets.md`](docs/help/widgets.md).
+  - Saved widgets, each with its own id (`data-widget="w_…"`), in 8 layouts: masonry grid, list, carousel, multi-card slider, marquee, single featured, rating badge and floating toast.
+  - Automatic or hand-picked testimonials with your own order and pins; filters for tags, rating, source, kind, keywords, language and form, applied on the server before the limit; newest, oldest, highest rated, inbox pins or shuffled.
+  - Design (theme, font, colours, radius, spacing, width, shadow, and what to show, including dates, "Read more", highlights, a verified mark and first names only), per-layout options, editable labels, a rating summary and a "Leave a testimonial" button that opens a form as a page or a pop-up.
+  - The studio previews every change with the real embed code at desktop, tablet and phone width. The Share tab has the script, an auto-sizing iframe, a hosted link at `/embed/w_…`, a React component, an email for your developer and guides for 9 site builders ([`docs/embeds/`](docs/embeds/README.md)).
+  - An **SEO include** at `/api/widget/w_…/html` puts the review text in your page with JavaScript off, with optional JSON-LD.
+  - Carousels and sliders pause on hover and keyboard focus, move with the arrow keys and have a pause button; reduced motion stops autoplay and the marquee; videos keep their captions.
+  - `widget.js` stays small: the grid and list core is under 7 KB gzipped, and other layouts load on first use. `data-project` embeds draw exactly what they drew before.
+
 - **Forms** (behind the `forms` preview flag). See [`docs/help/forms.md`](docs/help/forms.md).
   - Several forms per project, each at `/f/<project>/<form>`, made blank or from one of 8 templates. A step-by-step page shows one step per screen with a progress bar; Back keeps every answer, and a recording keeps uploading while people move between steps.
   - Up to 10 questions, each answered by video, text or either, with its own tips, video length and up to 3 images. Questions can be **optional**. Private questions go to private feedback, never published.
