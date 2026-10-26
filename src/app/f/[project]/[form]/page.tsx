@@ -5,7 +5,7 @@ import { getFormBySlug } from "@/lib/forms";
 import { runnerProps } from "@/lib/forms/runner";
 import { parseFormRow } from "@/lib/forms/schema";
 import { findProjectBySlugOrAlias, withQuery } from "@/lib/projects";
-import { ClassicCollect } from "../../../c/[slug]/ClassicCollect";
+import { ClassicCollect } from "@/app/c/[slug]/ClassicCollect";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +40,7 @@ export default async function FormPage({ params, searchParams }: Props) {
   const { project, form } = found;
   // Old project or form links move on to the current ones, ?r= and all (D17).
   if (!found.canonical || found.redirectedFrom) permanentRedirect(withQuery(`/f/${project.slug}/${form.slug}`, query));
-  if (form.layout === "classic") return <ClassicCollect project={project} form={form} query={query} />;
+  // The classic page shows (and sends to) the default form only; any other classic form runs step by step.
+  if (form.layout === "classic" && form.isDefault) return <ClassicCollect project={project} form={form} query={query} />;
   return <FormRunner {...runnerProps(project, form, query)} />;
 }

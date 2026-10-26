@@ -27,7 +27,9 @@ export const formPatchBody = z
     status: z.enum(FORM_STATUSES),
     pages: z.array(z.unknown()).max(30),
     design: z.record(z.string(), z.unknown()),
-    labels: z.object({ overrides: z.record(z.string(), z.string().max(500)) }),
+    labels: z.object({
+      overrides: z.record(z.string().max(40), z.string().max(500)).refine((o) => Object.keys(o).length <= 200, "Too many label changes"),
+    }),
     settings: z.record(z.string(), z.unknown()),
   })
   .partial();
