@@ -80,9 +80,12 @@ const PLATFORM_NAMES: Record<string, string> = {
 /** "Product Hunt", "product_hunt", "PLAY_STORE" -> "producthunt", "producthunt", "googleplay"; anything else lower-cased. */
 export function normalizePlatform(raw: string | null | undefined) {
   const n = (raw ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
-  if (!n) return null;
+  // How a row arrived in a tool (an older Plaudit export's "source" column, say) isn't where it was posted.
+  if (!n || CHANNELS.test(n)) return null;
   return PLATFORM_NAMES[n] ?? n.slice(0, 40);
 }
+
+const CHANNELS = /^(form|api|manual|csv|import\w*|request|requested)$/;
 
 export function detectMapping(headers: string[]): Mapping {
   const mapping: Mapping = {};

@@ -9,12 +9,12 @@ import { POST as previewRoute } from "@/app/api/admin/projects/[id]/imports/prev
 import { GET as runRoute } from "@/app/api/admin/runs/[id]/route";
 import { POST as startRoute } from "@/app/api/admin/runs/[id]/import/route";
 import { getDb, schema } from "@/db";
-import { FETCH_MEDIA_JOB } from "@/lib/csv-import";
+import { FETCH_MEDIA_JOB, isUniqueViolation } from "@/lib/csv-import";
 import { runDueJobs } from "@/lib/jobs";
 import { listImporters } from "@/lib/importers/registry";
-import { IMPORT_PLATFORM_JOB, previewImport, runImportJob, setImportFetch, startImport } from "@/lib/importers/run";
+import { cleanupStalePreviews, IMPORT_PLATFORM_JOB, previewImport, runImportJob, setImportFetch, startImport } from "@/lib/importers/run";
 import type { PublicText } from "@/lib/net-guard";
-import { createProject, listTestimonials } from "@/lib/testimonials";
+import { createProject, createTestimonial, listTestimonials } from "@/lib/testimonials";
 import { registerJobs } from "@/lib/worker";
 import { adminHeaders, params, useTempDataDir } from "./helpers";
 
@@ -294,5 +294,30 @@ describe("IMP-01 importer framework", () => {
     await drain();
     expect(getDb().select().from(schema.taskRuns).where(eq(schema.taskRuns.id, second.run.id)).get()).toMatchObject({ done: 0, duplicates: 2 });
     expect(listTestimonials(projectId).map((t) => t.platform).sort()).toEqual(["google", "trustpilot"]);
+  });
+
+  it("IMP-01 the dedupe index catches a second insert of the same review, which counts as a duplicate", () => {
+    const row = { name: "Twice", text: "Same review", platform: "appstore", sourceReviewId: "r-1" };
+    createTestimonial(projectId, row, { source: "importer:appstore" });
+    let caught: unknown = null;
+    try {
+      createTestimonial(projectId, row, { source: "importer:appstore" });
+    } catch (err) {
+      caught = err;
+    }
+    expect(isUniqueViolation(caught)).toBe(true);
+    // Another project may hold the same review.
+    const other = createProject({ name: "Other", slug: "other" }).id;
+    expect(() => createTestimonial(other, row, { source: "importer:appstore" })).not.toThrow();
+  });
+
+  it("IMP-01 previews nobody imported are deleted after a day, with their saved API keys", async () => {
+    fakeFetch({ "api.senja.io": () => ({ status: 200, text: read("senja/api-page1.json"), finalUrl: "", contentType: "application/json" }) });
+    const stale = await previewImport(projectId, "senja", { apiKey: "senja-key-123" }, {}, own);
+    const started = await previewImport(projectId, "appstore", appInput, {}, own);
+    startImport(started.run.id, "all");
+    expect(cleanupStalePreviews(new Date(Date.now() + 25 * 60 * 60 * 1000))).toBe(1);
+    expect(getDb().select().from(schema.taskRuns).where(eq(schema.taskRuns.id, stale.run.id)).get()).toBeUndefined();
+    expect(getDb().select().from(schema.taskRuns).where(eq(schema.taskRuns.id, started.run.id)).get()).toBeDefined();
   });
 });

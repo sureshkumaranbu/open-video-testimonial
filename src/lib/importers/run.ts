@@ -419,9 +419,10 @@ function processItem(project: Project, adapter: ImporterAdapter, run: TaskRun, i
   }
 }
 
+/** Matching items handled so far: "all matching" stops at MAX_IMPORT_ITEMS of these (skipped ones don't count). */
 function handled(runId: string) {
   const r = getRun(runId);
-  return r ? r.done + r.duplicates + r.skipped + r.failed : 0;
+  return r ? r.done + r.duplicates + r.failed : 0;
 }
 
 function finish(runId: string, project: Project, adapter: ImporterAdapter) {
@@ -545,6 +546,18 @@ export async function runImportJob(p: { runId: string }, o: { final?: boolean } 
   } else {
     finish(run.id, project, adapter);
   }
+}
+
+/** How long a preview that was never imported is kept (with any API key typed for it). */
+export const PREVIEW_TTL_MS = 24 * 60 * 60 * 1000;
+
+/** Deletes previews nobody imported, so saved inputs (API keys) don't linger. Returns how many. */
+export function cleanupStalePreviews(now = new Date()) {
+  const t = schema.taskRuns;
+  return getDb()
+    .delete(t)
+    .where(and(eq(t.kind, "import"), eq(t.status, "previewed"), sql`${t.createdAt} < ${now.getTime() - PREVIEW_TTL_MS}`))
+    .run().changes;
 }
 
 /** The project's recent imports, newest first, for the history list. */

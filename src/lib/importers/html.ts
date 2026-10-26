@@ -189,7 +189,8 @@ export function parseJson(raw: string): unknown {
 /** A page that a bot wall answered instead of the site (status or tell-tale markers). */
 export function looksBlocked(status: number, text: string) {
   if (status === 401 || status === 403 || status === 429 || status === 503) return true;
-  if (status >= 200 && status < 300 && text.length < 200_000) {
+  // A real page may load a captcha script for its own forms; a challenge page is small.
+  if (status >= 200 && status < 300 && text.length < 30_000) {
     return /captcha|cf-chl-|challenge-platform|px-captcha|datadome|access denied|are you a robot|verify you are human/i.test(text.slice(0, 50_000));
   }
   return false;
