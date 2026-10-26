@@ -77,6 +77,16 @@ describe("finding testimonials on the owner's site", () => {
     expect(discoverFromHtml(html).map((f) => f.sourceReviewId)).toEqual(found.map((f) => f.sourceReviewId));
   });
 
+  it("ONB-03 finds a blockquote card whose name and role sit in plain lines after it, next to an avatar initial", () => {
+    const card = (q: string, initial: string, who: string, role: string) =>
+      `<article class="rounded-[14px] p-6"><blockquote class="font-[family-name:var(--font-serif)]">${q}</blockquote><div class="flex"><div aria-hidden="true">${initial}</div><div><p class="font-[family-name:var(--font-sans)]">${who}</p><p>${role}</p></div></div></article>`;
+    // A whole section id="testimonials" holds both cards, and Tailwind classes contain "family-name".
+    const page = `<html><body><section id="testimonials">${card("The study guides it made from my lectures saved my whole semester.", "R", "Riya Shah", "Law student")}${card("Transcripts arrive in minutes and I trust them enough to quote.", "T", "Tom Reed", "Journalist")}</section><blockquote>Good notes are half the work.</blockquote><div><p>We think every lecture deserves a second listen, so we built this.</p></div></body></html>`;
+    const found = discoverFromHtml(page);
+    expect(found.map((f) => [f.authorName, f.authorTitle])).toEqual([["Riya Shah", "Law student"], ["Tom Reed", "Journalist"]]);
+    expect(found[0].text).toBe("The study guides it made from my lectures saved my whole semester.");
+  });
+
   it("ONB-03 reads the brand: site name, theme colour and a non-SVG logo", () => {
     expect(brandFromHtml(html, "https://larkspur.example/home/")).toEqual({
       name: "Larkspur Bakery",

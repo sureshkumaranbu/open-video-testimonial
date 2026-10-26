@@ -91,7 +91,8 @@ const NAME_HINT = /(^|[\s_-])(name|author|cite|person)([\s_-]|$)/i;
 const ROLE_HINT = /(^|[\s_-])(title|role|position|job|company|org|business)([\s_-]|$)/i;
 const SKIP = new Set(["script", "style", "noscript", "template", "nav", "header", "footer", "form", "svg"]);
 
-const classOf = (el: Element) => `${attr(el, "class") ?? ""} ${attr(el, "id") ?? ""}`;
+/** Class and id words, without utility-class arbitrary values like `font-[family-name:…]` that would read as "name". */
+const classOf = (el: Element) => `${attr(el, "class") ?? ""} ${attr(el, "id") ?? ""}`.replace(/\[[^\]]*\]/g, "");
 
 function insideSkipped(el: Element): boolean {
   for (let p = el.parent as Element | null; p && p.type === "tag"; p = p.parent as Element | null) {
@@ -130,6 +131,24 @@ function splitRole(s: string) {
   return { name: first, role: rest.join(", ") || undefined };
 }
 
+/** The visible text lines of a small attribution block, leaving out avatar initials and hidden parts. */
+function shortLines(el: Element): string[] {
+  const out: string[] = [];
+  const walk = (e: Element) => {
+    if (attr(e, "aria-hidden") === "true" || SKIP.has(e.name)) return;
+    const kids = e.children.filter((c): c is Element => c.type === "tag");
+    if (!kids.length) {
+      const t = textOf(e).replace(/\s+/g, " ").trim();
+      if (t.length > 1) out.push(t);
+    } else kids.forEach(walk);
+  };
+  walk(el);
+  return out.length > 4 ? [] : out;
+}
+
+/** A person's name, not a sentence: up to 6 words, starts with a capital, no closing punctuation. */
+const looksLikeName = (s: string) => s.length <= 60 && s.split(/\s+/).length <= 6 && /^\p{Lu}/u.test(s) && !/[.!?:]$/.test(s);
+
 /** The name (and title) close to a quote: a class saying name/author, cite, figcaption, footer, or a "— Name" line after it. */
 function attribution(el: Element): { name?: string; role?: string; used: Element[] } {
   const used: Element[] = [];
@@ -163,6 +182,14 @@ function attribution(el: Element): { name?: string; role?: string; used: Element
       const split = splitRole(line.replace(/^[-–—~\s]+/, ""));
       name = split.name;
       role = role ?? split.role;
+    } else if (next && next.type === "tag" && ["div", "span", "footer", "figcaption"].includes((next as Element).name)) {
+      // <blockquote>…</blockquote><div><span aria-hidden>S</span><div><p>Sarah Chen</p><p>Student</p></div></div>
+      const lines = shortLines(next as Element);
+      if (lines.length >= 1 && lines.length <= 3 && looksLikeName(lines[0])) {
+        name = lines[0];
+        role = role ?? lines[1];
+        used.push(next as Element);
+      }
     }
   }
   return { name: cleanLine(name, 80), role: cleanLine(role, 120), used };
@@ -176,7 +203,9 @@ export function testimonialsFromMarkup(doc: Document): ImportedReview[] {
   const cards = candidates.filter((c) => !QUOTE_TAGS.has(c.name));
   // A "testimonials" section holding several cards isn't one testimonial: keep the innermost cards,
   // and quotes that no kept card holds.
-  const keptCards = cards.filter((c) => !cards.some((o) => o !== c && isAncestor(c, o)));
+  // A card holding several quotes (a whole "testimonials" section) is a container, not a card.
+  const quoteCount = (c: Element) => candidates.filter((q) => QUOTE_TAGS.has(q.name) && isAncestor(c, q)).length;
+  const keptCards = cards.filter((c) => !cards.some((o) => o !== c && isAncestor(c, o)) && quoteCount(c) <= 1);
   const quotes = candidates.filter((c) => QUOTE_TAGS.has(c.name) && !keptCards.some((k) => isAncestor(k, c)));
   const out: ImportedReview[] = [];
   for (const el of [...keptCards, ...quotes]) {
