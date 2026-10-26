@@ -315,7 +315,7 @@ Plaudit is gaining multi-step forms, a new inbox, a widget studio, walls, review
 |---|---|
 | `forms` | **Forms**: several forms per project with a builder (questions answered by video or text, optional questions, custom and hidden fields, design, 11 languages, per-form rules, templates) and a share panel with QR codes and embeds. See [`docs/help/forms.md`](docs/help/forms.md) and [`docs/EMBED.md`](docs/EMBED.md). Also **Project settings**: change a project's link (old links keep working), delete it by typing its name (owner only), a brand kit with logo, colours and fonts, and a tags manager |
 | `widgets` | **Widgets**: saved widgets in 8 layouts (masonry grid, list, carousel, multi-card slider, marquee, single featured, rating badge, floating toast) with a studio: hand-picked or automatic testimonials, pins, filters, design, labels, a rating summary, a "Leave a testimonial" button and a live preview. Embed by script, iframe, hosted link, React component or a server-side HTML include for search engines. See [`docs/help/widgets.md`](docs/help/widgets.md) and [`docs/embeds/`](docs/embeds/README.md) |
-| `walls` | Placeholder **Walls** and **SEO** tabs |
+| `walls` | **Walls**: several wall of love pages per project with an editor (five themes, hero, buttons, header links, cover, tag tabs, a call to action between cards, load more), drafts, a main wall for `/wall/<project>`, and SEO (meta, canonical, noindex, JSON-LD, link preview image). **SEO**: review snippets for your own pages, static or as a script. See [`docs/help/walls.md`](docs/help/walls.md) |
 | `inbox2`, `importers`, `notifications`, `onboarding` | Nothing yet |
 
 `PLAUDIT_FEATURES=all` turns on every one. A flag only shows or hides pages: your data, the API and the public pages behave the same either way.
@@ -416,6 +416,9 @@ The Playwright run starts the server with these settings, so every feature is te
 | `e2e/security.spec.ts` | Security headers and CSP, media takedown, bad private links, rate limits |
 | `e2e/project-settings.spec.ts` | Project settings: changing the link with old links still working, typed delete, brand kit, tags manager, phone layout |
 | `e2e/security-settings.spec.ts` | Project settings: headers and CSP, cross-site changes refused, the logo served only as an image, old links that stay on this server |
+| `e2e/walls.spec.ts` | Walls: the editor (hero, tabs, inline call to action, themes), publishing, drafts as 404, load more and infinite scroll, phones, meta and JSON-LD with JavaScript off, the link preview image, the main wall |
+| `e2e/seo.spec.ts` | Review snippets: static and dynamic code on another site, guidance below 5 reviews, changing the scope |
+| `e2e/security-walls.spec.ts` | Walls: headers and CSP on pages and images, drafts 404 everywhere, hostile text in cards and JSON-LD, no CSP violations in the editor |
 
 To test a running instance instead, for example `docker compose up`, set `E2E_BASE_URL=http://127.0.0.1:3000`. Its `E2E_ADMIN_EMAIL` and `E2E_ADMIN_PASSWORD` must match that instance's admin credentials. Tests that need the outbox, the stand-in transcriber or a local webhook receiver skip themselves when those aren't available. `UPDATE_SCREENSHOTS=1` refreshes the images in `docs/screenshots/`.
 

@@ -7,6 +7,7 @@ Plaudit has a small REST API and signed webhooks, so you can connect it to n8n, 
 - [Verifying webhook signatures](#verifying-webhook-signatures)
 - [Connecting n8n](#connecting-n8n)
 - [Public widget feed](#public-widget-feed)
+- [Walls and review snippets](#walls-and-review-snippets)
 
 The machine-readable description is served by your instance at **`/api/v1/openapi.json`** (OpenAPI 3.1). You can import it into Postman, Insomnia or an API client generator.
 
@@ -275,3 +276,13 @@ What `widget.js` reads. No key is needed, responses are CORS-enabled (`Access-Co
 - **`GET /api/widget/w_<id>/html`** (`?jsonld=1`): the same widget as escaped HTML for a server-side include ([`EMBED.md`](EMBED.md#seo-html-include)).
 
 Widgets are managed in the dashboard; there is no `/api/v1` endpoint for them yet.
+
+## Walls and review snippets
+
+Public, no key needed (preview flag `walls` for the dashboard pages; these endpoints are always on).
+
+- **`GET /api/walls/<wall-id>/items?tab=<n>&offset=<n>`**: the next page of a published wall's tab, for "load more": `{items, total, nextOffset}`, where `items` has the same shape as the widget feed's `testimonials` and `nextOffset` is `null` on the last page. Same-origin use; cached for 60 seconds. A draft or unknown wall answers 404.
+- **`GET /wall/<project>/<wall>/opengraph-image`**: the wall's 1200×630 PNG link preview. 404 for drafts.
+- **`GET /schema/s_<id>.js`**: a review snippet's script. It adds a `<script type="application/ld+json" data-plaudit-schema="s_…">` block to `document.head` once, with up to 10 reviews and the `AggregateRating`. `text/javascript`, CORS `*`, cached for 5 minutes. An unknown or deleted snippet answers 404 with a JavaScript comment, so the page carries on.
+
+Walls and snippets are managed in the dashboard; there is no `/api/v1` endpoint for them yet.

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Walls and SEO** (behind the `walls` preview flag). See [`docs/help/walls.md`](docs/help/walls.md).
+  - Several walls per project at `/wall/<project>/<wall>`, each a draft until published. Drafts are "not found" for visitors, including their link preview image and "load more".
+  - An editor with a live desktop and phone preview: five themes of our own, a hero with a featured testimonial and the average rating, a hero button, header logo and links, a cover image, fonts, card colours, columns, "load more" or infinite scroll, the card toggles, tag tabs with a default tab, and a call to action after a chosen number of cards.
+  - One wall can be the project's **main wall**: `/wall/<project>` then shows it while it's published. Until then the classic page is unchanged. Renamed walls keep their old links (308).
+  - Server-rendered pages with a title, meta description, canonical link, optional noindex, a generated 1200×630 link preview image, and escaped JSON-LD (`Review` and `AggregateRating`, up to 10 reviews). The classic wall page gets the JSON-LD and meta too.
+  - **Review snippets** on the new SEO tab: schema.org data for your own pages, as a static JSON-LD block or a dynamic `/schema/s_….js` script, with guidance (5 reviews or more, not on the home page, the search engine decides) and an example result.
+
 - **Widget studio** (behind the `widgets` preview flag). See [`docs/help/widgets.md`](docs/help/widgets.md).
   - Saved widgets, each with its own id (`data-widget="w_…"`), in 8 layouts: masonry grid, list, carousel, multi-card slider, marquee, single featured, rating badge and floating toast.
   - Automatic or hand-picked testimonials with your own order and pins; filters for tags, rating, source, kind, keywords, language and form, applied on the server before the limit; newest, oldest, highest rated, inbox pins or shuffled.
