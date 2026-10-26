@@ -2,6 +2,7 @@
 
 import { Checkbox } from "@/components/admin";
 import { Icon } from "@/components/Icon";
+import { PlatformIcon } from "@/components/PlatformIcon";
 import { Stars } from "@/components/TestimonialCard";
 import { timeAgo } from "../Dashboard";
 import type { CardCallbacks } from "./Inbox";
@@ -75,7 +76,9 @@ export function TableView({ items, selection, ...cb }: { items: InboxRow[] } & C
                     {t.tags.length > 0 && <span>{t.tags.join(", ")}</span>}
                   </span>
                 </td>
-                <td className="small">{sourceLabel(t)}</td>
+                <td className="small">
+                  {t.platform && <PlatformIcon platform={t.platform} className="ib-source-icon" />} {sourceLabel(t)}
+                </td>
                 <td>
                   <span className={`badge ${t.withdrawnAt ? "rejected" : t.status}`}>{t.withdrawnAt ? "Withdrawn" : STATUS_LABEL[t.status]}</span>
                 </td>

@@ -55,12 +55,15 @@ const FIELD_LABEL: Record<string, string> = {
   tags: "Tags",
   avatarUrl: "Photo URL",
   videoUrl: "Video URL",
+  platform: "Source platform",
+  sourceReviewId: "Original ID",
 };
 
 const ORIGIN_LABEL: Record<string, string> = {
   plaudit: "a Plaudit CSV export",
   senja: "a Senja-style file",
   "testimonial-to": "a Testimonial.to-style file",
+  shapo: "a Shapo-style file",
   csv: "a CSV file",
 };
 

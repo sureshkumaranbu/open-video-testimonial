@@ -1,0 +1,137 @@
+/* Importers (IMP-01): the source picker and the import flow on Import & export. */
+
+.imp-sources {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-3);
+}
+
+.imp-source {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  flex-wrap: wrap;
+}
+
+.imp-source:hover {
+  border-color: var(--line-strong);
+}
+
+.imp-source[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.imp-source:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.imp-source img {
+  flex: none;
+}
+
+.imp-source-note {
+  flex-basis: 100%;
+  font-weight: 400;
+  font-size: var(--text-sm);
+  color: var(--ink-3);
+}
+
+.imp-wizard {
+  border-color: var(--accent);
+}
+
+.imp-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.imp-options {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin: 0;
+}
+
+.imp-options legend {
+  font-weight: 600;
+  padding: 0 var(--space-1);
+}
+
+.imp-file {
+  align-self: flex-start;
+  flex-direction: row;
+}
+
+.imp-upload[data-emphasis="true"] {
+  padding: var(--space-3);
+  border: 1px dashed var(--accent);
+  border-radius: var(--radius-md);
+}
+
+.imp-preview-head {
+  justify-content: space-between;
+}
+
+.imp-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+  max-height: 32rem;
+  overflow-y: auto;
+}
+
+.imp-item {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.imp-item[data-imported="true"] {
+  opacity: 0.7;
+}
+
+.imp-item-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.imp-item-meta {
+  gap: var(--space-2);
+}
+
+.imp-item-headline {
+  font-weight: 600;
+  margin: var(--space-1) 0 0;
+}
+
+.imp-item-text {
+  margin: var(--space-1) 0 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

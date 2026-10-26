@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { IMPORT_FIELDS } from "@/lib/csv-import";
 import { featureOn } from "@/lib/features";
+import { listImporters } from "@/lib/importers/registry";
 import { requireAdminPage } from "@/lib/server-session";
 import { countByStatus, getProjectById } from "@/lib/testimonials";
 import { AppBar } from "../../../AppBar";
@@ -33,7 +34,7 @@ export default async function DataPage({ params }: { params: Promise<{ id: strin
             <p className="muted">Your data is yours: take all of it with you, or bring testimonials in from elsewhere.</p>
           </div>
         </div>
-        {featureOn("importers") && <ImportSources projectId={project.id} />}
+        {featureOn("importers") && <ImportSources projectId={project.id} importers={listImporters()} />}
         <DataTools
           projectId={project.id}
           total={Object.values(counts).reduce((sum, n) => sum + n, 0)}

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { Approver, MediaStatus, Project, TestimonialStatus, TranscriptStatus } from "@/db/schema";
 import type { SystemStatus } from "@/lib/system";
 import { Icon } from "@/components/Icon";
+import { PlatformIcon, platformLabel } from "@/components/PlatformIcon";
 import { Avatar, Stars } from "@/components/TestimonialCard";
 import { accentStyle } from "@/lib/theme";
 import { TestimonialExtras } from "./TestimonialExtras";
@@ -38,6 +39,8 @@ export type AdminTestimonial = {
   createdAt: string;
   updatedAt?: string;
   tags: string[];
+  /** Where an imported review was first posted (google, appstore…). */
+  platform?: string | null;
 };
 
 // Hidden and trashed get their own tabs with Inbox v2; until then they show under All.
@@ -330,6 +333,12 @@ export function TestimonialRow({
             </span>
           ) : (
             <span className={`badge ${t.status}`}>{t.status[0].toUpperCase() + t.status.slice(1)}</span>
+          )}
+          {t.platform && (
+            <span className="badge platform" data-testid="source-icon" data-platform={t.platform} title={`Imported from ${platformLabel(t.platform)}`}>
+              <PlatformIcon platform={t.platform} />
+              {platformLabel(t.platform)}
+            </span>
           )}
           {t.requestId && (
             <span className="badge requested" title="Sent through a personal request link">

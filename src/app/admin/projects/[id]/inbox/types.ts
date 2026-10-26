@@ -1,3 +1,4 @@
+import { platformLabel } from "@/components/PlatformIcon";
 import type { InboxTab } from "@/lib/inbox-query";
 import type { AdminTestimonial } from "../Dashboard";
 
@@ -64,7 +65,7 @@ export const EMPTY_TEXT: Record<InboxTab, string> = {
 
 /** Where a testimonial came from, for the table's source column. */
 export function sourceLabel(t: Pick<InboxRow, "source" | "platform">) {
-  if (t.platform) return t.platform.charAt(0).toUpperCase() + t.platform.slice(1);
+  if (t.platform) return platformLabel(t.platform);
   if (t.source === "form") return "Form";
   if (t.source === "manual") return "Added by hand";
   if (t.source === "api") return "API";
