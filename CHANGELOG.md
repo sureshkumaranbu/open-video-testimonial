@@ -2,7 +2,22 @@
 
 ## Unreleased
 
-- **Importers** (behind the `importers` preview flag). See [`docs/IMPORT.md`](docs/IMPORT.md).
+- **Phase 1 is on by default.** Forms, the new inbox, the widget studio, walls and SEO, importers, notifications and the setup guide no longer need `PLAUDIT_FEATURES`; set it to a shorter list, or `none`, to hide sections. Nothing about your data, the API or public pages changes.
+
+- **Notifications.** See [`docs/help/notifications.md`](docs/help/notifications.md).
+  - Email for each person on the team, all off until turned on: each new testimonial or a daily digest, a Monday reminder of what's waiting, an import summary and a monthly report. Only people who have signed in, and can still sign in, get mail. Digests go out once at `DIGEST_HOUR_UTC`.
+  - Slack, Discord, Microsoft Teams and Telegram channels with the stars, the quote and a **Review and approve** link that opens the testimonial in the inbox. A Test button, pause, per-project channels, and a per-form choice in the form builder. Only each service's own https addresses are posted to.
+  - Testimonials added by hand or imported never notify anyone.
+  - **Settings → Webhooks → Edit** changes a webhook's URL, events, project and form in place.
+
+- **Setup guide.** See [`docs/help/getting-started.md`](docs/help/getting-started.md).
+  - `/admin/welcome` asks for a project name, your website and what you sell, then reads your home page for your logo, colour and existing testimonials (schema.org reviews and quote blocks with a name; no AI), and imports the ones you choose as approved. It respects `robots.txt`, a 5 MB cap and a 10-second limit, and never reaches private addresses.
+  - It makes a step-by-step form with questions for your business, a published main Wall of Love, and a grid and a carousel widget, in your colours.
+  - A **Get started** checklist on the project (import or collect, customise a widget, add it to your site, share your link), with skip and hide. The dashboard shows a card for the guide and never redirects to it.
+
+- **Empty states** on the inbox, widgets, walls, requests, the forms search and review snippets, each with one next step. Every new page fits a 360 px phone without scrolling sideways (the walls list now stacks on phones).
+
+- **Importers**. See [`docs/IMPORT.md`](docs/IMPORT.md).
   - One flow for every source on Import & export: pick a source, say which listing, choose a minimum rating, skipping reviews with no text, tags and Pending or Approved, preview the latest 50, then import some or "all matching" (up to 1,000) in the background with progress and a summary.
   - Review sites: Google (Places API with your own key, 5 reviews at most), Trustpilot, G2, Capterra, Product Hunt (your own token, or the public page), App Store, Google Play (or the Play Console reviews CSV) and X (post links).
   - Moving from Testimonial.to (Wall of Love or CSV), Senja and Shapo (your API key or their CSV), videos included.
@@ -13,14 +28,14 @@
   - Outgoing requests refuse private network addresses on every redirect, with size and time limits.
   - The CSV importer also maps a platform column (Senja's `integration`, Shapo's `source`) and the original id, so the same file imported twice adds nothing new, and recognises Shapo exports.
 
-- **Walls and SEO** (behind the `walls` preview flag). See [`docs/help/walls.md`](docs/help/walls.md).
+- **Walls and SEO**. See [`docs/help/walls.md`](docs/help/walls.md).
   - Several walls per project at `/wall/<project>/<wall>`, each a draft until published. Drafts are "not found" for visitors, including their link preview image and "load more".
   - An editor with a live desktop and phone preview: five themes of our own, a hero with a featured testimonial and the average rating, a hero button, header logo and links, a cover image, fonts, card colours, columns, "load more" or infinite scroll, the card toggles, tag tabs with a default tab, and a call to action after a chosen number of cards.
   - One wall can be the project's **main wall**: `/wall/<project>` then shows it while it's published. Until then the classic page is unchanged. Renamed walls keep their old links (308).
   - Server-rendered pages with a title, meta description, canonical link, optional noindex, a generated 1200×630 link preview image, and escaped JSON-LD (`Review` and `AggregateRating`, up to 10 reviews). The classic wall page gets the JSON-LD and meta too.
   - **Review snippets** on the new SEO tab: schema.org data for your own pages, as a static JSON-LD block or a dynamic `/schema/s_….js` script, with guidance (5 reviews or more, not on the home page, the search engine decides) and an example result.
 
-- **Widget studio** (behind the `widgets` preview flag). See [`docs/help/widgets.md`](docs/help/widgets.md).
+- **Widget studio**. See [`docs/help/widgets.md`](docs/help/widgets.md).
   - Saved widgets, each with its own id (`data-widget="w_…"`), in 8 layouts: masonry grid, list, carousel, multi-card slider, marquee, single featured, rating badge and floating toast.
   - Automatic or hand-picked testimonials with your own order and pins; filters for tags, rating, source, kind, keywords, language and form, applied on the server before the limit; newest, oldest, highest rated, inbox pins or shuffled.
   - Design (theme, font, colours, radius, spacing, width, shadow, and what to show, including dates, "Read more", highlights, a verified mark and first names only), per-layout options, editable labels, a rating summary and a "Leave a testimonial" button that opens a form as a page or a pop-up.
@@ -29,7 +44,7 @@
   - Carousels and sliders pause on hover and keyboard focus, move with the arrow keys and have a pause button; reduced motion stops autoplay and the marquee; videos keep their captions.
   - `widget.js` stays small: the grid and list core is under 7 KB gzipped, and other layouts load on first use. `data-project` embeds draw exactly what they drew before.
 
-- **Forms** (behind the `forms` preview flag). See [`docs/help/forms.md`](docs/help/forms.md).
+- **Forms**. See [`docs/help/forms.md`](docs/help/forms.md).
   - Several forms per project, each at `/f/<project>/<form>`, made blank or from one of 8 templates. A step-by-step page shows one step per screen with a progress bar; Back keeps every answer, and a recording keeps uploading while people move between steps.
   - Up to 10 questions, each answered by video, text or either, with its own tips, video length and up to 3 images. Questions can be **optional**. Private questions go to private feedback, never published.
   - Custom fields (text, dropdown with an optional tag per choice, checkbox, NPS, web address, number), hidden fields from the link (`?utm_source=`), prefill (`?name=&email=…`) that can be locked, and "keep it private" consent.
@@ -40,7 +55,7 @@
   - The inbox card shows a form submission's other answers (videos with captions), private feedback, custom and hidden fields. Answer videos are converted and transcribed like the main one, stay private, and auto-approve waits for all of them.
   - Request links can open a chosen form. Webhooks `form.submitted` and `feedback.created` (opt-in) are now sent.
   - The classic page at `/c/<project>` is unchanged until you **Switch to step-by-step**; then it forwards visitors, `?r=` and all, to the new page. Switching Video → Write → Video on the classic page no longer loses the recording.
-- **Inbox v2** (behind the `inbox2` preview flag). See [`docs/help/inbox.md`](docs/help/inbox.md).
+- **Inbox v2**. See [`docs/help/inbox.md`](docs/help/inbox.md).
   - Seven tabs with live counts: All, Pending, Approved, Hidden, Rejected, Feedback (private answers) and Trash. On phones they make two rows of four.
   - Search over names, emails, companies, text, transcripts, every answer and tags, quick with tens of thousands of testimonials. Filters for rating, tags (any or all), source, how it arrived, type, form, language, consent, word count, date and attachments; sort by date added, date posted, rating, name or word count. The whole view is in the address bar, so a link shares it; your sort, view and page size are remembered.
   - Card and table views, pages of 25, 50 or 100, and bulk approve, hide, reject, tag, untag, export and trash for up to 500 at a time. Rows that can't take an action are skipped with the reason, and each change gets its own history entry and webhook.

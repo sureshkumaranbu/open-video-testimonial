@@ -200,9 +200,12 @@ export const env = {
 
   // ------------------------------------------------------------- Phase 1
 
-  /** Phase 1 sections that are switched on (see src/lib/features.ts): a comma list, or "all". Off until release. */
+  /**
+   * Phase 1 sections that are switched on (see src/lib/features.ts): a comma
+   * list, or "all" (the default since release). Set it to "none" to hide them all.
+   */
   get features() {
-    return list(process.env.PLAUDIT_FEATURES);
+    return process.env.PLAUDIT_FEATURES === undefined ? ["all"] : list(process.env.PLAUDIT_FEATURES);
   },
   /** Where media files live: "local" (DATA_DIR/uploads, the default) or "s3" (any S3-compatible service). */
   get storageDriver(): "local" | "s3" {

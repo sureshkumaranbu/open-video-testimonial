@@ -1,6 +1,6 @@
 # Forms
 
-_Behind the `forms` preview flag (`PLAUDIT_FEATURES=forms`, or `all`)._
+_On by default (the `forms` section; `PLAUDIT_FEATURES` can turn it off)._
 
 A project can have several forms, each with its own questions, fields, look, language and rules. Open **Forms** in a project.
 

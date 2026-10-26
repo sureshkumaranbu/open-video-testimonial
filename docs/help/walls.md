@@ -1,6 +1,6 @@
 # Walls and SEO
 
-_Behind the `walls` preview flag (`PLAUDIT_FEATURES=walls`, or `all`). Without it the **Walls** and **SEO** tabs are hidden. Your project's wall at `/wall/<project>` stays exactly as it is until you mark a published wall as the main one._
+_On by default (the `walls` section; `PLAUDIT_FEATURES` can turn it off). Without it the **Walls** and **SEO** tabs are hidden. Your project's wall at `/wall/<project>` stays exactly as it is until you mark a published wall as the main one._
 
 ## Walls
 

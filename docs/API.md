@@ -42,7 +42,7 @@ All paths are relative to `https://<your-plaudit>/api/v1`.
 
 Errors look like `{ "error": "…" }`, with status `400` (invalid input), `401` (missing or invalid key), `403` (read-only key), `404`, `409` (for example, re-publishing a testimonial whose author withdrew consent, or approving one whose author asked to keep it private) or `429`.
 
-Paths use the project's current slug. When you [change a project's link](../README.md#features-in-preview), its pages and widget keep answering the old one, but the API doesn't: use the new slug.
+Paths use the project's current slug. When you [change a project's link](../README.md#turning-sections-off), its pages and widget keep answering the old one, but the API doesn't: use the new slug.
 
 ### A testimonial
 
@@ -148,7 +148,7 @@ The dashboard's own endpoints (signed-in session, same-origin requests only) are
 
 ## Webhooks
 
-Under **Settings → Webhooks**, add the URL of your endpoint. You can limit it to one project and to the events you care about. Tick none to receive the **default set**: every event below except the ones marked *opt-in*, which go only to endpoints that tick them.
+Under **Settings → Webhooks**, add the URL of your endpoint. You can limit it to one project (or one form) and to the events you care about, and **Edit** changes the URL, events, project and form later without changing the secret or losing the delivery log. For Slack, Discord, Teams or Telegram messages, use **Settings → Notifications** instead ([docs/help/notifications.md](help/notifications.md)). Tick none to receive the **default set**: every event below except the ones marked *opt-in*, which go only to endpoints that tick them.
 
 | Event | When |
 |---|---|

@@ -69,9 +69,9 @@ jobs:
         run: npm run check:ownership -- ${BASE_REF:+--base "origin/$BASE_REF"}
         env:
           BASE_REF: ${{ github.base_ref }}
-      # Report only for now; the release (WP7.4) makes it a gate for all of Phase 1.
+      # A gate for all of Phase 1: every requirement ID has a test that names it.
       - name: Requirement coverage
-        run: npm run check:req -- --all --report
+        run: npm run check:req -- --all
       - run: npm run typecheck
       - run: npm test
       - name: Install Playwright Chromium

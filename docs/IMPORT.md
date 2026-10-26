@@ -1,6 +1,6 @@
 # Importing from review sites and other tools
 
-Plaudit can bring in reviews from 8 review sites and move testimonials over from 3 other testimonial tools. Everything goes through one flow on **Import & export → Import from review sites and other tools** (behind the `importers` preview flag):
+Plaudit can bring in reviews from 8 review sites and move testimonials over from 3 other testimonial tools. Everything goes through one flow on **Import & export → Import from review sites and other tools** (the `importers` section, on by default):
 
 1. **Pick the source.**
 2. **Say which listing**: a link, a name, an app ID or your API key, depending on the source.

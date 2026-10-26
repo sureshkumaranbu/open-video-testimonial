@@ -29,7 +29,7 @@ More: [settings (API keys and webhooks)](docs/screenshots/settings.png) · [impo
 - [Quick start with Node.js](#quick-start-with-nodejs)
 - [First steps](#first-steps)
 - [Configuration](#configuration)
-- [Optional features](#optional-features): [sign-in and team](#sign-in-and-team) · [video conversion](#video-conversion-ffmpeg) · [media storage (S3)](#media-storage-s3) · [email](#email-requests-reminders-and-receipts) · [transcripts](#transcripts-and-captions) · [API and webhooks](#api-and-webhooks) · [features in preview](#features-in-preview)
+- [Optional features](#optional-features): [sign-in and team](#sign-in-and-team) · [video conversion](#video-conversion-ffmpeg) · [media storage (S3)](#media-storage-s3) · [email](#email-requests-reminders-and-receipts) · [transcripts](#transcripts-and-captions) · [API and webhooks](#api-and-webhooks) · [turning sections off](#turning-sections-off)
 - [Embedding](#embedding)
 - [Backups, moving and upgrading](#backups-moving-and-upgrading)
 - [Privacy and consent](#privacy-and-consent)
@@ -41,6 +41,7 @@ More: [settings (API keys and webhooks)](docs/screenshots/settings.png) · [impo
 
 **Collecting**
 
+- **Forms**: several step-by-step forms per project from 8 templates, with up to 10 questions, custom and hidden fields, 11 languages, design and per-form rules, plus QR codes and embeds. See [`docs/help/forms.md`](docs/help/forms.md).
 - A collection page per project at `/c/<slug>`: star rating, a written testimonial **or a video**, name, private email, role, company, photo, and consent.
 - **A recorder that works on phones.**
   - It records MP4 on Safari and iOS, and WebM elsewhere.
@@ -53,7 +54,8 @@ More: [settings (API keys and webhooks)](docs/screenshots/settings.png) · [impo
 
 **Managing**
 
-- A dashboard to approve, reject, tag, rename and delete testimonials, with live counts.
+- An **inbox** with search, filters, sort and pages that you can share by link, bulk actions, a trash, a detail drawer with the full editor, highlights and history, and adding testimonials by hand. See [`docs/help/inbox.md`](docs/help/inbox.md).
+- **Importers** for Google, Trustpilot, G2, Capterra, Product Hunt, the App Store, Google Play and X, and moves from Testimonial.to, Senja and Shapo. See [`docs/IMPORT.md`](docs/IMPORT.md).
 - **Optional auto-approve**, set for each project and off by default. New testimonials with enough stars (4+ or 5) and no links go live without a click. Videos are included only if you say so, once they've been processed. Anything else waits in *Pending*, and you can reject an approved one at any time.
 - **Video conversion.** With ffmpeg, every video becomes a fast-start MP4 that plays in every browser, plus a poster image. The original is kept.
 - **Transcripts and captions.** Use a local speech-to-text program (such as whisper.cpp, so no audio leaves your server) or any OpenAI-compatible API. You can edit both, and "use transcript as quote" turns one into the written text.
@@ -61,8 +63,19 @@ More: [settings (API keys and webhooks)](docs/screenshots/settings.png) · [impo
 
 **Showing**
 
-- A wall of love at `/wall/<slug>`, light or dark.
+- A wall of love at `/wall/<slug>`, light or dark, and as many walls as you like with an editor, themes, tag tabs, a call to action and SEO (JSON-LD, link preview images). See [`docs/help/walls.md`](docs/help/walls.md).
+- **Widget studio**: saved widgets in 8 layouts with a live preview and script, iframe, hosted link, React and server-side HTML embeds. See [`docs/help/widgets.md`](docs/help/widgets.md).
 - **Embeds**: one `<script>` tag that renders into Shadow DOM, so your site's CSS can't break it, or an auto-resizing `<iframe>`. Light, dark or auto theme, grid or list, and filter by tag. Videos show posters, play in their own shape, and have captions on by default.
+
+**Getting started**
+
+- **A setup guide** at `/admin/welcome`: name your project, give your website and say what you sell. Plaudit reads your home page for your logo, brand colour and any testimonials already on it (schema.org reviews and quote blocks with a name), imports the ones you pick as approved, and makes a step-by-step form, a Wall of Love and two widgets in your colours. A **Get started** checklist on the project follows what's left.
+- **Empty states** on every list with the one thing to do next.
+
+**Notifications**
+
+- **Email for each person on the team**: every new testimonial or a daily digest, a weekly reminder of what's waiting, a summary when an import finishes, and a monthly report. All off until you turn them on, and only ever sent to people who have signed in.
+- **Slack, Discord, Microsoft Teams and Telegram**: the stars, the quote and a link that opens it ready to approve. Each form can choose its channels, and a Test button checks the connection.
 
 **Connecting**
 
@@ -189,8 +202,8 @@ Every setting is an environment variable, read from `.env` (Node) or `docker-com
 | `S3_FORCE_PATH_STYLE` | `false` | `true` puts the bucket in the path (`https://host/bucket/…`) instead of the host name. MinIO usually needs it |
 | `S3_PREFIX` | none | A folder inside the bucket for Plaudit's files, such as `plaudit` |
 | `TRASH_RETENTION_DAYS` | `30` | Days a testimonial stays in the trash before it's deleted for good |
-| `PLAUDIT_FEATURES` | none | Turns on [features in preview](#features-in-preview): a comma-separated list of `forms`, `inbox2`, `widgets`, `walls`, `importers`, `notifications` and `onboarding`, or `all` |
-| `DIGEST_HOUR_UTC` | `8` | The hour (UTC, 0 to 23) when daily and weekly digest emails will go out. Not used yet: notifications are still in preview |
+| `PLAUDIT_FEATURES` | `all` | Which [sections](#turning-sections-off) the dashboard shows: `all`, `none`, or a comma-separated list of `forms`, `inbox2`, `widgets`, `walls`, `importers`, `notifications` and `onboarding` |
+| `DIGEST_HOUR_UTC` | `8` | The hour (UTC, 0 to 23) when daily digests, the Monday reminder and the monthly report go out ([notifications](docs/help/notifications.md)) |
 | `GOOGLE_PLACES_API_KEY` | unset | Your own Google Cloud key with **Places API (New)** enabled, for the Google review importer (see [docs/IMPORT.md](docs/IMPORT.md)) |
 | `PRODUCT_HUNT_TOKEN` | unset | Your own Product Hunt API (v2) developer token, for reading a launch's comments; without it the Product Hunt importer reads the public page |
 
@@ -308,18 +321,21 @@ Create API keys and webhooks under **Settings**. [`docs/API.md`](docs/API.md) co
 - how to verify signatures, in Node.js and Python
 - connecting n8n
 
-### Features in preview
+### Turning sections off
 
-Plaudit is gaining multi-step forms, a new inbox, a widget studio, walls, review importers, notifications and a setup guide. Until each is finished it stays hidden, and everything you have keeps working the same. To try one early, list it in `PLAUDIT_FEATURES` and restart:
+Forms, the new inbox, the widget studio, walls, importers, notifications and the setup guide are all on. To hide some (while your team gets used to the rest, say), list only the ones you want in `PLAUDIT_FEATURES` and restart, or set it to `none`:
 
 | Flag | What it shows |
 |---|---|
 | `forms` | **Forms**: several forms per project with a builder (questions answered by video or text, optional questions, custom and hidden fields, design, 11 languages, per-form rules, templates) and a share panel with QR codes and embeds. See [`docs/help/forms.md`](docs/help/forms.md) and [`docs/EMBED.md`](docs/EMBED.md). Also **Project settings**: change a project's link (old links keep working), delete it by typing its name (owner only), a brand kit with logo, colours and fonts, and a tags manager |
 | `widgets` | **Widgets**: saved widgets in 8 layouts (masonry grid, list, carousel, multi-card slider, marquee, single featured, rating badge, floating toast) with a studio: hand-picked or automatic testimonials, pins, filters, design, labels, a rating summary, a "Leave a testimonial" button and a live preview. Embed by script, iframe, hosted link, React component or a server-side HTML include for search engines. See [`docs/help/widgets.md`](docs/help/widgets.md) and [`docs/embeds/`](docs/embeds/README.md) |
 | `walls` | **Walls**: several wall of love pages per project with an editor (five themes, hero, buttons, header links, cover, tag tabs, a call to action between cards, load more), drafts, a main wall for `/wall/<project>`, and SEO (meta, canonical, noindex, JSON-LD, link preview image). **SEO**: review snippets for your own pages, static or as a script. See [`docs/help/walls.md`](docs/help/walls.md) |
-| `inbox2`, `importers`, `notifications`, `onboarding` | Nothing yet |
+| `inbox2` | **Inbox**: the new Testimonials tab (without it, the classic dashboard). See [`docs/help/inbox.md`](docs/help/inbox.md) |
+| `importers` | **Import & export → Import from a review site** ([`docs/IMPORT.md`](docs/IMPORT.md)) |
+| `notifications` | **Settings → Notifications**: email and chat notifications ([`docs/help/notifications.md`](docs/help/notifications.md)) |
+| `onboarding` | The setup guide at `/admin/welcome`, the **Get started** card and checklist ([`docs/help/getting-started.md`](docs/help/getting-started.md)) |
 
-`PLAUDIT_FEATURES=all` turns on every one. A flag only shows or hides pages: your data, the API and the public pages behave the same either way.
+`PLAUDIT_FEATURES=all` (the default) turns on every one. A flag only shows or hides pages: your data, the API and the public pages behave the same either way.
 
 ## Embedding
 
@@ -399,7 +415,8 @@ The Playwright run starts the server with these settings, so every feature is te
 
 - `MAIL_OUTBOX=true`, so the tests can read the emails.
 - A stand-in for whisper.cpp ([`e2e/fixtures/fake-whisper.mjs`](e2e/fixtures/fake-whisper.mjs)), so transcripts run without a model.
-- `PLAUDIT_FEATURES=all`, so the features in preview are tested too.
+- `PLAUDIT_FEATURES=all`, so every section is tested.
+- With `E2E_WEBKIT=1` (after `npx playwright install webkit`), the specs that don't record video also run in WebKit.
 - A fixture server ([`e2e/fixtures/fixture-server.mjs`](e2e/fixtures/fixture-server.mjs)) that stands in for the outside web. Two test-only settings let the app reach it: `NET_GUARD_ALLOW` lets exact `host:port` origins through the guard on outgoing requests, and `IMPORTER_ORIGINS` sends importers there instead of the real sites. Never set them on a real server.
 
 | Suite | Covers |
@@ -438,7 +455,7 @@ To test a running instance instead, for example `docker compose up`, set `E2E_BA
 - [`docs/AUTH.md`](docs/AUTH.md): sign-in with Google, Apple or an email link, and your team.
 - [`docs/EMAIL.md`](docs/EMAIL.md): setting up email.
 - [`docs/API.md`](docs/API.md): REST API and webhooks.
-- [`docs/help/forms.md`](docs/help/forms.md): forms and the form builder; [`docs/EMBED.md`](docs/EMBED.md): embedding a form on your site.
+- [`docs/help/`](docs/help/README.md): the dashboard guides (getting started, forms, the inbox, widgets, walls and SEO, notifications); [`docs/EMBED.md`](docs/EMBED.md): embedding a form on your site; [`docs/IMPORT.md`](docs/IMPORT.md): importers.
 - [`docs/SPEC.md`](docs/SPEC.md): product spec, what's shipped, and the roadmap.
 - [`docs/research/feature-opportunities.md`](docs/research/feature-opportunities.md): the research behind the current features.
 - [`docs/research/senja-teardown.md`](docs/research/senja-teardown.md): clean-room notes on how an existing commercial tool behaves.

@@ -1,6 +1,6 @@
 # The inbox
 
-_Behind the `inbox2` preview flag (`PLAUDIT_FEATURES=inbox2`, or `all`). Without it, a project opens the classic dashboard._
+_On by default (the `inbox2` section; `PLAUDIT_FEATURES` can turn it off). Without it, a project opens the classic dashboard._
 
 A project's **Testimonials** tab is where everything that comes in is reviewed, edited and published.
 

@@ -1,6 +1,6 @@
 # Widgets
 
-_Behind the `widgets` preview flag (`PLAUDIT_FEATURES=widgets`, or `all`). Without it the **Widgets** tab is hidden; embeds that use your project's slug (`data-project`) work the same either way._
+_On by default (the `widgets` section; `PLAUDIT_FEATURES` can turn it off). Without it the **Widgets** tab is hidden; embeds that use your project's slug (`data-project`) work the same either way._
 
 A widget shows your approved testimonials on your own site. Make as many as you like, one per page or purpose, from the project's **Widgets** tab.
 
