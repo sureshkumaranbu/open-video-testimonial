@@ -235,6 +235,7 @@ export function toPublicWidget(
     id: w.id,
     layout: cfg.layout,
     sort: cfg.filters.sort === "random" ? "random" : null,
+    pinned: 0,
     design: { ...design, fontFamily: f.family, fontFile: f.file, accent, onAccent: accentStyle(accent)["--on-accent"] },
     options: { ...cfg.options },
     labels: { ...cfg.labels },
@@ -279,9 +280,12 @@ export function widgetPayload(
     firstNameOnly: cfg.design.firstNameOnly,
   });
   const aggregate = feedAggregate(project.id, cfg.filters, { scope: cfg.aggregate.scope, mode: sel.mode, manualIds: sel.manualIds });
+  const widget = toPublicWidget(w, cfg, { cta: ctaLinks(project, w.connectedFormId), wallUrl: `/wall/${project.slug}`, projectAccent: project.accentColor });
+  const pins = new Set(sel.pinnedIds);
+  while (widget.pinned < testimonials.length && pins.has(testimonials[widget.pinned].id)) widget.pinned++;
   return {
     project: { name: project.name, slug: project.slug, accentColor: project.accentColor },
-    widget: toPublicWidget(w, cfg, { cta: ctaLinks(project, w.connectedFormId), wallUrl: `/wall/${project.slug}`, projectAccent: project.accentColor }),
+    widget,
     testimonials,
     aggregate,
   };

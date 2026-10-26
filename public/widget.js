@@ -341,9 +341,10 @@
     return row;
   }
 
-  function shuffle(a) {
-    for (var i = a.length - 1; i > 0; i--) {
-      var j = Math.floor(Math.random() * (i + 1));
+  // Pins (the first `from`) stay first.
+  function shuffle(a, from) {
+    for (var i = a.length - 1; i > from; i--) {
+      var j = from + Math.floor(Math.random() * (i - from + 1));
       var t = a[i];
       a[i] = a[j];
       a[j] = t;
@@ -388,7 +389,7 @@
     host.setAttribute("data-layout", w.layout);
 
     var items = data.testimonials.slice();
-    if (w.sort === "random") shuffle(items);
+    if (w.sort === "random") shuffle(items, w.pinned || 0);
     var o = { d: d, l: w.labels, lazy: w.options.lazy, abs: absFrom(b) };
     var ctx = {
       host: host,

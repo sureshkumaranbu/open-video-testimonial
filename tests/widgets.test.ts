@@ -128,6 +128,18 @@ describe("GET /api/widget/w_…", () => {
     expect(body.testimonials[0]).toMatchObject({ name: "Ada Lovelace", text: "Superb" });
   });
 
+  it("DISP-01 a shuffled widget says how many pins lead, so they stay first", async () => {
+    const ids = ["A", "B", "C"].map((name) => {
+      const t = createTestimonial(projectId, { name, text: name });
+      updateTestimonial(t.id, { status: "approved" });
+      return t.id;
+    });
+    const w = createWidget(projectId, { name: "W", layout: "grid", config: { filters: { sort: "random" }, selection: { mode: "auto", manualIds: [], pinnedIds: [ids[0], ids[1]] } } });
+    const body = await (await feed(new Request(`http://localhost/api/widget/${w.id}`), params({ slug: w.id }))).json();
+    expect(body.widget).toMatchObject({ sort: "random", pinned: 2 });
+    expect(body.testimonials.map((t: { name: string }) => t.name)).toEqual(["A", "B", "C"]);
+  });
+
   it("DISP-01 a deleted widget gives an empty payload, an unknown id a 404", async () => {
     const w = createWidget(projectId, { name: "W", layout: "grid" });
     deleteWidget(w.id);

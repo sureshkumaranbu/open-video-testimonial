@@ -253,6 +253,8 @@ export type PublicWidget = {
   id: string;
   layout: WidgetLayout;
   sort: "random" | null;
+  /** How many leading testimonials are pinned (a shuffle leaves them first). */
+  pinned: number;
   design: Omit<WidgetDesign, "font" | "firstNameOnly"> & {
     fontFamily: string;
     fontFile: string | null;
