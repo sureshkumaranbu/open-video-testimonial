@@ -131,8 +131,9 @@ export function reviewsFromMicrodata(doc: Document, base?: string): ImportedRevi
     const authorEl = first("author");
     const authorNameEl = authorEl ? (props(authorEl, "name")[0] ?? authorEl) : undefined;
     const authorName = cleanLine(authorNameEl ? textValue(authorNameEl) : undefined) ?? "Anonymous";
-    const ratingEl = first("ratingValue");
-    const bestEl = first("bestRating");
+    const ratingScope = first("reviewRating") ?? el;
+    const ratingEl = props(ratingScope, "ratingValue")[0] ?? first("ratingValue");
+    const bestEl = props(ratingScope, "bestRating")[0] ?? first("bestRating");
     const rating = ratingEl ? toRating(propValue(ratingEl), bestEl ? propValue(bestEl) : 5) : undefined;
     const bodyEl = first("reviewBody") ?? first("description");
     const text = bodyEl ? cleanText(textOf(bodyEl)) : undefined;
