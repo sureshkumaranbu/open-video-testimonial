@@ -317,3 +317,51 @@ export type WidgetPayload = {
   testimonials: FeedItem[];
   aggregate: FeedAggregate;
 };
+
+/** DISP-09: the ways to put a saved widget on a site. `origin` is this server's public address. */
+export function widgetSnippets(origin: string, id: string) {
+  const o = origin.replace(/\/+$/, "");
+  const hosted = `${o}/embed/${id}`;
+  return {
+    script: `<script src="${o}/widget.js" data-widget="${id}" async></script>`,
+    iframe:
+      `<iframe src="${hosted}" title="Testimonials" loading="lazy" style="width:100%;border:0;min-height:320px" data-plaudit-frame="${id}"></iframe>\n` +
+      `<script>addEventListener("message",function(e){var d=e.data;if(e.origin==="${o}"&&d&&d.type==="plaudit:resize"&&d.slug==="${id}"){var f=document.querySelector('[data-plaudit-frame="${id}"]');if(f)f.style.height=d.height+"px"}})</script>`,
+    hosted,
+    react:
+      `import { useEffect, useRef } from "react";\n\n` +
+      `/** Plaudit widget ${id}. Renders client-side into its own shadow root. */\n` +
+      `export function PlauditWidget({ id = "${id}" }) {\n` +
+      `  const ref = useRef(null);\n` +
+      `  useEffect(() => {\n` +
+      `    const el = ref.current;\n` +
+      `    if (!el) return;\n` +
+      `    el.id = "plaudit-" + id;\n` +
+      `    const s = document.createElement("script");\n` +
+      `    s.src = "${o}/widget.js";\n` +
+      `    s.async = true;\n` +
+      `    s.dataset.widget = id;\n` +
+      `    s.dataset.target = "#plaudit-" + id;\n` +
+      `    document.body.appendChild(s);\n` +
+      `    return () => s.remove();\n` +
+      `  }, [id]);\n` +
+      `  return <div ref={ref} />;\n` +
+      `}\n`,
+    html: `${o}/api/widget/${id}/html`,
+    htmlWithJsonLd: `${o}/api/widget/${id}/html?jsonld=1`,
+  };
+}
+export type WidgetSnippets = ReturnType<typeof widgetSnippets>;
+
+/** Short install steps per site builder (our own wording); the full guides live in docs/embeds/. */
+export const PLATFORM_GUIDES: { id: string; name: string; steps: string }[] = [
+  { id: "wordpress", name: "WordPress", steps: "Add a Custom HTML block where the widget should go and paste the script snippet." },
+  { id: "webflow", name: "Webflow", steps: "Drag an Embed element onto the page, paste the script snippet, then publish." },
+  { id: "framer", name: "Framer", steps: "Insert an Embed component, choose HTML, and paste the script snippet." },
+  { id: "wix", name: "Wix", steps: "Add › Embed code › Embed HTML, choose Code, and paste the iframe snippet." },
+  { id: "squarespace", name: "Squarespace", steps: "Add a Code block, paste the script snippet, and turn off “Display source”." },
+  { id: "shopify", name: "Shopify", steps: "In the theme editor add a Custom Liquid section and paste the script snippet." },
+  { id: "ghost", name: "Ghost", steps: "In the editor add an HTML card and paste the script snippet." },
+  { id: "notion", name: "Notion", steps: "Type /embed and paste the hosted link; Notion shows it in a frame." },
+  { id: "nextjs", name: "Next.js", steps: "Copy the React component into your app and render <PlauditWidget /> in a client component." },
+];

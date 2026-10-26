@@ -17,10 +17,12 @@ import {
   listWidgets,
   newWidgetId,
   placementHint,
+  PLATFORM_GUIDES,
   toPublicWidget,
   updateWidget,
   WIDGET_ID,
   widgetConfig,
+  widgetSnippets,
 } from "@/lib/widgets";
 import { adminHeaders, params, useTempDataDir } from "./helpers";
 
@@ -86,6 +88,17 @@ describe("widgets lib", () => {
     for (const s of ["secret-id", "secret-pin", "secret-keyword", "secret-form", "firstNameOnly"]) expect(raw).not.toContain(s);
     expect(keys(pub).filter((k) => /email/i.test(k))).toEqual([]);
     expect(pub.cta).toBeNull();
+  });
+
+  it("DISP-09 share snippets point at this server and the widget id", () => {
+    const s = widgetSnippets("https://plaudit.example/", "w_abcdefabcdef");
+    expect(s.script).toBe('<script src="https://plaudit.example/widget.js" data-widget="w_abcdefabcdef" async></script>');
+    expect(s.hosted).toBe("https://plaudit.example/embed/w_abcdefabcdef");
+    expect(s.iframe).toContain('src="https://plaudit.example/embed/w_abcdefabcdef"');
+    expect(s.iframe).toContain('e.origin==="https://plaudit.example"');
+    expect(s.react).toContain('s.dataset.widget = id;');
+    expect(s.html).toBe("https://plaudit.example/api/widget/w_abcdefabcdef/html");
+    expect(PLATFORM_GUIDES.map((g) => g.id)).toEqual(["wordpress", "webflow", "framer", "wix", "squarespace", "shopify", "ghost", "notion", "nextjs"]);
   });
 
   it("DISP-15 suggests layouts from the placement", () => {
