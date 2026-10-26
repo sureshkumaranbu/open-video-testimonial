@@ -50,7 +50,8 @@ export const linkSchema = z.union([
     .string()
     .trim()
     .max(500)
-    .regex(/^(https?:\/\/[^\s<>"]+|\/(?!\/)[^\s<>"]*)$/i, "Use a full web address starting with https://"),
+    // No backslashes: browsers read "/\evil.example" as another site.
+    .regex(/^(https?:\/\/[^\s<>"\\]+|\/(?![\/\\])[^\s<>"\\]*)$/i, "Use a full web address starting with https://"),
 ]);
 
 const FONT_IDS = WIDGET_FONTS.map((f) => f.id) as [WidgetFontId, ...WidgetFontId[]];

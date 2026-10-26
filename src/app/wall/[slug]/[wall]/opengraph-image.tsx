@@ -135,7 +135,8 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     {
       ...size,
       fonts: [{ name: "Geist", data: await font(), style: "normal", weight: 400 }],
-      headers: { "Cache-Control": "public, max-age=300" },
+      // Revalidated on every fetch, so a testimonial taken down leaves the image at once (like /api/media).
+      headers: { "Cache-Control": "public, no-cache" },
     },
   );
 }

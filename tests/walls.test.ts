@@ -83,7 +83,7 @@ describe("wall config", () => {
     expect(lenient.hero.title).toBe("");
     expect(lenient.inlineCta).toMatchObject({ enabled: true, after: 4 });
     // Links are web addresses or paths on this server, never javascript: or protocol-relative.
-    for (const url of ["javascript:alert(1)", "//evil.example", "data:text/html,x"])
+    for (const url of ["javascript:alert(1)", "//evil.example", "/\\evil.example", "https://a.example\\@b", "data:text/html,x"])
       expect(wallConfigSchema.safeParse({ heroCta: { url } }).success, url).toBe(false);
     expect(wallConfigSchema.safeParse({ nav: Array.from({ length: 5 }, () => ({ label: "x", url: "/x" })) }).success).toBe(false);
     expect(wallConfigSchema.safeParse({ heroCta: { url: "https://acme.example/start" }, nav: [{ label: "Home", url: "/" }] }).success).toBe(true);
