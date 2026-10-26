@@ -22,7 +22,8 @@ export async function GET(req: Request, ctx: Ctx) {
   const q = parseInboxParams(sp, { sort: prefs.inboxSort, dir: prefs.inboxDir, pageSize: prefs.pageSize });
   const { items, total } = queryTestimonials(project.id, q);
   return Response.json({
-    items,
+    // The withdrawal link's hash is only ever compared on the server.
+    items: items.map(({ withdrawTokenHash: _hash, ...t }) => t),
     total,
     page: q.page,
     pageSize: q.pageSize,

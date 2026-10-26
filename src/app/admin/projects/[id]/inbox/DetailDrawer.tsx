@@ -315,6 +315,7 @@ export function DetailDrawer({
                 </video>
               )}
               <HighlightEditor
+                key={t.id}
                 testimonialId={t.id}
                 blocks={[
                   { answerId: null, title: t.primaryQuestion ?? "Testimonial", text: t.text ?? "" },

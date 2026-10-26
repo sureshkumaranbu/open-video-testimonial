@@ -28,7 +28,8 @@ function viewDownload(project: Project, q: InboxQuery & { ids?: string[] }, form
 /**
  * Downloads the whole project as a .zip (default) or a CSV of every
  * testimonial (?format=csv). With any inbox view parameter (`tab`, `q`,
- * `rating`…) or `ids=a,b`, CSV and JSON export just that view or those rows.
+ * `rating`…) or `ids=a,b`, CSV and JSON export just that view or those rows;
+ * without a `tab`, the view is All (everything but the trash).
  */
 export async function GET(req: Request, ctx: Ctx) {
   const denied = requireAdmin(req);
@@ -42,6 +43,8 @@ export async function GET(req: Request, ctx: Ctx) {
   if (format === "json" || (format === "csv" && view)) {
     const prefs = getInboxPrefs(getRequestSession(req)?.email);
     const q = parseInboxParams(sp, { sort: prefs.inboxSort, dir: prefs.inboxDir });
+    // A bare ?format=json is the whole inbox (All), not the Pending tab the dashboard opens on.
+    if (!sp.has("tab")) q.tab = "all";
     const ids = sp.has("ids") ? (sp.get("ids") ?? "").split(",").filter(Boolean).slice(0, MAX_BULK) : undefined;
     return viewDownload(project, { ...q, ids }, format);
   }

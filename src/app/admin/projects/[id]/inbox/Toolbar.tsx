@@ -54,7 +54,7 @@ export function InboxToolbar({
       </button>
       <label className="ib-sort small">
         <span className="visually-hidden">Sort by</span>
-        <select value={query.sort} onChange={(e) => onSort(e.target.value as InboxSort, query.dir)} aria-label="Sort by" data-testid="inbox-sort">
+        <select value={query.sort} onChange={(e) => onSort(e.target.value as InboxSort, e.target.value === "name" ? "asc" : "desc")} aria-label="Sort by" data-testid="inbox-sort">
           {SORTS.map((s) => (
             <option key={s.value} value={s.value}>
               {s.label}

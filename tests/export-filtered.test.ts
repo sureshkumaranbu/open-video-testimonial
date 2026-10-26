@@ -60,6 +60,10 @@ describe("INBOX-15 filtered export", () => {
     const rows = parseCsv(await filtered.text());
     expect(rows.slice(1).map((r) => r[rows[0].indexOf("name")])).toEqual(["Ann"]);
 
+    // A bare JSON export is the whole inbox except the trash.
+    const bare = await (await get("format=json")).json();
+    expect(bare.map((t: { id: string }) => t.id).sort()).toEqual([ids[0], ids[1]].sort());
+
     const selected = await get(`format=json&ids=${ids[1]}`);
     expect((await selected.json()).map((t: { id: string }) => t.id)).toEqual([ids[1]]);
 
