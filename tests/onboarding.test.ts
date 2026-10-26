@@ -95,6 +95,11 @@ describe("finding testimonials on the owner's site", () => {
     });
     expect(brandFromHtml('<link rel="apple-touch-icon" href="/i.svg"><meta name="theme-color" content="red">', "https://a.example/").logoUrl).toBeUndefined();
     expect(brandFromHtml('<meta name="theme-color" content="red">', "https://a.example/").color).toBeUndefined();
+    // Browser-bar colours (white, near-black, grey) aren't a brand colour: the default accent is kept.
+    const bars = '<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff"><meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f172a">';
+    expect(brandFromHtml(bars, "https://a.example/").color).toBeUndefined();
+    expect(brandFromHtml('<meta name="theme-color" content="#888888">', "https://a.example/").color).toBeUndefined();
+    expect(brandFromHtml(`${bars}<meta name="theme-color" content="#E0457B">`, "https://a.example/").color).toBe("#e0457b");
   });
 
   it("ONB-03 respects robots.txt", async () => {

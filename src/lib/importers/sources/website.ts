@@ -253,6 +253,20 @@ export type SiteBrand = { name?: string; color?: string; logoUrl?: string };
 
 const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
+/**
+ * Whether a theme-color can stand in for a brand colour. Many sites set it to
+ * white, black or a grey for the browser bar; as a button colour that would be
+ * invisible or dull, so those are left for the default accent.
+ */
+export function usableBrandColor(hex: string): boolean {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const lightness = (max + min) / 2;
+  const saturation = max === min ? 0 : (max - min) / (1 - Math.abs(2 * lightness - 1));
+  return lightness > 0.12 && lightness < 0.85 && saturation > 0.2;
+}
+
 /** Site name, theme colour and a logo image (never SVG) from the page head and header. */
 export function brandFromHtml(html: string, base: string): SiteBrand {
   const doc = parseDom(html);
@@ -263,8 +277,11 @@ export function brandFromHtml(html: string, base: string): SiteBrand {
   const prop = (p: string) => meta((e) => (attr(e, "property") ?? attr(e, "name") ?? "").toLowerCase() === p);
   const titleEl = findOne(doc, (e) => e.name === "title");
   const name = cleanLine(prop("og:site_name") ?? prop("application-name") ?? (titleEl ? textOf(titleEl).split(/\s[|–—-]\s/)[0] : undefined), 80);
-  let color = prop("theme-color");
-  if (color && /^#[0-9a-f]{3}$/i.test(color)) color = `#${color.slice(1).split("").map((c) => c + c).join("")}`;
+  // A page can carry one theme-color per colour scheme: take the first that looks like a brand colour.
+  const color = findAll(doc, (e) => e.name === "meta" && (attr(e, "name") ?? "").toLowerCase() === "theme-color")
+    .map((e) => attr(e, "content")?.trim() ?? "")
+    .map((c) => (/^#[0-9a-f]{3}$/i.test(c) ? `#${c.slice(1).split("").map((d) => d + d).join("")}` : c))
+    .find((c) => HEX.test(c) && usableBrandColor(c));
   const notSvg = (u: string | undefined) => (u && !/\.svg(\?|#|$)/i.test(u) && !/^data:/i.test(u) ? u : undefined);
   const touch = findOne(doc, (e) => e.name === "link" && /apple-touch-icon/i.test(attr(e, "rel") ?? ""));
   const headerLogo = findOne(doc, (e) => e.name === "img" && /logo/i.test(`${attr(e, "class") ?? ""} ${attr(e, "alt") ?? ""} ${attr(e, "src") ?? ""} ${attr(e, "id") ?? ""}`));
