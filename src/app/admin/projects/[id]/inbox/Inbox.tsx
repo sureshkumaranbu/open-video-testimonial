@@ -9,6 +9,7 @@ import { api, errorMessage } from "@/app/admin/api";
 import { Toast, useSelection } from "@/components/admin";
 import { Icon } from "@/components/Icon";
 import { AutoApprovePanel, EmbedPanel, ProjectHead, SettingsPanel } from "../Dashboard";
+import { ManualAddModal } from "../ManualAddModal";
 import { InboxBulkBar } from "./BulkBar";
 import { CardView } from "./CardView";
 import { DetailDrawer } from "./DetailDrawer";
@@ -66,7 +67,6 @@ export function Inbox({
   initialQuery,
   initialPrefs,
   widgetStudio,
-  addSlot,
 }: {
   project: Project;
   publicUrl: string;
@@ -74,8 +74,6 @@ export function Inbox({
   initialQuery: InboxQuery;
   initialPrefs: InboxPrefs;
   widgetStudio?: string;
-  /** The "Add testimonial" control (WP3.4), given a reload callback. */
-  addSlot?: (onAdded: () => void) => React.ReactNode;
 }) {
   const [project, setProject] = useState(initialProject);
   const [query, setQuery] = useState<InboxQuery>(initialQuery);
@@ -243,7 +241,7 @@ export function Inbox({
 
   return (
     <div className="stack-lg" style={accentStyle(project.accentColor)} data-testid="inbox">
-      <ProjectHead project={project} actions={addSlot?.(() => void load(true))} />
+      <ProjectHead project={project} actions={<ManualAddModal projectId={project.id} onAdded={() => void load(true)} />} />
 
       <div className="stat-row">
         <div className="stat pending">
