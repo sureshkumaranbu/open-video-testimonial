@@ -50,7 +50,7 @@ const ALIASES: Record<ImportField, string[]> = {
   rating: ["rating", "stars", "score", "reviewrating", "starrating"],
   date: ["date", "createdat", "reviewdate", "submittedat", "submitted", "created", "timestamp"],
   tags: ["tags", "tag", "labels", "categories"],
-  avatarUrl: ["avatarurl", "avatar", "userphoto", "useravatar", "photo", "photourl", "profilepicture", "picture", "customeravatar"],
+  avatarUrl: ["avatarurl", "avatar", "userphoto", "useravatar", "photo", "photourl", "profilepicture", "profileimage", "picture", "customeravatar"],
   videoUrl: ["videourl", "videomp4url", "video", "videolink", "videomp4"],
   // Senja calls the review site "integration"; Shapo calls it "source".
   platform: ["platform", "integration", "sourceplatform", "reviewsource", "reviewplatform", "source"],

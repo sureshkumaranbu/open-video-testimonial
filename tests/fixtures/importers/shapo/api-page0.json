@@ -1,0 +1,35 @@
+[
+ {
+  "_id": "64aa00000000000000000001",
+  "date": "2026-10-15T10:00:00.000Z",
+  "rating": 5,
+  "source": "google",
+  "name": "Maya Lind",
+  "title": "Owner",
+  "company": "Lind Florist",
+  "link": "https://maps.google.com/?cid=2",
+  "profileImage": "https://shapo-fixture.example/maya.jpg",
+  "message": "They rebuilt our reviews page in an afternoon."
+ },
+ {
+  "_id": "64aa00000000000000000002",
+  "date": "2026-10-01T10:00:00.000Z",
+  "rating": 4,
+  "source": "form",
+  "name": "Owen Gray",
+  "title": null,
+  "company": null,
+  "link": null,
+  "profileImage": null,
+  "message": "Easy to use.",
+  "videoUrl": "https://shapo-fixture.example/owen.mp4"
+ },
+ {
+  "_id": "64aa00000000000000000003",
+  "date": "2026-09-10T10:00:00.000Z",
+  "rating": 3,
+  "source": "trustpilot",
+  "name": "Pia Holm",
+  "message": "Okay overall."
+ }
+]

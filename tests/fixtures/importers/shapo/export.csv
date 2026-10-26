@@ -1,0 +1,3 @@
+_id,date,rating,source,name,title,company,link,profileImage,message
+64aa00000000000000000001,2026-10-15T10:00:00.000Z,5,google,Maya Lind,Owner,Lind Florist,https://maps.google.com/?cid=2,https://shapo-fixture.example/maya.jpg,They rebuilt our reviews page in an afternoon.
+64aa00000000000000000003,2026-09-10T10:00:00.000Z,3,trustpilot,Pia Holm,,,,,Okay overall.

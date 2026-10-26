@@ -63,6 +63,9 @@ const deliveries = () => getDb().select().from(schema.webhookDeliveries).all().m
 const jobsOf = (type: string) => getDb().select().from(schema.jobs).where(eq(schema.jobs.type, type)).all();
 const imported = () => listTestimonials(projectId).filter((t) => t.source === "importer:appstore");
 
+/** Media downloads would reach the network; these tests only check they're queued. */
+const dropMediaJobs = () => getDb().delete(schema.jobs).where(eq(schema.jobs.type, FETCH_MEDIA_JOB)).run();
+
 async function drain() {
   for (let i = 0; i < 20; i++) if ((await runDueJobs()) === 0) break;
 }
@@ -230,5 +233,66 @@ describe("IMP-01 importer framework", () => {
     await expect(drain()).resolves.toBeUndefined();
     expect(getDb().select().from(schema.testimonials).where(and(eq(schema.testimonials.projectId, projectId))).all()).toHaveLength(0);
     expect(jobsOf(FETCH_MEDIA_JOB)).toHaveLength(0);
+  });
+
+  it("IMP-01 migrations bring videos and avatars through import.media, and drop the API key afterwards", async () => {
+    fakeFetch({ "api.senja.io": () => ({ status: 200, text: read("senja/api-page1.json"), finalUrl: "", contentType: "application/json" }) });
+    const preview = await previewImport(projectId, "senja", { apiKey: "senja-key-123" }, {}, own);
+    expect(preview.items.map((i) => i.id)).toEqual(["sj_001", "sj_002", "sj_003"]);
+    startImport(preview.run.id, "all");
+    await runDueJobs({ limit: 1 });
+    const media = jobsOf(FETCH_MEDIA_JOB).map((j) => JSON.parse(j.payload));
+    expect(media).toEqual([
+      expect.objectContaining({ videoUrl: "https://cdn.senja-fixture.example/grace.mp4", avatarUrl: "https://cdn.senja-fixture.example/grace.png" }),
+    ]);
+    const rows = listTestimonials(projectId);
+    expect(rows.find((t) => t.sourceReviewId === "sj_002")).toMatchObject({ platform: "google", source: "importer:senja", datePrecision: "month" });
+    expect(rows.find((t) => t.sourceReviewId === "sj_001")).toMatchObject({ platform: "senja", headline: "Changed how we onboard" });
+    const run = getDb().select().from(schema.taskRuns).where(eq(schema.taskRuns.id, preview.run.id)).get()!;
+    expect(run.status).toBe("done");
+    expect(run.input).not.toContain("senja-key-123");
+  });
+
+  it("IMP-05 the saved-page upload previews with a month-only date and imports what it held", async () => {
+    const form = new FormData();
+    form.set("adapter", "trustpilot");
+    form.set("confirmOwnership", "true");
+    form.set("options", JSON.stringify({ status: "approved" }));
+    form.set("html", new File([read("trustpilot/saved-page.html")], "acme.html", { type: "text/html" }));
+    const res = await previewRoute(new Request(`http://localhost/api/admin/projects/${projectId}/imports/preview`, { method: "POST", headers: adminHeaders(), body: form }), params({ id: projectId }));
+    expect(res.status).toBe(201);
+    const preview = await res.json();
+    expect(requested).toHaveLength(0);
+    expect(preview.items.find((i: { id: string }) => i.id === "6a00000000000000000000b2")).toMatchObject({ datePrecision: "month", date: "2026-10-01T00:00:00.000Z" });
+    startImport(preview.run.id, "all");
+    // One chunk; the media jobs it queues stay queued.
+    await runDueJobs({ limit: 1 });
+    const rows = listTestimonials(projectId);
+    expect(rows).toHaveLength(3);
+    expect(rows.every((t) => t.platform === "trustpilot" && t.status === "approved")).toBe(true);
+    // An unsafe avatar link in the page is never fetched.
+    expect(jobsOf(FETCH_MEDIA_JOB).map((j) => JSON.parse(j.payload).avatarUrl)).toEqual(["https://user-images.example/lena.png"]);
+  });
+
+  it("IMP-01 an export file goes through the source's preset, and re-uploading it adds nothing", async () => {
+    const upload = async () => {
+      const form = new FormData();
+      form.set("adapter", "shapo");
+      form.set("confirmOwnership", "true");
+      form.set("file", new File([read("shapo/export.csv")], "shapo.csv", { type: "text/csv" }));
+      const res = await previewRoute(new Request(`http://localhost/api/admin/projects/${projectId}/imports/preview`, { method: "POST", headers: adminHeaders(), body: form }), params({ id: projectId }));
+      expect(res.status).toBe(201);
+      return res.json();
+    };
+    const first = await upload();
+    startImport(first.run.id, "all");
+    await runDueJobs({ limit: 1 });
+    dropMediaJobs();
+    const second = await upload();
+    expect(second.items.every((i: { alreadyImported: boolean }) => i.alreadyImported)).toBe(true);
+    startImport(second.run.id, "all");
+    await drain();
+    expect(getDb().select().from(schema.taskRuns).where(eq(schema.taskRuns.id, second.run.id)).get()).toMatchObject({ done: 0, duplicates: 2 });
+    expect(listTestimonials(projectId).map((t) => t.platform).sort()).toEqual(["google", "trustpilot"]);
   });
 });
