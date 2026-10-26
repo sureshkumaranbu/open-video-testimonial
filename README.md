@@ -191,7 +191,8 @@ Every setting is an environment variable, read from `.env` (Node) or `docker-com
 | `TRASH_RETENTION_DAYS` | `30` | Days a testimonial stays in the trash before it's deleted for good |
 | `PLAUDIT_FEATURES` | none | Turns on [features in preview](#features-in-preview): a comma-separated list of `forms`, `inbox2`, `widgets`, `walls`, `importers`, `notifications` and `onboarding`, or `all` |
 | `DIGEST_HOUR_UTC` | `8` | The hour (UTC, 0 to 23) when daily and weekly digest emails will go out. Not used yet: notifications are still in preview |
-| `GOOGLE_PLACES_API_KEY`, `PRODUCT_HUNT_TOKEN` | unset | Your own key for the Google review importer and token for the Product Hunt importer. Not used yet: importers are still in preview |
+| `GOOGLE_PLACES_API_KEY` | unset | Your own Google Cloud key with **Places API (New)** enabled, for the Google review importer (see [docs/IMPORT.md](docs/IMPORT.md)) |
+| `PRODUCT_HUNT_TOKEN` | unset | Your own Product Hunt API (v2) developer token, for reading a launch's comments; without it the Product Hunt importer reads the public page |
 
 ## Optional features
 

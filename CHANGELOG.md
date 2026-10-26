@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Importers** (behind the `importers` preview flag). See [`docs/IMPORT.md`](docs/IMPORT.md).
+  - One flow for every source on Import & export: pick a source, say which listing, choose a minimum rating, skipping reviews with no text, tags and Pending or Approved, preview the latest 50, then import some or "all matching" (up to 1,000) in the background with progress and a summary.
+  - Review sites: Google (Places API with your own key, 5 reviews at most), Trustpilot, G2, Capterra, Product Hunt (your own token, or the public page), App Store, Google Play (or the Play Console reviews CSV) and X (post links).
+  - Moving from Testimonial.to (Wall of Love or CSV), Senja and Shapo (your API key or their CSV), videos included.
+  - Never the same review twice: a re-run says "0 new, 20 already imported". Month-only dates show as "Oct 2026".
+  - When a site blocks Plaudit, **Upload the saved page instead** reads a page saved from your browser.
+  - You confirm "I own or manage this listing" before anything is fetched; the server checks it.
+  - One opt-in `import.completed` webhook per run, and no per-row webhooks. The inbox shows each imported testimonial's source.
+  - Outgoing requests refuse private network addresses on every redirect, with size and time limits.
+  - The CSV importer also maps a platform column (Senja's `integration`, Shapo's `source`) and the original id, so the same file imported twice adds nothing new, and recognises Shapo exports.
+
 - **Walls and SEO** (behind the `walls` preview flag). See [`docs/help/walls.md`](docs/help/walls.md).
   - Several walls per project at `/wall/<project>/<wall>`, each a draft until published. Drafts are "not found" for visitors, including their link preview image and "load more".
   - An editor with a live desktop and phone preview: five themes of our own, a hero with a featured testimonial and the average rating, a hero button, header logo and links, a cover image, fonts, card colours, columns, "load more" or infinite scroll, the card toggles, tag tabs with a default tab, and a call to action after a chosen number of cards.

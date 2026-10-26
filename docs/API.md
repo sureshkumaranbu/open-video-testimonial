@@ -164,12 +164,12 @@ Under **Settings → Webhooks**, add the URL of your endpoint. You can limit it 
 | `testimonial.updated` | *Opt-in.* Someone changed its content in the dashboard or through the API: the text, an answer, the author's details, the rating, the transcript or captions, or another field the [API can edit](#editing-a-testimonial). Status and tag changes don't send it |
 | `form.submitted` | *Opt-in.* Someone sent a form (any form, including the classic page). `data` is `{ form: { id, slug, name }, testimonialId, hiddenFields }`; the testimonial itself comes with `testimonial.created` |
 | `feedback.created` | *Opt-in.* Someone answered a form's private question. `data.feedback` is `{ id, formId, testimonialId, rating, text, createdAt }`. Private feedback is never published |
-| `import.completed` | *Opt-in.* You can tick it already, but it's sent only once importers are released |
+| `import.completed` | *Opt-in.* An import from a review site or another tool finished (once per run). `data.import` is `{ id, source, platform, imported, duplicates, skipped, failed, startedAt, finishedAt }`. See [IMPORT.md](IMPORT.md) |
 | `ping` | You pressed **Send test event** |
 
 Every way a testimonial leaves your site (rejected, hidden, trashed, deleted or withdrawn) is in the default set, so an endpoint that mirrors your testimonials elsewhere can always take them down. Hiding sends `testimonial.hidden`, never `testimonial.rejected`. The one exception is deleting a whole project: that sends no per-testimonial events, and the project's own webhooks are deleted with it, so treat a project missing from `GET /projects` as taking down all of its testimonials.
 
-Imports (CSV or archive) don't send webhooks.
+Imports (CSV, archive or a review site) don't send per-testimonial webhooks; a review-site import sends one `import.completed` to hooks that select it.
 
 A webhook can belong to **one form** (set in the form builder's Settings, or `formId` when you create it through the dashboard's API): it then receives only that form's testimonial events and its `form.submitted` and `feedback.created`.
 

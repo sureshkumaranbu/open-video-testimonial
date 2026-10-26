@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { api, errorMessage, isApiError } from "@/app/admin/api";
 import { Checkbox } from "@/components/admin";
 import { Icon } from "@/components/Icon";
@@ -106,7 +106,8 @@ export function ImportWizard({ projectId, importer, onClose, onImported }: { pro
   }
 
   const items = preview?.items ?? [];
-  const selectable = useMemo(() => items.filter((i) => !i.alreadyImported), [items]);
+  // Already-imported items can be picked too: importing them again just counts them as already there.
+  const selectable = items;
   const allSelected = selectable.length > 0 && selectable.every((i) => selected.has(i.id));
   const toggle = (id: string, on: boolean) =>
     setSelected((s) => {
@@ -241,7 +242,6 @@ export function ImportWizard({ projectId, importer, onClose, onImported }: { pro
                     label={`Select ${item.authorName}`}
                     hideLabel
                     checked={selected.has(item.id)}
-                    disabled={item.alreadyImported}
                     onChange={(on) => toggle(item.id, on)}
                   />
                   <div className="imp-item-body">
