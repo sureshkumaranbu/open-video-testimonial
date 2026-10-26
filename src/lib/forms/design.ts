@@ -100,3 +100,21 @@ export function formDesignStyle(d: FormDesign, accent: string): Record<string, s
     ...(body ? { "--fr-body-font": body.family } : {}),
   };
 }
+
+type BrandColors = Partial<Record<"primary" | "background" | "text" | "button" | "buttonText" | "star", string>>;
+
+/** Colours and fonts the form leaves unset come from the project's brand kit (then the project colour, in formDesignStyle). */
+export function designWithBrand(d: FormDesign, brand: { colors?: BrandColors; fonts?: { heading?: string; body?: string } } = {}): FormDesign {
+  const c = brand.colors ?? {};
+  return {
+    ...d,
+    primary: d.primary ?? c.primary,
+    background: d.background ?? c.background,
+    text: d.text ?? c.text,
+    button: d.button ?? c.button,
+    buttonText: d.buttonText ?? c.buttonText,
+    star: d.star ?? c.star,
+    headingFont: d.headingFont ?? brand.fonts?.heading,
+    bodyFont: d.bodyFont ?? brand.fonts?.body,
+  };
+}

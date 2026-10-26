@@ -1,0 +1,371 @@
+/*
+ * The step-by-step form (FormRunner). Every rule is relative to .fr-root and
+ * its container, not the viewport, so the builder's 375 px preview looks the
+ * same as the public page at 375 px. Colours, radius, width and fonts come
+ * from the form's design as custom properties (src/lib/forms/design.ts).
+ */
+
+.fr-root {
+  container-type: inline-size;
+  --surface: color-mix(in srgb, var(--fr-bg) 94%, var(--fr-text));
+  --surface-2: color-mix(in srgb, var(--fr-bg) 97%, var(--fr-text));
+  --paper: var(--fr-bg);
+  --paper-2: color-mix(in srgb, var(--fr-bg) 90%, var(--fr-text));
+  --ink: var(--fr-text);
+  --ink-2: color-mix(in srgb, var(--fr-text) 78%, var(--fr-bg));
+  --ink-3: color-mix(in srgb, var(--fr-text) 58%, var(--fr-bg));
+  --line: color-mix(in srgb, var(--fr-text) 14%, var(--fr-bg));
+  --line-strong: color-mix(in srgb, var(--fr-text) 26%, var(--fr-bg));
+  --star-off: color-mix(in srgb, var(--fr-text) 16%, var(--fr-bg));
+  --radius-md: var(--fr-radius);
+  --radius-lg: calc(var(--fr-radius) + 6px);
+  min-height: 100%;
+  background: var(--fr-bg);
+  color: var(--fr-text);
+  font-family: var(--fr-body-font, var(--font-ui));
+}
+
+.fr-page {
+  min-height: 100vh;
+}
+
+.fr-embed {
+  min-height: 0;
+}
+
+.fr-shell {
+  width: 100%;
+  max-width: var(--fr-width);
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-5) var(--space-12);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.fr-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-weight: 600;
+}
+
+.fr-logo {
+  max-height: 40px;
+  max-width: 160px;
+  object-fit: contain;
+}
+
+.fr-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--fr-radius);
+  background: var(--fr-primary);
+  color: var(--fr-on-primary);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+}
+
+.fr-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.fr-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--fr-primary);
+  transform-origin: left;
+  transition: transform var(--dur-base) var(--ease-out);
+}
+
+.fr-root[dir="rtl"] .fr-progress > span {
+  transform-origin: right;
+}
+
+.fr-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.fr-step h1,
+.fr-step h2,
+.fr-thanks h1 {
+  font-family: var(--fr-heading-font, var(--font-ui));
+  font-size: clamp(1.5rem, 1.1rem + 2.4cqi, 2.25rem);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+}
+
+.fr-sub {
+  color: var(--ink-2);
+  font-size: var(--text-base);
+  white-space: pre-line;
+}
+
+.fr-bullets {
+  margin: 0;
+  padding-inline-start: 1.2em;
+  display: grid;
+  gap: var(--space-2);
+  color: var(--ink-2);
+}
+
+.fr-tips {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.fr-tips li {
+  list-style: none;
+  display: flex;
+  gap: var(--space-2);
+  color: var(--ink-2);
+}
+
+.fr-tips li::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-top: 0.55em;
+  border-radius: 50%;
+  background: var(--fr-primary);
+}
+
+.fr-optional {
+  color: var(--ink-3);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.fr-root textarea {
+  min-height: 160px;
+}
+
+.fr-root input[type="text"],
+.fr-root input[type="email"],
+.fr-root input[type="url"],
+.fr-root input[type="number"],
+.fr-root input[type="tel"],
+.fr-root textarea,
+.fr-root select {
+  background: var(--surface-2);
+  color: var(--fr-text);
+  border-color: var(--line-strong);
+  border-radius: var(--fr-radius);
+}
+
+.fr-root input[readonly] {
+  opacity: 0.75;
+}
+
+.fr-fields {
+  display: grid;
+  gap: var(--space-4);
+}
+
+@container (min-width: 520px) {
+  .fr-fields.two {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.fr-error {
+  color: var(--danger);
+  font-size: var(--text-sm);
+}
+
+.fr-nav {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.fr-nav .fr-next {
+  margin-inline-start: auto;
+}
+
+.fr-root button.fr-primary {
+  --btn-bg: var(--fr-button);
+  --btn-fg: var(--fr-button-text);
+  border-radius: var(--fr-radius);
+}
+
+.fr-root button.fr-primary:hover:not(:disabled) {
+  --btn-bg: color-mix(in srgb, var(--fr-button) 88%, black);
+}
+
+.fr-root[data-button="soft"] button.fr-primary {
+  --btn-bg: color-mix(in srgb, var(--fr-button) 16%, var(--fr-bg));
+  --btn-fg: var(--fr-text);
+}
+
+.fr-root button.secondary,
+.fr-root button.ghost {
+  border-radius: var(--fr-radius);
+}
+
+.fr-choices {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.fr-choice {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--fr-radius);
+  background: var(--surface-2);
+  cursor: pointer;
+}
+
+.fr-choice:has(input:checked) {
+  border-color: var(--fr-primary);
+  box-shadow: 0 0 0 1px var(--fr-primary);
+}
+
+.fr-nps {
+  display: grid;
+  grid-template-columns: repeat(11, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.fr-nps button {
+  --btn-bg: var(--surface-2);
+  --btn-fg: var(--fr-text);
+  --btn-border: var(--line-strong);
+  padding: 0;
+  min-height: 40px;
+  border-radius: var(--fr-radius);
+}
+
+.fr-nps button[aria-pressed="true"] {
+  --btn-bg: var(--fr-primary);
+  --btn-fg: var(--fr-on-primary);
+}
+
+.fr-nps-ends {
+  display: flex;
+  justify-content: space-between;
+  color: var(--ink-3);
+  font-size: var(--text-xs);
+}
+
+.fr-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.fr-images figure {
+  position: relative;
+  margin: 0;
+}
+
+.fr-images img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: var(--fr-radius);
+  border: 1px solid var(--line);
+}
+
+.fr-images figure button {
+  position: absolute;
+  inset-block-start: -8px;
+  inset-inline-end: -8px;
+  min-height: 28px;
+  width: 28px;
+  padding: 0;
+}
+
+.fr-review {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.fr-review > div {
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--fr-radius);
+  display: grid;
+  gap: var(--space-1);
+}
+
+.fr-review dt {
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.fr-review dd {
+  margin: 0;
+  color: var(--ink-2);
+  white-space: pre-line;
+}
+
+.fr-video-placeholder {
+  aspect-ratio: 16 / 10;
+  border-radius: var(--fr-radius);
+  background: var(--stage);
+  color: #f2f4fa;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: var(--space-6);
+}
+
+.fr-thanks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.fr-quote {
+  padding: var(--space-4);
+  border-inline-start: 3px solid var(--fr-primary);
+  background: var(--surface-2);
+  border-radius: var(--fr-radius);
+  white-space: pre-line;
+}
+
+.fr-share {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.fr-closed {
+  text-align: center;
+  padding-block: var(--space-16);
+}
+
+.fr-honeypot {
+  position: absolute;
+  inset-inline-start: -9999px;
+}
+
+.fr-root .star-input button[data-on="true"],
+.fr-root .star-input[data-hover] button[data-hover-on="true"] {
+  --btn-fg: var(--fr-star);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fr-progress > span {
+    transition: none;
+  }
+}

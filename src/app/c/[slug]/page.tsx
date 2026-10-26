@@ -1,13 +1,8 @@
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
-import { Icon } from "@/components/Icon";
-import { currentConsentVersion } from "@/lib/consent";
-import { env } from "@/lib/env";
+import { formUrl, getDefaultForm } from "@/lib/forms";
 import { findProjectBySlugOrAlias, withQuery } from "@/lib/projects";
-import { findRequestByToken } from "@/lib/requests";
-import { projectQuestions } from "@/lib/testimonials";
-import { accentStyle } from "@/lib/theme";
-import { CollectForm } from "./CollectForm";
+import { ClassicCollect } from "./ClassicCollect";
 
 export const dynamic = "force-dynamic";
 
@@ -21,56 +16,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function CollectPage({ params, searchParams }: Props) {
   const found = findProjectBySlugOrAlias((await params).slug);
   if (!found) notFound();
+  const query = await searchParams;
   // An old link (the project was renamed) moves on to the new one, ?r= and all (D17).
-  if (!found.canonical) permanentRedirect(withQuery(`/c/${found.project.slug}`, await searchParams));
+  if (!found.canonical) permanentRedirect(withQuery(`/c/${found.project.slug}`, query));
   const project = found.project;
-  // A personal request link (?r=…) prefills who they are.
-  const token = (await searchParams).r;
-  const request = typeof token === "string" ? findRequestByToken(token) : null;
-  const prefill =
-    request && request.projectId === project.id
-      ? { token: token as string, name: request.name ?? "", email: request.email, company: request.company ?? "" }
-      : null;
-  const questions = projectQuestions(project);
-  const consent = currentConsentVersion(project);
-  return (
-    <div className="collect" style={accentStyle(project.accentColor)}>
-      <aside className="collect-intro">
-        <div className="collect-intro-inner">
-          <div className="org">
-            <span className="org-mark" aria-hidden>
-              {project.name.trim().charAt(0).toUpperCase()}
-            </span>
-            {project.name}
-          </div>
-          <h1>{project.prompt}</h1>
-          <ul className="tips" aria-label="Ideas for what to say">
-            {questions.map((q, i) => (
-              <li key={i}>{q}</li>
-            ))}
-          </ul>
-        </div>
-        <p className="fine">
-          <Icon name="lock" />
-          Your email stays private. Nothing is published until {project.name} approves it.
-        </p>
-      </aside>
-      <main className="collect-main">
-        <CollectForm
-          project={{
-            slug: project.slug,
-            name: project.name,
-            allowVideo: project.allowVideo,
-            allowText: project.allowText,
-            questions,
-            maxVideoSeconds: project.maxVideoSeconds,
-            maxVideoBytes: env.maxVideoBytes,
-            maxImageBytes: env.maxImageBytes,
-          }}
-          consent={{ versionId: consent.id, text: consent.text }}
-          prefill={prefill}
-        />
-      </main>
-    </div>
-  );
+  const form = getDefaultForm(project.id);
+  // Once the default form is step by step, /c sends visitors to it, ?r= and all (D1).
+  if (form.layout === "steps") permanentRedirect(withQuery(formUrl(project, form), query));
+  return <ClassicCollect project={project} form={form} query={query} />;
 }

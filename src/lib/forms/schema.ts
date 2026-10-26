@@ -139,7 +139,7 @@ const thankYouPage = z.object({
   type: z.literal("thank_you"),
   title: copy(300).default(""),
   message: copy(2000).default(""),
-  cta: z.object({ label: z.string().trim().min(1).max(80), url: z.url().max(2000) }).optional(),
+  cta: z.object({ label: z.string().trim().min(1).max(80), url: z.url({ protocol: /^https?$/ }).max(2000) }).optional(),
   /** Offer to copy their words (to post elsewhere). */
   copyText: z.boolean().default(false),
   /** Share links; shown only when they agreed to social use. */
