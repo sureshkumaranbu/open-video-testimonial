@@ -61,6 +61,8 @@ const FIELD_TEXT: Record<string, string> = {
   language: "language",
   transcript: "transcript",
   captionsVtt: "captions",
+  avatarKey: "photo",
+  companyLogoKey: "company logo",
 };
 
 function describe(h: HistoryJson) {
@@ -288,6 +290,10 @@ export function DetailDrawer({
               t={t}
               answers={detail.answers}
               onCancel={() => setEditing(false)}
+              onImagesChanged={() => {
+                void load();
+                onChanged();
+              }}
               onSaved={() => {
                 setEditing(false);
                 void load();

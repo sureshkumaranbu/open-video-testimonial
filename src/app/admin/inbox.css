@@ -290,3 +290,39 @@
 .ib-person {
   overflow-wrap: anywhere;
 }
+.ib-author-image-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.ib-author-image-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.ib-author-image-box {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--ink-3);
+  overflow: hidden;
+}
+.ib-author-image-box[data-shape="avatar"] {
+  border-radius: 50%;
+}
+.ib-author-image-box[data-empty] {
+  border-style: dashed;
+}
+.ib-author-image-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ib-author-image-box[data-shape="logo"] img {
+  object-fit: contain;
+}

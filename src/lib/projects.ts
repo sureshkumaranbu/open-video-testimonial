@@ -221,7 +221,7 @@ export function projectMediaKeys(projectId: string): string[] {
 }
 
 /** Whether any row (of any project) still points at a file. */
-function fileInUse(key: string): boolean {
+export function fileInUse(key: string): boolean {
   return Boolean(
     getDb().get(sql`
       SELECT 1 FROM testimonials

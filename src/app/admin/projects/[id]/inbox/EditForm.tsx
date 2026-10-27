@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { api, errorMessage } from "@/app/admin/api";
+import { AuthorImages } from "./AuthorImages";
 
 export type EditableTestimonial = {
   id: string;
@@ -9,6 +10,8 @@ export type EditableTestimonial = {
   authorTitle: string | null;
   authorCompany: string | null;
   authorWebsite: string | null;
+  avatarKey: string | null;
+  companyLogoKey: string | null;
   rating: number | null;
   headline: string | null;
   text: string | null;
@@ -61,9 +64,22 @@ const orNull = (s: string) => (s.trim() ? s.trim() : null);
 /**
  * Everything about a testimonial the owner can correct (INBOX-08), the text
  * of every answer included. Changes to what the author wrote mark it
- * "edited after consent"; every change is in the history.
+ * "edited after consent"; every change is in the history. The photo and
+ * logo save on their own (`onImagesChanged` reloads), the rest with the button.
  */
-export function EditForm({ t, answers, onSaved, onCancel }: { t: EditableTestimonial; answers: EditableAnswer[]; onSaved: () => void; onCancel: () => void }) {
+export function EditForm({
+  t,
+  answers,
+  onSaved,
+  onCancel,
+  onImagesChanged,
+}: {
+  t: EditableTestimonial;
+  answers: EditableAnswer[];
+  onSaved: () => void;
+  onCancel: () => void;
+  onImagesChanged: () => void;
+}) {
   const initial = valuesOf(t);
   const [v, setV] = useState<Values>(initial);
   const [answerText, setAnswerText] = useState<Record<string, string>>(() => Object.fromEntries(answers.map((a) => [a.id, a.text ?? ""])));
@@ -108,6 +124,7 @@ export function EditForm({ t, answers, onSaved, onCancel }: { t: EditableTestimo
 
   return (
     <form className="stack ib-edit" onSubmit={submit} data-testid="edit-form">
+      <AuthorImages testimonialId={t.id} avatarKey={t.avatarKey} companyLogoKey={t.companyLogoKey} onChanged={onImagesChanged} />
       <div className="ib-edit-grid">
         <label>
           Name

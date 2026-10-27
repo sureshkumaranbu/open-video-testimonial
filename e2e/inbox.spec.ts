@@ -1,6 +1,7 @@
+import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { formProject } from "./form-helpers";
-import { adminApi, createProject, seed, signIn, useFreshIp } from "./helpers";
+import { adminApi, createProject, FIXTURES, seed, signIn, useFreshIp } from "./helpers";
 
 /**
  * Inbox v2 (M3): tabs, filters in the URL, the remembered sort, pages, bulk
@@ -230,6 +231,47 @@ test("INBOX-08 INBOX-10 edits every answer: the edited-after-consent badge and t
   // And off again.
   await drawer.getByRole("button", { name: "Remove highlight “ship weekly”" }).click();
   await expect(main.locator("mark")).toHaveCount(0);
+});
+
+test("INBOX-08 INBOX-10 uploads, replaces and removes the photo and company logo; the history shows it", async ({ page, baseURL }) => {
+  const api = await adminApi(baseURL!);
+  const p = await createProject(api, "Photo Co", slug("photo"));
+  await seed(api, p.slug, [{ name: "Pia Photo", text: "Looks great", status: "approved" }]);
+  await signIn(page);
+  await page.goto(`/admin/projects/${p.id}`);
+  await tab(page, "Approved").click();
+  await card(page, "Pia Photo").getByRole("button", { name: "Details" }).click();
+  const drawer = page.getByTestId("detail-drawer");
+  await drawer.getByTestId("edit-toggle").click();
+  const avatar = drawer.getByTestId("author-image-avatar");
+  const logo = drawer.getByTestId("author-image-logo");
+  const png = path.join(FIXTURES, "avatar.png");
+
+  await avatar.getByLabel("Photo of the person file").setInputFiles(png);
+  const preview = avatar.getByTestId("author-image-avatar-preview");
+  await expect(preview).toBeVisible();
+  const first = await preview.getAttribute("src");
+  // Approved, so the photo is public media.
+  expect((await page.request.get(first!)).status()).toBe(200);
+  await avatar.getByLabel("Photo of the person file").setInputFiles(png);
+  await expect(preview).not.toHaveAttribute("src", first!);
+  await expect(avatar.getByRole("button", { name: "Replace photo" })).toBeVisible();
+
+  // The server sniffs the bytes: a text file named .png is refused.
+  await logo.getByLabel("Company logo file").setInputFiles({ name: "logo.png", mimeType: "image/png", buffer: Buffer.from("not an image") });
+  await expect(logo.getByRole("alert")).toBeVisible();
+  await logo.getByLabel("Company logo file").setInputFiles(png);
+  await expect(logo.getByTestId("author-image-logo-preview")).toBeVisible();
+  await expect(logo.getByRole("alert")).toHaveCount(0);
+  await logo.getByRole("button", { name: "Remove" }).click();
+  await expect(logo.getByTestId("author-image-logo-preview")).toHaveCount(0);
+  await expect(logo.getByRole("button", { name: "Upload logo" })).toBeVisible();
+
+  const history = drawer.getByTestId("history");
+  await expect(history.locator("li[data-action=edited]").filter({ hasText: "photo" })).toHaveCount(2);
+  await expect(history.locator("li[data-action=edited]").filter({ hasText: "company logo" })).toHaveCount(2);
+  // A photo isn't what the author wrote.
+  await expect(drawer.getByTestId("edited-badge")).toHaveCount(0);
 });
 
 test("INBOX-09 trash and restore: Delete moves to the trash, Restore brings back the status and media", async ({ page, baseURL }) => {
