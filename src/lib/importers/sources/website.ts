@@ -146,8 +146,8 @@ function shortLines(el: Element): string[] {
   return out.length > 4 ? [] : out;
 }
 
-/** A person's name, not a sentence: up to 6 words, starts with a capital, no closing punctuation. */
-const looksLikeName = (s: string) => s.length <= 60 && s.split(/\s+/).length <= 6 && /^\p{Lu}/u.test(s) && !/[.!?:]$/.test(s);
+/** A person's name, not a sentence: up to 6 words, starts with a capital (or a letter from a script without case, like Tamil), no closing punctuation. */
+const looksLikeName = (s: string) => s.length <= 60 && s.split(/\s+/).length <= 6 && /^[\p{Lu}\p{Lo}]/u.test(s) && !/[.!?:।]$/.test(s);
 
 /** The name (and title) close to a quote: a class saying name/author, cite, figcaption, footer, or a "— Name" line after it. */
 function attribution(el: Element): { name?: string; role?: string; used: Element[] } {

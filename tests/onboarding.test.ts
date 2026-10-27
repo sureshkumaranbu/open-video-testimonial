@@ -85,6 +85,9 @@ describe("finding testimonials on the owner's site", () => {
     const found = discoverFromHtml(page);
     expect(found.map((f) => [f.authorName, f.authorTitle])).toEqual([["Riya Shah", "Law student"], ["Tom Reed", "Journalist"]]);
     expect(found[0].text).toBe("The study guides it made from my lectures saved my whole semester.");
+    // Scripts without capital letters (Tamil, Devanagari) still read as names.
+    const tamil = discoverFromHtml(`<html><body>${card("Every lecture is now searchable, which changed how I revise.", "சு", "சுரேஷ் குமார்", "மாணவர்")}</body></html>`);
+    expect(tamil.map((f) => [f.authorName, f.authorTitle])).toEqual([["சுரேஷ் குமார்", "மாணவர்"]]);
   });
 
   it("ONB-03 reads the brand: site name, theme colour and a non-SVG logo", () => {
