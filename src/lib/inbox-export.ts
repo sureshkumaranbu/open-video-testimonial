@@ -49,6 +49,16 @@ function fieldKeys(ids: string[]): CsvKeys {
   return { customKeys: keys(testimonials.customFields), hiddenKeys: keys(testimonials.hiddenFields) };
 }
 
+/** Translations of these testimonials, by id (none: absent). */
+function translationsOf(ids: string[]) {
+  const out = new Map<string, { lang: string; headline: string | null; text: string | null; machine: boolean }[]>();
+  if (!ids.length) return out;
+  for (const r of getDb().select().from(schema.translations).where(inArray(schema.translations.testimonialId, ids)).all()) {
+    out.set(r.testimonialId, [...(out.get(r.testimonialId) ?? []), { lang: r.lang, headline: r.headline, text: r.text, machine: r.machine }]);
+  }
+  return out;
+}
+
 function load(ids: string[]) {
   const rows = getDb().select().from(testimonials).where(inArray(testimonials.id, ids)).all();
   const byId = new Map(withTags(rows).map((t) => [t.id, t]));
@@ -86,7 +96,12 @@ export function inboxExport(projectId: string, q: InboxQuery & { ids?: string[] 
         controller.enqueue(enc.encode(text.slice(text.indexOf("\r\n") + 2)));
       } else {
         const extras = apiExtras(part);
-        const json = items.map((t) => JSON.stringify(toApi(t, extras.get(t.id))));
+        const translated = translationsOf(part);
+        // INBOX-13: a row with translations carries them too.
+        const json = items.map((t) => {
+          const tr = translated.get(t.id);
+          return JSON.stringify({ ...toApi(t, extras.get(t.id)), ...(tr ? { translations: tr } : {}) });
+        });
         if (json.length) controller.enqueue(enc.encode((written > 0 ? "," : "") + json.join(",")));
         written += json.length;
       }

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getDb, schema, type Tx } from "@/db";
 import {
   APPROVERS,
+  CAMPAIGN_STATUSES,
   DATE_PRECISIONS,
   FEEDBACK_SOURCES,
   FORM_LAYOUTS,
@@ -37,6 +38,8 @@ import { findProjectBySlugOrAlias } from "./projects";
 import { listRequests } from "./requests";
 import { deleteObject, saveFile, sniffMime, storage, type MediaKind } from "./storage";
 import { createProject, listProjects, listTestimonials, type TestimonialWithTags } from "./testimonials";
+import { boosterDesignSchema, boosterLinksSchema } from "./booster-config";
+import { canSync, getAdapter } from "./importers/registry";
 import { brandSchema, slugSchema } from "./validation";
 import { extractEntry, openZip, readEntryText, ZipError, zipStream, type ZipSource } from "./zip";
 
@@ -77,6 +80,12 @@ const {
   walls,
   seoSnippets,
   slugRedirects,
+  campaigns,
+  boosters,
+  boosterClicks,
+  rewardCodes,
+  importSources,
+  translations,
 } = schema;
 
 const MEDIA_PREFIX = "media/";
@@ -131,6 +140,7 @@ function relatedRows(projectId: string) {
     highlights: byTestimonial(
       db.select().from(highlights).where(inArray(highlights.testimonialId, ofProject())).orderBy(asc(highlights.start)).all(),
     ),
+    translations: byTestimonial(db.select().from(translations).where(inArray(translations.testimonialId, ofProject())).orderBy(asc(translations.lang)).all()),
     history: byTestimonial(
       db
         .select()
@@ -240,8 +250,21 @@ function exportTestimonial(t: TestimonialWithTags, related: Related) {
       image: mediaPath(i.key),
       alt: i.alt,
       position: i.position,
+      // M13 (INBOX-11): merged in from a testimonial that wasn't public; stays owner-only.
+      ownerOnly: i.ownerOnly,
       createdAt: i.createdAt.toISOString(),
     })),
+    // M13 (INBOX-13): its translations.
+    translations: (related.translations.get(t.id) ?? []).map((x) => ({
+      lang: x.lang,
+      headline: x.headline,
+      text: x.text,
+      machine: x.machine,
+      createdAt: x.createdAt.toISOString(),
+      updatedAt: x.updatedAt.toISOString(),
+    })),
+    // M13 (INBOX-11): the testimonial this one was merged into.
+    mergedIntoId: t.mergedIntoId,
     highlights: (related.highlights.get(t.id) ?? []).map((h) => ({
       answerId: h.answerId,
       start: h.start,
@@ -368,7 +391,97 @@ export function buildManifest(project: Project) {
       testimonialId: r.testimonialId,
       formId: r.formId,
       createdAt: r.createdAt.toISOString(),
+      // M9 (L14): campaign recipients stay recipients of their campaign.
+      campaignId: r.campaignId,
+      title: r.title,
+      custom: readJson<Record<string, string>>(r.custom, {}),
+      scheduledFor: iso(r.scheduledFor),
+      openedAt: iso(r.openedAt),
+      clickedAt: iso(r.clickedAt),
+      startedAt: iso(r.startedAt),
+      declinedAt: iso(r.declinedAt),
     })),
+    // L14: campaigns (M9), review boosters and their clicks, reward code pools (M10); M13's synced sources (never a secret).
+    campaigns: db
+      .select()
+      .from(campaigns)
+      .where(eq(campaigns.projectId, project.id))
+      .orderBy(asc(campaigns.createdAt))
+      .all()
+      .map((c) => ({
+        id: c.id,
+        formId: c.formId,
+        name: c.name,
+        status: c.status,
+        senderName: c.senderName,
+        replyTo: c.replyTo,
+        subject: c.subject,
+        body: c.body,
+        buttonText: c.buttonText,
+        rtl: c.rtl,
+        reminders: readJson<number[]>(c.reminders, []),
+        trackOpens: c.trackOpens,
+        rewardCodes: c.rewardCodes,
+        createdAt: c.createdAt.toISOString(),
+        updatedAt: c.updatedAt.toISOString(),
+      })),
+    boosters: db
+      .select()
+      .from(boosters)
+      .where(eq(boosters.projectId, project.id))
+      .orderBy(asc(boosters.createdAt))
+      .all()
+      .map((b) => ({
+        id: b.id,
+        slug: b.slug,
+        name: b.name,
+        published: b.published,
+        title: b.title,
+        message: b.message,
+        links: readJson<unknown[]>(b.links, []),
+        design: readJson<Record<string, unknown>>(b.design, {}),
+        logo: mediaPath(b.logoKey),
+        createdAt: b.createdAt.toISOString(),
+        updatedAt: b.updatedAt.toISOString(),
+      })),
+    boosterClicks: db
+      .select({ boosterId: boosterClicks.boosterId, linkId: boosterClicks.linkId, day: boosterClicks.day, count: boosterClicks.count })
+      .from(boosterClicks)
+      .innerJoin(boosters, eq(boosters.id, boosterClicks.boosterId))
+      .where(eq(boosters.projectId, project.id))
+      .orderBy(asc(boosterClicks.day))
+      .all(),
+    rewardCodes: db
+      .select()
+      .from(rewardCodes)
+      .where(eq(rewardCodes.projectId, project.id))
+      .orderBy(asc(rewardCodes.createdAt))
+      .all()
+      .map((r) => ({
+        formId: r.formId,
+        code: r.code,
+        claimedAt: iso(r.claimedAt),
+        testimonialId: r.testimonialId,
+        feedbackId: r.feedbackId,
+        requestId: r.requestId,
+        createdAt: r.createdAt.toISOString(),
+      })),
+    importSources: db
+      .select()
+      .from(importSources)
+      .where(eq(importSources.projectId, project.id))
+      .orderBy(asc(importSources.createdAt))
+      .all()
+      .map((x) => ({
+        adapter: x.adapter,
+        input: Object.fromEntries(Object.entries(readJson<Record<string, unknown>>(x.input, {})).filter(([k]) => !SECRET_KEYS.test(k))),
+        options: readJson<Record<string, unknown>>(x.options, {}),
+        label: x.label,
+        intervalHours: x.intervalHours,
+        paused: x.paused,
+        itemsAdded: x.itemsAdded,
+        createdAt: x.createdAt.toISOString(),
+      })),
     feedback: db
       .select()
       .from(feedback)
@@ -457,11 +570,14 @@ export function buildManifest(project: Project) {
       .where(eq(slugRedirects.projectId, project.id))
       .orderBy(asc(slugRedirects.createdAt))
       .all()
-      .map((r) => ({ kind: r.kind, oldSlug: r.oldSlug, formId: r.formId, wallId: r.wallId, createdAt: r.createdAt.toISOString() })),
+      .map((r) => ({ kind: r.kind, oldSlug: r.oldSlug, formId: r.formId, wallId: r.wallId, boosterId: r.boosterId, createdAt: r.createdAt.toISOString() })),
   };
 }
 
 export type Manifest = ReturnType<typeof buildManifest>;
+
+/** Keys that could hold a secret: never exported (a synced source's input never has one, but this makes sure). */
+const SECRET_KEYS = /key|token|secret|password/i;
 
 /** Every stored file the manifest points at, once each. */
 function manifestKeys(m: Manifest): string[] {
@@ -470,6 +586,7 @@ function manifestKeys(m: Manifest): string[] {
     ...m.forms.map((f) => f.logo),
     ...m.customers.map((c) => c.avatar),
     ...m.walls.flatMap((w) => [w.logo, w.cover]),
+    ...m.boosters.map((b) => b.logo),
     ...m.testimonials.flatMap((t) => [
       t.media.video,
       t.media.videoOriginal,
@@ -697,6 +814,76 @@ const imageSchema = z.object({
   image: z.string().max(200),
   alt: textOrNull(500),
   position: z.number().int().catch(0),
+  ownerOnly: z.boolean().catch(false),
+  createdAt: when,
+});
+
+const translationSchema = z.object({
+  lang: z.string().trim().toLowerCase().regex(/^[a-z]{2,3}(-[a-z0-9]{2,8}){0,2}$/),
+  headline: textOrNull(200),
+  text: textOrNull(10_000),
+  machine: z.boolean().catch(false),
+  createdAt: when,
+  updatedAt: when,
+});
+
+const campaignSchema = z.object({
+  id: z.string(),
+  formId: ref,
+  name: label(120, "Campaign"),
+  status: z.enum(CAMPAIGN_STATUSES).catch("draft"),
+  senderName: z.string().max(80).catch(""),
+  replyTo: z.string().max(254).catch(""),
+  subject: z.string().max(200).catch(""),
+  body: z.string().max(10_000).catch(""),
+  buttonText: z.string().max(60).catch(""),
+  rtl: z.boolean().catch(false),
+  reminders: z.array(z.number().int().min(1).max(60)).max(3).catch([]),
+  trackOpens: z.boolean().catch(false),
+  rewardCodes: z.boolean().catch(false),
+  createdAt: when,
+  updatedAt: when,
+});
+
+const boosterSchema = z.object({
+  id: z.string(),
+  slug: z.string().max(48).catch(""),
+  name: label(120, "Review booster"),
+  published: z.boolean().catch(false),
+  title: z.string().max(200).catch(""),
+  message: z.string().max(2000).catch(""),
+  links: z.array(z.unknown()).max(50).catch([]),
+  design: jsonObject,
+  logo: mediaRef,
+  createdAt: when,
+  updatedAt: when,
+});
+
+const boosterClickSchema = z.object({
+  boosterId: z.string(),
+  linkId: z.string().min(1).max(64),
+  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  count: z.number().int().min(0),
+});
+
+const rewardCodeSchema = z.object({
+  formId: z.string(),
+  code: z.string().min(1).max(100),
+  claimedAt: when,
+  testimonialId: ref,
+  feedbackId: ref,
+  requestId: ref,
+  createdAt: when,
+});
+
+const importSourceSchema = z.object({
+  adapter: z.string().max(40),
+  input: jsonObject,
+  options: jsonObject,
+  label: z.string().max(200).catch(""),
+  intervalHours: z.union([z.literal(12), z.literal(24)]).catch(24),
+  paused: z.boolean().catch(false),
+  itemsAdded: z.number().int().min(0).catch(0),
   createdAt: when,
 });
 
@@ -818,6 +1005,7 @@ const redirectSchema = z.object({
   oldSlug: z.string().max(48),
   formId: ref,
   wallId: ref,
+  boosterId: ref,
   createdAt: when,
 });
 
@@ -946,6 +1134,8 @@ const manifestSchema = z.object({
       images: listOf(imageSchema),
       highlights: listOf(highlightSchema),
       history: listOf(historySchema),
+      translations: listOf(translationSchema),
+      mergedIntoId: ref,
       createdAt: isoDate,
       updatedAt: isoDate,
     }),
@@ -957,7 +1147,7 @@ const manifestSchema = z.object({
         name: z.string().max(120).nullable(),
         email: z.string().max(254),
         company: z.string().max(120).nullable(),
-        // "declined" since M9 (a campaign's "No thanks"); campaigns themselves aren't in the archive yet.
+        // "declined" since M9 (a campaign's "No thanks"); campaigns ride along since M13 (L14).
         status: z.enum(["waiting", "responded", "unsubscribed", "declined"]),
         sentAt: nullableIso,
         remindersSent: z.number().int().default(0),
@@ -966,6 +1156,14 @@ const manifestSchema = z.object({
         testimonialId: z.string().nullable(),
         formId: ref,
         createdAt: isoDate,
+        campaignId: ref,
+        title: textOrNull(120),
+        custom: stringRecord,
+        scheduledFor: when,
+        openedAt: when,
+        clickedAt: when,
+        startedAt: when,
+        declinedAt: when,
       }),
     )
     .default([]),
@@ -974,6 +1172,11 @@ const manifestSchema = z.object({
   walls: listOf(wallSchema),
   seoSnippets: listOf(seoSnippetSchema),
   redirects: listOf(redirectSchema),
+  campaigns: listOf(campaignSchema),
+  boosters: listOf(boosterSchema),
+  boosterClicks: listOf(boosterClickSchema),
+  rewardCodes: listOf(rewardCodeSchema),
+  importSources: listOf(importSourceSchema),
 });
 
 export type ImportManifest = z.infer<typeof manifestSchema>;
@@ -1227,6 +1430,7 @@ export async function importArchive(zipPath: string, projectId: string) {
         [w.logo, "image"],
         [w.cover, "image"],
       ]),
+      ...manifest.boosters.map((b): [string | null, MediaKind] => [b.logo, "image"]),
     ];
     for (const t of manifest.testimonials) {
       refs.push(
@@ -1251,6 +1455,10 @@ export async function importArchive(zipPath: string, projectId: string) {
     const wallIds = new Map(manifest.walls.map((w) => [w.id, crypto.randomUUID()]));
     const widgetIds = new Map<string, string>();
     const snippetIds = new Map<string, string>();
+    const feedbackIds = new Map<string, string>();
+    const campaignIds = new Map(manifest.campaigns.map((c) => [c.id, crypto.randomUUID()]));
+    const boosterIds = new Map(manifest.boosters.map((b) => [b.id, crypto.randomUUID()]));
+    const extra = { campaigns: 0, boosters: 0, rewardCodes: 0, importSources: 0, translations: 0 };
     const now = new Date();
     const date = (s: string | null | undefined) => (s ? new Date(s) : null);
     const at = (s: string | null | undefined) => date(s) ?? now;
@@ -1445,9 +1653,18 @@ export async function importArchive(zipPath: string, projectId: string) {
               key,
               alt: i.alt,
               position: i.position,
+              ownerOnly: i.ownerOnly,
               createdAt: at(i.createdAt),
             })
             .run();
+        }
+        for (const x of t.translations) {
+          const added = tx
+            .insert(translations)
+            .values({ id: crypto.randomUUID(), testimonialId: id, lang: x.lang, headline: x.headline, text: x.text, machine: x.machine, createdAt: at(x.createdAt), updatedAt: at(x.updatedAt) })
+            .onConflictDoNothing()
+            .run();
+          extra.translations += added.changes;
         }
         const anchored = new Set<string | null>();
         for (const h of t.highlights) {
@@ -1480,6 +1697,31 @@ export async function importArchive(zipPath: string, projectId: string) {
         }
       }
 
+      // L14: campaigns, before their recipients. An active one comes in paused, so nothing is sent until the owner says so.
+      for (const c of manifest.campaigns) {
+        tx.insert(campaigns)
+          .values({
+            id: campaignIds.get(c.id)!,
+            projectId,
+            formId: lookup(formIds, c.formId),
+            name: c.name,
+            status: c.status === "active" ? "paused" : c.status,
+            senderName: c.senderName,
+            replyTo: c.replyTo,
+            subject: c.subject,
+            body: c.body,
+            buttonText: c.buttonText,
+            rtl: c.rtl,
+            reminders: JSON.stringify(c.reminders),
+            trackOpens: c.trackOpens,
+            rewardCodes: c.rewardCodes,
+            createdAt: at(c.createdAt),
+            updatedAt: at(c.updatedAt),
+          })
+          .run();
+        extra.campaigns++;
+      }
+
       for (const r of manifest.requests) {
         tx.insert(requests)
           .values({
@@ -1499,6 +1741,15 @@ export async function importArchive(zipPath: string, projectId: string) {
             testimonialId: r.testimonialId ? (ids.get(r.testimonialId) ?? null) : null,
             formId: formFor(r.formId, formsIn.defaultId),
             createdAt: new Date(r.createdAt),
+            campaignId: lookup(campaignIds, r.campaignId),
+            title: r.title,
+            custom: JSON.stringify(r.custom),
+            // A delayed invitation isn't sent from an import either.
+            scheduledFor: null,
+            openedAt: date(r.openedAt),
+            clickedAt: date(r.clickedAt),
+            startedAt: date(r.startedAt),
+            declinedAt: date(r.declinedAt),
           })
           .run();
         // Unsubscribing is project-wide (M9): the imported project remembers the address too.
@@ -1511,9 +1762,11 @@ export async function importArchive(zipPath: string, projectId: string) {
       }
 
       for (const f of manifest.feedback) {
+        const feedbackId = crypto.randomUUID();
+        feedbackIds.set(f.id, feedbackId);
         tx.insert(feedback)
           .values({
-            id: crypto.randomUUID(),
+            id: feedbackId,
             projectId,
             formId: lookup(formIds, f.formId),
             customerId: lookup(customerIds, f.customerId),
@@ -1527,6 +1780,57 @@ export async function importArchive(zipPath: string, projectId: string) {
             createdAt: at(f.createdAt),
           })
           .run();
+      }
+
+      // L14: reward code pools, with who claimed what (each code once per form, one per submission and recipient).
+      for (const r of manifest.rewardCodes) {
+        const formId = lookup(formIds, r.formId);
+        if (!formId) continue;
+        const added = tx
+          .insert(rewardCodes)
+          .values({
+            id: crypto.randomUUID(),
+            projectId,
+            formId,
+            code: r.code,
+            claimedAt: date(r.claimedAt),
+            testimonialId: lookup(ids, r.testimonialId),
+            feedbackId: lookup(feedbackIds, r.feedbackId),
+            requestId: lookup(requestIds, r.requestId),
+            createdAt: at(r.createdAt),
+          })
+          .onConflictDoNothing()
+          .run();
+        extra.rewardCodes += added.changes;
+      }
+
+      // INBOX-11: where merged testimonials went, once every row is in.
+      for (const t of manifest.testimonials) {
+        const into = lookup(ids, t.mergedIntoId);
+        if (into) tx.update(testimonials).set({ mergedIntoId: into }).where(eq(testimonials.id, ids.get(t.id)!)).run();
+      }
+
+      // IMP-02: synced sources come in paused, so a moved project doesn't start fetching on its own.
+      for (const x of manifest.importSources) {
+        const adapter = getAdapter(x.adapter);
+        if (!adapter || !canSync(adapter)) continue;
+        tx.insert(importSources)
+          .values({
+            id: crypto.randomUUID(),
+            projectId,
+            adapter: adapter.id,
+            input: JSON.stringify(Object.fromEntries(Object.entries(x.input).filter(([k]) => !SECRET_KEYS.test(k)))),
+            options: JSON.stringify(x.options),
+            label: x.label.slice(0, 120),
+            intervalHours: x.intervalHours,
+            paused: true,
+            nextRunAt: new Date(now.getTime() + x.intervalHours * 60 * 60 * 1000),
+            itemsAdded: x.itemsAdded,
+            createdAt: at(x.createdAt),
+            updatedAt: now,
+          })
+          .run();
+        extra.importSources++;
       }
 
       // Public ids are kept when no row here has them yet, so embeds on other sites still find their widget.
@@ -1623,13 +1927,45 @@ export async function importArchive(zipPath: string, projectId: string) {
           .run();
       }
 
+      // L14: review booster pages (links to forms remapped), and their daily clicks.
+      const boosterSlugs = new Set(tx.select({ slug: boosters.slug }).from(boosters).where(eq(boosters.projectId, projectId)).all().map((r) => r.slug));
+      inserted.clear();
+      for (const b of manifest.boosters) {
+        if (inserted.has(b.id)) continue;
+        inserted.add(b.id);
+        const links = boosterLinksSchema.safeParse(remapIds(b.links, idMap));
+        const design = boosterDesignSchema.safeParse(b.design);
+        tx.insert(boosters)
+          .values({
+            id: boosterIds.get(b.id)!,
+            projectId,
+            slug: claimSlug(boosterSlugs, b.slug, "reviews"),
+            name: b.name,
+            published: b.published,
+            title: b.title,
+            message: b.message,
+            links: JSON.stringify(links.success ? links.data : []),
+            design: JSON.stringify(design.success ? design.data : {}),
+            logoKey: file(b.logo),
+            createdAt: at(b.createdAt),
+            updatedAt: at(b.updatedAt),
+          })
+          .run();
+        extra.boosters++;
+      }
+      for (const c of manifest.boosterClicks) {
+        const boosterId = lookup(boosterIds, c.boosterId);
+        if (!boosterId) continue;
+        tx.insert(boosterClicks).values({ boosterId, linkId: c.linkId, day: c.day, count: c.count }).onConflictDoNothing().run();
+      }
+
       // Old links: a live slug always wins over an old one (D17), and one another project here already answers to stays theirs.
       const project = tx.select().from(projects).where(eq(projects.id, projectId)).get()!;
       for (const r of manifest.redirects) {
         const old = slugSchema.safeParse(r.oldSlug);
         if (!old.success) continue;
         const slug = old.data;
-        let target: { scope: string; formId: string | null; wallId: string | null } | null = null;
+        let target: { scope: string; formId: string | null; wallId: string | null; boosterId?: string } | null = null;
         if (r.kind === "project") {
           if (slug !== project.slug && !tx.select({ id: projects.id }).from(projects).where(eq(projects.slug, slug)).get()) {
             target = { scope: "", formId: null, wallId: null };
@@ -1637,6 +1973,9 @@ export async function importArchive(zipPath: string, projectId: string) {
         } else if (r.kind === "form") {
           const formId = lookup(formIds, r.formId);
           if (formId && !formsIn.slugs.has(slug)) target = { scope: projectId, formId, wallId: null };
+        } else if (r.kind === "booster") {
+          const boosterId = lookup(boosterIds, r.boosterId);
+          if (boosterId && !boosterSlugs.has(slug)) target = { scope: projectId, formId: null, wallId: null, boosterId };
         } else {
           const wallId = lookup(wallIds, r.wallId);
           if (wallId && !wallSlugs.has(slug)) target = { scope: projectId, formId: null, wallId };
@@ -1673,6 +2012,7 @@ export async function importArchive(zipPath: string, projectId: string) {
       widgets: widgetIds.size,
       walls: wallIds.size,
       seoSnippets: snippetIds.size,
+      ...extra,
       media: saved.length,
     };
   } catch (err) {
