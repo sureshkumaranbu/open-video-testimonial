@@ -96,7 +96,7 @@ export const HISTORY_ACTORS = ["owner", "api", "auto", "import", "customer", "sy
 export type HistoryActor = (typeof HISTORY_ACTORS)[number];
 export const HISTORY_ACTIONS = ["created", "edited", "status", "tags", "trashed", "restored", "answer_edited", "highlights", "bulk"] as const;
 export type HistoryAction = (typeof HISTORY_ACTIONS)[number];
-export const REDIRECT_KINDS = ["project", "form", "wall"] as const;
+export const REDIRECT_KINDS = ["project", "form", "wall", "booster"] as const;
 export type RedirectKind = (typeof REDIRECT_KINDS)[number];
 export const WIDGET_LAYOUTS = ["grid", "list", "carousel", "slider", "marquee", "featured", "badge", "toast"] as const;
 export type WidgetLayout = (typeof WIDGET_LAYOUTS)[number];
@@ -385,6 +385,8 @@ export const campaigns = sqliteTable(
     webhookTokenHash: text("webhook_token_hash"),
     /** First characters of the token, to recognise the URL in the dashboard. */
     webhookTokenPrefix: text("webhook_token_prefix"),
+    /** 0013 (M10, REQ-08): each recipient gets their own code from the form's reward code pool. */
+    rewardCodes: integer("reward_codes", { mode: "boolean" }).notNull().default(false),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -814,6 +816,8 @@ export const slugRedirects = sqliteTable(
       .references(() => projects.id, { onDelete: "cascade" }),
     formId: text("form_id").references(() => forms.id, { onDelete: "cascade" }),
     wallId: text("wall_id").references(() => walls.id, { onDelete: "cascade" }),
+    /** 0013 (M10): an old link of a review booster page. */
+    boosterId: text("booster_id").references(() => boosters.id, { onDelete: "cascade" }),
     oldSlug: text("old_slug").notNull(),
     createdAt: createdAt(),
   },
@@ -822,6 +826,7 @@ export const slugRedirects = sqliteTable(
     index("slug_redirects_project_idx").on(t.projectId),
     index("slug_redirects_form_idx").on(t.formId),
     index("slug_redirects_wall_idx").on(t.wallId),
+    index("slug_redirects_booster_idx").on(t.boosterId),
   ],
 );
 
@@ -965,6 +970,87 @@ export const notificationChannels = sqliteTable(
   (t) => [index("notification_channels_project_idx").on(t.projectId)],
 );
 
+// 0013 (M10): review booster pages, their link clicks, and reward code pools.
+
+/**
+ * A review booster page (BOOST-01) at /b/<project>/<slug>: buttons that send
+ * people to the review sites the owner picked. Every visitor sees every link
+ * (BOOST-03); a draft is never public.
+ */
+export const boosters = sqliteTable(
+  "boosters",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull(),
+    name: text("name").notNull(),
+    published: integer("published", { mode: "boolean" }).notNull().default(false),
+    title: text("title").notNull().default(""),
+    message: text("message").notNull().default(""),
+    /** JSON, src/lib/booster-config.ts boosterLinksSchema: up to 10 {id, platform, label, url, formId}. */
+    links: text("links").notNull().default("[]"),
+    /** JSON, boosterDesignSchema: colours, button style, logo choice. */
+    design: text("design").notNull().default("{}"),
+    logoKey: text("logo_key"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex("boosters_project_slug_idx").on(t.projectId, t.slug), index("boosters_logo_key_idx").on(t.logoKey)],
+);
+
+/** Daily click counts per booster link (BOOST-05). Counts only: no IPs, no user agents, no cookies. */
+export const boosterClicks = sqliteTable(
+  "booster_clicks",
+  {
+    boosterId: text("booster_id")
+      .notNull()
+      .references(() => boosters.id, { onDelete: "cascade" }),
+    /** The link's id inside boosters.links (kept after the link is removed, so old days still add up). */
+    linkId: text("link_id").notNull(),
+    /** UTC day, YYYY-MM-DD. */
+    day: text("day").notNull(),
+    count: integer("count").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.boosterId, t.linkId, t.day] })],
+);
+
+/**
+ * A form's pool of unique reward codes (FORM-13), uploaded as a CSV. A code is
+ * claimed once, atomically, for one submission (a testimonial or, after the
+ * low-rating branch, a feedback row) or one campaign recipient (REQ-08).
+ */
+export const rewardCodes = sqliteTable(
+  "reward_codes",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    formId: text("form_id")
+      .notNull()
+      .references(() => forms.id, { onDelete: "cascade" }),
+    code: text("code").notNull(),
+    claimedAt: integer("claimed_at", { mode: "timestamp_ms" }),
+    testimonialId: text("testimonial_id").references(() => testimonials.id, { onDelete: "set null" }),
+    feedbackId: text("feedback_id").references(() => feedback.id, { onDelete: "set null" }),
+    /** The campaign recipient it's reserved for (REQ-08). */
+    requestId: text("request_id").references(() => requests.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("reward_codes_form_code_idx").on(t.formId, t.code),
+    // The next free code: WHERE form_id = ? AND claimed_at IS NULL.
+    index("reward_codes_form_claimed_idx").on(t.formId, t.claimedAt),
+    index("reward_codes_project_idx").on(t.projectId),
+    // At most one code per submission and per recipient (NULLs never clash).
+    uniqueIndex("reward_codes_testimonial_idx").on(t.testimonialId),
+    uniqueIndex("reward_codes_feedback_idx").on(t.feedbackId),
+    uniqueIndex("reward_codes_request_idx").on(t.requestId),
+  ],
+);
+
 /** Per-person prefs keyed by lower-cased email (D14; the owner signs in before editing prefs, so a members row exists). */
 export const memberPrefs = sqliteTable("member_prefs", {
   email: text("email").primaryKey(),
@@ -1005,3 +1091,6 @@ export type SeoSnippet = typeof seoSnippets.$inferSelect;
 export type TaskRun = typeof taskRuns.$inferSelect;
 export type NotificationChannel = typeof notificationChannels.$inferSelect;
 export type MemberPrefs = typeof memberPrefs.$inferSelect;
+export type Booster = typeof boosters.$inferSelect;
+export type BoosterClick = typeof boosterClicks.$inferSelect;
+export type RewardCode = typeof rewardCodes.$inferSelect;
