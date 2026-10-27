@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
+import { RemovedAlerts } from "@/components/analytics/RemovedAlerts";
+import { analyticsUi, removedAlerts } from "@/lib/analytics";
 import { featureOn } from "@/lib/features";
 import { getWelcome } from "@/lib/onboarding";
 import { requireAdminPage } from "@/lib/server-session";
@@ -35,6 +37,7 @@ export default async function AdminHome() {
             </p>
           </div>
         </div>
+        {analyticsUi() && <RemovedAlerts alerts={removedAlerts()} />}
         {welcome && <WelcomeCard first={projects.length === 0} />}
         <div className="project-grid">
           {projects.map((p) => (

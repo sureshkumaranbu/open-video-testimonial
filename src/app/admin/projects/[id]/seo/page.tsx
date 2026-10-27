@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { analyticsUi, parseRange, snippetRenders } from "@/lib/analytics";
 import { env } from "@/lib/env";
 import { requireFeature } from "@/lib/features";
 import { listForms } from "@/lib/forms";
@@ -46,6 +47,7 @@ export default async function SeoPage({ params }: { params: Promise<{ id: string
           tags={listTagUsage(project.id).map((t) => t.name)}
           forms={listForms(project.id).map((f) => ({ id: f.id, name: f.name }))}
           initial={JSON.parse(JSON.stringify(snippets))}
+          renders={analyticsUi() ? snippetRenders(project.id, parseRange(null, null)) : undefined}
         />
       </main>
     </>

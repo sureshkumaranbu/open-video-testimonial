@@ -1,7 +1,7 @@
 "use client";
 
 import "@/app/admin/widgets-admin.css";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { api } from "@/app/admin/api";
 import { DevicePreview, Segmented, Tabs, Toast, UnsavedGuard, type Device } from "@/components/admin";
 import { LAYOUT_LABELS, type WidgetConfig } from "@/lib/widget-config";
@@ -33,6 +33,8 @@ type Props = {
   facets: Facets;
   origin: string;
   initialTab: StudioTab;
+  /** Shown under the heading: where the widget is live (DISP-13). */
+  banner?: ReactNode;
 };
 
 const draftOf = (w: AdminWidget): Draft => ({
@@ -47,7 +49,7 @@ const draftOf = (w: AdminWidget): Draft => ({
  * Labels · Share on the left, and on the right the live preview at desktop,
  * tablet or phone width over a light or dark page.
  */
-export function Studio({ project, initial, pickable, facets, origin, initialTab }: Props) {
+export function Studio({ project, initial, pickable, facets, origin, initialTab, banner }: Props) {
   const [widget, setWidget] = useState(initial);
   const [draft, setDraft] = useState<Draft>(() => draftOf(initial));
   const [saved, setSaved] = useState(() => JSON.stringify(draftOf(initial)));
@@ -98,6 +100,7 @@ export function Studio({ project, initial, pickable, facets, origin, initialTab 
           </button>
         </div>
       </div>
+      {banner}
       {error && (
         <p className="error" role="alert">
           {error}

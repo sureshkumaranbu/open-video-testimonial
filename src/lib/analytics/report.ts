@@ -457,3 +457,20 @@ export function snippetRenders(projectId: string, p: Period, now = new Date()) {
   return out;
 }
 
+
+/** DISP-12, DISP-13: each widget's install state and its views in the last 30 days, for the widget list. */
+export function widgetSummaries(projectId: string, now = new Date()) {
+  const p = parseRange(null, null, now);
+  const views = new Map<string, number>();
+  for (const r of readTotals(p, { projectIds: [projectId], type: "widget" }, now)) {
+    if (r.objectId && r.metric === "view") views.set(r.objectId, (views.get(r.objectId) ?? 0) + r.count);
+  }
+  const list = getDb().select().from(widgets).where(and(eq(widgets.projectId, projectId), isNull(widgets.deletedAt))).all();
+  return Object.fromEntries(
+    list.map((w) => {
+      const s = installStatus(w, now);
+      return [w.id, { state: s.state, page: s.lastSeenPage, views: views.get(w.id) ?? 0 }];
+    }),
+  );
+}
+export type WidgetSummary = ReturnType<typeof widgetSummaries>[string];

@@ -1,0 +1,379 @@
+/* Analytics (M11): the /admin/analytics dashboard and the panels on widget,
+ * form, wall and SEO pages. Classes start with `an-`. Colours come from the
+ * globals.css tokens, so the dark theme follows; charts are our own SVG. */
+
+.an-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.an-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.an-range label {
+  display: grid;
+  gap: 2px;
+  font-size: var(--text-xs);
+  color: var(--ink-2);
+}
+
+.an-range select,
+.an-range input {
+  min-height: var(--tap-size);
+  font-size: var(--text-sm);
+}
+
+.an-compare {
+  font-size: var(--text-xs);
+  color: var(--ink-2);
+}
+
+.an-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr));
+  gap: var(--space-3);
+}
+
+.an-tile {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  display: grid;
+  gap: 2px;
+  align-content: start;
+  min-width: 0;
+}
+
+.an-tile-label {
+  font-size: var(--text-xs);
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+.an-tile-value {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.an-tile-sub {
+  font-size: var(--text-xs);
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+.an-delta {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.an-delta[data-dir="up"] {
+  color: var(--ok);
+}
+
+.an-delta[data-dir="down"] {
+  color: var(--danger);
+}
+
+[data-theme="dark"] .an-delta[data-dir="down"] {
+  color: #ff8b82;
+}
+
+[data-theme="dark"] .an-delta[data-dir="up"] {
+  color: #5fd39b;
+}
+
+.an-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.an-card h3 {
+  margin: 0;
+  font-size: var(--text-base);
+}
+
+.an-grid-2 {
+  display: grid;
+  align-items: start;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: var(--space-3);
+}
+
+/* Line chart: the SVG stretches to the card; labels are HTML so they never squash. */
+.an-chart {
+  display: grid;
+  gap: var(--space-1);
+  color: var(--info);
+}
+
+.an-chart-plot {
+  position: relative;
+  height: 150px;
+  border-bottom: 1px solid var(--line-strong);
+  background-image: linear-gradient(var(--line) 1px, transparent 1px);
+  background-size: 100% 50%;
+}
+
+.an-chart-plot svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.an-chart-max {
+  position: absolute;
+  top: -2px;
+  left: 0;
+  font-size: var(--text-xs);
+  color: var(--ink-2);
+  background: var(--surface);
+  padding-right: 4px;
+  line-height: 1;
+}
+
+.an-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+}
+
+.an-area {
+  fill: currentColor;
+  opacity: 0.12;
+}
+
+.an-line-prev {
+  fill: none;
+  stroke: var(--ink-3);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.an-chart-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-xs);
+  color: var(--ink-2);
+}
+
+.an-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--ink-2);
+}
+
+.an-legend span::before {
+  content: "";
+  display: inline-block;
+  width: 14px;
+  height: 0;
+  border-top: 2px solid var(--info);
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.an-legend span.prev::before {
+  border-top: 2px dashed var(--ink-3);
+}
+
+/* Horizontal bars: top pages, clicks by kind, the form's drop-off. */
+.an-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.an-bars li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.an-bar-label {
+  overflow-wrap: anywhere;
+}
+
+.an-bar-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right;
+}
+
+.an-bar-track {
+  grid-column: 1 / -1;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--paper-2);
+  overflow: hidden;
+}
+
+.an-bar-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--info);
+  min-width: 2px;
+}
+
+.an-bar-sub {
+  grid-column: 1 / -1;
+  font-size: var(--text-xs);
+  color: var(--ink-2);
+}
+
+/* Sortable tables. */
+.an-table th button {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+}
+
+.an-table th button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.an-table th[aria-sort="ascending"] button::after {
+  content: "↑";
+}
+
+.an-table th[aria-sort="descending"] button::after {
+  content: "↓";
+}
+
+.an-table td.num,
+.an-table th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The name column keeps whole words; the table scrolls sideways on a phone instead. */
+.an-table td:first-child {
+  min-width: 9rem;
+}
+
+/* Install status (DISP-13). */
+.an-install {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: var(--text-sm);
+}
+
+.an-install[data-state="live"] {
+  border-color: color-mix(in srgb, var(--ok) 40%, var(--line));
+  background: var(--ok-soft);
+}
+
+.an-install[data-state="removed"] {
+  border-color: color-mix(in srgb, var(--warn) 40%, var(--line));
+  background: var(--warn-soft);
+}
+
+.an-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  flex: none;
+}
+
+.an-install[data-state="live"] .an-dot {
+  background: var(--ok);
+}
+
+.an-install[data-state="removed"] .an-dot {
+  background: var(--warn);
+}
+
+.an-install strong,
+.an-install code {
+  overflow-wrap: anywhere;
+}
+
+.an-install-more {
+  flex-basis: 100%;
+  margin: 0;
+  padding-left: var(--space-5);
+  font-size: var(--text-xs);
+  color: var(--ink-2);
+}
+
+.an-alerts {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.an-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--warn-soft);
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line));
+  font-size: var(--text-sm);
+}
+
+.an-alert p {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.an-foot {
+  font-size: var(--text-xs);
+  color: var(--ink-2);
+  margin: 0;
+}
+
+.an-details > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: var(--text-sm);
+  min-height: var(--tap-size);
+  display: flex;
+  align-items: center;
+}
+
+.an-details[open] > summary {
+  margin-bottom: var(--space-3);
+}

@@ -41,7 +41,8 @@ const EVENTS = [
 ];
 const typeLabel = (t: ChannelType) => TYPES.find((x) => x.id === t)?.label ?? t;
 
-export function Notifications({ email, projects }: { email: string; projects: ProjectOption[] }) {
+/** `widgetAlerts`: install detection is on (analytics), so "a widget stopped showing" can be offered. */
+export function Notifications({ email, projects, widgetAlerts = true }: { email: string; projects: ProjectOption[]; widgetAlerts?: boolean }) {
   return (
     <section className="panel" aria-labelledby="notify-h" id="notifications">
       <div className="panel-head">
@@ -50,14 +51,14 @@ export function Notifications({ email, projects }: { email: string; projects: Pr
         </h2>
       </div>
       <div className="panel-body stack-lg">
-        <EmailPrefs email={email} projects={projects} />
+        <EmailPrefs email={email} projects={projects} widgetAlerts={widgetAlerts} />
         <Channels projects={projects} />
       </div>
     </section>
   );
 }
 
-function EmailPrefs({ email, projects }: { email: string; projects: ProjectOption[] }) {
+function EmailPrefs({ email, projects, widgetAlerts }: { email: string; projects: ProjectOption[]; widgetAlerts: boolean }) {
   const [prefs, setPrefs] = useState<Prefs | null>(null);
   const [mode, setMode] = useState<"smtp" | "outbox" | "off">("off");
   const [status, setStatus] = useState("");
@@ -116,12 +117,14 @@ function EmailPrefs({ email, projects }: { email: string; projects: ProjectOptio
       <Toggle label="Weekly reminder of testimonials waiting for review (Mondays)" checked={prefs.weeklyPending} onChange={(weeklyPending) => set({ weeklyPending })} />
       <Toggle label="A summary when an import finishes" checked={prefs.importSummary} onChange={(importSummary) => set({ importSummary })} />
       <Toggle label="A monthly report (on the 1st)" checked={prefs.monthlyReport} onChange={(monthlyReport) => set({ monthlyReport })} />
-      <Toggle
-        label="When a widget stops showing on your site (no views for 7 days)"
-        checked={prefs.widgetRemoved}
-        onChange={(widgetRemoved) => set({ widgetRemoved })}
-        testId="notify-widget-removed"
-      />
+      {widgetAlerts && (
+        <Toggle
+          label="When a widget stops showing on your site (no views for 7 days)"
+          checked={prefs.widgetRemoved}
+          onChange={(widgetRemoved) => set({ widgetRemoved })}
+          testId="notify-widget-removed"
+        />
+      )}
       {projects.length > 1 && (
         <fieldset className="nt-projects">
           <legend className="small">Projects</legend>

@@ -1,4 +1,7 @@
 import { notFound } from "next/navigation";
+import { InstallStatus } from "@/components/analytics/InstallStatus";
+import { ObjectAnalytics } from "@/components/analytics/ObjectAnalytics";
+import { analyticsUi, installStatus } from "@/lib/analytics";
 import { env } from "@/lib/env";
 import { requireFeature } from "@/lib/features";
 import { inboxFacets, parseInboxParams, queryTestimonials } from "@/lib/inbox";
@@ -54,7 +57,13 @@ export default async function WidgetStudioPage({
           facets={facets}
           origin={env.publicUrl}
           initialTab={TABS.includes(tab as StudioTab) ? (tab as StudioTab) : "layout"}
+          banner={analyticsUi() ? <InstallStatus widgetId={widget.id} status={installStatus(widget)} /> : undefined}
         />
+        {analyticsUi() && (
+          <div className="panel panel-body">
+            <ObjectAnalytics type="widget" id={widget.id} />
+          </div>
+        )}
       </main>
     </>
   );
