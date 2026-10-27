@@ -213,8 +213,8 @@ export function deleteRedirect(id: string): boolean {
 
 /**
  * Every stored file of the project: its testimonials' own files, their
- * answers' videos and their images, form, wall and project logos, wall
- * covers and customers' photos.
+ * answers' videos and their images, form, wall, booster and project logos,
+ * wall covers and customers' photos.
  */
 export function projectMediaKeys(projectId: string): string[] {
   const rows = getDb().all<{ key: string | null }>(sql`
@@ -230,6 +230,7 @@ export function projectMediaKeys(projectId: string): string[] {
     UNION SELECT logo_key FROM forms WHERE project_id = ${projectId}
     UNION SELECT logo_key FROM walls WHERE project_id = ${projectId}
     UNION SELECT cover_key FROM walls WHERE project_id = ${projectId}
+    UNION SELECT logo_key FROM boosters WHERE project_id = ${projectId}
     UNION SELECT logo_key FROM projects WHERE id = ${projectId}
     UNION SELECT avatar_key FROM customers WHERE project_id = ${projectId}`);
   return rows.map((r) => r.key).filter((k): k is string => Boolean(k));
@@ -247,6 +248,7 @@ export function fileInUse(key: string): boolean {
       UNION ALL SELECT 1 FROM projects WHERE logo_key = ${key}
       UNION ALL SELECT 1 FROM forms WHERE logo_key = ${key}
       UNION ALL SELECT 1 FROM walls WHERE logo_key = ${key} OR cover_key = ${key}
+      UNION ALL SELECT 1 FROM boosters WHERE logo_key = ${key}
       LIMIT 1`),
   );
 }

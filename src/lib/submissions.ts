@@ -63,8 +63,8 @@ export type SubmissionResult = {
   /** null for private feedback from the low-rating branch: there's no testimonial to withdraw. */
   withdrawUrl: string | null;
   thankYou: ThankYou;
-  /** FORM-13: what the form gives for this submission, if anything. */
-  reward: GrantedReward | null;
+  /** FORM-13: what the form gives for this submission; left out when it gives nothing. */
+  reward?: GrantedReward;
   /** FORM-12: it was stored as private feedback, not as a testimonial. */
   feedbackOnly?: boolean;
 };
@@ -315,7 +315,7 @@ export async function submitForm(a: {
     const message = a.legacy
       ? project.thankYouMessage
       : fillLabel(thankYou.message || labels.thankYouMessage, { project: project.name });
-    return { id: testimonial.id, message, withdrawUrl: url, thankYou, reward };
+    return { id: testimonial.id, message, withdrawUrl: url, thankYou, ...(reward ? { reward } : {}) };
   } catch (err) {
     if (stored) throw err;
     // Nothing half-stored: the row (cascading to answers, images and feedback links), its reward code and every file go.
@@ -385,5 +385,5 @@ function submitLowRating(a: {
   queueThankYou(project, fromRequest, null, form, { reward, feedback: true });
   const low = thankYouFor(cfg, input.rating);
   const thankYou = { ...low, message: low.message || labels.lowRatingThanks, copyText: false, share: false };
-  return { id: note.id, message: fillLabel(thankYou.message, { project: project.name }), withdrawUrl: null, thankYou, reward, feedbackOnly: true };
+  return { id: note.id, message: fillLabel(thankYou.message, { project: project.name }), withdrawUrl: null, thankYou, ...(reward ? { reward } : {}), feedbackOnly: true };
 }

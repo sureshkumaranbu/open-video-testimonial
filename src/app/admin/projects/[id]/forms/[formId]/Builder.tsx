@@ -226,7 +226,9 @@ export function Builder({ project, initial, limits, initialTab }: Props) {
                 onAction={action}
               />
             )}
-            {tab === "share" && <SharePanel form={form} accent={draft.design.primary ?? project.brand.colors.primary ?? project.accentColor} />}
+            {tab === "share" && (
+              <SharePanel form={form} accent={draft.design.primary ?? project.brand.colors.primary ?? project.accentColor} logoUrl={form.logoUrl ?? project.logoUrl} />
+            )}
           </section>
         </div>
       </Tabs>

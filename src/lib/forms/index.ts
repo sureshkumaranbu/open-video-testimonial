@@ -36,7 +36,7 @@ import {
  * classic CollectForm keep reading them unchanged.
  */
 
-const { forms, projects, testimonials, requests, slugRedirects, walls } = schema;
+const { forms, projects, testimonials, requests, slugRedirects, walls, boosters } = schema;
 
 type Conn = Db | Tx;
 type ConfigParts = Pick<FormConfig, "pages" | "design" | "labels" | "settings">;
@@ -464,7 +464,8 @@ export function logoInUse(key: string, db: Conn = getDb()): boolean {
   return (
     used(db.select({ n: count() }).from(forms).where(eq(forms.logoKey, key)).get()) ||
     used(db.select({ n: count() }).from(projects).where(eq(projects.logoKey, key)).get()) ||
-    used(db.select({ n: count() }).from(walls).where(or(eq(walls.logoKey, key), eq(walls.coverKey, key))).get())
+    used(db.select({ n: count() }).from(walls).where(or(eq(walls.logoKey, key), eq(walls.coverKey, key))).get()) ||
+    used(db.select({ n: count() }).from(boosters).where(eq(boosters.logoKey, key)).get())
   );
 }
 
