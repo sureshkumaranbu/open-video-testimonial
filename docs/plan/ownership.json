@@ -57,6 +57,12 @@
       "name": "Notifications, onboarding, release",
       "packages": ["7.1", "7.2", "7.3", "7.4"],
       "requirements": ["INT-01", "INT-02", "ONB-01", "ONB-03", "ONB-04", "ONB-05", "ONB-06"]
+    },
+    "M9": {
+      "name": "Campaigns and auto-collect (Phase 2)",
+      "$comment": "Phase 2 milestones are one branch and one implementer each (docs/STATUS.md), so they list no work packages; only their requirement IDs are gated.",
+      "packages": [],
+      "requirements": ["REQ-01", "REQ-02", "REQ-03", "REQ-04", "REQ-05", "REQ-06", "REQ-07"]
     }
   },
   "concurrent": [
