@@ -2,7 +2,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
-import { expect, request as pwRequest, type APIRequestContext, type BrowserContext, type Page } from "@playwright/test";
+import { expect, request as pwRequest, test, type APIRequestContext, type BrowserContext, type Page } from "@playwright/test";
 import { E2E_ADMIN, FIXTURE_ORIGIN } from "../playwright.config";
 import type { CannedResponse, RecordedRequest } from "./fixtures/fixture-server.mjs";
 
@@ -26,6 +26,17 @@ export function freshIp() {
 
 export async function useFreshIp(page: Page) {
   await page.setExtraHTTPHeaders({ "x-forwarded-for": freshIp() });
+}
+
+/**
+ * Skips a test that depends on how video loads or plays when it runs in
+ * Playwright's Linux WebKit (the CI runner). That build plays media through
+ * GStreamer, which preloads clips and loads caption tracks differently from
+ * Safari on macOS and iOS, the WebKit real visitors use. These tests still
+ * run in Chromium everywhere and in WebKit on macOS.
+ */
+export function skipLinuxWebkitMedia(browserName: string) {
+  test.skip(browserName === "webkit" && process.platform === "linux", "Linux WebKit's GStreamer media stack loads video unlike Safari (runs in Chromium, and in WebKit on macOS)");
 }
 
 /**
