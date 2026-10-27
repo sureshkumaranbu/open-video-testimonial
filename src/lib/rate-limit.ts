@@ -6,7 +6,27 @@ import { env } from "./env";
  */
 const buckets = new Map<string, { count: number; resetAt: number }>();
 
+/**
+ * Public endpoints (beacons, webhooks) key buckets by address, so expired
+ * ones are swept every so often and the map has a ceiling: requests from
+ * many addresses can't grow memory without end. Past the ceiling the oldest
+ * buckets go first, which only makes limiting more lenient for a moment.
+ */
+const SWEEP_EVERY = 1000;
+const MAX_BUCKETS = 100_000;
+let sinceSweep = 0;
+
+function sweep(now: number) {
+  sinceSweep = 0;
+  for (const [key, b] of buckets) if (b.resetAt <= now) buckets.delete(key);
+  for (const key of buckets.keys()) {
+    if (buckets.size <= MAX_BUCKETS) break;
+    buckets.delete(key);
+  }
+}
+
 export function rateLimit(key: string, limit: number, windowMs: number, now = Date.now()) {
+  if (++sinceSweep >= SWEEP_EVERY || buckets.size > MAX_BUCKETS) sweep(now);
   const bucket = buckets.get(key);
   if (!bucket || bucket.resetAt <= now) {
     buckets.set(key, { count: 1, resetAt: now + windowMs });
@@ -81,4 +101,8 @@ export function clientKey(req: Request) {
 
 export function resetRateLimits() {
   buckets.clear();
+  sinceSweep = 0;
 }
+
+/** How many buckets are held (for tests). */
+export const rateLimitBucketCount = () => buckets.size;
