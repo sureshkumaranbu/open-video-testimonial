@@ -35,6 +35,25 @@ const body = z
     return parsed.data;
   });
 
+/** The body as text, or null once it passes `max` bytes (it stops reading there, even without a Content-Length). */
+async function readCapped(req: Request, max: number) {
+  if (!req.body) return "";
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) {
+      await reader.cancel().catch(() => {});
+      return null;
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
 /**
  * A campaign's incoming webhook (REQ-07): POST JSON from your shop, CRM or an
  * automation tool, and the person gets the campaign's invitation, optionally
@@ -54,8 +73,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
   }
   if (!/^application\/json\b/i.test(req.headers.get("content-type") ?? "")) return jsonError(415, "Send JSON (Content-Type: application/json)", HEADERS);
   if (Number(req.headers.get("content-length") ?? 0) > MAX_BYTES) return jsonError(413, "The body is too large (16 KB at most)", HEADERS);
-  const raw = await req.text();
-  if (Buffer.byteLength(raw) > MAX_BYTES) return jsonError(413, "The body is too large (16 KB at most)", HEADERS);
+  const raw = await readCapped(req, MAX_BYTES);
+  if (raw === null) return jsonError(413, "The body is too large (16 KB at most)", HEADERS);
   let json: unknown;
   try {
     json = JSON.parse(raw);
