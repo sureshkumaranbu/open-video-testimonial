@@ -136,7 +136,7 @@ describe("SHARE-01 templates and sizes", () => {
 });
 
 describe("SHARE-01 SHARE-02 uploads, my templates and the brand kit", () => {
-  const upload = (bytes: Uint8Array | string, kind = "background", name = "bg.png") => {
+  const upload = (bytes: Uint8Array<ArrayBuffer> | string, kind = "background", name = "bg.png") => {
     const body = new FormData();
     body.set("file", new File([bytes], name, { type: "image/png" }));
     body.set("kind", kind);

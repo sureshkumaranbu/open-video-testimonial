@@ -241,12 +241,12 @@ function CustomCss({ draft, update }: PanelProps) {
           maxLength={MAX_CUSTOM_CSS}
           className="ws-css"
           value={css}
-          placeholder={".c { border-width: 2px; }\n.n { text-transform: uppercase; }"}
+          placeholder={".x .c { border-width: 2px; }\n.x .n { text-transform: uppercase; }"}
           onChange={(e) => update((d) => ({ ...d, config: { ...d.config, css: e.target.value } }))}
           data-testid="custom-css-input"
         />
         <span className="ws-hint">
-          {`${css.length.toLocaleString("en")} of ${MAX_CUSTOM_CSS.toLocaleString("en")} characters. It applies inside the widget only (its shadow root), and shows in the preview. Classes: ${CSS_HOOKS}; :host is the widget's box.`}
+          {`${css.length.toLocaleString("en")} of ${MAX_CUSTOM_CSS.toLocaleString("en")} characters. It applies inside the widget only (its shadow root), and shows in the preview. Classes: ${CSS_HOOKS}; :host is the widget's box. Start selectors with .x (as in .x .n) so they win over the widget's own styles.`}
         </span>
       </label>
       {changed && (
