@@ -39,6 +39,10 @@ The left side has six tabs; the right side is a live preview that runs the real 
 - **Labels.** Every word visitors see, so the widget can match your site's language.
 - **Share.** The script, iframe, hosted link, React component and SEO include, an email with all of them for your developer, and steps for common site builders. See [`docs/EMBED.md`](../EMBED.md#saved-widgets).
 
+## Custom CSS
+
+The **Design** tab ends with a **Custom CSS** field for small touches (a thicker border, uppercase names). It applies inside the widget only, so it can't change the rest of your page, and the preview shows it as you type. Start selectors with `.x` (as in `.x .n { … }`) so they win over the widget's own styles; the hint lists the class names. Widgets never load anything from other sites, so `@import`, `url()` pointing anywhere but your Plaudit server and `<` are dropped, and the field shows what will apply. Up to 10,000 characters. See [`EMBED.md`](../EMBED.md#custom-css).
+
 ## Privacy
 
 Widgets show approved testimonials only, and a withdrawn one disappears at once. The feed never includes email addresses, phone numbers, consent records, custom or hidden fields, and with **first name only** the surname never leaves your server. Plaudit doesn't look up avatars on outside services. Counting views and clicks uses no cookies and keeps no IP addresses ([what's collected](analytics.md)).

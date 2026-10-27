@@ -8,6 +8,8 @@ Plaudit has a small REST API and signed webhooks, so you can connect it to n8n, 
 - [Connecting n8n](#connecting-n8n)
 - [Public widget feed](#public-widget-feed)
 - [Walls and review snippets](#walls-and-review-snippets)
+- [Testimonial pages](#testimonial-pages)
+- [Dashboard endpoints: video tools and the image studio](#dashboard-endpoints-video-tools-and-the-image-studio)
 
 The machine-readable description is served by your instance at **`/api/v1/openapi.json`** (OpenAPI 3.1). You can import it into Postman, Insomnia or an API client generator.
 
@@ -320,6 +322,7 @@ What `widget.js` reads. No key is needed, responses are CORS-enabled (`Access-Co
   ```
 
   Each testimonial has the same fields as the slug feed plus `extra`. The widget's filters, picks and pins are applied on the server before the limit; its filters, picked ids and form id are never sent. With **first name only** on, the surname never leaves the server. A deleted widget answers `{"project": null, "widget": null, "testimonials": [], "aggregate": {"count": 0, "average": null}}`; an unknown id answers 404.
+  `widget.css` is the widget's own cleaned CSS (DISP-08, `""` when there is none), which `widget.js` appends inside the shadow root ([`EMBED.md`](EMBED.md#custom-css)).
 - **`GET /api/widget/w_<id>/html`** (`?jsonld=1`): the same widget as escaped HTML for a server-side include ([`EMBED.md`](EMBED.md#seo-html-include)).
 
 Widgets are managed in the dashboard; there is no `/api/v1` endpoint for them yet.
@@ -330,9 +333,36 @@ Public, no key needed (preview flag `walls` for the dashboard pages; these endpo
 
 - **`GET /api/walls/<wall-id>/items?tab=<n>&offset=<n>`**: the next page of a published wall's tab, for "load more": `{items, total, nextOffset}`, where `items` has the same shape as the widget feed's `testimonials` and `nextOffset` is `null` on the last page. Same-origin use; cached for 60 seconds. A draft or unknown wall answers 404.
 - **`GET /wall/<project>/<wall>/opengraph-image`**: the wall's 1200×630 PNG link preview. 404 for drafts.
+- Wall pages send their own `Content-Security-Policy`: the public policy, plus exactly the script, connect and image hosts of the analytics provider the owner chose for that wall (WALL-07; Plausible or Google Analytics 4), if any.
 - **`GET /schema/s_<id>.js`**: a review snippet's script. It adds a `<script type="application/ld+json" data-plaudit-schema="s_…">` block to `document.head` once, with up to 10 reviews and the `AggregateRating`. `text/javascript`, CORS `*`, cached for 5 minutes. An unknown or deleted snippet answers 404 with a JavaScript comment, so the page carries on.
 
 Walls and snippets are managed in the dashboard; there is no `/api/v1` endpoint for them yet.
+
+## Testimonial pages
+
+Public, no key (they follow the `walls` flag). See [Sharing](help/share.md).
+
+- **`GET /t/<id>`**: one testimonial's own page (WALL-04), server-rendered with JSON-LD (`Review`) and Open Graph tags. `<id>` is the testimonial's id (a random UUID). Only for testimonials that are approved, not withdrawn and whose author didn't keep them private; anything else answers 404, exactly like an id that doesn't exist.
+- **`GET /t/<id>/opengraph-image`**: its 1200×630 PNG link preview, revalidated on every fetch (`Cache-Control: public, no-cache`), so a takedown removes it at once. 404 under the same rule.
+
+## Dashboard endpoints: video tools and the image studio
+
+Like the inbox's, these are the dashboard's own (signed-in session, same-origin requests only), not part of the versioned API, and may change. Every change goes through the normal edit path: it's in the testimonial's history and sends the opt-in `testimonial.updated` webhook.
+
+**Video tools** (VID-01..04, [guide](help/video.md)):
+
+- **`GET /api/admin/testimonials/{id}/trim`**: `{ durationMs, peaks, startMs, endMs }`, the original's length, 240 loudness peaks (0–1) and the current trim. Needs ffmpeg (409 without it).
+- **`PUT /api/admin/testimonials/{id}/trim`**: `{ "startMs": int|null, "endMs": int|null }`, whole milliseconds of the original; both `null` shows the whole video. Checked against the original's real length (at least 1 s kept). Answers `{ testimonial }` with `mediaStatus: "queued"`; the MP4 is re-cut in the background. Captions stay in the original's timing and are cut and shifted when served at `/api/captions/{id}`.
+- **`POST /api/admin/testimonials/{id}/poster`**: JSON `{ "atMs": int }` uses that frame of the served video; multipart `file` (PNG, JPEG, WebP or GIF, sniffed, size-capped) uses an image. **`DELETE`** goes back to the default frame.
+- **`POST /api/admin/testimonials/{id}/video`**: `{ "upload": { "id", "token" } }`, a finished resumable upload started with `POST /api/admin/uploads` `{ "kind": "video", "projectId" }`. Replaces the video, clears the trim and poster, reruns conversion and transcription, and deletes the old files.
+- **`GET /api/admin/testimonials/{id}/download?file=original|mp4`**: the file as an attachment (`Content-Disposition: attachment`, `Cache-Control: private, no-store`). 401 when signed out; 404 for `mp4` before it's converted.
+
+**Image studio** (SHARE-01..03, [guide](help/share.md)). A design is `{ template, size: { preset, width, height }, theme, accent, highlight, text, font, background: { kind, color, color2, angle, pattern, assetId, dim }, logo: { source, assetId, position, size }, showRating, showAvatar, showTitle }`; items are `[{ id, text?, name?, byline? }]` (1 to 6 of the project's testimonials; the overrides are for the image only).
+
+- **`POST /api/admin/projects/{id}/share/render`**: `{ design, items, format: "png"|"jpeg", download? }` answers the image (`private, no-store`). JPEG needs ffmpeg (501 without it).
+- **`POST /api/admin/projects/{id}/share/zip`**: `{ renders: [{ design, items }], format }`, up to 12 images in one `application/zip`.
+- **`GET|POST /api/admin/projects/{id}/share/assets`**: list, or upload a multipart `file` (PNG or JPEG, sniffed, size-capped) with `kind` `background` or `logo`. **`DELETE /api/admin/share-assets/{assetId}`** removes one and its file.
+- **`GET|POST /api/admin/projects/{id}/share/templates`**: "my templates", `{ name, design }`. **`PATCH|DELETE /api/admin/share-templates/{templateId}`**.
 
 ## Review booster pages
 
@@ -348,7 +378,7 @@ Booster pages are managed in the dashboard; there is no `/api/v1` endpoint for t
 Public, no key, cookieless ([what's collected](help/analytics.md)). Each answers `204` with an empty body and `Access-Control-Allow-Origin: *`, whatever it was sent: anything that isn't in the shape below, or names an unknown, deleted or draft object, is dropped without saying so. Bodies are JSON sent as `text/plain` (so browsers send them without a CORS preflight), at most 2 KB (`413` past that). Each IP address may send 600 in 10 minutes (`429` past that; the address is kept in memory only). With `ANALYTICS=off` they store nothing.
 
 - **`POST /api/widget/w_<id>/seen`**: from `widget.js` (DISP-13, DISP-14). `{ "k": "view" | "more" | "source" | "cta" | "play", "u": "<page address>" }`. `widget.js` sends a view once per page load, and sends the clicked element's class (`rm`, `src`, `b`, `bd`) as `k` to stay small; both forms are accepted. The address is stored as its origin and path only; without `u`, the `Origin` header is used.
-- **`POST /api/collect`**: walls and step-by-step forms (WALL-05, FORM-15). `{ "t": "wall", "id": "<wall id>", "k": "view" | "cta" | "link" }` or `{ "t": "form", "id": "<form id>", "k": "view" | "start" | "step", "s": <page index> }`. Completions aren't accepted here: the server counts them when a form is sent.
+- **`POST /api/collect`**: walls and step-by-step forms (WALL-05, FORM-15). `{ "t": "wall", "id": "<wall id>", "k": "view" | "cta" | "link" }` or `{ "t": "form", "id": "<form id>", "k": "view" | "start" | "step", "s": <page index> }`, or, from a testimonial's own page (WALL-04), `{ "t": "testimonial", "id": "<testimonial id>", "k": "view" | "cta" | "share" }`. Completions aren't accepted here: the server counts them when a form is sent.
 
 The server also counts, by itself, views of the classic `/c/<project>` page, every form submission, and each fetch of `/schema/s_<id>.js` (SEO-04, with the referring site's origin; crawlers included).
 

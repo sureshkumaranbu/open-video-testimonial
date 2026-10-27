@@ -202,7 +202,7 @@ Every setting is an environment variable, read from `.env` (Node) or `docker-com
 | `S3_FORCE_PATH_STYLE` | `false` | `true` puts the bucket in the path (`https://host/bucket/…`) instead of the host name. MinIO usually needs it |
 | `S3_PREFIX` | none | A folder inside the bucket for Plaudit's files, such as `plaudit` |
 | `TRASH_RETENTION_DAYS` | `30` | Days a testimonial stays in the trash before it's deleted for good |
-| `PLAUDIT_FEATURES` | `all` | Which [sections](#turning-sections-off) the dashboard shows: `all`, `none`, or a comma-separated list of `forms`, `inbox2`, `widgets`, `walls`, `importers`, `notifications`, `onboarding`, `campaigns`, `booster` and `analytics` |
+| `PLAUDIT_FEATURES` | `all` | Which [sections](#turning-sections-off) the dashboard shows: `all`, `none`, or a comma-separated list of `forms`, `inbox2`, `widgets`, `walls`, `importers`, `notifications`, `onboarding`, `campaigns`, `booster`, `analytics` and `share` |
 | `ANALYTICS` | on | `off` stops all analytics: nothing is collected or stored, and the analytics pages are hidden. Cookieless either way ([what's collected](docs/help/analytics.md)) |
 | `DIGEST_HOUR_UTC` | `8` | The hour (UTC, 0 to 23) when daily digests, the Monday reminder and the monthly report go out ([notifications](docs/help/notifications.md)) |
 | `GOOGLE_PLACES_API_KEY` | unset | Your own Google Cloud key with **Places API (New)** enabled, for the Google review importer (see [docs/IMPORT.md](docs/IMPORT.md)) and the review booster's business search ([docs/help/booster.md](docs/help/booster.md)); called from the server only |
@@ -324,7 +324,7 @@ Create API keys and webhooks under **Settings**. [`docs/API.md`](docs/API.md) co
 
 ### Turning sections off
 
-Forms, the new inbox, the widget studio, walls, importers, notifications, the setup guide, campaigns, the review booster and analytics are all on. To hide some (while your team gets used to the rest, say), list only the ones you want in `PLAUDIT_FEATURES` and restart, or set it to `none`:
+Forms, the new inbox, the widget studio, walls, importers, notifications, the setup guide, campaigns, the review booster, analytics and the image studio are all on. To hide some (while your team gets used to the rest, say), list only the ones you want in `PLAUDIT_FEATURES` and restart, or set it to `none`:
 
 | Flag | What it shows |
 |---|---|
@@ -337,6 +337,7 @@ Forms, the new inbox, the widget studio, walls, importers, notifications, the se
 | `onboarding` | The setup guide at `/admin/welcome`, the **Get started** card and checklist ([`docs/help/getting-started.md`](docs/help/getting-started.md)) |
 | `campaigns` | **Campaigns**: email campaigns with your own wording, sender, button and reminder days, recipients from a CSV or your customers, a live preview and test send, a funnel (sent, opened if you opt in, clicked, started, responded, declined), and auto-collect through `POST /api/v1/invites` or an incoming webhook ([`docs/help/campaigns.md`](docs/help/campaigns.md)) |
 | `booster` | **Review booster**: pages of “Leave us a review” buttons (Google, Trustpilot, Yelp, Facebook, G2, Capterra, Tripadvisor, App Store, Google Play, any link or one of your forms) at `/b/<project>/<page>`, with a live preview, a Google review link helper, QR codes with your logo and print sizes, and cookieless click counts per day. Every visitor sees every link ([`docs/help/booster.md`](docs/help/booster.md)) |
+| `share` | **Image studio**: images of 1, 3 or 6 testimonials in 14 templates of our own, with wording for the image only, colours, backgrounds, your logo and every social size (or your own), drawn on your server; PNG, JPEG, ZIP or copy; saved templates and the brand kit; “Share to X / LinkedIn” downloads the image and opens the site's own post page. Also **Create image** in the inbox drawer ([`docs/help/share.md`](docs/help/share.md)). Testimonials' own pages (`/t/<id>`) follow `walls`, and the video tools (trim, poster, replace, download; [`docs/help/video.md`](docs/help/video.md)) follow `inbox2` |
 | `analytics` | **Analytics**: a dashboard at `/admin/analytics` (a period compared with the one before; new testimonials by source, the review backlog, average rating, widget views, visitors and clicks, form views and completions, wall views and CTA clicks, booster clicks, snippet renders and the invite funnel; sortable tables), panels on each widget, form and wall, and an alert when a widget stops showing on your site. Cookieless: a daily-salted hash instead of cookies, raw events kept 30 days, daily totals kept. `ANALYTICS=off` turns collection off too ([`docs/help/analytics.md`](docs/help/analytics.md)) |
 
 `PLAUDIT_FEATURES=all` (the default) turns on every one. A flag only shows or hides pages: your data, the API and the public pages behave the same either way.
@@ -389,6 +390,7 @@ A **saved widget** from the widget studio (preview flag `widgets`) is embedded b
 - People can withdraw using the private link shown after they submit (and, for requested testimonials, in the receipt email). Withdrawing unpublishes the testimonial, and it can't be approved again.
 - IP addresses are not stored, unless you turn on `CONSENT_IP_HASH`, which stores a keyed hash.
 - Analytics are cookieless: a saved widget, a wall and a step-by-step form send one small count to your own server, which keeps a hash of the visitor's address with a salt that changes daily and is deleted after two days, never the address itself. Raw events are deleted after 30 days. `ANALYTICS=off` turns it all off. What's collected, in words you can show your visitors: [`docs/help/analytics.md`](docs/help/analytics.md).
+- Public pages load nothing from other sites, with one exception you choose: a wall can load Plausible or Google Analytics 4 if you pick one in its SEO tab, and then only that wall allows that provider ([`docs/help/walls.md`](docs/help/walls.md#favicon-analytics-and-verification)). Share links on a testimonial's own page are plain links.
 - You are the data controller for what you collect. Exports contain personal data, so store them securely.
 
 See [`SECURITY.md`](SECURITY.md) for how to report a vulnerability and what Plaudit does to stay safe.
@@ -442,6 +444,7 @@ The Playwright run starts the server with these settings, so every feature is te
 | `e2e/walls.spec.ts` | Walls: the editor (hero, tabs, inline call to action, themes), publishing, drafts as 404, load more and infinite scroll, phones, meta and JSON-LD with JavaScript off, the link preview image, the main wall |
 | `e2e/seo.spec.ts` | Review snippets: static and dynamic code on another site, guidance below 5 reviews, changing the scope |
 | `e2e/security-walls.spec.ts` | Walls: headers and CSP on pages and images, drafts 404 everywhere, hostile text in cards and JSON-LD, no CSP violations in the editor |
+| `e2e/video-share.spec.ts` | Video tools (trim with the waveform, poster frame, replace, downloads), a testimonial's own page and its image, the image studio from the drawer to a share intent, custom widget CSS on a cross-origin page, wall favicon, analytics and verification with its CSP |
 | `e2e/analytics.spec.ts` | Analytics: widget beacons from another site (only the app's origin contacted, no query kept), "Live on" and the removed alert, form drop-off and the classic page, wall CTA clicks, snippet renders, the dashboard at 360 px and in the dark theme, empty states |
 
 To test a running instance instead, for example `docker compose up`, set `E2E_BASE_URL=http://127.0.0.1:3000`. Its `E2E_ADMIN_EMAIL` and `E2E_ADMIN_PASSWORD` must match that instance's admin credentials. Tests that need the outbox, the stand-in transcriber or a local webhook receiver skip themselves when those aren't available. `UPDATE_SCREENSHOTS=1` refreshes the images in `docs/screenshots/`.

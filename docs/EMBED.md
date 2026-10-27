@@ -67,6 +67,17 @@ It renders right after the script tag, or into the element `data-target` names. 
 
 Carousels and sliders pause while the pointer is over them or keyboard focus is inside them, move with the arrow keys and have a pause button. Visitors who ask their system for reduced motion get no autoplay and a still marquee. Videos load only when played and keep their captions.
 
+## Custom CSS
+
+A saved widget can carry its own CSS (DISP-08, the studio's **Design** tab). `widget.js` appends it after the widget's own styles inside the shadow root, so it styles the widget and nothing else on your page; `:host` is the widget's box. The widget's own rules start with `.x`, so start yours with it too to win:
+
+```css
+.x .c { border-width: 2px; }
+.x .n { text-transform: uppercase; }
+```
+
+Class names: `.c` card, `p` the words, `.s` stars, `.a` the person, `.n` name, `.m` title and date, `.av` photo, `.b` buttons, `mark` highlights. The CSS is cleaned on the server when it's saved and again when it's sent: comments, `<`, `@import` and backslash escapes outside strings are removed, `url()` is kept only for files on your Plaudit server (made absolute for your page) and becomes `none` otherwise, and `image-set()` and `src()` are made invalid, so a widget never asks another site for anything. At most 10,000 characters. The server-side HTML include and `data-project` embeds don't use it.
+
 ## Iframe
 
 ```html

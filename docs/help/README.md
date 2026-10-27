@@ -7,6 +7,8 @@ How to use each part of the Plaudit dashboard. Every section is on by default; `
 | [Getting started](getting-started.md) | The setup guide at `/admin/welcome`, finding testimonials on your site, the starter form, wall and widgets, and the Get started checklist |
 | [Forms](forms.md) | Several forms per project, the builder, questions, custom and hidden fields, languages, design, per-form rules, low ratings, rewards and sharing |
 | [The inbox](inbox.md) | Reviewing, searching, filtering, bulk actions, the trash, the detail drawer and adding testimonials by hand |
+| [Video tools](video.md) | Trimming a video, picking or uploading its poster, replacing the file and downloading it |
+| [Sharing](share.md) | A testimonial's own page with share links, and the image studio for social posts, slides and emails |
 | [Widgets](widgets.md) | The widget studio: layouts, choosing testimonials, design and every way to embed |
 | [Walls and SEO](walls.md) | Wall of Love pages, the editor, the main wall, review snippets and search engines |
 | [Review booster](booster.md) | A page of review-site buttons with a QR code to print, the Google review link helper, and click counts |
