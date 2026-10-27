@@ -151,7 +151,7 @@ describe.skipIf(!ENDPOINT)("TEAM-05 STORAGE_DRIVER=s3 against a real S3 server (
   const get = (k: string, headers: Record<string, string> = {}) =>
     media(new Request(`http://localhost/api/media/${k}`, { headers }), params({ key: k.split("/") }));
 
-  it("stores a submission's photo in the bucket, serves it once approved, and deletes it with the testimonial", async () => {
+  it("stores a submission's photo in the bucket, serves it once approved, and keeps it for the customer when the testimonial is deleted", async () => {
     expect(storage().name).toBe("s3");
     expect(await storageStatus()).toMatchObject({ driver: "s3", ok: true, error: null });
     const res = await submit(
@@ -166,8 +166,10 @@ describe.skipIf(!ENDPOINT)("TEAM-05 STORAGE_DRIVER=s3 against a real S3 server (
     const shown = await get(t.avatarKey!);
     expect(shown.status).toBe(200);
     expect(Buffer.from(await shown.arrayBuffer())).toEqual(Buffer.from(PNG_BYTES));
+    // The submission also saved the person as a customer with this photo, so
+    // deleting the testimonial leaves the file for them (stillUsed).
     await deleteTestimonial(t.id);
-    expect(await storage().stat(t.avatarKey!)).toBeNull();
+    expect(await storage().stat(t.avatarKey!)).toMatchObject({ size: PNG_BYTES.length });
   });
 
   it("answers byte ranges and conditional requests from the bucket", async () => {
