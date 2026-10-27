@@ -91,8 +91,8 @@ export function RewardsEditor({ formId, reward, onChange, classic }: { formId: s
                     <input type="text" value={p.label} maxLength={60} onChange={(e) => setPrize(i, { label: e.target.value })} placeholder="10% off" />
                   </label>
                   <label>
-                    Code <span className="muted xsmall">(optional)</span>
-                    <input type="text" value={p.code} maxLength={100} onChange={(e) => setPrize(i, { code: e.target.value })} />
+                    Code
+                    <input type="text" value={p.code} maxLength={100} placeholder="Optional" onChange={(e) => setPrize(i, { code: e.target.value })} />
                   </label>
                   <label>
                     Chance %

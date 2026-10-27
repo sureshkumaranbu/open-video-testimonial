@@ -199,15 +199,28 @@
 /* FORM-13: wheel prizes and claimed codes. */
 .fb-prize {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(70px, 0.6fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(72px, 96px) auto;
+  grid-template-areas: "label label remove" "code chance .";
   gap: var(--space-2);
   align-items: end;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--line);
 }
 
-@media (max-width: 480px) {
-  .fb-prize {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
+.fb-prize > :nth-child(1) {
+  grid-area: label;
+}
+
+.fb-prize > :nth-child(2) {
+  grid-area: code;
+}
+
+.fb-prize > :nth-child(3) {
+  grid-area: chance;
+}
+
+.fb-prize > :nth-child(4) {
+  grid-area: remove;
 }
 
 .fb-claims {

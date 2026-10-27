@@ -14,6 +14,7 @@ import {
   defaultBoosterTitle,
   googleReviewLink,
   INCENTIVE_WORDS,
+  isHttpUrl,
   MAX_BOOSTER_LINKS,
   platformIconSvg,
   PLATFORMS,
@@ -100,8 +101,9 @@ export function BoosterEditor({ project, initial, forms, placesSearch }: Props) 
       logoUrl: booster.logoUrl ?? project.logoUrl,
       design: draft.design,
       links: draft.links.flatMap((l) => {
-        const href = l.platform === "form" ? forms.find((f) => f.id === l.formId)?.url : l.url;
-        return href ? [{ id: l.id, platform: l.platform, label: l.label.trim() || PLATFORMS[l.platform].label, href }] : [];
+        const href = l.platform === "form" ? forms.find((f) => f.id === l.formId)?.url : l.url.trim();
+        // Only real web addresses become links, as on the public page (a half-typed or javascript: one isn't shown).
+        return href && isHttpUrl(href) ? [{ id: l.id, platform: l.platform, label: l.label.trim() || PLATFORMS[l.platform].label, href }] : [];
       }),
     }),
     [draft, project, booster.logoUrl, forms],
