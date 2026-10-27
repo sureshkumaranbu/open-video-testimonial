@@ -75,7 +75,14 @@ async function post<T>(url: string, body: unknown): Promise<T> {
   return json as T;
 }
 
-export function DataTools({ projectId, total, fields }: { projectId: string; total: number; fields: string[] }) {
+const XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+/**
+ * CSV import with the column mapper, and the project export. With `sheets`
+ * (the imports2 flag, IMP-04) it also takes .xlsx files and a table pasted
+ * from a spreadsheet, both read into the same mapper, preview and warnings.
+ */
+export function DataTools({ projectId, total, fields, sheets = false }: { projectId: string; total: number; fields: string[]; sheets?: boolean }) {
   const [csv, setCsv] = useState<string | null>(null);
   const [fileName, setFileName] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -85,6 +92,33 @@ export function DataTools({ projectId, total, fields }: { projectId: string; tot
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [pasted, setPasted] = useState("");
+  const [pasting, setPasting] = useState(false);
+
+  /** Starts the mapper on some CSV (or tab-separated) text. */
+  async function load(text: string, name: string) {
+    setFileName(name);
+    setCsv(text);
+    setResult(null);
+    await refresh(text);
+  }
+
+  /** IMP-04: the server reads the spreadsheet's first sheet into CSV for the mapper. */
+  async function loadXlsx(file: File) {
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/projects/${projectId}/import-csv/xlsx`, { method: "POST", headers: { "Content-Type": XLSX_TYPE }, body: file });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || `Request failed (${res.status})`);
+      await load(json.csv as string, file.name);
+      if (json.truncated) setError("Only the first 10,000 rows and 100 columns of the sheet were read.");
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function refresh(text: string, map?: Record<string, string>) {
     setError(null);
@@ -102,7 +136,7 @@ export function DataTools({ projectId, total, fields }: { projectId: string; tot
       <section className="panel" aria-labelledby="import-h">
         <div className="panel-head">
           <h2 id="import-h" style={{ fontSize: "var(--text-base)" }}>
-            Import testimonials from a CSV
+            {sheets ? "Import testimonials from a spreadsheet or CSV" : "Import testimonials from a CSV"}
           </h2>
         </div>
         <div className="panel-body stack">
@@ -113,29 +147,58 @@ export function DataTools({ projectId, total, fields }: { projectId: string; tot
           </p>
           <label className="button secondary small" style={{ flexDirection: "row", alignSelf: "flex-start" }}>
             <Icon name="upload" />
-            {fileName || "Choose a CSV file"}
+            {fileName || (sheets ? "Choose a CSV or Excel file" : "Choose a CSV file")}
             <input
               type="file"
-              accept=".csv,text/csv,text/plain"
+              accept={sheets ? `.csv,.tsv,.xlsx,text/csv,text/plain,${XLSX_TYPE}` : ".csv,text/csv,text/plain"}
               data-testid="csv-file"
               style={{ display: "none" }}
               onChange={async (e) => {
                 const file = e.target.files?.[0];
                 e.target.value = "";
                 if (!file) return;
-                const text = await file.text();
-                setFileName(file.name);
-                setCsv(text);
-                setResult(null);
-                await refresh(text);
+                if (sheets && (/\.xlsx$/i.test(file.name) || file.type === XLSX_TYPE)) return void loadXlsx(file);
+                await load(await file.text(), file.name);
               }}
             />
           </label>
+          {sheets && (
+            <div className="stack">
+              <button type="button" className="ghost small" style={{ alignSelf: "flex-start" }} aria-expanded={pasting} onClick={() => setPasting((v) => !v)} data-testid="paste-toggle">
+                Or paste a table from a spreadsheet
+              </button>
+              {pasting && (
+                <div className="stack">
+                  <label className="small">
+                    Copy the cells with their header row (from Excel, Google Sheets or Numbers) and paste them here
+                    <textarea
+                      rows={6}
+                      value={pasted}
+                      onChange={(e) => setPasted(e.target.value)}
+                      placeholder={"Name\tTestimonial\tRating\nAda Lovelace\tIt just works.\t5"}
+                      spellCheck={false}
+                      data-testid="paste-table"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="secondary small"
+                    style={{ alignSelf: "flex-start" }}
+                    disabled={!pasted.trim() || busy}
+                    onClick={() => void load(pasted, "Pasted table")}
+                    data-testid="paste-preview"
+                  >
+                    Read the table
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {preview && csv && (
             <div className="stack" data-testid="csv-preview">
-              <p className="small">
-                Looks like {ORIGIN_LABEL[preview.origin] ?? "a CSV file"}: {preview.total} rows, {preview.valid} ready to import.
+              <p className="small" data-testid="csv-summary">
+                Looks like {ORIGIN_LABEL[preview.origin] ?? (sheets ? "a spreadsheet" : "a CSV file")}: {preview.total} rows, {preview.valid} ready to import.
               </p>
               <div className="mapping-grid">
                 {fields.map((f) => (
@@ -219,6 +282,7 @@ export function DataTools({ projectId, total, fields }: { projectId: string; tot
                       setPreview(null);
                       setCsv(null);
                       setFileName("");
+                      setPasted("");
                     } catch (err) {
                       setError((err as Error).message);
                     } finally {

@@ -39,6 +39,7 @@ export default async function DataPage({ params }: { params: Promise<{ id: strin
           projectId={project.id}
           total={Object.values(counts).reduce((sum, n) => sum + n, 0)}
           fields={[...IMPORT_FIELDS]}
+          sheets={featureOn("imports2")}
         />
       </main>
     </>
