@@ -1,9 +1,18 @@
-import { DATE_PRECISIONS, WEBHOOK_EVENTS } from "@/db/schema";
+import { ANALYTICS_OBJECTS, DATE_PRECISIONS, FORM_STATUSES, WEBHOOK_EVENTS } from "@/db/schema";
 import { CONSENT_SCOPES } from "./consent";
+import { featureOn } from "./features";
+import { TEMPLATE_IDS } from "./forms/templates";
 import { DEFAULT_EVENTS } from "./webhooks";
+import { WALL_THEMES } from "./wall-config";
+import { LAYOUTS, PLACEMENTS } from "./widget-config";
 
-/** OpenAPI 3.1 description of the REST API, served at /api/v1/openapi.json. */
+/**
+ * OpenAPI 3.1 description of the REST API, served at /api/v1/openapi.json.
+ * The M14 paths (forms, widgets, walls, campaigns, tags, customers, feedback,
+ * analytics) are listed only while the `api2` flag is on, as they answer.
+ */
 export function openApiSpec(serverUrl: string) {
+  const api2 = featureOn("api2");
   const ref = (name: string) => ({ $ref: `#/components/schemas/${name}` });
   const error = { description: "Error", content: { "application/json": { schema: ref("Error") } } };
   const idParam = { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } };
@@ -22,7 +31,10 @@ export function openApiSpec(serverUrl: string) {
       description:
         "Read and manage testimonials. Authenticate with `Authorization: Bearer plk_…` (create keys under Settings). " +
         "Keys are read-only or read-write. Limit: 600 requests per minute per key. " +
-        "Campaign invites: POST /invites. A campaign's incoming webhook URL is separate and needs no key.",
+        "Campaign invites: POST /invites. A campaign's incoming webhook URL is separate and needs no key." +
+        (api2
+          ? " Forms, widgets, walls, campaigns, tags, customers, feedback and analytics use the dashboard's own checks: a key can't do anything the dashboard can't."
+          : ""),
       license: { name: "MIT" },
     },
     servers: [{ url: `${serverUrl}/api/v1` }],
@@ -145,6 +157,7 @@ export function openApiSpec(serverUrl: string) {
           },
         },
       },
+      ...(api2 ? api2Paths() : {}),
     },
     webhooks: Object.fromEntries(
       [...WEBHOOK_EVENTS, "ping"].map((event) => [
@@ -394,6 +407,7 @@ export function openApiSpec(serverUrl: string) {
             createdAt: { type: "string", format: "date-time" },
           },
         },
+        ...(api2 ? api2Schemas() : {}),
         WebhookPayload: {
           type: "object",
           properties: {
@@ -415,5 +429,420 @@ export function openApiSpec(serverUrl: string) {
         },
       },
     },
+  };
+}
+
+// ------------------------------------------------------------------ M14 (api2)
+
+const ref = (name: string) => ({ $ref: `#/components/schemas/${name}` });
+const error = { description: "Error", content: { "application/json": { schema: ref("Error") } } };
+const json = (schema: object) => ({ "application/json": { schema } });
+const one = (schema: string, description = "OK") => ({ description, content: json({ type: "object", properties: { data: ref(schema) } }) });
+const many = (schema: string, paged = false) => ({
+  description: "OK",
+  content: json({
+    type: "object",
+    properties: { data: { type: "array", items: ref(schema) }, ...(paged ? { pagination: ref("Pagination") } : {}) },
+  }),
+});
+const deleted = { description: "Deleted", content: json({ type: "object", properties: { ok: { const: true } } }) };
+const body = (schema: string) => ({ required: true, content: json(ref(schema)) });
+const slugParam = { name: "slug", in: "path", required: true, description: "The project's slug", schema: { type: "string" } };
+const idParam = { name: "id", in: "path", required: true, schema: { type: "string" } };
+const pageQuery = [
+  { name: "limit", in: "query", description: "Outside 1–100 is a 400 error", schema: { type: "integer", minimum: 1, maximum: 100, default: 50 } },
+  { name: "offset", in: "query", schema: { type: "integer", minimum: 0, default: 0 } },
+];
+const rangeQuery = [
+  { name: "from", in: "query", description: "First day (UTC), YYYY-MM-DD. Default: 29 days before `to`", schema: { type: "string", format: "date" } },
+  { name: "to", in: "query", description: "Last day (UTC), YYYY-MM-DD; never later than today. Default: today. At most 731 days", schema: { type: "string", format: "date" } },
+];
+const reads = { "401": error, "404": error };
+const writes = { "400": error, "401": error, "403": error, "404": error, "409": error, "413": error };
+
+/** A project's collection (list and create) and the object's own path (get, update, delete). */
+function crud(o: { plural: string; Name: string; list: string; create: string; get: string; update: string; remove: string; newSchema: string; patchSchema: string }) {
+  return {
+    [`/projects/{slug}/${o.plural}`]: {
+      parameters: [slugParam],
+      get: { summary: o.list, operationId: `list${o.Name}s`, responses: { "200": many(o.Name), ...reads } },
+      post: { summary: `${o.create} (write scope)`, operationId: `create${o.Name}`, requestBody: body(o.newSchema), responses: { "201": one(o.Name, "Created"), ...writes } },
+    },
+    [`/${o.plural}/{id}`]: {
+      parameters: [idParam],
+      get: { summary: o.get, operationId: `get${o.Name}`, responses: { "200": one(o.Name), ...reads } },
+      patch: { summary: `${o.update} (write scope)`, operationId: `update${o.Name}`, requestBody: body(o.patchSchema), responses: { "200": one(o.Name), ...writes } },
+      delete: { summary: `${o.remove} (write scope)`, operationId: `delete${o.Name}`, responses: { "200": deleted, ...reads, "403": error, "409": error } },
+    },
+  };
+}
+
+function api2Paths() {
+  return {
+    ...crud({
+      plural: "forms",
+      Name: "Form",
+      list: "List a project's forms, default first, with stats and share links",
+      create: "Add a step-by-step form, blank or from a template",
+      get: "Get a form",
+      update: "Change a form: name, language, live or paused, link, default, or whole config parts",
+      remove: "Delete a form (its testimonials stay; the default form can't be deleted)",
+      newSchema: "NewForm",
+      patchSchema: "FormPatch",
+    }),
+    ...crud({
+      plural: "widgets",
+      Name: "Widget",
+      list: "List a project's saved widgets, with their embed snippets",
+      create: "Add a saved widget",
+      get: "Get a widget",
+      update: "Change a widget's name, placement, connected form or whole config",
+      remove: "Delete a widget (pages that embed it show nothing)",
+      newSchema: "NewWidget",
+      patchSchema: "WidgetPatch",
+    }),
+    ...crud({
+      plural: "walls",
+      Name: "Wall",
+      list: "List a project's walls",
+      create: "Add a wall, as a draft",
+      get: "Get a wall",
+      update: "Change a wall: name, theme, published, main, link, featured testimonial, connected form or whole config",
+      remove: "Delete a wall",
+      newSchema: "NewWall",
+      patchSchema: "WallPatch",
+    }),
+    ...crud({
+      plural: "campaigns",
+      Name: "Campaign",
+      list: "List a project's campaigns, newest first, with their funnels",
+      create: "Add a campaign, as a draft with the default wording",
+      get: "Get a campaign and its funnel",
+      update: "Change a campaign's settings, or start (status: active) or pause it",
+      remove: "Delete a campaign and its recipients (testimonials stay)",
+      newSchema: "NewCampaign",
+      patchSchema: "CampaignPatch",
+    }),
+    "/campaigns/{id}/recipients": {
+      parameters: [idParam],
+      get: { summary: "List a campaign's recipients, newest first", operationId: "listRecipients", parameters: pageQuery, responses: { "200": many("Invite", true), ...reads } },
+      post: {
+        summary: "Add people to a campaign (write scope)",
+        description: "On an active campaign their invitations are queued at once. Rows that were skipped come back with the reason.",
+        operationId: "addRecipients",
+        requestBody: body("NewRecipients"),
+        responses: {
+          "201": {
+            description: "Added",
+            content: json({
+              type: "object",
+              properties: {
+                data: { type: "array", items: ref("Invite") },
+                skipped: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      line: { type: ["integer", "null"] },
+                      email: { type: "string" },
+                      text: { type: "string" },
+                      reason: { type: "string", enum: ["invalid", "duplicate", "unsubscribed", "responded"] },
+                      detail: { type: "string" },
+                    },
+                  },
+                },
+                rows: { type: "integer" },
+              },
+            }),
+          },
+          ...writes,
+        },
+      },
+    },
+    "/projects/{slug}/tags": {
+      parameters: [slugParam],
+      get: { summary: "List a project's tags with how many testimonials have each", operationId: "listTags", responses: { "200": many("Tag"), ...reads } },
+      patch: { summary: "Rename or merge tags on every testimonial at once (write scope)", operationId: "changeTags", requestBody: body("TagChange"), responses: { "200": many("Tag"), ...writes } },
+      delete: {
+        summary: "Remove a tag from every testimonial and the project (write scope)",
+        operationId: "deleteTag",
+        parameters: [{ name: "name", in: "query", required: true, schema: { type: "string" } }],
+        responses: { "200": many("Tag"), ...writes },
+      },
+    },
+    "/projects/{slug}/customers": {
+      parameters: [slugParam],
+      get: {
+        summary: "List a project's customers, by name",
+        operationId: "listCustomers",
+        parameters: [{ name: "email", in: "query", description: "Only the customer with this address", schema: { type: "string", format: "email" } }, ...pageQuery],
+        responses: { "200": many("Customer", true), "400": error, ...reads },
+      },
+    },
+    "/customers/{id}": { parameters: [idParam], get: { summary: "Get a customer", operationId: "getCustomer", responses: { "200": one("Customer"), ...reads } } },
+    "/projects/{slug}/feedback": {
+      parameters: [slugParam],
+      get: { summary: "List a project's private feedback, newest first", operationId: "listFeedback", parameters: pageQuery, responses: { "200": many("Feedback", true), "400": error, ...reads } },
+    },
+    "/projects/{slug}/analytics": {
+      parameters: [slugParam],
+      get: {
+        summary: "A project's analytics over a period, with the period before",
+        description: "The analytics dashboard's numbers for this project. 404 when analytics is switched off on the server.",
+        operationId: "projectAnalytics",
+        parameters: rangeQuery,
+        responses: { "200": one("ProjectAnalytics"), "400": error, ...reads },
+      },
+    },
+    "/analytics/{type}/{id}": {
+      parameters: [{ name: "type", in: "path", required: true, schema: { type: "string", enum: [...ANALYTICS_OBJECTS] } }, idParam],
+      get: {
+        summary: "One widget's, form's, wall's, snippet's or testimonial page's analytics over a period",
+        operationId: "objectAnalytics",
+        parameters: rangeQuery,
+        responses: { "200": one("ObjectAnalytics"), "400": error, ...reads },
+      },
+    },
+  };
+}
+
+function api2Schemas() {
+  const obj = (description: string) => ({ type: "object", description });
+  const str = { type: "string" };
+  const time = { type: "string", format: "date-time" };
+  const nullable = (type: string) => ({ type: [type, "null"] });
+  return {
+    Pagination: {
+      type: "object",
+      properties: { total: { type: "integer" }, limit: { type: "integer" }, offset: { type: "integer" }, nextOffset: nullable("integer") },
+    },
+    Form: {
+      type: "object",
+      properties: {
+        id: str,
+        projectId: str,
+        slug: str,
+        name: str,
+        status: { type: "string", enum: [...FORM_STATUSES] },
+        layout: { type: "string", enum: ["classic", "steps"], description: "classic is the original single page; steps is the step-by-step form" },
+        isDefault: { type: "boolean" },
+        language: str,
+        template: nullable("string"),
+        logoUrl: nullable("string"),
+        config: obj("pages, design, labels and settings, exactly as the form builder edits them"),
+        reward: obj("The thank-you reward, if any"),
+        links: {
+          type: "object",
+          properties: { hosted: { type: "string", format: "uri" }, inline: str, popup: str, iframe: str },
+          description: "The form's address and its three embed snippets",
+        },
+        stats: obj("In lists: submissions, invites, responded and responseRate"),
+        createdAt: time,
+        updatedAt: time,
+      },
+    },
+    NewForm: {
+      type: "object",
+      required: ["name"],
+      properties: { name: { type: "string", maxLength: 120 }, slug: { type: "string", maxLength: 48 }, template: { type: "string", enum: [...TEMPLATE_IDS] } },
+    },
+    FormPatch: {
+      type: "object",
+      description: "Each config part sent replaces that part whole and is checked as the builder's save is",
+      properties: {
+        name: { type: "string", maxLength: 120 },
+        language: str,
+        status: { type: "string", enum: [...FORM_STATUSES] },
+        slug: { type: "string", maxLength: 48, description: "A new link; the old one keeps working" },
+        isDefault: { const: true, description: "Make it the project's default form" },
+        pages: { type: "array", maxItems: 30, items: { type: "object" } },
+        design: { type: "object" },
+        labels: { type: "object", properties: { overrides: { type: "object", additionalProperties: { type: "string" } } } },
+        settings: { type: "object" },
+        reward: { type: "object" },
+      },
+    },
+    Widget: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "w_ and 12 letters or digits" },
+        projectId: str,
+        name: str,
+        layout: { type: "string", enum: [...LAYOUTS] },
+        placement: { type: ["string", "null"], enum: [...PLACEMENTS, null] },
+        connectedFormId: nullable("string"),
+        config: obj("Layout, selection, filters, design, labels and custom CSS, exactly as the widget studio edits them"),
+        embed: {
+          type: "object",
+          properties: {
+            script: str,
+            iframe: str,
+            hosted: { type: "string", format: "uri" },
+            react: str,
+            html: { type: "string", format: "uri", description: "The server-side HTML include (SEO)" },
+            htmlWithJsonLd: { type: "string", format: "uri" },
+          },
+        },
+        createdAt: time,
+        updatedAt: time,
+      },
+    },
+    NewWidget: {
+      type: "object",
+      required: ["name"],
+      properties: {
+        name: { type: "string", maxLength: 120 },
+        layout: { type: "string", enum: [...LAYOUTS], default: "grid" },
+        placement: { type: ["string", "null"], enum: [...PLACEMENTS, "", null] },
+        connectedFormId: nullable("string"),
+        config: { type: "object" },
+      },
+    },
+    WidgetPatch: {
+      type: "object",
+      properties: {
+        name: { type: "string", maxLength: 120 },
+        placement: { type: ["string", "null"], enum: [...PLACEMENTS, "", null] },
+        connectedFormId: nullable("string"),
+        config: { type: "object", description: "Replaces the whole config" },
+      },
+    },
+    Wall: {
+      type: "object",
+      properties: {
+        id: str,
+        projectId: str,
+        name: str,
+        slug: str,
+        published: { type: "boolean" },
+        isMain: { type: "boolean", description: "Shown at the project's own wall address while published" },
+        theme: { type: "string", enum: [...WALL_THEMES] },
+        config: obj("Hero, tabs, filters, call to action, SEO and head options, exactly as the wall editor edits them"),
+        logoUrl: nullable("string"),
+        coverUrl: nullable("string"),
+        faviconUrl: nullable("string"),
+        featuredTestimonialId: nullable("string"),
+        connectedFormId: nullable("string"),
+        url: { type: "string", format: "uri", description: "Its own address" },
+        publicUrl: { type: "string", format: "uri", description: "Where visitors see it" },
+        createdAt: time,
+        updatedAt: time,
+      },
+    },
+    NewWall: {
+      type: "object",
+      required: ["name"],
+      properties: { name: { type: "string", maxLength: 120 }, slug: { type: "string", maxLength: 48 }, theme: { type: "string", enum: [...WALL_THEMES] } },
+    },
+    WallPatch: {
+      type: "object",
+      properties: {
+        name: { type: "string", maxLength: 120 },
+        theme: { type: "string", enum: [...WALL_THEMES] },
+        published: { type: "boolean" },
+        main: { type: "boolean" },
+        slug: { type: "string", description: "A new link; the old one keeps working" },
+        config: { type: "object", description: "Replaces the whole config" },
+        featuredTestimonialId: nullable("string"),
+        connectedFormId: nullable("string"),
+      },
+    },
+    Campaign: {
+      type: "object",
+      properties: {
+        id: str,
+        projectId: str,
+        formId: nullable("string"),
+        name: str,
+        status: { type: "string", enum: ["draft", "active", "paused"] },
+        senderName: str,
+        replyTo: str,
+        subject: str,
+        body: str,
+        buttonText: str,
+        rtl: { type: "boolean" },
+        reminders: { type: "array", items: { type: "integer" }, description: "Days after the invitation" },
+        trackOpens: { type: "boolean" },
+        rewardCodes: { type: "boolean" },
+        webhook: { type: "object", properties: { on: { type: "boolean", description: "Whether its incoming webhook URL is on (the URL itself is shown only in the dashboard)" } } },
+        funnel: obj("recipients, queued, sent, bounced, failed, opened (null without open tracking), clicked, started, submitted, declined, unsubscribed"),
+        createdAt: time,
+        updatedAt: time,
+      },
+    },
+    NewCampaign: { type: "object", required: ["name"], properties: { name: { type: "string", maxLength: 120 }, formId: nullable("string") } },
+    CampaignPatch: {
+      type: "object",
+      properties: {
+        name: { type: "string", maxLength: 120 },
+        formId: nullable("string"),
+        senderName: { type: "string", maxLength: 80 },
+        replyTo: { type: "string", description: "An email address, or empty" },
+        subject: { type: "string", maxLength: 200 },
+        body: { type: "string", maxLength: 10000, description: "With {{name}}, {{first_name}}, {{company}}, {{link}} and custom variables" },
+        buttonText: { type: "string", maxLength: 60 },
+        rtl: { type: "boolean" },
+        reminders: { type: "array", items: { type: "integer", minimum: 1, maximum: 60 }, maxItems: 3 },
+        trackOpens: { type: "boolean" },
+        rewardCodes: { type: "boolean" },
+        status: { type: "string", enum: ["active", "paused"], description: "active starts it (409 if email isn't set up on the server); paused stops sends and reminders" },
+      },
+    },
+    NewRecipients: {
+      oneOf: [
+        { type: "object", required: ["source", "text"], properties: { source: { const: "paste" }, text: { type: "string", description: "Lines of name, email, company, or a CSV with a header row" } } },
+        { type: "object", required: ["source", "ids"], properties: { source: { const: "customers" }, ids: { type: "array", items: { type: "string" }, maxItems: 5000 } } },
+        {
+          type: "object",
+          required: ["source", "person"],
+          properties: {
+            source: { const: "manual" },
+            person: { type: "object", required: ["email"], properties: { email: str, name: str, company: str, title: str } },
+          },
+        },
+      ],
+    },
+    Tag: { type: "object", properties: { name: str, count: { type: "integer" } } },
+    TagChange: {
+      oneOf: [
+        { type: "object", required: ["action", "from", "to"], properties: { action: { const: "rename" }, from: str, to: str } },
+        { type: "object", required: ["action", "from", "into"], properties: { action: { const: "merge" }, from: { type: "array", items: str }, into: str } },
+      ],
+    },
+    Customer: {
+      type: "object",
+      properties: {
+        id: str,
+        projectId: str,
+        email: nullable("string"),
+        name: str,
+        title: nullable("string"),
+        company: nullable("string"),
+        website: nullable("string"),
+        avatarUrl: nullable("string"),
+        socials: { type: "object", additionalProperties: { type: "string" } },
+        custom: { type: "object" },
+        createdAt: time,
+        updatedAt: time,
+      },
+    },
+    Feedback: {
+      type: "object",
+      description: "Private feedback: never published",
+      properties: {
+        id: str,
+        projectId: str,
+        formId: nullable("string"),
+        customerId: nullable("string"),
+        testimonialId: nullable("string"),
+        source: { type: "string", enum: ["private-question", "low-rating"] },
+        rating: nullable("integer"),
+        text: str,
+        author: { type: "object", properties: { name: nullable("string"), email: nullable("string") } },
+        createdAt: time,
+      },
+    },
+    ProjectAnalytics: obj("range, previousRange, days, tiles (testimonials, backlog, rating, views, booster clicks, invites; each with the previous period), series (views by day) and tables of widgets, forms and walls"),
+    ObjectAnalytics: obj("type, id, range, previousRange, days, current and previous totals, daily series, topPages (widgets), funnel (forms), sites (snippets) and install (widgets)"),
   };
 }

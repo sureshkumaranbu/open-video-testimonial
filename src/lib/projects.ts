@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { z } from "zod";
 import { getDb, schema, type Tx } from "@/db";
 import type { Project, RedirectKind } from "@/db/schema";
 import { recordHistory } from "./history";
@@ -337,6 +338,14 @@ export function listTagUsage(projectId: string): TagUsage[] {
     .orderBy(tags.name)
     .all();
 }
+
+const tagInput = z.string().max(100);
+/** The tags manager's changes, from the dashboard and the API alike. */
+export const tagsPatchBody = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("rename"), from: tagInput, to: tagInput }),
+  z.object({ action: z.literal("merge"), from: z.array(tagInput).min(1).max(100), into: tagInput }),
+]);
+export const tagDeleteBody = z.object({ name: tagInput });
 
 /** Tags are stored trimmed and lower-cased, as the dashboard saves them. */
 function tagName(raw: string): string {

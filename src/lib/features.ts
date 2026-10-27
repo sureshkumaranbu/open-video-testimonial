@@ -6,8 +6,10 @@ import { env } from "./env";
  * list of these, or "all". A flag only hides new navigation and pages; data,
  * APIs and existing pages behave the same either way. All on by default
  * since the Phase 1 release; PLAUDIT_FEATURES=none (or a shorter list) hides them.
+ * Two Phase 2 flags also switch endpoints, not just pages: `api2` (the
+ * /api/v1 CRUD and analytics paths, M14) and `mcp` (the /mcp server).
  */
-export const FEATURES = ["forms", "inbox2", "widgets", "walls", "importers", "notifications", "onboarding", "campaigns", "booster", "analytics", "share"] as const;
+export const FEATURES = ["forms", "inbox2", "widgets", "walls", "importers", "notifications", "onboarding", "campaigns", "booster", "analytics", "share", "api2", "mcp"] as const;
 export type Feature = (typeof FEATURES)[number];
 
 export function featureOn(f: Feature): boolean {
