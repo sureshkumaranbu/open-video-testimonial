@@ -7,6 +7,8 @@ import { firstIssue } from "@/lib/validation";
 
 /** Largest body accepted: an invite is a handful of short fields. */
 const MAX_BYTES = 16 * 1024;
+/** A backstop if the URL leaks: it can't make your mail server send more than this a day for one campaign. */
+const DAILY_LIMIT = 2000;
 const HEADERS = { "Cache-Control": "no-store" };
 
 const KNOWN = new Set(["email", "name", "company", "title", "delayDays", "variables"]);
@@ -70,6 +72,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ token: string 
   if (!campaign || !project) return jsonError(404, "Unknown webhook URL", HEADERS);
   if (!rateLimit(`campaign-hook:${campaign.id}`, 120, 60 * 1000)) {
     return jsonError(429, "This campaign's webhook takes at most 120 invites a minute", { ...HEADERS, "Retry-After": "60" });
+  }
+  if (!rateLimit(`campaign-hook-day:${campaign.id}`, DAILY_LIMIT, 24 * 60 * 60 * 1000)) {
+    return jsonError(429, `This campaign's webhook takes at most ${DAILY_LIMIT} invites a day; add more with the API`, { ...HEADERS, "Retry-After": "3600" });
   }
   if (!/^application\/json\b/i.test(req.headers.get("content-type") ?? "")) return jsonError(415, "Send JSON (Content-Type: application/json)", HEADERS);
   if (Number(req.headers.get("content-length") ?? 0) > MAX_BYTES) return jsonError(413, "The body is too large (16 KB at most)", HEADERS);

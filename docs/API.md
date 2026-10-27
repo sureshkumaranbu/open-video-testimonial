@@ -183,7 +183,7 @@ curl -X POST "https://plaudit.example.com/api/hooks/campaigns/cwh_…?delay=3" \
 ```
 
 - The body is a JSON object with `email` (required), `name`, `company`, `title` and `delayDays`. Any other top-level field (string, number or true/false) becomes a template variable, as does a `variables` object. `?delay=<days>` works too when you can't change the body.
-- It answers `202` with `{ "ok": true, "inviteId", "scheduledFor" }`, or `200` with `skipped` as above. `400` for invalid input, `404` for an unknown URL, `409` while the campaign isn't sending, `413` for a body over 16 KB, `415` unless it's `Content-Type: application/json`, and `429` beyond 120 requests a minute (per URL, and per sending address).
+- It answers `202` with `{ "ok": true, "inviteId", "scheduledFor" }`, or `200` with `skipped` as above. `400` for invalid input, `404` for an unknown URL, `409` while the campaign isn't sending, `413` for a body over 16 KB, `415` unless it's `Content-Type: application/json`, and `429` beyond 120 requests a minute (per URL, and per sending address) or 2,000 a day per URL. The daily cap is a backstop in case the URL leaks; use `POST /api/v1/invites` for larger volumes.
 
 The incoming webhook isn't part of `/api/v1` and isn't in the OpenAPI file, since it needs no key.
 
