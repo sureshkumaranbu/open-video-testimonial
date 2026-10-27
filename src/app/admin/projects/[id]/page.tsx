@@ -71,6 +71,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           shareStudio={featureOn("share") ? `/admin/projects/${project.id}/share` : undefined}
           publicPages={featureOn("walls")}
           customers={featureOn("customers")}
+          smartSearch={featureOn("aisearch")}
           translations={featureOn("translations") ? { provider: translationProviderName() } : undefined}
           initialOpenId={open}
         />

@@ -72,6 +72,7 @@ export function Inbox({
   publicPages = false,
   customers = false,
   translations,
+  smartSearch = false,
   initialOpenId,
 }: {
   project: Project;
@@ -88,6 +89,8 @@ export function Inbox({
   customers?: boolean;
   /** INBOX-13 (translations flag): the drawer's Translations and, with a provider, bulk "Translate". */
   translations?: { provider: string | null };
+  /** INBOX-14 (aisearch flag): the Smart search switch. */
+  smartSearch?: boolean;
   /** Opens this testimonial in the drawer at once (the "Review and approve" link in notifications). */
   initialOpenId?: string;
 }) {
@@ -299,7 +302,17 @@ export function Inbox({
               }}
               onView={(v) => savePrefs({ inboxView: v })}
               exportHref={exportHref}
+              smart={smartSearch ? { on: query.smart, onChange: (on) => change({ smart: on }) } : undefined}
             />
+          )}
+          {tab !== "feedback" && page?.search && query.q.trim() && (
+            <p className="muted small" role="status" data-testid="search-mode" data-mode={page.search.mode}>
+              {page.search.mode === "smart"
+                ? "Ranked by meaning, best match first."
+                : page.search.fallback === "failed"
+                  ? "Smart search didn’t answer, so this is a keyword search. Try again in a moment."
+                  : "Smart search isn’t set up on this server (EMBEDDINGS_MODEL), so this is a keyword search."}
+            </p>
           )}
           {tab !== "feedback" && filtersOpen && <FilterPanel query={query} facets={facets} onChange={change} duplicates={customers} />}
           {tab !== "feedback" && filters.length > 0 && (
