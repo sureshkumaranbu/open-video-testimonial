@@ -69,6 +69,7 @@ export function Inbox({
   widgetStudio,
   shareStudio,
   publicPages = false,
+  customers = false,
   initialOpenId,
 }: {
   project: Project;
@@ -81,6 +82,8 @@ export function Inbox({
   shareStudio?: string;
   /** Testimonials' own pages (/t/, WALL-04) are on with the walls flag. */
   publicPages?: boolean;
+  /** INBOX-11, INBOX-12: customer links, "Possible duplicates" and "Merge into…" (customers flag). */
+  customers?: boolean;
   /** Opens this testimonial in the drawer at once (the "Review and approve" link in notifications). */
   initialOpenId?: string;
 }) {
@@ -294,7 +297,7 @@ export function Inbox({
               exportHref={exportHref}
             />
           )}
-          {tab !== "feedback" && filtersOpen && <FilterPanel query={query} facets={facets} onChange={change} />}
+          {tab !== "feedback" && filtersOpen && <FilterPanel query={query} facets={facets} onChange={change} duplicates={customers} />}
           {tab !== "feedback" && filters.length > 0 && (
             <div className="ib-active row" data-testid="active-filters">
               <span className="muted xsmall">Filtered by</span>
@@ -412,6 +415,8 @@ export function Inbox({
         tags={facets?.tags ?? []}
         shareStudio={shareStudio}
         publicPages={publicPages}
+        customers={customers}
+        projectId={project.id}
       />
       <Toast message={toast?.message ?? null} tone={toast?.tone} onDismiss={() => setToast(null)} testId="inbox-toast" />
     </div>

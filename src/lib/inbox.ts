@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, sql, type SQL } fro
 import { getDb, schema } from "@/db";
 import type { Testimonial, TestimonialStatus } from "@/db/schema";
 import { ConsentWithdrawnError, deleteTestimonial, getTestimonial, NoPublicConsentError, updateTestimonial, type TestimonialWithTags } from "./testimonials";
+import { withDuplicates } from "./merge";
 import { matchesSearch, toFtsQuery } from "./search";
 import { restoreTestimonial, trashTestimonial } from "./trash";
 import { DEFAULT_PREFS, inboxPrefsSchema, MAX_BULK, type InboxMethod, type InboxPrefs, type InboxQuery, type InboxSort, type InboxTab } from "./inbox-query";
@@ -69,6 +70,7 @@ function filterConditions(projectId: string, q: InboxQuery): SQL[] {
   if (q.hasAvatar) c.push(isNotNull(testimonials.avatarKey));
   if (q.hasLogo) c.push(isNotNull(testimonials.companyLogoKey));
   if (q.hasImages) c.push(hasImage);
+  if (q.dupes) c.push(inArray(testimonials.id, withDuplicates(projectId)));
   if (q.scope) c.push(sql`EXISTS (SELECT 1 FROM json_each(${testimonials.consentScopes}) WHERE value = ${q.scope})`);
   if (q.wordsMin != null) c.push(sql`coalesce(${testimonials.wordCount}, 0) >= ${q.wordsMin}`);
   if (q.wordsMax != null) c.push(sql`coalesce(${testimonials.wordCount}, 0) <= ${q.wordsMax}`);

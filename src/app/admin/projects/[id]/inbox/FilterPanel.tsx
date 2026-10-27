@@ -31,6 +31,7 @@ export function activeFilters(q: InboxQuery, facets: InboxFacetsJson | null): { 
   if (q.hasAvatar) out.push({ id: "hasAvatar", label: "Has a photo" });
   if (q.hasLogo) out.push({ id: "hasLogo", label: "Has a logo" });
   if (q.hasImages) out.push({ id: "hasImages", label: "Has images" });
+  if (q.dupes) out.push({ id: "dupes", label: "Possible duplicates" });
   if (q.scope) out.push({ id: "scope", label: `Consent: ${SCOPE_LABEL[q.scope]}` });
   if (q.wordsMin != null || q.wordsMax != null) out.push({ id: "words", label: `Words: ${q.wordsMin ?? 0}–${q.wordsMax ?? "any"}` });
   if (q.from || q.to) out.push({ id: "dates", label: `Added: ${q.from ?? "any"} to ${q.to ?? "today"}` });
@@ -51,6 +52,7 @@ export function clearFilter(id: string): Partial<InboxQuery> {
   if (all || id === "hasAvatar") patch.hasAvatar = false;
   if (all || id === "hasLogo") patch.hasLogo = false;
   if (all || id === "hasImages") patch.hasImages = false;
+  if (all || id === "dupes") patch.dupes = false;
   if (all || id === "scope") patch.scope = null;
   if (all || id === "words") Object.assign(patch, { wordsMin: null, wordsMax: null });
   if (all || id === "dates") Object.assign(patch, { from: null, to: null });
@@ -83,7 +85,18 @@ function NumberBox({ label, value, onCommit, testId }: { label: string; value: n
 }
 
 /** INBOX-03: every filter. Each change applies at once and goes into the URL. */
-export function FilterPanel({ query: q, facets, onChange }: { query: InboxQuery; facets: InboxFacetsJson | null; onChange: (patch: Partial<InboxQuery>) => void }) {
+export function FilterPanel({
+  query: q,
+  facets,
+  onChange,
+  duplicates = false,
+}: {
+  query: InboxQuery;
+  facets: InboxFacetsJson | null;
+  onChange: (patch: Partial<InboxQuery>) => void;
+  /** INBOX-11, with the customers flag: offer "Possible duplicates". */
+  duplicates?: boolean;
+}) {
   return (
     <div id="inbox-filters" className="panel ib-filters" data-testid="filter-panel">
       <div className="ib-filter-grid">
@@ -196,6 +209,9 @@ export function FilterPanel({ query: q, facets, onChange }: { query: InboxQuery;
           <Checkbox label="Has a photo" checked={q.hasAvatar} onChange={(v) => onChange({ hasAvatar: v })} />
           <Checkbox label="Has a company logo" checked={q.hasLogo} onChange={(v) => onChange({ hasLogo: v })} />
           <Checkbox label="Has images" checked={q.hasImages} onChange={(v) => onChange({ hasImages: v })} />
+          {(duplicates || q.dupes) && (
+            <Checkbox label="Possible duplicates" checked={q.dupes} onChange={(v) => onChange({ dupes: v })} testId="filter-dupes" />
+          )}
         </div>
       </div>
     </div>

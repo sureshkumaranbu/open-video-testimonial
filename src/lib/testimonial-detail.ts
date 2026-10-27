@@ -3,6 +3,7 @@ import { getDb, schema } from "@/db";
 import { listAnswers } from "./answers";
 import { listHighlights } from "./highlights";
 import { historyToJson, listHistory } from "./history";
+import { duplicatesOf, mergedInto } from "./merge";
 import { getTestimonial } from "./testimonials";
 
 const { testimonialImages, customers, feedback, forms } = schema;
@@ -44,6 +45,9 @@ export function getTestimonialDetail(id: string) {
     customer,
     feedback: notes,
     form,
+    // INBOX-11: likely duplicates to merge with, and where a merged one went.
+    duplicates: testimonial.status === "trashed" ? [] : duplicatesOf(testimonial.projectId, id),
+    mergedInto: mergedInto(testimonial),
   };
 }
 

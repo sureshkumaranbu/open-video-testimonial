@@ -49,6 +49,8 @@ export const inboxQuerySchema = z.object({
   hasAvatar: z.boolean().catch(false),
   hasLogo: z.boolean().catch(false),
   hasImages: z.boolean().catch(false),
+  /** INBOX-11: only testimonials with a likely duplicate (same person, or the same name and words). */
+  dupes: z.boolean().catch(false),
   scope: z.enum(SCOPES).nullable().catch(null),
   /** Word count range; either end may be open. */
   wordsMin: z.coerce.number().int().min(0).max(100_000).nullable().catch(null),
@@ -106,6 +108,7 @@ export function parseInboxParams(sp: URLSearchParams, defaults: Partial<Pick<Inb
     hasAvatar: flag(sp.get("avatar")),
     hasLogo: flag(sp.get("logo")),
     hasImages: flag(sp.get("images")),
+    dupes: flag(sp.get("dupes")),
     scope: sp.get("scope") || null,
     wordsMin: min ? min : null,
     wordsMax: max ? max : null,
@@ -138,6 +141,7 @@ export function toInboxParams(q: Partial<InboxQuery>, defaults: Partial<Pick<Inb
   if (q.hasAvatar) sp.set("avatar", "1");
   if (q.hasLogo) sp.set("logo", "1");
   if (q.hasImages) sp.set("images", "1");
+  if (q.dupes) sp.set("dupes", "1");
   if (q.scope) sp.set("scope", q.scope);
   if (q.wordsMin != null || q.wordsMax != null) sp.set("words", `${q.wordsMin ?? ""}-${q.wordsMax ?? ""}`);
   if (q.from) sp.set("from", q.from);

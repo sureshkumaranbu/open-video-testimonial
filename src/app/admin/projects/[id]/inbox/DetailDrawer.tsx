@@ -9,6 +9,7 @@ import { formatSourceDate } from "@/lib/dates";
 import { ConsentPanel, timeAgo, type AdminTestimonial } from "../Dashboard";
 import { EditForm, type EditableTestimonial } from "./EditForm";
 import { HighlightEditor, type HighlightJson } from "./HighlightEditor";
+import { MergeDialog, type MergeCandidate } from "./MergeDialog";
 import { sourceLabel, type InboxRow } from "./types";
 import { VideoTools, type VideoToolsTestimonial } from "./VideoTools";
 
@@ -34,6 +35,9 @@ type Detail = {
   history: HistoryJson[];
   feedback: { id: string; text: string }[];
   form: { id: string; name: string; isDefault: boolean } | null;
+  customer: { id: string; name: string } | null;
+  duplicates: MergeCandidate[];
+  mergedInto: { id: string; authorName: string; status: string } | null;
 };
 
 const STATUS_TEXT: Record<string, string> = { pending: "Pending", approved: "Approved", hidden: "Hidden", rejected: "Rejected", trashed: "In the trash" };
@@ -47,6 +51,8 @@ const ACTION_TEXT: Record<string, string> = {
   answer_edited: "Answer edited",
   highlights: "Highlights changed",
   bulk: "Changed in bulk",
+  merged: "Merged",
+  translation: "Translation",
 };
 const FIELD_TEXT: Record<string, string> = {
   authorName: "name",
@@ -83,6 +89,12 @@ function describe(h: HistoryJson) {
     return Array.isArray(to) ? (to.length ? to.join(", ") : "no tags") : "";
   }
   if (h.action === "answer_edited") return Object.keys(h.diff).map((k) => k.replace(/^answer:/, "answer ")).join(", ");
+  if (h.action === "merged") {
+    if (h.diff.mergedInto) return "into another testimonial, then moved to the trash";
+    const [, from] = h.diff.from ?? [];
+    return from ? `${String(from)}’s other testimonial was merged in` : "";
+  }
+  if (h.action === "translation") return Object.keys(h.diff).map((k) => k.replace(/^translation:/, "")).join(", ");
   if (h.action === "edited") {
     return Object.keys(h.diff)
       .filter((k) => !QUIET_FIELDS.has(k))
@@ -125,6 +137,8 @@ export function DetailDrawer({
   onChanged,
   shareStudio,
   publicPages = false,
+  customers = false,
+  projectId,
 }: {
   id: string | null;
   position: { index: number; count: number } | null;
@@ -135,8 +149,12 @@ export function DetailDrawer({
   tags: string[];
   shareStudio?: string;
   publicPages?: boolean;
+  /** INBOX-11, INBOX-12 (customers flag): the customer link, likely duplicates and "Merge into…". */
+  customers?: boolean;
+  projectId?: string;
 }) {
   const [detail, setDetail] = useState<Detail | null>(null);
+  const [merging, setMerging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
 
@@ -262,6 +280,26 @@ export function DetailDrawer({
             <span className="muted xsmall">Added {timeAgo(t.createdAt)}</span>
           </div>
 
+          {detail.mergedInto && (
+            <div className="notice small" data-testid="merged-notice">
+              Merged into{" "}
+              <a href={`/admin/projects/${t.projectId}?tab=all&open=${detail.mergedInto.id}`}>{detail.mergedInto.authorName}’s testimonial</a>. Restoring this one brings it back to Pending; the copy there stays.
+            </div>
+          )}
+          {customers && !trashed && detail.duplicates.length > 0 && (
+            <div className="notice small row spread" data-testid="duplicate-notice">
+              <span>
+                Possible duplicate of {detail.duplicates.map((d) => d.authorName).slice(0, 3).join(", ")}
+                {detail.duplicates.length > 3 ? ` and ${detail.duplicates.length - 3} more` : ""}.
+              </span>
+              {!t.withdrawnAt && (
+                <button type="button" className="secondary small" onClick={() => setMerging(true)}>
+                  Review and merge
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="row ib-detail-actions">
             {trashed ? (
               <button type="button" className="secondary small" onClick={() => void post("restore")}>
@@ -310,6 +348,12 @@ export function DetailDrawer({
                   <Icon name="pen" />
                   Edit
                 </button>
+                {customers && projectId && !t.withdrawnAt && (
+                  <button type="button" className="ghost small" onClick={() => setMerging(true)} data-testid="merge-open">
+                    <Icon name="merge" />
+                    Merge into…
+                  </button>
+                )}
                 <button
                   type="button"
                   className="danger small"
@@ -342,6 +386,11 @@ export function DetailDrawer({
               <div className="ib-person small">
                 {[t.authorTitle, t.authorCompany].filter(Boolean).join(", ")}
                 {t.authorEmail && <div className="muted">{t.authorEmail}</div>}
+                {customers && projectId && detail.customer && (
+                  <a className="xsmall" href={`/admin/projects/${projectId}/customers/${detail.customer.id}`} data-testid="customer-link">
+                    Customer record
+                  </a>
+                )}
                 {t.authorWebsite && (
                   <a href={t.authorWebsite} target="_blank" rel="noreferrer noopener">
                     {t.authorWebsite}
@@ -478,6 +527,20 @@ export function DetailDrawer({
             </ol>
           </section>
         </div>
+      )}
+      {ready && t && detail && customers && projectId && (
+        <MergeDialog
+          open={merging}
+          onClose={() => setMerging(false)}
+          projectId={projectId}
+          from={{ id: t.id, authorName: t.authorName }}
+          suggestions={detail.duplicates}
+          onMerged={() => {
+            setMerging(false);
+            void load();
+            onChanged();
+          }}
+        />
       )}
     </Drawer>
   );
