@@ -2,6 +2,98 @@
 
 ## Unreleased
 
+- **Phase 1 is on by default.** Forms, the new inbox, the widget studio, walls and SEO, importers, notifications and the setup guide no longer need `PLAUDIT_FEATURES`; set it to a shorter list, or `none`, to hide sections. Nothing about your data, the API or public pages changes.
+
+- **Notifications.** See [`docs/help/notifications.md`](docs/help/notifications.md).
+  - Email for each person on the team, all off until turned on: each new testimonial or a daily digest, a Monday reminder of what's waiting, an import summary and a monthly report. Only people who have signed in, and can still sign in, get mail. Digests go out once at `DIGEST_HOUR_UTC`.
+  - Slack, Discord, Microsoft Teams and Telegram channels with the stars, the quote and a **Review and approve** link that opens the testimonial in the inbox. A Test button, pause, per-project channels, and a per-form choice in the form builder. Only each service's own https addresses are posted to.
+  - Testimonials added by hand or imported never notify anyone.
+  - **Settings → Webhooks → Edit** changes a webhook's URL, events, project and form in place.
+
+- **Setup guide.** See [`docs/help/getting-started.md`](docs/help/getting-started.md).
+  - `/admin/welcome` asks for a project name, your website and what you sell, then reads your home page for your logo, colour and existing testimonials (schema.org reviews and quote blocks with a name; no AI), and imports the ones you choose as approved. It respects `robots.txt`, a 5 MB cap and a 10-second limit, and never reaches private addresses.
+  - It makes a step-by-step form with questions for your business, a published main Wall of Love, and a grid and a carousel widget, in your colours.
+  - A **Get started** checklist on the project (import or collect, customise a widget, add it to your site, share your link), with skip and hide. The dashboard shows a card for the guide and never redirects to it.
+
+- **Empty states** on the inbox, widgets, walls, requests, the forms search and review snippets, each with one next step. Every new page fits a 360 px phone without scrolling sideways (the walls list now stacks on phones).
+
+- **Importers**. See [`docs/IMPORT.md`](docs/IMPORT.md).
+  - One flow for every source on Import & export: pick a source, say which listing, choose a minimum rating, skipping reviews with no text, tags and Pending or Approved, preview the latest 50, then import some or "all matching" (up to 1,000) in the background with progress and a summary.
+  - Review sites: Google (Places API with your own key, 5 reviews at most), Trustpilot, G2, Capterra, Product Hunt (your own token, or the public page), App Store, Google Play (or the Play Console reviews CSV) and X (post links).
+  - Moving from Testimonial.to (Wall of Love or CSV), Senja and Shapo (your API key or their CSV), videos included.
+  - Never the same review twice: a re-run says "0 new, 20 already imported". Month-only dates show as "Oct 2026".
+  - When a site blocks Plaudit, **Upload the saved page instead** reads a page saved from your browser.
+  - You confirm "I own or manage this listing" before anything is fetched; the server checks it.
+  - One opt-in `import.completed` webhook per run, and no per-row webhooks. The inbox shows each imported testimonial's source.
+  - Outgoing requests refuse private network addresses on every redirect, with size and time limits.
+  - The CSV importer also maps a platform column (Senja's `integration`, Shapo's `source`) and the original id, so the same file imported twice adds nothing new, and recognises Shapo exports.
+
+- **Walls and SEO**. See [`docs/help/walls.md`](docs/help/walls.md).
+  - Several walls per project at `/wall/<project>/<wall>`, each a draft until published. Drafts are "not found" for visitors, including their link preview image and "load more".
+  - An editor with a live desktop and phone preview: five themes of our own, a hero with a featured testimonial and the average rating, a hero button, header logo and links, a cover image, fonts, card colours, columns, "load more" or infinite scroll, the card toggles, tag tabs with a default tab, and a call to action after a chosen number of cards.
+  - One wall can be the project's **main wall**: `/wall/<project>` then shows it while it's published. Until then the classic page is unchanged. Renamed walls keep their old links (308).
+  - Server-rendered pages with a title, meta description, canonical link, optional noindex, a generated 1200×630 link preview image, and escaped JSON-LD (`Review` and `AggregateRating`, up to 10 reviews). The classic wall page gets the JSON-LD and meta too.
+  - **Review snippets** on the new SEO tab: schema.org data for your own pages, as a static JSON-LD block or a dynamic `/schema/s_….js` script, with guidance (5 reviews or more, not on the home page, the search engine decides) and an example result.
+
+- **Widget studio**. See [`docs/help/widgets.md`](docs/help/widgets.md).
+  - Saved widgets, each with its own id (`data-widget="w_…"`), in 8 layouts: masonry grid, list, carousel, multi-card slider, marquee, single featured, rating badge and floating toast.
+  - Automatic or hand-picked testimonials with your own order and pins; filters for tags, rating, source, kind, keywords, language and form, applied on the server before the limit; newest, oldest, highest rated, inbox pins or shuffled.
+  - Design (theme, font, colours, radius, spacing, width, shadow, and what to show, including dates, "Read more", highlights, a verified mark and first names only), per-layout options, editable labels, a rating summary and a "Leave a testimonial" button that opens a form as a page or a pop-up.
+  - The studio previews every change with the real embed code at desktop, tablet and phone width. The Share tab has the script, an auto-sizing iframe, a hosted link at `/embed/w_…`, a React component, an email for your developer and guides for 9 site builders ([`docs/embeds/`](docs/embeds/README.md)).
+  - An **SEO include** at `/api/widget/w_…/html` puts the review text in your page with JavaScript off, with optional JSON-LD.
+  - Carousels and sliders pause on hover and keyboard focus, move with the arrow keys and have a pause button; reduced motion stops autoplay and the marquee; videos keep their captions.
+  - `widget.js` stays small: the grid and list core is under 7 KB gzipped, and other layouts load on first use. `data-project` embeds draw exactly what they drew before.
+
+- **Forms**. See [`docs/help/forms.md`](docs/help/forms.md).
+  - Several forms per project, each at `/f/<project>/<form>`, made blank or from one of 8 templates. A step-by-step page shows one step per screen with a progress bar; Back keeps every answer, and a recording keeps uploading while people move between steps.
+  - Up to 10 questions, each answered by video, text or either, with its own tips, video length and up to 3 images. Questions can be **optional**. Private questions go to private feedback, never published.
+  - Custom fields (text, dropdown with an optional tag per choice, checkbox, NPS, web address, number), hidden fields from the link (`?utm_source=`), prefill (`?name=&email=…`) that can be locked, and "keep it private" consent.
+  - Design (logo, colours, self-hosted fonts, width, buttons, radius, light or dark) and 11 languages, with right-to-left Arabic. Translations other than English need native review.
+  - Per-form rules: auto-approve (every testimonial, a minimum rating, text only, or public consent), auto-tags, pause with a closed message, a per-IP daily limit, the receipt template, and form webhooks. They apply to the classic page too.
+  - The builder previews every change with the real form at desktop, tablet and phone width, and asks before leaving only when something is unsaved. The share panel has the link, a QR code (PNG or SVG) and inline, popup and iframe embeds (`/form.js`, [`docs/EMBED.md`](docs/EMBED.md)).
+  - The thank-you page can offer "copy my words" and share links (only with social consent), and a different message for 3 stars or fewer.
+  - The inbox card shows a form submission's other answers (videos with captions), private feedback, custom and hidden fields. Answer videos are converted and transcribed like the main one, stay private, and auto-approve waits for all of them.
+  - Request links can open a chosen form. Webhooks `form.submitted` and `feedback.created` (opt-in) are now sent.
+  - The classic page at `/c/<project>` is unchanged until you **Switch to step-by-step**; then it forwards visitors, `?r=` and all, to the new page. Switching Video → Write → Video on the classic page no longer loses the recording.
+- **Inbox v2**. See [`docs/help/inbox.md`](docs/help/inbox.md).
+  - Seven tabs with live counts: All, Pending, Approved, Hidden, Rejected, Feedback (private answers) and Trash. On phones they make two rows of four.
+  - Search over names, emails, companies, text, transcripts, every answer and tags, quick with tens of thousands of testimonials. Filters for rating, tags (any or all), source, how it arrived, type, form, language, consent, word count, date and attachments; sort by date added, date posted, rating, name or word count. The whole view is in the address bar, so a link shares it; your sort, view and page size are remembered.
+  - Card and table views, pages of 25, 50 or 100, and bulk approve, hide, reject, tag, untag, export and trash for up to 500 at a time. Rows that can't take an action are skipped with the reason, and each change gets its own history entry and webhook.
+  - A detail drawer with every answer, media and captions, fields, source, consent and history; keys j, k, a and h. Edit every answer, not just the main one, and highlight phrases. Edits are marked "edited after consent" and logged.
+  - **Delete** now moves a testimonial to the trash, from which it can be restored with its status and media for 30 days; **Delete forever** is in the trash.
+  - Export the current view, or a selection, as CSV or JSON with a column per custom and hidden field.
+  - **Add testimonial**: add one you received elsewhere by hand, as text, a video or a screenshot, approved by default.
+- **Keep media in an S3-compatible bucket** (AWS S3, Cloudflare R2, Backblaze B2, MinIO and others) with `STORAGE_DRIVER=s3` and the `S3_*` settings. Local disk stays the default. See [Media storage](README.md#media-storage-s3).
+  - The bucket stays private: uploads are still checked on your server, and every file is streamed back through Plaudit under the same privacy rules.
+  - **Settings → Media storage** shows where media is kept and whether the bucket works. The owner can **Copy local media to S3**, which is safe to run again; files not copied yet are served from local disk meanwhile.
+  - Exports read from the bucket, and imports write to it.
+- **Hidden and trash, in the API and webhooks.** Both are new statuses, and the dashboard's buttons for them arrive with the new inbox.
+  - `hidden` keeps a testimonial for your own use and off your site. The API can set it.
+  - `trashed` testimonials are off your site and can be restored with their old status, until they're deleted for good after `TRASH_RETENTION_DAYS` (30). API lists leave them out unless you ask for `status=trashed`. `DELETE` still deletes at once.
+  - Approving a testimonial whose author asked to keep it private is refused (`409`).
+  - New webhook events `testimonial.hidden`, `testimonial.trashed` and `testimonial.restored`. Endpoints with no events ticked get them too, so every takedown reaches them. New opt-in events: `testimonial.updated` (content edits), `form.submitted` and `feedback.created`, and `import.completed`, which is sent once importers are released.
+- **More in each testimonial**, in the API, webhooks and exports: the form it came through, a headline, answers to further questions, images, the author's phone, website, social profiles and company logo, where a review was first posted and when (to the day, month or year), language, custom and hidden fields, featured and pin order, private consent and when it was trashed. `POST` and `PATCH` accept the editable ones. See [`docs/API.md`](docs/API.md#a-testimonial).
+- **Exports carry everything new**: forms, customers, private feedback, widgets, walls, SEO snippets and old links, plus answers, images, highlights and edit history. The format is still version 1:
+  - Older Plaudit versions can still import new exports. Hidden and trashed testimonials arrive there as rejected, and `statusV2` in `plaudit.json` keeps the real status.
+  - Older exports import here as before, and get a default form made from the project's settings.
+  - `testimonials.csv` keeps its columns and adds `form`, `headline`, `platform`, `source_url`, `source_date`, `language`, and a `custom:<key>` and `hidden:<key>` column for each field.
+  - An imported project never takes over another project's old link. It gets the next free one instead (`acme-2`).
+- **Features in preview**, hidden until they're finished. List them in `PLAUDIT_FEATURES` (or `all`) to try them. See [Features in preview](README.md#features-in-preview).
+  - `forms` shows **Project settings**. Change a project's link and the old one keeps working: `/c`, `/wall` and `/embed` answer with a permanent redirect that keeps the query, so emailed request links still prefill, and widgets embedded with the old name keep loading. Delete a project, with everything in it, by typing its name (owner only). Set a brand kit (logo, colours and fonts) and rename, merge or delete tags across every testimonial.
+  - The other flags show placeholder pages for now.
+- **Upgrading.** Database migrations `0009` and `0010` only add tables, columns, indexes and triggers, and fill them in; no existing data is changed or removed. Take a backup first, as always.
+  - `0009` adds the tables and columns for everything above. It gives every project a default form in today's one-page layout, made from its current settings, and links its form testimonials and requests to it. The collection page, wall, widget and iframe look and work exactly as before.
+  - `0010` builds a search index over every testimonial, for the new inbox's search. On a large database the first start after upgrading takes a little longer.
+
+- **Optional auto-approve for each project**, off by default. New testimonials from the collection page or a request link go live without a click when they have enough stars (4+ or 5) and no links in their text. Videos are included only if you turn that on, once they've been processed. Everything else waits in Pending. See [Auto-approve](README.md#auto-approve).
+  - Turning it on doesn't approve what is already pending.
+  - Auto-approved testimonials show an **Auto-approved** label and "Approved automatically (4+ stars)". Rejecting one takes it off your site as usual.
+  - The API and webhooks say who approved a testimonial: `approvedBy` is `owner`, `api` or `auto`. Projects include their `autoApprove` settings.
+  - Project exports include the settings. Older exports import with it off.
+  - With it on, the receipt email no longer promises a review before the testimonial appears.
+  - Jobs queued in the same millisecond now always run in the order they were queued.
+  - Database migration `0008` adds the settings (off / 4 / off) and the approval record.
+
 - **Security:** nodemailer 10.2.1, which fixes three address-parsing advisories in earlier versions. Plaudit only sends to strictly checked addresses, so it wasn't exposed in practice.
 - **The camera preview shows you again.** It could stay black while recording, depending on how fast the page rendered; the recording itself was fine.
 - Fixes from an A-Z bug sweep:

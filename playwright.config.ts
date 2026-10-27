@@ -22,6 +22,29 @@ const APPLE = {
   publicKey: appleKey.publicKey.export({ type: "spki", format: "pem" }).toString(),
 };
 
+/**
+ * The outside web for importers, discovery and chat notifications
+ * (e2e/fixtures/fixture-server.mjs): it serves tests/fixtures/** and records
+ * what the app sends it. The app reaches it only through the test-only
+ * NET_GUARD_ALLOW and IMPORTER_ORIGINS below.
+ */
+const FIXTURE_PORT = Number(process.env.E2E_FIXTURE_PORT || 3198);
+export const FIXTURE_ORIGIN = `http://127.0.0.1:${FIXTURE_PORT}`;
+
+/** Specs that never use the camera or microphone, so they also run in WebKit. */
+const WEBKIT_SPECS = [
+  "empty-states.spec.ts",
+  "importers.spec.ts",
+  "inbox.spec.ts",
+  "mobile.spec.ts",
+  "notifications.spec.ts",
+  "onboarding.spec.ts",
+  "seo.spec.ts",
+  "walls.spec.ts",
+  "widget-studio.spec.ts",
+  "widgets.spec.ts",
+];
+
 export const E2E_ADMIN = {
   email: process.env.E2E_ADMIN_EMAIL || "owner@example.com",
   password: process.env.E2E_ADMIN_PASSWORD || "e2e-password-123",
@@ -43,7 +66,14 @@ export default defineConfig({
       args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"],
     },
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    // Safari's engine, for the specs that don't record video (WebKit has no fake camera).
+    // Opt-in: `npx playwright install webkit` first (it downloads the browser), then E2E_WEBKIT=1.
+    ...(process.env.E2E_WEBKIT === "1"
+      ? [{ name: "webkit", use: { ...devices["Desktop Safari"], permissions: [] }, testMatch: WEBKIT_SPECS }]
+      : []),
+  ],
   webServer: external
     ? undefined
     : [
@@ -59,6 +89,12 @@ export default defineConfig({
             MOCK_APPLE_TEAM_ID: APPLE.teamId,
             MOCK_APPLE_KEY_ID: APPLE.keyId,
           },
+        },
+        {
+          command: "node e2e/fixtures/fixture-server.mjs",
+          url: `${FIXTURE_ORIGIN}/__health`,
+          reuseExistingServer: false,
+          env: { FIXTURE_PORT: String(FIXTURE_PORT), FIXTURE_HOST: "127.0.0.1" },
         },
         {
           // Production build, served by the standalone server the Docker image uses.
@@ -96,6 +132,14 @@ export default defineConfig({
             APPLE_ISSUER: mockIssuer("apple"),
             // Lets the team spec sign in people other than the owner.
             ALLOWED_EMAIL_DOMAINS: "team.example",
+            // Every Phase 1 feature on (also the default since release; set explicitly so a local override can't hide pages).
+            PLAUDIT_FEATURES: "all",
+            // The fixture server is on a private address; let exactly that origin
+            // through the outbound-request guard (the guard itself stays on).
+            NET_GUARD_ALLOW: `127.0.0.1:${FIXTURE_PORT}`,
+            // Importers fetch from the fixture server instead of the real sites:
+            // "*=<base>" sends adapter <id> to <base>/<id> (tests/fixtures/importers/<id>/).
+            IMPORTER_ORIGINS: `*=${FIXTURE_ORIGIN}/importers`,
           },
         },
       ],

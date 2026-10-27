@@ -1,4 +1,5 @@
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireAdmin, requireOwner } from "@/lib/http";
+import { deleteProject, ProjectError } from "@/lib/projects";
 import { parseReminderDays } from "@/lib/requests";
 import { getProjectById, listTestimonials, updateProject } from "@/lib/testimonials";
 import { firstIssue, projectUpdateSchema } from "@/lib/validation";
@@ -31,4 +32,24 @@ export async function PATCH(req: Request, ctx: Ctx) {
   const project = updateProject(id, patch);
   if (!project) return jsonError(404, "Project not found");
   return Response.json({ project });
+}
+
+/**
+ * Deletes the project, its testimonials and every file, for good. Only the
+ * owner may, and the body must carry the project's name: `{confirm: <name>}`.
+ */
+export async function DELETE(req: Request, ctx: Ctx) {
+  const denied = requireOwner(req);
+  if (denied) return denied;
+  const { id } = await ctx.params;
+  const body = (await req.json().catch(() => null)) as { confirm?: unknown } | null;
+  const confirm = typeof body?.confirm === "string" ? body.confirm : "";
+  try {
+    const result = await deleteProject(id, { confirm });
+    if (!result) return jsonError(404, "Project not found");
+    return Response.json({ deleted: true, files: result.files });
+  } catch (err) {
+    if (err instanceof ProjectError) return jsonError(err.status, err.message);
+    throw err;
+  }
 }

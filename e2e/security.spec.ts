@@ -82,7 +82,8 @@ test("no page breaks its own Content Security Policy", async ({ page, baseURL })
   await page.getByRole("link", { name: "Csp Co" }).first().click();
   await expect(page.getByText("Pat Pending")).toBeVisible();
   await expect(page.locator("video").first()).toBeVisible(); // private media, served to the owner
-  await page.getByRole("link", { name: "Settings" }).click();
+  // Exact: the project tabs also have a "Project settings" link.
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible();
   expect(await violations(), "dashboard").toEqual([]);
 });

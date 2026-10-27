@@ -18,8 +18,21 @@ import { listConsentEvents } from "@/lib/consent";
 import { detectMapping, downloadPublic, guessOrigin, isPrivateAddress, parseRating } from "@/lib/csv-import";
 import { parseCsv, toCsv } from "@/lib/csv";
 import { env } from "@/lib/env";
+import { createForm, getDefaultForm } from "@/lib/forms";
+import { formConfigFromProject } from "@/lib/forms/defaults";
 import { runDueJobs } from "@/lib/jobs";
-import { freeName } from "@/lib/portability";
+import {
+  buildManifest,
+  createImportTarget,
+  CSV_HEADERS,
+  CSV_V1X_HEADERS,
+  csvKeys,
+  csvRows,
+  freeName,
+  importArchive,
+  readManifest,
+  testimonialsCsv,
+} from "@/lib/portability";
 import { createRequests } from "@/lib/requests";
 import { saveFile } from "@/lib/storage";
 import {
@@ -28,6 +41,7 @@ import {
   getProjectById,
   getProjectBySlug,
   listTestimonials,
+  updateProject,
   updateTestimonial,
 } from "@/lib/testimonials";
 import { registerJobs } from "@/lib/worker";
@@ -137,6 +151,49 @@ describe("CSV", () => {
     expect(guessOrigin(["Name", "Quote"])).toBe("csv");
   });
 
+  it("adds the Phase 1 columns after the original ones, and one per custom and hidden field", () => {
+    const form = createForm(projectId, { name: "Customer stories" });
+    createTestimonial(projectId, {
+      name: "Ada",
+      text: "Hi",
+      formId: form.id,
+      headline: "Hours back",
+      platform: "google",
+      sourceUrl: "https://reviews.example/r/1",
+      sourceDate: new Date("2026-03-14T00:00:00.000Z"),
+      datePrecision: "month",
+      language: "en",
+      customFields: { plan: "Enterprise", seats: 40, renews: true, picks: ["a", "b"] },
+      hiddenFields: { utm_source: "newsletter" },
+    });
+    createTestimonial(projectId, { name: "Bo", text: "Yo", customFields: { nps: 9 } });
+    const items = listTestimonials(projectId);
+    const [header, ...rows] = parseCsv(testimonialsCsv(items));
+    // The original columns keep their places, so spreadsheets made from older exports still line up.
+    expect(header.slice(0, CSV_HEADERS.length)).toEqual(CSV_HEADERS);
+    expect(header.slice(CSV_HEADERS.length)).toEqual([
+      ...CSV_V1X_HEADERS,
+      "custom:nps", "custom:picks", "custom:plan", "custom:renews", "custom:seats",
+      "hidden:utm_source",
+    ]);
+    const cell = (row: string[], column: string) => row[header.indexOf(column)];
+    const ada = rows.find((r) => r[2] === "Ada")!;
+    expect(["form", "headline", "platform", "source_url", "source_date", "language"].map((c) => cell(ada, c))).toEqual([
+      "Customer stories", "Hours back", "google", "https://reviews.example/r/1", "2026-03", "en",
+    ]);
+    expect(["custom:plan", "custom:seats", "custom:renews", "custom:picks", "custom:nps", "hidden:utm_source"].map((c) => cell(ada, c))).toEqual([
+      "Enterprise", "40", "yes", "a, b", "", "newsletter",
+    ]);
+    const bo = rows.find((r) => r[2] === "Bo")!;
+    expect([cell(bo, "form"), cell(bo, "custom:nps"), cell(bo, "source_date")]).toEqual(["", "9", ""]);
+
+    // An export written in chunks fixes its columns up front, from the whole set.
+    const chunk = csvRows([items.find((t) => t.authorName === "Bo")!], csvKeys(items));
+    expect(chunk.headers).toEqual(header);
+    expect(chunk.rows[0]).toHaveLength(header.length);
+    expect(csvRows([items.find((t) => t.authorName === "Bo")!]).headers.slice(CSV_HEADERS.length)).toEqual([...CSV_V1X_HEADERS, "custom:nps"]);
+  });
+
   it("understands ratings in several forms", () => {
     expect(["5", "4.6", "4/5", "8 out of 10", "9/10", "4 stars", "★★★☆☆"].map(parseRating)).toEqual([5, 5, 4, 4, 5, 4, 3]);
     // A bare number above 5 isn't guessed to be out of 10: it's left out (and warned about).
@@ -173,10 +230,16 @@ describe("export", () => {
     const manifestPath = path.join(ctx.dir, "m.json");
     await extractEntry(zip, zip.entries.get("plaudit.json")!, manifestPath, 1e7);
     const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-    expect(manifest).toMatchObject({ format: "plaudit-export", version: 1, project: { slug: "acme", name: "Acme" } });
+    expect(manifest).toMatchObject({
+      format: "plaudit-export",
+      version: 1,
+      project: { slug: "acme", name: "Acme", autoApprove: false, autoApproveMinRating: 4, autoApproveVideo: false },
+    });
     const ada = manifest.testimonials.find((t: { id: string }) => t.id === textId);
     expect(ada).toMatchObject({
       status: "approved",
+      approvedBy: "owner",
+      approvalRule: null,
       author: { name: "Ada L.", email: "ada@example.com" },
       tags: ["home"],
       consent: { scopes: ["website", "social"], editedAfterConsent: true },
@@ -211,6 +274,7 @@ describe("export", () => {
 
   it("imports its own export as a new project, keeping data, consent history and media", async () => {
     await seedProject();
+    updateProject(projectId, { autoApprove: true, autoApproveMinRating: 5, autoApproveVideo: true });
     const exported = Buffer.from(await (await exportRoute(admin(`/api/admin/projects/${projectId}/export`), params({ id: projectId }))).arrayBuffer());
 
     // Upload the archive in chunks, as the browser does.
@@ -237,10 +301,15 @@ describe("export", () => {
     expect(job).toMatchObject({ status: "done", error: null });
 
     const copy = getProjectBySlug("acme-2")!;
+    expect(copy).toMatchObject({ autoApprove: true, autoApproveMinRating: 5, autoApproveVideo: true });
     const items = listTestimonials(copy.id);
+    // It applies from the import on, never to what was imported.
+    for (const t of items) expect(t.createdAt.getTime()).toBeLessThanOrEqual(copy.autoApproveSince!.getTime());
     expect(items).toHaveLength(2);
     const ada = items.find((t) => t.authorName === "Ada L.")!;
     expect(ada).toMatchObject({ status: "approved", tags: ["home"], editedAfterConsent: true, authorEmail: "ada@example.com" });
+    expect(ada).toMatchObject({ approvedBy: "owner", approvedAt: expect.any(Date) });
+    expect(items.find((t) => t.authorName === "Vid")).toMatchObject({ status: "pending", approvedBy: null });
     expect(listConsentEvents(ada.id).map((e) => e.type)).toEqual(["granted", "edited", "imported"]);
     const vid = items.find((t) => t.authorName === "Vid")!;
     expect(vid.transcript).toBe("Spoken words.");
@@ -250,6 +319,53 @@ describe("export", () => {
     expect(requests).toMatchObject([{ email: "bo@example.com", nextReminderAt: null }]);
     // The temporary archive is gone.
     expect(fs.readdirSync(env.tmpDir).filter((f) => f.startsWith("import-"))).toEqual([]);
+  });
+
+  it("imports an export from before auto-approve existed with it off", async () => {
+    await seedProject();
+    updateProject(projectId, { autoApprove: true });
+    const manifest = buildManifest(getProjectById(projectId)!) as unknown as {
+      project: Record<string, unknown>;
+      testimonials: Record<string, unknown>[];
+    };
+    for (const key of ["autoApprove", "autoApproveMinRating", "autoApproveVideo"]) delete manifest.project[key];
+    for (const t of manifest.testimonials) {
+      for (const key of ["approvedBy", "approvedAt", "approvalRule"]) delete t[key];
+    }
+    const zipPath = path.join(ctx.dir, "old.zip");
+    await writeZip(zipPath, [{ name: "plaudit.json", data: JSON.stringify(manifest) }]);
+    const { manifest: parsed } = await readManifest(zipPath);
+    const copy = createImportTarget(parsed, {});
+    expect(copy).toMatchObject({ autoApprove: false, autoApproveMinRating: 4, autoApproveVideo: false, autoApproveSince: null });
+    await importArchive(zipPath, copy.id);
+    expect(listTestimonials(copy.id).find((t) => t.status === "approved")).toMatchObject({ approvedBy: null, approvedAt: null });
+  });
+
+  it("exports the default form with its whole config, and old servers' legacy fields alongside", async () => {
+    await seedProject();
+    updateProject(projectId, { prompt: "What changed?", autoApprove: true, autoApproveMinRating: 5 });
+    const manifest = buildManifest(getProjectById(projectId)!);
+    const [form] = manifest.forms;
+    expect(manifest.forms).toHaveLength(1);
+    expect(form).toMatchObject({ isDefault: true, layout: "classic", slug: "default", status: "live", logo: null });
+    expect(form.pages.find((p) => p.type === "question")).toMatchObject({ title: "What changed?", primary: true });
+    expect(form.settings.autoApprove).toMatchObject({ mode: "rating", minRating: 5 });
+    expect(manifest.project).toMatchObject({ prompt: "What changed?", autoApprove: true, autoApproveMinRating: 5, website: null, logo: null });
+  });
+
+  it("exports a default form migration 0009 hasn't filled in yet as the project's settings, without changing it", () => {
+    const form = getDefaultForm(projectId);
+    getDb()
+      .update(schema.forms)
+      .set({ configVersion: 0, pages: "[]", design: "{}", labels: "{}", settings: "{}" })
+      .where(eq(schema.forms.id, form.id))
+      .run();
+    getDb().update(schema.projects).set({ prompt: "Set before the upgrade" }).where(eq(schema.projects.id, projectId)).run();
+    const project = getProjectById(projectId)!;
+    const [exported] = buildManifest(project).forms;
+    expect(exported.pages).toEqual(formConfigFromProject(project).pages);
+    expect(exported.pages.find((p) => p.type === "question")).toMatchObject({ title: "Set before the upgrade" });
+    expect(getDb().select().from(schema.forms).where(eq(schema.forms.id, form.id)).get()!.configVersion).toBe(0);
   });
 
   it("refuses archives that aren't Plaudit exports", async () => {

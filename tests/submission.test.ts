@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { POST } from "@/app/api/projects/[slug]/testimonials/route";
+import { getDefaultForm, updateForm } from "@/lib/forms";
+import { parseFormRow } from "@/lib/forms/schema";
 import { createProject, getTestimonial, listTestimonials, updateProject } from "@/lib/testimonials";
 import { params, PNG_BYTES, submissionForm, submitRequest, useTempDataDir, WEBM_BYTES } from "./helpers";
 
@@ -162,5 +164,18 @@ describe("POST /api/projects/:slug/testimonials", () => {
     }
     expect(statuses.slice(0, 10).every((s) => s === 201)).toBe(true);
     expect(statuses[10]).toBe(429);
+  });
+});
+
+describe("the classic endpoint and the default form's rules", () => {
+  it("FORM-10 auto-tags and the per-IP cap of the default form apply to classic submissions", async () => {
+    const form = getDefaultForm(projectId);
+    const cfg = parseFormRow(form);
+    updateForm(form.id, { settings: { ...cfg.settings, autoTags: ["classic"], maxPerIpPerDay: 1 } });
+    const send = (ip: string) => POST(submitRequest("acme", submissionForm({ ...base, text: "Hi" }), ip), params({ slug: "acme" }));
+    const res = await send("192.0.2.50");
+    expect(res.status).toBe(201);
+    expect(getTestimonial((await res.json()).id)?.tags).toEqual(["classic"]);
+    expect((await send("192.0.2.50")).status).toBe(429);
   });
 });

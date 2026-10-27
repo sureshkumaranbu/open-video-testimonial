@@ -1,13 +1,7 @@
 import crypto from "node:crypto";
-import dnsCallback from "node:dns";
-import http from "node:http";
-import https from "node:https";
 import fs from "node:fs";
-import net from "node:net";
 import path from "node:path";
-import { Transform } from "node:stream";
-import { pipeline } from "node:stream/promises";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb, schema } from "@/db";
 import type { Project } from "@/db/schema";
@@ -16,6 +10,7 @@ import { parseCsvRecords } from "./csv";
 import { env } from "./env";
 import { enqueue, PermanentJobError } from "./jobs";
 import { queueVideoProcessing } from "./media";
+import { downloadPublic } from "./net-guard";
 import { saveFile, sniffMime, type MediaKind } from "./storage";
 import { createTestimonial, updateTestimonial } from "./testimonials";
 
@@ -37,6 +32,8 @@ export const IMPORT_FIELDS = [
   "tags",
   "avatarUrl",
   "videoUrl",
+  "platform",
+  "sourceReviewId",
 ] as const;
 export type ImportField = (typeof IMPORT_FIELDS)[number];
 export type Mapping = Partial<Record<ImportField, string>>;
@@ -53,9 +50,42 @@ const ALIASES: Record<ImportField, string[]> = {
   rating: ["rating", "stars", "score", "reviewrating", "starrating"],
   date: ["date", "createdat", "reviewdate", "submittedat", "submitted", "created", "timestamp"],
   tags: ["tags", "tag", "labels", "categories"],
-  avatarUrl: ["avatarurl", "avatar", "userphoto", "useravatar", "photo", "photourl", "profilepicture", "picture", "customeravatar"],
+  avatarUrl: ["avatarurl", "avatar", "userphoto", "useravatar", "photo", "photourl", "profilepicture", "profileimage", "picture", "customeravatar"],
   videoUrl: ["videourl", "videomp4url", "video", "videolink", "videomp4"],
+  // Senja calls the review site "integration"; Shapo calls it "source".
+  platform: ["platform", "integration", "sourceplatform", "reviewsource", "reviewplatform", "source"],
+  // The original's id: re-importing the same file then skips what's already there.
+  sourceReviewId: ["sourcereviewid", "reviewid", "testimonialid", "originalid", "id"],
 };
+
+/** Other tools' names for review sites, mapped to Plaudit's platform ids. */
+const PLATFORM_NAMES: Record<string, string> = {
+  twitter: "x",
+  xcom: "x",
+  producthunt: "producthunt",
+  appstore: "appstore",
+  apple: "appstore",
+  iosappstore: "appstore",
+  playstore: "googleplay",
+  googleplay: "googleplay",
+  googleplaystore: "googleplay",
+  googlebusiness: "google",
+  googlereviews: "google",
+  googlemaps: "google",
+  testimonialto: "testimonial-to",
+  webpage: "website",
+  web: "website",
+};
+
+/** "Product Hunt", "product_hunt", "PLAY_STORE" -> "producthunt", "producthunt", "googleplay"; anything else lower-cased. */
+export function normalizePlatform(raw: string | null | undefined) {
+  const n = (raw ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  // How a row arrived in a tool (an older Plaudit export's "source" column, say) isn't where it was posted.
+  if (!n || CHANNELS.test(n)) return null;
+  return PLATFORM_NAMES[n] ?? n.slice(0, 40);
+}
+
+const CHANNELS = /^(form|api|manual|csv|import\w*|request|requested)$/;
 
 export function detectMapping(headers: string[]): Mapping {
   const mapping: Mapping = {};
@@ -79,6 +109,7 @@ export function guessOrigin(headers: string[]) {
   const h = new Set(headers.map(norm));
   if (h.has("editedafterconsent") && h.has("consentscopes")) return "plaudit";
   if (h.has("testimonialtitle") || h.has("integration") || h.has("videomp4url")) return "senja";
+  if (h.has("profileimage") || (h.has("message") && h.has("link") && h.has("source"))) return "shapo";
   if (h.has("reviewbody") || (h.has("username") && h.has("useremail"))) return "testimonial-to";
   return "csv";
 }
@@ -124,6 +155,9 @@ export interface MappedRow {
   tags: string[];
   avatarUrl: string | null;
   videoUrl: string | null;
+  /** Where the review was first posted (normalised), and its id there: the dedupe key. */
+  platform: string | null;
+  sourceReviewId: string | null;
   /** Why the row can't be imported at all. */
   error: string | null;
   /** Values that were left out, so the owner knows what changed. */
@@ -171,6 +205,8 @@ export function mapRows(records: Record<string, string>[], mapping: Mapping): Ma
         .slice(0, 20),
       avatarUrl: url("avatarUrl", "Avatar URL"),
       videoUrl: url("videoUrl", "Video URL"),
+      platform: normalizePlatform(get(r, "platform")),
+      sourceReviewId: get(r, "sourceReviewId").slice(0, 200) || null,
       error: null,
       warnings,
     };
@@ -204,6 +240,26 @@ function warningsOf(rows: MappedRow[], max: number) {
 
 export const FETCH_MEDIA_JOB = "import.media";
 
+/** Whether this project already has the review with this id from this platform (the dedupe key, D4). */
+export function isAlreadyImported(projectId: string, platform: string, sourceReviewId: string) {
+  const t = schema.testimonials;
+  return Boolean(
+    getDb()
+      .select({ id: t.id })
+      .from(t)
+      .where(and(eq(t.projectId, projectId), eq(t.platform, platform), eq(t.sourceReviewId, sourceReviewId)))
+      .get(),
+  );
+}
+
+/** SQLite's answer when the dedupe index (or another unique index) already has the row. */
+export function isUniqueViolation(err: unknown) {
+  const e = err as { code?: string; message?: string; cause?: { code?: string; message?: string } } | null;
+  const code = e?.code ?? e?.cause?.code ?? "";
+  const message = `${e?.message ?? ""} ${e?.cause?.message ?? ""}`;
+  return code.startsWith("SQLITE_CONSTRAINT_UNIQUE") || /UNIQUE constraint failed/.test(message);
+}
+
 /**
  * Imports the mapped rows into a project. Imported testimonials start as
  * pending unless `approve` is set; media URLs are downloaded in the
@@ -223,24 +279,48 @@ export function importCsv(
   const origin = guessOrigin(headers);
   const rows = mapRows(records, mapping);
   let imported = 0;
+  let duplicates = 0;
   const skipped: { line: number; error: string }[] = [];
+  // A row from another testimonial tool keeps that tool's id, so the same file imported twice adds nothing new.
+  const toolOrigin = ["senja", "shapo", "testimonial-to"].includes(origin) ? origin : null;
   for (const row of rows) {
     if (row.error) {
       skipped.push({ line: row.line, error: row.error });
       continue;
     }
-    const t = createTestimonial(
-      project.id,
-      {
-        name: row.name,
-        email: row.email ?? undefined,
-        title: row.title ?? undefined,
-        company: row.company ?? undefined,
-        text: row.text ?? undefined,
-        rating: row.rating ?? undefined,
-      },
-      { source: `import:${origin}`, createdAt: row.date ?? undefined },
-    );
+    const platform = row.platform ?? (row.sourceReviewId ? toolOrigin : null);
+    if (platform && row.sourceReviewId && isAlreadyImported(project.id, platform, row.sourceReviewId)) {
+      duplicates++;
+      skipped.push({ line: row.line, error: "Already imported" });
+      continue;
+    }
+    let t;
+    try {
+      t = createTestimonial(
+        project.id,
+        {
+          name: row.name,
+          email: row.email ?? undefined,
+          title: row.title ?? undefined,
+          company: row.company ?? undefined,
+          text: row.text ?? undefined,
+          rating: row.rating ?? undefined,
+          platform: platform ?? undefined,
+          sourceReviewId: platform ? (row.sourceReviewId ?? undefined) : undefined,
+          sourceDate: platform && row.date ? row.date : undefined,
+          importedAt: new Date(),
+        },
+        { source: `import:${origin}`, createdAt: row.date ?? undefined },
+      );
+    } catch (err) {
+      // Another import added the same review a moment ago.
+      if (isUniqueViolation(err)) {
+        duplicates++;
+        skipped.push({ line: row.line, error: "Already imported" });
+        continue;
+      }
+      throw err;
+    }
     logConsentEvent({
       testimonialId: t.id,
       type: "imported",
@@ -260,102 +340,13 @@ export function importCsv(
     }
     imported++;
   }
-  return { imported, skipped, ...warningsOf(rows, 100), origin };
+  return { imported, duplicates, skipped, ...warningsOf(rows, 100), origin };
 }
 
 // ------------------------------------------------------------ fetching media
 
-// Loopback, private, link-local, carrier-grade NAT, benchmarking, multicast and
-// reserved ranges, plus IPv4-mapped/NAT64 IPv6 (which can point back at them).
-// Separate lists: a BlockList checks IPv4 addresses against IPv6 rules as
-// mapped addresses, so one list with ::ffff:0:0/96 would block every IPv4 address.
-const BLOCKED_V4 = new net.BlockList();
-const BLOCKED_V6 = new net.BlockList();
-for (const [net4, bits] of [
-  ["0.0.0.0", 8], ["10.0.0.0", 8], ["100.64.0.0", 10], ["127.0.0.0", 8], ["169.254.0.0", 16],
-  ["172.16.0.0", 12], ["192.0.0.0", 24], ["192.168.0.0", 16], ["198.18.0.0", 15], ["224.0.0.0", 3],
-] as const) BLOCKED_V4.addSubnet(net4, bits, "ipv4");
-for (const [net6, bits] of [
-  ["::", 127], ["::ffff:0:0", 96], ["64:ff9b::", 96], ["fc00::", 7], ["fe80::", 10], ["ff00::", 8],
-] as const) BLOCKED_V6.addSubnet(net6, bits, "ipv6");
-
-export function isPrivateAddress(ip: string) {
-  const family = net.isIP(ip);
-  if (!family) return true;
-  return family === 4 ? BLOCKED_V4.check(ip, "ipv4") : BLOCKED_V6.check(ip, "ipv6");
-}
-
-class PrivateAddressError extends PermanentJobError {}
-
-/**
- * DNS lookup for outgoing requests that refuses private addresses. Checking
- * inside the connection's own lookup (rather than resolving separately first)
- * means a DNS answer can't change between the check and the connect.
- */
-const guardedLookup: net.LookupFunction = (hostname, options, callback) => {
-  dnsCallback.lookup(hostname, { ...options, all: true }, (err, addresses) => {
-    if (err) return callback(err, "", 4);
-    const list = addresses as dnsCallback.LookupAddress[];
-    const bad = list.find((a) => isPrivateAddress(a.address));
-    if (bad || list.length === 0) {
-      return callback(new PrivateAddressError(`Refusing to fetch from a private address (${hostname})`), "", 4);
-    }
-    if ((options as { all?: boolean }).all) return (callback as unknown as (e: null, a: dnsCallback.LookupAddress[]) => void)(null, list);
-    callback(null, list[0].address, list[0].family);
-  });
-};
-
-function get(url: URL, timeoutMs: number) {
-  return new Promise<http.IncomingMessage>((resolve, reject) => {
-    const client = url.protocol === "https:" ? https : http;
-    const req = client.get(url, { lookup: env.importAllowPrivateUrls ? undefined : guardedLookup, timeout: timeoutMs }, resolve);
-    req.on("timeout", () => req.destroy(new Error(`No response from ${url.host}`)));
-    req.on("error", reject);
-  });
-}
-
-/**
- * Downloads a public file to disk with a size cap, following up to 5
- * redirects. Private-network addresses are refused (a CSV from elsewhere
- * shouldn't make the server fetch internal URLs) unless
- * IMPORT_ALLOW_PRIVATE_URLS=true.
- */
-export async function downloadPublic(url: string, dest: string, maxBytes: number) {
-  let current = new URL(url);
-  for (let hop = 0; hop < 6; hop++) {
-    if (current.protocol !== "http:" && current.protocol !== "https:") throw new PermanentJobError("Only http(s) URLs");
-    // IP literals skip DNS, so check them here.
-    const literal = current.hostname.replace(/^\[|\]$/g, "");
-    if (!env.importAllowPrivateUrls && net.isIP(literal) && isPrivateAddress(literal)) {
-      throw new PrivateAddressError(`Refusing to fetch from a private address (${current.host})`);
-    }
-    const res = await get(current, 120_000);
-    const location = res.headers.location;
-    if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && location) {
-      res.resume();
-      current = new URL(location, current);
-      continue;
-    }
-    if (res.statusCode !== 200) {
-      res.resume();
-      throw new Error(`HTTP ${res.statusCode} for ${current.host}`);
-    }
-    if (Number(res.headers["content-length"] || 0) > maxBytes) {
-      res.destroy();
-      throw new PermanentJobError("File too large");
-    }
-    let size = 0;
-    const cap = new Transform({
-      transform(chunk: Buffer, _enc, done) {
-        size += chunk.length;
-        done(size > maxBytes ? new PermanentJobError("File too large") : null, chunk);
-      },
-    });
-    await pipeline(res, cap, fs.createWriteStream(dest));
-    return size;
-  }
-  throw new PermanentJobError("Too many redirects");
-}
+// The private-address guard moved to net-guard.ts; these stay importable from here.
+export { downloadPublic, isPrivateAddress } from "./net-guard";
 
 async function fetchInto(url: string, kind: MediaKind) {
   await fs.promises.mkdir(env.tmpDir, { recursive: true });

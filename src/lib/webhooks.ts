@@ -53,7 +53,30 @@ export function parseEvents(raw: string): string[] {
   }
 }
 
-function subscribers(event: WebhookEvent, projectId: string | null) {
+/**
+ * What a webhook with no events selected receives: the original six, plus
+ * hidden, trashed and restored, so a catch-all hook still hears about every
+ * takedown (D7). The busier events (testimonial.updated, form.submitted,
+ * feedback.created, import.completed) go only to hooks that select them.
+ */
+export const DEFAULT_EVENTS: readonly WebhookEvent[] = [
+  "testimonial.created",
+  "testimonial.approved",
+  "testimonial.rejected",
+  "testimonial.deleted",
+  "testimonial.transcribed",
+  "consent.withdrawn",
+  "testimonial.hidden",
+  "testimonial.trashed",
+  "testimonial.restored",
+];
+
+/**
+ * Active hooks for an event: every-project hooks and the project's own, then
+ * by their events (none selected = DEFAULT_EVENTS). A hook set on one form
+ * (FORM-10) hears only about that form's testimonials.
+ */
+export function subscribers(event: WebhookEvent, projectId: string | null, formId?: string | null) {
   const rows = getDb()
     .select()
     .from(webhooks)
@@ -66,8 +89,73 @@ function subscribers(event: WebhookEvent, projectId: string | null) {
     .all();
   return rows.filter((w) => {
     const events = parseEvents(w.events);
-    return events.length === 0 || events.includes(event);
+    const wanted = events.length ? events.includes(event) : DEFAULT_EVENTS.includes(event);
+    return wanted && (!w.formId || w.formId === formId);
   });
+}
+
+/** What listeners (notifications, WP7.1) get with each event. */
+export type EventContext = {
+  project: Project;
+  testimonial?: TestimonialWithTags;
+  formId: string | null;
+  /** Set for bulk work (imports) that sends no webhooks; a listener decides what that means for it. */
+  quiet: boolean;
+};
+export type EventListener = (event: WebhookEvent, ctx: EventContext) => void;
+
+const listeners: EventListener[] = [];
+
+/** Lets another area react to every event (as notifications do) without this file changing again. */
+export function registerEventListener(fn: EventListener) {
+  if (!listeners.includes(fn)) listeners.push(fn);
+}
+
+/** The project and payload are only built when a hook or listener will use them. */
+function fanOut(
+  event: WebhookEvent,
+  projectId: string | null,
+  loadProject: () => Project | null,
+  data: () => object,
+  o: { formId?: string | null; quiet?: boolean; testimonial?: TestimonialWithTags },
+) {
+  let sent = 0;
+  let project: Project | null = null;
+  try {
+    const hooks = o.quiet ? [] : subscribers(event, projectId, o.formId);
+    if (!hooks.length && !listeners.length) return 0;
+    project = loadProject();
+    if (hooks.length) {
+      const body = { project: project ? projectToApi(project) : null, data: data() };
+      for (const hook of hooks) queueDelivery(hook, event, body);
+      sent = hooks.length;
+    }
+  } catch (err) {
+    console.error(`[webhooks] could not queue ${event}:`, err);
+  }
+  if (project) {
+    for (const fn of listeners) {
+      try {
+        fn(event, { project, testimonial: o.testimonial, formId: o.formId ?? null, quiet: Boolean(o.quiet) });
+      } catch (err) {
+        console.error(`[webhooks] a listener failed on ${event}:`, err);
+      }
+    }
+  }
+  return sent;
+}
+
+/**
+ * Sends an event to every matching webhook and listener; `quiet` skips the
+ * webhooks. Returns how many deliveries were queued. Never throws into the caller.
+ */
+export function emitEvent(
+  event: WebhookEvent,
+  project: Project | null,
+  data: object,
+  o: { formId?: string | null; quiet?: boolean } = {},
+) {
+  return fanOut(event, project?.id ?? null, () => project, () => data, o);
 }
 
 function queueDelivery(hook: Webhook, event: WebhookEvent, body: object) {
@@ -81,20 +169,12 @@ function queueDelivery(hook: Webhook, event: WebhookEvent, body: object) {
   return id;
 }
 
-/** Fans an event out to every matching webhook. Never throws into the caller. */
+/** Fans a testimonial's event out to every matching webhook (and listener). Never throws into the caller. */
 export function emitTestimonialEvent(event: WebhookEvent, t: TestimonialWithTags | null | undefined) {
   if (!t) return 0;
-  try {
-    const hooks = subscribers(event, t.projectId);
-    if (!hooks.length) return 0;
-    const project = getDb().select().from(projects).where(eq(projects.id, t.projectId)).get();
-    const body = { project: project ? projectToApi(project) : null, data: { testimonial: toApi(t) } };
-    for (const hook of hooks) queueDelivery(hook, event, body);
-    return hooks.length;
-  } catch (err) {
-    console.error(`[webhooks] could not queue ${event}:`, err);
-    return 0;
-  }
+  const project = () => getDb().select().from(projects).where(eq(projects.id, t.projectId)).get() ?? null;
+  const data = () => ({ testimonial: toApi(t), ...(event === "testimonial.approved" ? { approvedBy: t.approvedBy } : {}) });
+  return fanOut(event, t.projectId, project, data, { formId: t.formId, testimonial: t });
 }
 
 /** Sends a "ping" so the owner can check their endpoint. */

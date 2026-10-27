@@ -2,8 +2,10 @@ import { toApi } from "@/lib/api-shape";
 import { apiJson, requireApiKey } from "@/lib/api-keys";
 import { CaptionsError, normaliseCaptions } from "@/lib/captions";
 import { jsonError } from "@/lib/http";
-import { ConsentWithdrawnError, deleteTestimonial, getTestimonial, updateTestimonial } from "@/lib/testimonials";
+import { ConsentWithdrawnError, deleteTestimonial, DuplicateReviewError, getTestimonial, NoPublicConsentError, updateTestimonial } from "@/lib/testimonials";
 import { firstIssue, testimonialUpdateSchema } from "@/lib/validation";
+// Registers the notifications listener in this route's bundle (approvals post to chat channels).
+import "@/lib/notifications";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -16,7 +18,7 @@ export async function GET(req: Request, ctx: Ctx) {
   return apiJson({ data: toApi(t) });
 }
 
-/** PATCH /api/v1/testimonials/:id (write scope): moderate, retag or edit. */
+/** PATCH /api/v1/testimonials/:id (write scope): moderate (including hidden), retag or edit. */
 export async function PATCH(req: Request, ctx: Ctx) {
   const auth = requireApiKey(req, "write");
   if (auth.error) return auth.error;
@@ -37,12 +39,14 @@ export async function PATCH(req: Request, ctx: Ctx) {
     if (!t) return jsonError(404, "Testimonial not found");
     return apiJson({ data: toApi(t) });
   } catch (err) {
-    if (err instanceof ConsentWithdrawnError) return jsonError(409, err.message);
+    if (err instanceof ConsentWithdrawnError || err instanceof NoPublicConsentError || err instanceof DuplicateReviewError) {
+      return jsonError(409, err.message);
+    }
     throw err;
   }
 }
 
-/** DELETE /api/v1/testimonials/:id (write scope) */
+/** DELETE /api/v1/testimonials/:id (write scope): deletes for good, with its media. */
 export async function DELETE(req: Request, ctx: Ctx) {
   const auth = requireApiKey(req, "write");
   if (auth.error) return auth.error;

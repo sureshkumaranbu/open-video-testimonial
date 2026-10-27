@@ -1,0 +1,430 @@
+{
+ "feed": {
+  "author": {
+   "name": {
+    "label": "iTunes Store"
+   },
+   "uri": {
+    "label": "http://www.apple.com/uk/itunes/"
+   }
+  },
+  "entry": [
+   {
+    "author": {
+     "uri": {
+      "label": "https://itunes.apple.com/us/reviews/id900050"
+     },
+     "name": {
+      "label": "Logan Lark"
+     },
+     "label": ""
+    },
+    "updated": {
+     "label": "2026-09-23T09:50:00-07:00"
+    },
+    "im:rating": {
+     "label": "5"
+    },
+    "im:version": {
+     "label": "3.2"
+    },
+    "id": {
+     "label": "7100000050"
+    },
+    "title": {
+     "label": "Review number 51"
+    },
+    "content": {
+     "label": "Syncs across my phone and tablet without fuss. (Synthetic review 51.)",
+     "attributes": {
+      "type": "text"
+     }
+    },
+    "im:voteSum": {
+     "label": "0"
+    },
+    "im:voteCount": {
+     "label": "0"
+    }
+   },
+   {
+    "author": {
+     "uri": {
+      "label": "https://itunes.apple.com/us/reviews/id900051"
+     },
+     "name": {
+      "label": "Morgan Moss"
+     },
+     "label": ""
+    },
+    "updated": {
+     "label": "2026-09-24T09:51:00-07:00"
+    },
+    "im:rating": {
+     "label": "5"
+    },
+    "im:version": {
+     "label": "3.2"
+    },
+    "id": {
+     "label": "7100000051"
+    },
+    "title": {
+     "label": "Review number 52"
+    },
+    "content": {
+     "label": "Support answered within a day. (Synthetic review 52.)",
+     "attributes": {
+      "type": "text"
+     }
+    },
+    "im:voteSum": {
+     "label": "0"
+    },
+    "im:voteCount": {
+     "label": "0"
+    }
+   },
+   {
+    "author": {
+     "uri": {
+      "label": "https://itunes.apple.com/us/reviews/id900052"
+     },
+     "name": {
+      "label": "Noel Pike"
+     },
+     "label": ""
+    },
+    "updated": {
+     "label": "2026-09-25T09:52:00-07:00"
+    },
+    "im:rating": {
+     "label": "4"
+    },
+    "im:version": {
+     "label": "3.2"
+    },
+    "id": {
+     "label": "7100000052"
+    },
+    "title": {
+     "label": "Review number 53"
+    },
+    "content": {
+     "label": "Exactly what I needed for my shop. (Synthetic review 53.)",
+     "attributes": {
+      "type": "text"
+     }
+    },
+    "im:voteSum": {
+     "label": "0"
+    },
+    "im:voteCount": {
+     "label": "0"
+    }
+   },
+   {
+    "author": {
+     "uri": {
+      "label": "https://itunes.apple.com/us/reviews/id900053"
+     },
+     "name": {
+      "label": "Oakley Reed"
+     },
+     "label": ""
+    },
+    "updated": {
+     "label": "2026-09-26T09:53:00-07:00"
+    },
+    "im:rating": {
+     "label": "5"
+    },
+    "im:version": {
+     "label": "3.2"
+    },
+    "id": {
+     "label": "7100000053"
+    },
+    "title": {
+     "label": "Review number 54"
+    },
+    "content": {
+     "label": "The new update fixed the export bug. (Synthetic review 54.)",
+     "attributes": {
+      "type": "text"
+     }
+    },
+    "im:voteSum": {
+     "label": "0"
+    },
+    "im:voteCount": {
+     "label": "0"
+    }
+   },
+   {
+    "author": {
+     "uri": {
+      "label": "https://itunes.apple.com/us/reviews/id900054"
+     },
+     "name": {
+      "label": "Parker Stone"
+     },
+     "label": ""
+    },
+    "updated": {
+     "label": "2026-09-27T09:54:00-07:00"
+    },
+    "im:rating": {
+     "label": "3"
+    },
+    "im:version": {
+     "label": "3.2"
+    },
+    "id": {
+     "label": "7100000054"
+    },
+    "title": {
+     "label": "Review number 55"
+    },
+    "content": {
+     "label": "Simple, calm and reliable. (Synthetic review 55.)",
+     "attributes": {
+      "type": "text"
+     }
+    },
+    "im:voteSum": {
+     "label": "0"
+    },
+    "im:voteCount": {
+     "label": "0"
+    }
+   },
+   {
+    "author": {
+     "uri": {
+      "label": "https://itunes.apple.com/us/reviews/id900055"
+     },
+     "name": {
+      "label": "Quinn Vale"
+     },
+     "label": ""
+    },
+    "updated": {
+     "label": "2026-09-28T09:55:00-07:00"
+    },
+    "im:rating": {
+     "label": "5"
+    },
+    "im:version": {
+     "label": "3.2"
+    },
+    "id": {
+     "label": "7100000055"
+    },
+    "title": {
+     "label": "Review number 56"
+    },
+    "content": {
+     "label": "I recommend it to every new client. (Synthetic review 56.)",
+     "attributes": {
+      "type": "text"
+     }
+    },
+    "im:voteSum": {
+     "label": "0"
+    },
+    "im:voteCount": {
+     "label": "0"
+    }
+   },
+   {
+    "author": {
+     "uri": {
+      "label": "https://itunes.apple.com/us/reviews/id900056"
+     },
+     "name": {
+      "label": "Reese Wren"
+     },
+     "label": ""
+    },
+    "updated": {
+     "label": "2026-09-01T09:56:00-07:00"
+    },
+    "im:rating": {
+     "label": "4"
+    },
+    "im:version": {
+     "label": "3.2"
+    },
+    "id": {
+     "label": "7100000056"
+    },
+    "title": {
+     "label": "Review number 57"
+    },
+    "content": {
+     "label": "Saves me an hour every morning. (Synthetic review 57.)",
+     "attributes": {
+      "type": "text"
+     }
+    },
+    "im:voteSum": {
+     "label": "0"
+    },
+    "im:voteCount": {
+     "label": "0"
+    }
+   },
+   {
+    "author": {
+     "uri": {
+      "label": "https://itunes.apple.com/us/reviews/id900057"
+     },
+     "name": {
+      "label": "Sage Yew"
+     },
+     "label": ""
+    },
+    "updated": {
+     "label": "2026-09-02T09:57:00-07:00"
+    },
+    "im:rating": {
+     "label": "2"
+    },
+    "im:version": {
+     "label": "3.2"
+    },
+    "id": {
+     "label": "7100000057"
+    },
+    "title": {
+     "label": "Review number 58"
+    },
+    "content": {
+     "label": "The widgets are clean and quick. (Synthetic review 58.)",
+     "attributes": {
+      "type": "text"
+     }
+    },
+    "im:voteSum": {
+     "label": "0"
+    },
+    "im:voteCount": {
+     "label": "0"
+    }
+   },
+   {
+    "author": {
+     "uri": {
+      "label": "https://itunes.apple.com/us/reviews/id900058"
+     },
+     "name": {
+      "label": "Tatum Ash"
+     },
+     "label": ""
+    },
+    "updated": {
+     "label": "2026-09-03T09:58:00-07:00"
+    },
+    "im:rating": {
+     "label": "5"
+    },
+    "im:version": {
+     "label": "3.2"
+    },
+    "id": {
+     "label": "7100000058"
+    },
+    "title": {
+     "label": "Review number 59"
+    },
+    "content": {
+     "label": "Syncs across my phone and tablet without fuss. (Synthetic review 59.)",
+     "attributes": {
+      "type": "text"
+     }
+    },
+    "im:voteSum": {
+     "label": "0"
+    },
+    "im:voteCount": {
+     "label": "0"
+    }
+   },
+   {
+    "author": {
+     "uri": {
+      "label": "https://itunes.apple.com/us/reviews/id900059"
+     },
+     "name": {
+      "label": "Umi Brook"
+     },
+     "label": ""
+    },
+    "updated": {
+     "label": "2026-09-04T09:59:00-07:00"
+    },
+    "im:rating": {
+     "label": "4"
+    },
+    "im:version": {
+     "label": "3.2"
+    },
+    "id": {
+     "label": "7100000059"
+    },
+    "title": {
+     "label": "Review number 60"
+    },
+    "content": {
+     "label": "Support answered within a day. (Synthetic review 60.)",
+     "attributes": {
+      "type": "text"
+     }
+    },
+    "im:voteSum": {
+     "label": "0"
+    },
+    "im:voteCount": {
+     "label": "0"
+    }
+   }
+  ],
+  "updated": {
+   "label": "2026-10-26T01:00:00-07:00"
+  },
+  "title": {
+   "label": "iTunes Store: Customer Reviews"
+  },
+  "link": [
+   {
+    "attributes": {
+     "rel": "alternate",
+     "type": "text/html",
+     "href": "https://apps.apple.com/us/app/id123456789"
+    }
+   },
+   {
+    "attributes": {
+     "rel": "self",
+     "href": "https://itunes.apple.com/us/rss/customerreviews/page=2/id=123456789/sortby=mostrecent/json"
+    }
+   },
+   {
+    "attributes": {
+     "rel": "first",
+     "href": "https://itunes.apple.com/us/rss/customerreviews/page=1/id=123456789/sortby=mostrecent/xml"
+    }
+   },
+   {
+    "attributes": {
+     "rel": "last",
+     "href": "https://itunes.apple.com/us/rss/customerreviews/page=2/id=123456789/sortby=mostrecent/xml"
+    }
+   }
+  ],
+  "id": {
+   "label": "https://itunes.apple.com/us/rss/customerreviews/page=2/id=123456789/sortby=mostrecent/json"
+  }
+ }
+}

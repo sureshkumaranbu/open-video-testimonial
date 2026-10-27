@@ -1,0 +1,87 @@
+{
+ "data": {
+  "post": {
+   "id": "500",
+   "name": "Acme",
+   "url": "https://www.producthunt.com/posts/acme-launch",
+   "comments": {
+    "pageInfo": {
+     "endCursor": "Y3Vyc29yMjU=",
+     "hasNextPage": false
+    },
+    "edges": [
+     {
+      "node": {
+       "id": "3000020",
+       "body": "Congrats on the launch! We've used it for 22 weeks &amp; love it.",
+       "createdAt": "2026-10-21T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000020",
+       "user": {
+        "name": "Maker Friend 21",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/20.png",
+        "username": "friend20"
+       }
+      }
+     },
+     {
+      "node": {
+       "id": "3000021",
+       "body": "Congrats on the launch! We've used it for 23 weeks &amp; love it.",
+       "createdAt": "2026-10-22T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000021",
+       "user": {
+        "name": "Maker Friend 22",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/21.png",
+        "username": "friend21"
+       }
+      }
+     },
+     {
+      "node": {
+       "id": "3000022",
+       "body": "Congrats on the launch! We've used it for 24 weeks &amp; love it.",
+       "createdAt": "2026-10-23T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000022",
+       "user": {
+        "name": "Maker Friend 23",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/22.png",
+        "username": "friend22"
+       }
+      }
+     },
+     {
+      "node": {
+       "id": "3000023",
+       "body": "Congrats on the launch! We've used it for 25 weeks &amp; love it.",
+       "createdAt": "2026-10-24T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000023",
+       "user": {
+        "name": "Maker Friend 24",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/23.png",
+        "username": "friend23"
+       }
+      }
+     },
+     {
+      "node": {
+       "id": "3000024",
+       "body": "Congrats on the launch! We've used it for 26 weeks &amp; love it.",
+       "createdAt": "2026-10-25T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000024",
+       "user": {
+        "name": "Maker Friend 25",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/24.png",
+        "username": "friend24"
+       }
+      }
+     }
+    ]
+   }
+  }
+ }
+}

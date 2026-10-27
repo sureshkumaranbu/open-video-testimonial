@@ -1,11 +1,14 @@
+import { getRequestSession } from "@/lib/auth";
 import { CaptionsError, normaliseCaptions } from "@/lib/captions";
 import { jsonError, requireAdmin } from "@/lib/http";
-import { ConsentWithdrawnError, deleteTestimonial, updateTestimonial } from "@/lib/testimonials";
+import { ConsentWithdrawnError, deleteTestimonial, DuplicateReviewError, NoPublicConsentError, updateTestimonial } from "@/lib/testimonials";
 import { firstIssue, testimonialUpdateSchema } from "@/lib/validation";
+// Registers the notifications listener in this route's bundle (approvals post to chat channels).
+import "@/lib/notifications";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-/** Approve/reject, rename, or retag a testimonial. */
+/** Approve, reject or hide; rename, retag or edit a testimonial. The history records who did it. */
 export async function PATCH(req: Request, ctx: Ctx) {
   const denied = requireAdmin(req);
   if (denied) return denied;
@@ -26,15 +29,18 @@ export async function PATCH(req: Request, ctx: Ctx) {
   }
   let testimonial;
   try {
-    testimonial = updateTestimonial(id, patch);
+    testimonial = updateTestimonial(id, patch, { by: getRequestSession(req)?.email });
   } catch (err) {
-    if (err instanceof ConsentWithdrawnError) return jsonError(409, err.message);
+    if (err instanceof ConsentWithdrawnError || err instanceof NoPublicConsentError || err instanceof DuplicateReviewError) {
+      return jsonError(409, err.message);
+    }
     throw err;
   }
   if (!testimonial) return jsonError(404, "Testimonial not found");
   return Response.json({ testimonial });
 }
 
+/** Deletes for good (the dashboard offers this only from the trash; POST …/trash moves it there). */
 export async function DELETE(req: Request, ctx: Ctx) {
   const denied = requireAdmin(req);
   if (denied) return denied;

@@ -10,5 +10,8 @@ next-env.d.ts
 *.tsbuildinfo
 coverage/
 .e2e-data/
+.demo-data/
 test-results/
 playwright-report/
+.qa/
+.claude/worktrees/

@@ -14,6 +14,9 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The ownership check diffs the pull request against its base branch.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -58,6 +61,17 @@ jobs:
       - run: npm ci
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=moderate
+      - name: Migration guards and schema drift
+        run: npm run db:check
+      # On a work-package branch (wp/<id>), fails if the PR changes files the
+      # package doesn't own (docs/plan/ownership.json); elsewhere it checks the manifest.
+      - name: Package ownership
+        run: npm run check:ownership -- ${BASE_REF:+--base "origin/$BASE_REF"}
+        env:
+          BASE_REF: ${{ github.base_ref }}
+      # A gate for all of Phase 1: every requirement ID has a test that names it.
+      - name: Requirement coverage
+        run: npm run check:req -- --all
       - run: npm run typecheck
       - run: npm test
       - name: Install Playwright Chromium

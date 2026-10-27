@@ -1,13 +1,30 @@
 import { CORS_HEADERS, jsonError } from "@/lib/http";
-import { getProjectBySlug, listPublicTestimonials } from "@/lib/testimonials";
+import { findProjectBySlugOrAlias } from "@/lib/projects";
+import { getProjectById, listPublicTestimonials } from "@/lib/testimonials";
+import { EMPTY_WIDGET_PAYLOAD, getWidget, WIDGET_ID, widgetConfig, widgetPayload } from "@/lib/widgets";
+
+const CACHE = "public, max-age=60, stale-while-revalidate=300";
+
+/** Widget mode (DISP-01): a saved widget's payload. A deleted one answers with nothing to show. */
+function savedWidget(id: string) {
+  const w = getWidget(id);
+  const project = w && getProjectById(w.projectId);
+  if (!w || !project) return jsonError(404, "Widget not found", CORS_HEADERS);
+  const body = w.deletedAt ? EMPTY_WIDGET_PAYLOAD : widgetPayload(project, w, widgetConfig(w));
+  return Response.json(body, { headers: { ...CORS_HEADERS, "Cache-Control": CACHE } });
+}
 
 /**
  * Public, CORS-enabled feed of approved testimonials, consumed by the
- * embeddable widget script. Media URLs are relative to this server.
+ * embeddable widget script. Media URLs are relative to this server. A
+ * `w_…` id answers in widget mode; a project slug gets today's payload,
+ * unchanged (D18).
  */
 export async function GET(req: Request, ctx: { params: Promise<{ slug: string }> }) {
   const { slug } = await ctx.params;
-  const project = getProjectBySlug(slug);
+  if (WIDGET_ID.test(slug)) return savedWidget(slug);
+  // An old slug is answered directly, not redirected, so embeds stay a simple CORS GET (D17).
+  const project = findProjectBySlugOrAlias(slug)?.project;
   if (!project) return jsonError(404, "Project not found", CORS_HEADERS);
 
   const url = new URL(req.url);
@@ -23,7 +40,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
     {
       headers: {
         ...CORS_HEADERS,
-        "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+        "Cache-Control": CACHE,
       },
     },
   );

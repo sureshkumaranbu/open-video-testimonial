@@ -8,6 +8,7 @@ import { resetRateLimits } from "@/lib/rate-limit";
 
 export const ADMIN_EMAIL = "owner@example.com";
 export const ADMIN_PASSWORD = "correct horse battery staple";
+export const MIGRATIONS_DIR = path.resolve(__dirname, "../drizzle");
 
 /** Points the app at a fresh, empty data directory. */
 export function useTempDataDir() {
@@ -16,7 +17,7 @@ export function useTempDataDir() {
   resetRateLimits();
   process.env.DATA_DIR = dir;
   delete process.env.DATABASE_PATH;
-  process.env.MIGRATIONS_DIR = path.resolve(__dirname, "../drizzle");
+  process.env.MIGRATIONS_DIR = MIGRATIONS_DIR;
   process.env.SESSION_SECRET = "test-secret-test-secret-test-secret";
   process.env.ADMIN_EMAIL = ADMIN_EMAIL;
   process.env.ADMIN_PASSWORD = ADMIN_PASSWORD;
@@ -27,6 +28,43 @@ export function useTempDataDir() {
     dir,
     cleanup() {
       closeDb();
+      fs.rmSync(dir, { recursive: true, force: true });
+    },
+  };
+}
+
+/**
+ * Builds databases as an older release left them: points the app at a copy of
+ * drizzle/ that stops after journal entry `idx`, so the next getDb() migrates
+ * only that far. Seed it, then call `upgrade()`: the next getDb() runs the
+ * remaining migrations on the same file, exactly as a server upgrade does.
+ * Call after useTempDataDir().
+ */
+export function useMigrationsUpTo(idx: number) {
+  const journal = JSON.parse(fs.readFileSync(path.join(MIGRATIONS_DIR, "meta/_journal.json"), "utf8")) as {
+    entries: { idx: number; tag: string }[];
+  };
+  const entries = journal.entries.filter((e) => e.idx <= idx);
+  if (!entries.some((e) => e.idx === idx)) throw new Error(`No migration with journal idx ${idx}`);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "plaudit-migrations-"));
+  fs.mkdirSync(path.join(dir, "meta"));
+  for (const e of entries) {
+    fs.copyFileSync(path.join(MIGRATIONS_DIR, `${e.tag}.sql`), path.join(dir, `${e.tag}.sql`));
+    const snapshot = `${String(e.idx).padStart(4, "0")}_snapshot.json`;
+    fs.copyFileSync(path.join(MIGRATIONS_DIR, "meta", snapshot), path.join(dir, "meta", snapshot));
+  }
+  fs.writeFileSync(path.join(dir, "meta/_journal.json"), JSON.stringify({ ...journal, entries }, null, 2));
+  closeDb();
+  process.env.MIGRATIONS_DIR = dir;
+  return {
+    dir,
+    /** Tags of the migrations still to run. */
+    pending: journal.entries.filter((e) => e.idx > idx).map((e) => e.tag),
+    upgrade() {
+      closeDb();
+      process.env.MIGRATIONS_DIR = MIGRATIONS_DIR;
+    },
+    cleanup() {
       fs.rmSync(dir, { recursive: true, force: true });
     },
   };
@@ -80,4 +118,25 @@ export function hasFfmpeg() {
     }
   }
   return ffmpegChecked;
+}
+
+/**
+ * A step-by-step form submission: the JSON `payload` plus files (`avatar`,
+ * `companyLogo`, `images:<questionKey>`) and any extra top-level field, such
+ * as the `website` honeypot.
+ */
+export function formSubmission(payload: object, files: Record<string, File | File[]> = {}, extra: Record<string, string> = {}) {
+  const form = new FormData();
+  form.set("payload", JSON.stringify(payload));
+  for (const [k, v] of Object.entries(files)) for (const f of Array.isArray(v) ? v : [v]) form.append(k, f);
+  for (const [k, v] of Object.entries(extra)) form.set(k, v);
+  return form;
+}
+
+export function submitFormRequest(slug: string, formSlug: string, form: FormData, ip = "203.0.113.7") {
+  return new Request(`http://localhost/api/projects/${slug}/forms/${formSlug}/submissions`, {
+    method: "POST",
+    body: form,
+    headers: { "x-forwarded-for": ip },
+  });
 }

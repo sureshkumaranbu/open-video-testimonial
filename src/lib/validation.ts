@@ -1,5 +1,13 @@
 import { z } from "zod";
-import { TESTIMONIAL_STATUSES } from "@/db/schema";
+import { DATE_PRECISIONS } from "@/db/schema";
+import { fieldKeySchema } from "./forms/schema";
+
+/** For a PATCH: null, "" or only spaces clear the field (undefined leaves it alone, via .optional()). */
+const clearable = <T extends z.ZodType>(schema: T) =>
+  z.preprocess((v) => (v === null || (typeof v === "string" && !v.trim()) ? null : v), schema.nullable());
+
+const httpUrl = z.url({ protocol: /^https?$/, error: "Use an http:// or https:// address" }).max(2000);
+const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Use a hex colour such as #e2463f");
 
 const optionalText = (max: number) =>
   z
@@ -80,12 +88,62 @@ export const projectSchema = z.object({
   thankYouEmail: z.boolean().optional(),
 });
 
-export const projectUpdateSchema = projectSchema.partial().omit({ slug: true });
+/** The brand kit: defaults for new forms, widgets and walls. Colours or fonts left out follow the accent colour. */
+export const brandSchema = z.object({
+  colors: z
+    .object({
+      primary: hexColor,
+      background: hexColor,
+      text: hexColor,
+      button: hexColor,
+      buttonText: hexColor,
+      star: hexColor,
+    })
+    .partial()
+    .default({}),
+  /** FONT_CHOICES ids (src/lib/forms/design.ts). */
+  fonts: z
+    .object({ heading: z.string().trim().min(1).max(40), body: z.string().trim().min(1).max(40) })
+    .partial()
+    .default({}),
+});
+export type Brand = z.infer<typeof brandSchema>;
+
+export const projectUpdateSchema = projectSchema
+  .extend({
+    autoApprove: z.boolean(),
+    autoApproveMinRating: z.union([z.literal(4), z.literal(5)]),
+    autoApproveVideo: z.boolean(),
+    /** The product's own site. */
+    website: clearable(httpUrl),
+    /** What the onboarding wizard asked (saas, agency, local…); free text so new kinds need no migration. */
+    businessType: clearable(z.string().trim().max(40)),
+    brand: brandSchema,
+  })
+  .partial()
+  .omit({ slug: true });
 
 export const tagNameSchema = z.string().trim().min(1).max(32);
 
+/** {x, linkedin, instagram, tiktok}: a profile link or handle each; empty ones are dropped. */
+export const authorSocialsSchema = z
+  .strictObject({
+    x: z.string().trim().max(200),
+    linkedin: z.string().trim().max(200),
+    instagram: z.string().trim().max(200),
+    tiktok: z.string().trim().max(200),
+  })
+  .partial()
+  .transform((v) => Object.fromEntries(Object.entries(v).filter(([, s]) => s)) as Record<string, string>);
+
+/** Answers to the form's custom fields, by field key. Private: never public. */
+export const customFieldsSchema = z
+  .record(fieldKeySchema, z.union([z.string().max(2000), z.number(), z.boolean(), z.null()]))
+  .refine((v) => Object.keys(v).length <= 50, "Custom fields can have at most 50 items");
+
 export const testimonialUpdateSchema = z.object({
-  status: z.enum(TESTIMONIAL_STATUSES).optional(),
+  // Trashed only through POST …/trash, which remembers where to restore it to.
+  status: z.enum(["pending", "approved", "rejected", "hidden"]).optional(),
   authorName: z.string().trim().min(1).max(120).optional(),
   authorTitle: z.string().trim().max(120).nullable().optional(),
   authorCompany: z.string().trim().max(120).nullable().optional(),
@@ -95,6 +153,33 @@ export const testimonialUpdateSchema = z.object({
   /** WebVTT or SRT; normalised to WebVTT before saving. */
   captionsVtt: z.string().max(200_000).nullable().optional(),
   tags: z.array(tagNameSchema).max(20).optional(),
+  // Phase 1
+  headline: clearable(z.string().trim().max(200)).optional(),
+  authorWebsite: clearable(httpUrl).optional(),
+  authorPhone: clearable(z.string().trim().max(40)).optional(),
+  authorSocials: authorSocialsSchema.optional(),
+  sourceUrl: clearable(httpUrl).optional(),
+  /** When it was first posted elsewhere: 2026-10-12 or a full ISO timestamp. */
+  sourceDate: clearable(z.union([z.iso.date(), z.iso.datetime({ offset: true })]).transform((s) => new Date(s))).optional(),
+  datePrecision: z.enum(DATE_PRECISIONS).optional(),
+  platform: clearable(
+    z
+      .string()
+      .trim()
+      .toLowerCase()
+      .max(40)
+      .regex(/^[a-z0-9][a-z0-9._-]*$/, "Use lowercase letters, numbers, dots and dashes for the platform"),
+  ).optional(),
+  language: clearable(
+    z
+      .string()
+      .trim()
+      .max(35)
+      .regex(/^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$/, "Use a language code such as en or pt-BR"),
+  ).optional(),
+  customFields: customFieldsSchema.optional(),
+  isFeatured: z.boolean().optional(),
+  pinOrder: clearable(z.number().int().min(0).max(10_000)).optional(),
 });
 
 // ------------------------------------------------------------- messages
@@ -123,6 +208,46 @@ const FIELD_LABELS: Record<string, string> = {
   tags: "Tags",
   consentScopes: "Consent scopes",
   projectId: "Project",
+  // Phase 1
+  headline: "Headline",
+  authorWebsite: "Website",
+  authorPhone: "Phone",
+  authorSocials: "Social profiles",
+  companyLogo: "Company logo",
+  sourceUrl: "Source link",
+  sourceDate: "Date",
+  datePrecision: "Date precision",
+  sourceReviewId: "Review ID",
+  platform: "Platform",
+  language: "Language",
+  customFields: "Custom fields",
+  hiddenFields: "Hidden fields",
+  isFeatured: "Featured",
+  pinOrder: "Pin order",
+  primaryQuestion: "Question",
+  formId: "Form",
+  formIds: "Forms",
+  customerId: "Customer",
+  website: "Website",
+  businessType: "Business type",
+  brand: "Brand kit",
+  logo: "Logo",
+  confirm: "Confirmation",
+  pages: "Form pages",
+  design: "Design",
+  labels: "Labels",
+  layout: "Layout",
+  closedMessage: "Closed message",
+  autoTags: "Automatic tags",
+  maxPerIpPerDay: "Daily limit per visitor",
+  selectionMode: "Selection",
+  manualIds: "Chosen testimonials",
+  pinnedIds: "Pinned testimonials",
+  connectedFormId: "Connected form",
+  schemaType: "Schema type",
+  target: "Destination",
+  ids: "Testimonials",
+  q: "Search",
 };
 
 /** Fields whose rule is easier to state whole than to derive from the failed check. */
@@ -131,7 +256,14 @@ const FIELD_RULES: Record<string, string> = {
   accentColor: "Accent colour must be a hex colour such as #e2463f",
   maxVideoSeconds: "Maximum video length must be a whole number of seconds from 15 to 600",
   scope: "Access must be read or write",
-  status: "Status must be pending, approved or rejected",
+  status: "Status must be pending, approved, rejected or hidden",
+  // Phase 1
+  datePrecision: "Date precision must be day, month or year",
+  minRating: "Minimum rating must be a whole number from 1 to 5",
+  allowImages: "Images per answer must be a whole number from 0 to 3",
+  pageSize: "Page size must be 25, 50 or 100",
+  selectionMode: "Selection must be auto or manual",
+  schemaType: "Schema type must be Product, Organization, LocalBusiness, SoftwareApplication or Course",
 };
 
 function fieldOf(path: readonly PropertyKey[] | undefined) {

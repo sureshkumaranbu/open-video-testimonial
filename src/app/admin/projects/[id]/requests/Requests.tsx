@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { EmailStatus, Project, RequestStatus } from "@/db/schema";
+import { EmptyState } from "@/components/admin";
 import { Icon } from "@/components/Icon";
 
 type Row = {
@@ -60,10 +61,17 @@ export function Requests({ project, email, defaults }: Props) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [forms, setForms] = useState<{ id: string; name: string; isDefault: boolean; status: string }[]>([]);
+  /** The form new links open; "" is the default form. */
+  const [formId, setFormId] = useState("");
 
   const load = useCallback(async () => {
     try {
-      setRows((await api<{ requests: Row[] }>(`/api/admin/projects/${project.id}/requests`)).requests);
+      const body = await api<{ requests: Row[]; forms?: { id: string; name: string; isDefault: boolean; status: string }[] }>(
+        `/api/admin/projects/${project.id}/requests`,
+      );
+      setRows(body.requests);
+      setForms(body.forms ?? []);
     } catch (err) {
       setError((err as Error).message);
     }
@@ -89,7 +97,7 @@ export function Requests({ project, email, defaults }: Props) {
     try {
       const res = await api<{ created: Row[]; skipped: { email: string; reason: string }[]; invalid: string[] }>(
         `/api/admin/projects/${project.id}/requests`,
-        { method: "POST", body: JSON.stringify({ recipients, send }) },
+        { method: "POST", body: JSON.stringify({ recipients, send, ...(formId ? { formId } : {}) }) },
       );
       const parts = [`Added ${res.created.length} ${res.created.length === 1 ? "person" : "people"}.`];
       if (res.skipped.length) {
@@ -173,10 +181,18 @@ export function Requests({ project, email, defaults }: Props) {
             </p>
           )}
           {rows.length === 0 ? (
-            <div className="empty">
-              <Icon name="inbox" />
-              <p>Nobody asked yet. Add people on the right.</p>
-            </div>
+            <EmptyState
+              icon="mail"
+              title="No requests yet"
+              testId="requests-empty"
+              action={
+                <button type="button" onClick={() => document.getElementById("request-people")?.focus()}>
+                  Invite people
+                </button>
+              }
+            >
+              <p>Nobody asked yet. Add people to email them a personal link to your form.</p>
+            </EmptyState>
           ) : (
             <div className="table-wrap panel">
               <table className="data-table">
@@ -241,6 +257,7 @@ export function Requests({ project, email, defaults }: Props) {
                   People <span className="hint">(one per line: name, email, company; or paste a CSV with a header row)</span>
                 </span>
                 <textarea
+                  id="request-people"
                   rows={6}
                   value={recipients}
                   onChange={(e) => setRecipients(e.target.value)}
@@ -263,6 +280,20 @@ export function Requests({ project, email, defaults }: Props) {
                   }}
                 />
               </label>
+              {forms.length > 1 && (
+                <label>
+                  Form the links open
+                  <select value={formId} onChange={(e) => setFormId(e.target.value)} data-testid="request-form">
+                    {forms.map((f) => (
+                      <option key={f.id} value={f.isDefault ? "" : f.id}>
+                        {f.name}
+                        {f.isDefault ? " (default)" : ""}
+                        {f.status === "paused" ? " · paused" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <label className="check">
                 <input
                   type="checkbox"

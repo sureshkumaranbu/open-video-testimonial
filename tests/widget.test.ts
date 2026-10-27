@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { GET as media } from "@/app/api/media/[...key]/route";
 import { GET, OPTIONS } from "@/app/api/widget/[slug]/route";
 import { createProject, createTestimonial, updateTestimonial } from "@/lib/testimonials";
+import { createWidget } from "@/lib/widgets";
 import { params, useTempDataDir } from "./helpers";
 
 let ctx: ReturnType<typeof useTempDataDir>;
@@ -78,6 +79,18 @@ describe("GET /api/widget/:slug", () => {
     const res = await widget();
     expect(res.headers.get("access-control-allow-origin")).toBe("*");
     expect(OPTIONS().status).toBe(204);
+  });
+
+  it("DISP-01 a w_ id answers in widget mode, while the slug feed keeps its exact shape", async () => {
+    const t = createTestimonial(projectId, { name: "Ada", text: "Hi" });
+    updateTestimonial(t.id, { status: "approved" });
+    const w = createWidget(projectId, { name: "Home", layout: "list" });
+    const byId = await (await GET(new Request(`http://localhost/api/widget/${w.id}`), params({ slug: w.id }))).json();
+    expect(Object.keys(byId).sort()).toEqual(["aggregate", "project", "testimonials", "widget"]);
+    expect(byId.testimonials[0].extra).toBeDefined();
+    const bySlug = await (await widget()).json();
+    expect(Object.keys(bySlug).sort()).toEqual(["project", "testimonials"]);
+    expect(bySlug.testimonials[0].extra).toBeUndefined();
   });
 
   it("404s for unknown projects", async () => {

@@ -1,0 +1,83 @@
+{
+ "places": [
+  {
+   "id": "ChIJsyntheticPlace000001",
+   "displayName": {
+    "text": "Acme Bakery",
+    "languageCode": "en"
+   },
+   "googleMapsUri": "https://maps.google.com/?cid=1234567890",
+   "reviews": [
+    {
+     "name": "places/ChIJsyntheticPlace000001/reviews/ChZDSUhNMG9nS0VJQ0FnSUR1",
+     "relativePublishTimeDescription": "a week ago",
+     "rating": 5,
+     "text": {
+      "text": "Best sourdough in town.",
+      "languageCode": "en"
+     },
+     "originalText": {
+      "text": "Best sourdough in town.",
+      "languageCode": "en"
+     },
+     "authorAttribution": {
+      "displayName": "Nadia Park",
+      "uri": "https://www.google.com/maps/contrib/1",
+      "photoUri": "https://lh3.googleusercontent.example/a/nadia"
+     },
+     "publishTime": "2026-10-18T07:12:00Z",
+     "googleMapsUri": "https://www.google.com/maps/reviews/data=1"
+    },
+    {
+     "name": "places/ChIJsyntheticPlace000001/reviews/ChZDSUhNMG9nS0VJQ0FnSUR2",
+     "rating": 4,
+     "text": {
+      "text": "Great coffee, the queue moves fast.",
+      "languageCode": "en"
+     },
+     "originalText": {
+      "text": "Super Kaffee, die Schlange geht schnell.",
+      "languageCode": "de"
+     },
+     "authorAttribution": {
+      "displayName": "Felix Braun",
+      "photoUri": "//lh3.googleusercontent.example/a/felix"
+     },
+     "publishTime": "2026-10-02T15:00:00Z"
+    },
+    {
+     "name": "places/ChIJsyntheticPlace000001/reviews/ChZDSUhNMG9nS0VJQ0FnSUR3",
+     "rating": 2,
+     "authorAttribution": {
+      "displayName": "Quiet Customer"
+     },
+     "publishTime": "2026-09-20T15:00:00Z"
+    },
+    {
+     "name": "places/ChIJsyntheticPlace000001/reviews/ChZDSUhNMG9nS0VJQ0FnSUR4",
+     "rating": 5,
+     "text": {
+      "text": "Lovely staff.",
+      "languageCode": "en"
+     },
+     "authorAttribution": {
+      "displayName": "Ana Ruiz"
+     },
+     "publishTime": "2026-09-01T10:00:00Z"
+    },
+    {
+     "name": "places/ChIJsyntheticPlace000001/reviews/ChZDSUhNMG9nS0VJQ0FnSUR5",
+     "rating": 3,
+     "text": {
+      "text": "Fine.",
+      "languageCode": "en"
+     },
+     "authorAttribution": {
+      "displayName": "Ben Oduya"
+     },
+     "publishTime": "2026-08-11T10:00:00Z"
+    }
+   ]
+  }
+ ]
+}

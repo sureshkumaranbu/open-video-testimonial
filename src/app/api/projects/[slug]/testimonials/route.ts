@@ -1,11 +1,8 @@
-import { clientIp, clientKey, rateLimit } from "@/lib/rate-limit";
-import { grantConsent, withdrawUrl } from "@/lib/consent";
-import { queueVideoProcessing } from "@/lib/media";
-import { findRequestByToken, markResponded, queueThankYou } from "@/lib/requests";
-import { deleteObject, saveUpload, UploadError } from "@/lib/storage";
-import { claimUpload, getUpload } from "@/lib/uploads";
-import { createTestimonial, getProjectBySlug, getTestimonial } from "@/lib/testimonials";
-import { emitTestimonialEvent } from "@/lib/webhooks";
+import { clientKey, rateLimit } from "@/lib/rate-limit";
+import { getDefaultForm } from "@/lib/forms";
+import { findProjectBySlugOrAlias } from "@/lib/projects";
+import { legacySubmission, SubmissionError, submitForm } from "@/lib/submissions";
+import { getUpload } from "@/lib/uploads";
 import { firstIssue, submissionSchema } from "@/lib/validation";
 import { jsonError } from "@/lib/http";
 
@@ -17,10 +14,15 @@ function fileField(form: FormData, name: string) {
   return value instanceof File && value.size > 0 ? value : null;
 }
 
-/** Public endpoint behind the collection page. New testimonials start as pending. */
+/**
+ * Public endpoint behind the classic collection page (and the e2e seed). New
+ * testimonials start as pending, unless the form auto-approves them. A thin
+ * adapter onto submitForm with the default form: same fields (including the
+ * old direct `video`), honeypot, limit and response, plus `thankYou`.
+ */
 export async function POST(req: Request, ctx: { params: Promise<{ slug: string }> }) {
   const { slug } = await ctx.params;
-  const project = getProjectBySlug(slug);
+  const project = findProjectBySlugOrAlias(slug)?.project;
   if (!project) return jsonError(404, "Project not found");
 
   if (!rateLimit(`submit:${clientKey(req)}`, SUBMISSIONS_PER_WINDOW, WINDOW_MS)) {
@@ -49,17 +51,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ slug: string }
   const video = project.allowVideo ? fileField(form, "video") : null;
   // A video sent earlier through the resumable upload API.
   const uploadId = project.allowVideo ? form.get("videoUpload") : null;
-  let upload = null;
-  if (typeof uploadId === "string" && uploadId) {
+  const videoUpload = typeof uploadId === "string" && uploadId ? uploadId : undefined;
+  if (videoUpload) {
     const token = form.get("videoUploadToken");
-    upload = getUpload(uploadId, typeof token === "string" ? token : null);
+    const upload = getUpload(videoUpload, typeof token === "string" ? token : null);
     if (!upload || upload.kind !== "video" || upload.projectId !== project.id) {
       return jsonError(400, "The video upload has expired. Please upload it again.");
     }
   }
   const avatar = fileField(form, "avatar");
   const text = project.allowText ? input.text : undefined;
-  if (!text && !video && !upload) {
+  if (!text && !video && !videoUpload) {
     return jsonError(
       400,
       project.allowVideo && project.allowText
@@ -70,47 +72,30 @@ export async function POST(req: Request, ctx: { params: Promise<{ slug: string }
     );
   }
 
-  const saved: string[] = [];
+  // The default form's rules (pause, limits, tags, auto-approve, receipt) apply here too.
+  const defaultForm = getDefaultForm(project.id);
   try {
-    const storedVideo = upload
-      ? await claimUpload(upload, "video")
-      : video
-        ? await saveUpload(video, "video")
-        : null;
-    if (storedVideo) saved.push(storedVideo.key);
-    const storedAvatar = avatar ? await saveUpload(avatar, "image") : null;
-    if (storedAvatar) saved.push(storedAvatar.key);
-
-    // A personal request link: connect the two and stop the reminders.
-    const request = input.requestToken ? findRequestByToken(input.requestToken) : null;
-    const fromRequest = request?.projectId === project.id ? request : null;
-    const testimonial = createTestimonial(project.id, {
-      ...input,
-      requestId: fromRequest?.id,
-      text,
-      videoKey: storedVideo?.key,
-      videoMime: storedVideo?.mime,
-      avatarKey: storedAvatar?.key,
-    });
-    const withdrawToken = grantConsent({
-      testimonialId: testimonial.id,
+    const token = form.get("videoUploadToken");
+    const result = await submitForm({
       project,
-      versionId: input.consentVersion,
-      scopes: input.consentSocial ? ["social"] : [],
-      actor: "customer",
-      ip: clientIp(req),
+      form: defaultForm,
+      input: legacySubmission(defaultForm, {
+        ...input,
+        text,
+        videoUpload,
+        videoUploadToken: typeof token === "string" ? token : undefined,
+        consentSocial: input.consentSocial,
+      }),
+      files: { video, avatar },
+      req,
+      legacy: true,
     });
-    if (fromRequest) markResponded(fromRequest, testimonial.id);
-    emitTestimonialEvent("testimonial.created", getTestimonial(testimonial.id));
-    queueThankYou(project, fromRequest, withdrawUrl(withdrawToken));
-    if (storedVideo) await queueVideoProcessing(testimonial.id);
     return Response.json(
-      { ok: true, id: testimonial.id, message: project.thankYouMessage, withdrawUrl: withdrawUrl(withdrawToken) },
+      { ok: true, id: result.id, message: result.message, withdrawUrl: result.withdrawUrl, thankYou: result.thankYou },
       { status: 201 },
     );
   } catch (err) {
-    await Promise.all(saved.map((key) => deleteObject(key)));
-    if (err instanceof UploadError) return jsonError(400, err.message);
+    if (err instanceof SubmissionError) return jsonError(err.status, err.message);
     throw err;
   }
 }

@@ -1,16 +1,21 @@
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
+import { featureOn } from "@/lib/features";
+import { getWelcome } from "@/lib/onboarding";
 import { requireAdminPage } from "@/lib/server-session";
 import { countByStatus, listProjects } from "@/lib/testimonials";
 import { accentStyle } from "@/lib/theme";
 import { ImportProjectForm, NewProjectForm } from "./AdminForms";
 import { AppBar } from "./AppBar";
+import { WelcomeCard } from "./welcome/WelcomeCard";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Dashboard" };
 
 export default async function AdminHome() {
-  await requireAdminPage();
+  const session = await requireAdminPage();
+  // D10: onboarding is offered here as a card, never as a redirect.
+  const welcome = featureOn("onboarding") && !getWelcome(session.email);
   const projects = listProjects().map((p) => ({ ...p, counts: countByStatus(p.id) }));
   const waiting = projects.reduce((n, p) => n + p.counts.pending, 0);
 
@@ -30,6 +35,7 @@ export default async function AdminHome() {
             </p>
           </div>
         </div>
+        {welcome && <WelcomeCard first={projects.length === 0} />}
         <div className="project-grid">
           {projects.map((p) => (
             <Link key={p.id} href={`/admin/projects/${p.id}`} className="card project-card" style={accentStyle(p.accentColor)}>

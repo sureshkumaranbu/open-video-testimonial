@@ -1,0 +1,297 @@
+{
+ "data": {
+  "post": {
+   "id": "500",
+   "name": "Acme",
+   "url": "https://www.producthunt.com/posts/acme-launch",
+   "comments": {
+    "pageInfo": {
+     "endCursor": "Y3Vyc29yMjA=",
+     "hasNextPage": true
+    },
+    "edges": [
+     {
+      "node": {
+       "id": "3000000",
+       "body": "Congrats on the launch! We've used it for 2 weeks &amp; love it.",
+       "createdAt": "2026-10-01T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000000",
+       "user": {
+        "name": "Maker Friend 1",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/0.png",
+        "username": "friend0"
+       }
+      }
+     },
+     {
+      "node": {
+       "id": "3000001",
+       "body": "Congrats on the launch! We've used it for 3 weeks &amp; love it.",
+       "createdAt": "2026-10-02T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000001",
+       "user": {
+        "name": "Maker Friend 2",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/1.png",
+        "username": "friend1"
+       }
+      }
+     },
+     {
+      "node": {
+       "id": "3000002",
+       "body": "Congrats on the launch! We've used it for 4 weeks &amp; love it.",
+       "createdAt": "2026-10-03T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000002",
+       "user": {
+        "name": "Maker Friend 3",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/2.png",
+        "username": "friend2"
+       }
+      }
+     },
+     {
+      "node": {
+       "id": "3000003",
+       "body": "Congrats on the launch! We've used it for 5 weeks &amp; love it.",
+       "createdAt": "2026-10-04T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000003",
+       "user": {
+        "name": "Maker Friend 4",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/3.png",
+        "username": "friend3"
+       }
+      }
+     },
+     {
+      "node": {
+       "id": "3000004",
+       "body": "Congrats on the launch! We've used it for 6 weeks &amp; love it.",
+       "createdAt": "2026-10-05T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000004",
+       "user": {
+        "name": "Maker Friend 5",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/4.png",
+        "username": "friend4"
+       }
+      }
+     },
+     {
+      "node": {
+       "id": "3000005",
+       "body": "Congrats on the launch! We've used it for 7 weeks &amp; love it.",
+       "createdAt": "2026-10-06T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000005",
+       "user": {
+        "name": "Maker Friend 6",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/5.png",
+        "username": "friend5"
+       }
+      }
+     },
+     {
+      "node": {
+       "id": "3000006",
+       "body": "Congrats on the launch! We've used it for 8 weeks &amp; love it.",
+       "createdAt": "2026-10-07T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000006",
+       "user": {
+        "name": "Maker Friend 7",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/6.png",
+        "username": "friend6"
+       }
+      }
+     },
+     {
+      "node": {
+       "id": "3000007",
+       "body": "Congrats on the launch! We've used it for 9 weeks &amp; love it.",
+       "createdAt": "2026-10-08T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000007",
+       "user": {
+        "name": "Maker Friend 8",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/7.png",
+        "username": "friend7"
+       }
+      }
+     },
+     {
+      "node": {
+       "id": "3000008",
+       "body": "Congrats on the launch! We've used it for 10 weeks &amp; love it.",
+       "createdAt": "2026-10-09T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000008",
+       "user": {
+        "name": "Maker Friend 9",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/8.png",
+        "username": "friend8"
+       }
+      }
+     },
+     {
+      "node": {
+       "id": "3000009",
+       "body": "Congrats on the launch! We've used it for 11 weeks &amp; love it.",
+       "createdAt": "2026-10-10T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000009",
+       "user": {
+        "name": "Maker Friend 10",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/9.png",
+        "username": "friend9"
+       }
+      }
+     },
+     {
+      "node": {
+       "id": "3000010",
+       "body": "Congrats on the launch! We've used it for 12 weeks &amp; love it.",
+       "createdAt": "2026-10-11T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000010",
+       "user": {
+        "name": "Maker Friend 11",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/10.png",
+        "username": "friend10"
+       }
+      }
+     },
+     {
+      "node": {
+       "id": "3000011",
+       "body": "Congrats on the launch! We've used it for 13 weeks &amp; love it.",
+       "createdAt": "2026-10-12T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000011",
+       "user": {
+        "name": "Maker Friend 12",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/11.png",
+        "username": "friend11"
+       }
+      }
+     },
+     {
+      "node": {
+       "id": "3000012",
+       "body": "Congrats on the launch! We've used it for 14 weeks &amp; love it.",
+       "createdAt": "2026-10-13T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000012",
+       "user": {
+        "name": "Maker Friend 13",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/12.png",
+        "username": "friend12"
+       }
+      }
+     },
+     {
+      "node": {
+       "id": "3000013",
+       "body": "Congrats on the launch! We've used it for 15 weeks &amp; love it.",
+       "createdAt": "2026-10-14T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000013",
+       "user": {
+        "name": "Maker Friend 14",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/13.png",
+        "username": "friend13"
+       }
+      }
+     },
+     {
+      "node": {
+       "id": "3000014",
+       "body": "Congrats on the launch! We've used it for 16 weeks &amp; love it.",
+       "createdAt": "2026-10-15T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000014",
+       "user": {
+        "name": "Maker Friend 15",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/14.png",
+        "username": "friend14"
+       }
+      }
+     },
+     {
+      "node": {
+       "id": "3000015",
+       "body": "Congrats on the launch! We've used it for 17 weeks &amp; love it.",
+       "createdAt": "2026-10-16T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000015",
+       "user": {
+        "name": "Maker Friend 16",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/15.png",
+        "username": "friend15"
+       }
+      }
+     },
+     {
+      "node": {
+       "id": "3000016",
+       "body": "Congrats on the launch! We've used it for 18 weeks &amp; love it.",
+       "createdAt": "2026-10-17T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000016",
+       "user": {
+        "name": "Maker Friend 17",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/16.png",
+        "username": "friend16"
+       }
+      }
+     },
+     {
+      "node": {
+       "id": "3000017",
+       "body": "Congrats on the launch! We've used it for 19 weeks &amp; love it.",
+       "createdAt": "2026-10-18T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000017",
+       "user": {
+        "name": "Maker Friend 18",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/17.png",
+        "username": "friend17"
+       }
+      }
+     },
+     {
+      "node": {
+       "id": "3000018",
+       "body": "Congrats on the launch! We've used it for 20 weeks &amp; love it.",
+       "createdAt": "2026-10-19T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000018",
+       "user": {
+        "name": "Maker Friend 19",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/18.png",
+        "username": "friend18"
+       }
+      }
+     },
+     {
+      "node": {
+       "id": "3000019",
+       "body": "Congrats on the launch! We've used it for 21 weeks &amp; love it.",
+       "createdAt": "2026-10-20T12:00:00Z",
+       "url": "https://www.producthunt.com/posts/acme-launch?comment=3000019",
+       "user": {
+        "name": "Maker Friend 20",
+        "headline": "Founder at Example Co",
+        "profileImage": "https://ph-avatars.example/19.png",
+        "username": "friend19"
+       }
+      }
+     }
+    ]
+   }
+  }
+ }
+}

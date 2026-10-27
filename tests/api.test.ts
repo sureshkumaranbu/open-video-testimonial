@@ -17,7 +17,7 @@ import { DELETE as deleteRoute, GET as getRoute, PATCH as patchRoute } from "@/a
 import { POST as withdraw } from "@/app/api/withdraw/[token]/route";
 import { runDueJobs } from "@/lib/jobs";
 import { listConsentEvents } from "@/lib/consent";
-import { createProject, getTestimonial } from "@/lib/testimonials";
+import { createProject, getTestimonial, updateProject } from "@/lib/testimonials";
 import { verifySignature } from "@/lib/webhooks";
 import { registerJobs } from "@/lib/worker";
 import { adminHeaders, params, submissionForm, submitRequest, useTempDataDir } from "./helpers";
@@ -252,6 +252,33 @@ describe("webhooks", () => {
       data: { testimonial: { id, author: { name: "Ada", email: "ada@example.com" }, transcript: null } },
     });
     expect(JSON.parse(hits[2].body).data.testimonial.consent.withdrawnAt).not.toBeNull();
+  });
+
+  it("says who approved: the API, or the project's auto-approve rule after created", async () => {
+    const hook = await newHook();
+    const write = await newKey("write");
+    const { id } = await customerSubmits();
+    await patchRoute(withKey(write.key, `/api/v1/testimonials/${id}`, { status: "approved" }, "PATCH"), params({ id }));
+    updateProject(projectId, { autoApprove: true });
+    const auto = await submit(
+      submitRequest("acme", submissionForm({ name: "Bo", rating: "5", text: "Lovely", consent: "on" })),
+      params({ slug: "acme" }),
+    );
+    const autoId = (await auto.json()).id;
+    await runDueJobs();
+
+    const events = hits.map((h) => JSON.parse(h.body));
+    expect(events.map((e) => [e.event, e.data.testimonial.id])).toEqual([
+      ["testimonial.created", id],
+      ["testimonial.approved", id],
+      ["testimonial.created", autoId],
+      ["testimonial.approved", autoId],
+    ]);
+    expect(events[1].data).toMatchObject({ approvedBy: "api", testimonial: { approvedBy: "api", approvedAt: expect.any(String) } });
+    expect(events[3].data).toMatchObject({ approvedBy: "auto", testimonial: { status: "approved", approvedBy: "auto" } });
+    expect(events[3].project.autoApprove).toEqual({ enabled: true, minRating: 4, includeVideo: false });
+    expect(events[2].data).not.toHaveProperty("approvedBy");
+    for (const hit of hits) expect(independentVerify(hook.secret, hit.headers["plaudit-signature"] as string, hit.body)).toBe(true);
   });
 
   it("rejects old signatures (replay protection)", () => {

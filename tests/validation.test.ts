@@ -19,7 +19,7 @@ describe("friendly validation messages", () => {
   it("replaces the messages QA saw with field-specific ones", () => {
     expect(message(projectSchema, { name: "", slug: "acme" })).toBe("Name can't be empty");
     expect(message(testimonialUpdateSchema, { rating: 9 })).toBe("Rating must be a whole number from 1 to 5");
-    expect(message(testimonialUpdateSchema, { status: "published" })).toBe("Status must be pending, approved or rejected");
+    expect(message(testimonialUpdateSchema, { status: "published" })).toBe("Status must be pending, approved, rejected or hidden");
     expect(message(projectSchema, { name: "A", slug: "x" })).toBe("Link slug must be at least 2 characters");
     expect(message(projectSchema, { name: "A".repeat(81), slug: "acme" })).toBe("Name can be at most 80 characters");
     expect(message(z.object({ name: z.string() }), null)).toBe("The request body must be a JSON object");

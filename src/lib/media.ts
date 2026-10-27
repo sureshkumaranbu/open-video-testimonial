@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -6,9 +7,9 @@ import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { env } from "./env";
 import { enqueue, PermanentJobError } from "./jobs";
-import { newKey, resolveKey } from "./storage";
+import { newKey, storage } from "./storage";
 
-const { testimonials } = schema;
+const { testimonials, answers } = schema;
 
 /**
  * The media pipeline. After a video is stored, a job converts it with ffmpeg
@@ -151,77 +152,141 @@ export async function extractAudio(input: string, output: string) {
   );
 }
 
-/** Queues processing for a testimonial's video, or marks it skipped without ffmpeg. */
-export async function queueVideoProcessing(testimonialId: string) {
+/**
+ * Queues processing for a testimonial's video, or marks it skipped without
+ * ffmpeg. `autoApprove` applies the project's auto-approve rule once it's done;
+ * only new submissions ask for that.
+ */
+export async function queueVideoProcessing(testimonialId: string, opts: { autoApprove?: boolean } = {}) {
   const ok = await ffmpegAvailable();
   getDb()
     .update(testimonials)
     .set({ mediaStatus: ok ? "queued" : "skipped", mediaError: null })
     .where(eq(testimonials.id, testimonialId))
     .run();
-  if (ok) enqueue(PROCESS_VIDEO_JOB, { testimonialId }, { maxAttempts: 2 });
+  if (ok) enqueue(PROCESS_VIDEO_JOB, { testimonialId, ...(opts.autoApprove ? { autoApprove: true } : {}) }, { maxAttempts: 2 });
+}
+
+/** What a conversion produced, already in storage. */
+type Converted = {
+  mp4Key: string;
+  posterKey: string;
+  durationMs: number | null;
+  width: number | null;
+  height: number | null;
+};
+
+/**
+ * Converts a stored original to MP4 plus a poster and puts both in storage.
+ * ffmpeg writes to DATA_DIR/tmp; the results are then put in storage (a
+ * rename on local disk, an upload on S3), so nothing half-written is stored.
+ * On failure nothing new is left behind.
+ */
+async function convertStored(originalKey: string): Promise<Converted> {
+  const mp4Key = newKey("video", "mp4");
+  const posterKey = newKey("image", "jpg");
+  const mp4 = path.join(env.tmpDir, `convert-${crypto.randomUUID()}.mp4`);
+  const poster = path.join(env.tmpDir, `poster-${crypto.randomUUID()}.jpg`);
+  const stored: string[] = [];
+  try {
+    const store = storage();
+    await fs.promises.mkdir(env.tmpDir, { recursive: true });
+    const { info, out } = await store.withLocalFile(originalKey, async (input) => {
+      if (!fs.existsSync(input)) throw new PermanentJobError("The original video file is missing");
+      const info = await probe(input);
+      await transcodeToMp4(input, mp4);
+      await extractPoster(mp4, poster, info.durationMs);
+      return { info, out: await probe(mp4) };
+    });
+    await store.put(mp4Key, { path: mp4, move: true }, "video/mp4");
+    stored.push(mp4Key);
+    await store.put(posterKey, { path: poster, move: true }, "image/jpeg");
+    stored.push(posterKey);
+    return { mp4Key, posterKey, durationMs: out.durationMs ?? info.durationMs, width: out.width, height: out.height };
+  } catch (err) {
+    await Promise.all([mp4, poster].map((f) => fs.promises.rm(f, { force: true })));
+    await Promise.all(stored.map((k) => storage().remove(k).catch(() => undefined)));
+    throw err;
+  }
+}
+
+/** The row a video belongs to: a testimonial's main video, or the answer to a further question (D13: answers stay private). */
+export type VideoTarget = { testimonialId: string } | { answerId: string };
+
+type VideoRow = { videoKey: string | null; videoOriginalKey: string | null; posterKey: string | null };
+type VideoFields = Partial<typeof testimonials.$inferInsert & typeof answers.$inferInsert>;
+
+function targetRow(t: VideoTarget): { read: () => VideoRow | null; write: (f: VideoFields) => void } {
+  const db = getDb();
+  if ("answerId" in t) {
+    return {
+      read: () => db.select().from(answers).where(eq(answers.id, t.answerId)).get() ?? null,
+      write: (f) => void db.update(answers).set({ ...f, updatedAt: new Date() }).where(eq(answers.id, t.answerId)).run(),
+    };
+  }
+  return {
+    read: () => db.select().from(testimonials).where(eq(testimonials.id, t.testimonialId)).get() ?? null,
+    write: (f) => void db.update(testimonials).set(f).where(eq(testimonials.id, t.testimonialId)).run(),
+  };
+}
+
+/** Converts a testimonial's or an answer's video. `willRetry` keeps the status at "queued" when the job queue will try again. */
+export async function processVideoTarget(target: VideoTarget, opts: { willRetry?: boolean } = {}) {
+  const row = targetRow(target);
+  const current = row.read();
+  if (!current) return; // deleted while queued
+  const originalKey = current.videoOriginalKey ?? current.videoKey;
+  if (!originalKey) return;
+  if (!(await ffmpegAvailable())) {
+    row.write({ mediaStatus: "skipped" });
+    return;
+  }
+  row.write({ mediaStatus: "processing" });
+  let converted: Converted;
+  try {
+    converted = await convertStored(originalKey);
+  } catch (err) {
+    const retrying = opts.willRetry && !(err instanceof PermanentJobError);
+    if (row.read()) row.write({ mediaStatus: retrying ? "queued" : "failed", mediaError: (err as Error).message.slice(0, 500) });
+    throw err;
+  }
+  // The row may have been deleted while ffmpeg ran or the files went up.
+  const now = row.read();
+  if (!now) {
+    await Promise.all([converted.mp4Key, converted.posterKey].map((k) => storage().remove(k).catch(() => undefined)));
+    throw new PermanentJobError("Deleted during processing");
+  }
+  const replaced = [now.videoKey, now.posterKey].filter((k): k is string => Boolean(k) && k !== originalKey);
+  row.write({
+    videoOriginalKey: originalKey,
+    videoKey: converted.mp4Key,
+    videoMime: "video/mp4",
+    posterKey: converted.posterKey,
+    videoDurationMs: converted.durationMs,
+    videoWidth: converted.width,
+    videoHeight: converted.height,
+    mediaStatus: "ready",
+    mediaError: null,
+  });
+  await Promise.all(replaced.map((k) => storage().remove(k)));
 }
 
 /** `willRetry` keeps the status at "queued" when the job queue will try again. */
 export async function processVideo(testimonialId: string, opts: { willRetry?: boolean } = {}) {
-  const db = getDb();
-  const row = db.select().from(testimonials).where(eq(testimonials.id, testimonialId)).get();
-  if (!row) return; // deleted while queued
-  const originalKey = row.videoOriginalKey ?? row.videoKey;
-  if (!originalKey) return;
-  if (!(await ffmpegAvailable())) {
-    db.update(testimonials).set({ mediaStatus: "skipped" }).where(eq(testimonials.id, row.id)).run();
-    return;
-  }
-  db.update(testimonials).set({ mediaStatus: "processing" }).where(eq(testimonials.id, row.id)).run();
+  return processVideoTarget({ testimonialId }, opts);
+}
 
-  const input = resolveKey(originalKey);
-  const mp4Key = newKey("video", "mp4");
-  const posterKey = newKey("image", "jpg");
-  const mp4 = resolveKey(mp4Key);
-  const poster = resolveKey(posterKey);
-  let processed = false;
-  try {
-    if (!fs.existsSync(input)) throw new PermanentJobError("The original video file is missing");
-    const info = await probe(input);
-    await fs.promises.mkdir(path.dirname(mp4), { recursive: true });
-    await fs.promises.mkdir(path.dirname(poster), { recursive: true });
-    await transcodeToMp4(input, mp4);
-    await extractPoster(mp4, poster, info.durationMs);
-    const out = await probe(mp4);
+export const PROCESS_ANSWER_VIDEO_JOB = "media.process-answer";
 
-    // The row may have been deleted while ffmpeg ran.
-    const current = db.select().from(testimonials).where(eq(testimonials.id, row.id)).get();
-    if (!current) throw new PermanentJobError("Testimonial deleted during processing");
-    const replaced = [current.videoKey, current.posterKey].filter(
-      (k): k is string => Boolean(k) && k !== originalKey,
-    );
-    db.update(testimonials)
-      .set({
-        videoOriginalKey: originalKey,
-        videoKey: mp4Key,
-        videoMime: "video/mp4",
-        posterKey,
-        videoDurationMs: out.durationMs ?? info.durationMs,
-        videoWidth: out.width,
-        videoHeight: out.height,
-        mediaStatus: "ready",
-        mediaError: null,
-      })
-      .where(eq(testimonials.id, row.id))
-      .run();
-    processed = true;
-    await Promise.all(replaced.map((k) => fs.promises.rm(resolveKey(k), { force: true })));
-  } catch (err) {
-    if (processed) throw err;
-    await Promise.all([mp4, poster].map((f) => fs.promises.rm(f, { force: true })));
-    const retrying = opts.willRetry && !(err instanceof PermanentJobError);
-    db.update(testimonials)
-      .set({ mediaStatus: retrying ? "queued" : "failed", mediaError: (err as Error).message.slice(0, 500) })
-      .where(eq(testimonials.id, row.id))
-      .run();
-    throw err;
-  }
+/** Queues an answer's video like a testimonial's; without ffmpeg it's served as uploaded. */
+export async function queueAnswerVideo(answerId: string, opts: { autoApprove?: boolean } = {}) {
+  const ok = await ffmpegAvailable();
+  getDb()
+    .update(answers)
+    .set({ mediaStatus: ok ? "queued" : "skipped", mediaError: null })
+    .where(eq(answers.id, answerId))
+    .run();
+  if (ok) enqueue(PROCESS_ANSWER_VIDEO_JOB, { answerId, ...(opts.autoApprove ? { autoApprove: true } : {}) }, { maxAttempts: 2 });
 }
 
 /**

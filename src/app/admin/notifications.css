@@ -1,0 +1,58 @@
+/* Settings → Notifications and the form builder's notification choice (WP7.1). */
+.nt-h {
+  font-weight: 600;
+  margin: 0;
+}
+.nt-field {
+  max-width: 28rem;
+}
+.nt-projects,
+.nt-events {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+.nt-projects legend,
+.nt-events legend {
+  font-weight: 600;
+  margin-bottom: var(--space-2);
+  width: 100%;
+}
+.nt-project-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  width: 100%;
+  padding-left: var(--space-4);
+}
+.nt-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+.nt-target {
+  overflow-wrap: anywhere;
+}
+.nt-actions {
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.nt-edit {
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-3);
+}
+.nt-notify-list {
+  display: grid;
+  gap: var(--space-2);
+}
+/* A label beside its select (not around it), styled like the wrapped ones. */
+.nt-select {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
