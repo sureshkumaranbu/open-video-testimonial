@@ -230,7 +230,8 @@ test("SHARE-01 SHARE-02 SHARE-03 the studio makes an image from the drawer: temp
   // Never reach the real X: popups belong to the context, so the route goes there.
   await page.context().route("https://x.com/**", (r) => r.fulfill({ status: 200, body: "intent" }));
   const [popup, shared] = await Promise.all([page.waitForEvent("popup"), page.waitForEvent("download"), page.getByTestId("studio-share-x").click()]);
-  expect(popup.url()).toMatch(/^https:\/\/x\.com\/intent\/post\?text=.+&url=.+%2Ft%2F/);
+  // A noopener popup can still be about:blank when the event fires; wait for its navigation.
+  await popup.waitForURL(/^https:\/\/x\.com\/intent\/post\?text=.+&url=.+%2Ft%2F/);
   expect(shared.suggestedFilename()).toMatch(/^trio-.+\.png$/);
   await popup.close();
 
