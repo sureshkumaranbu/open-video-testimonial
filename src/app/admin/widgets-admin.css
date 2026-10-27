@@ -300,3 +300,18 @@
   min-width: 0;
   max-width: 100%;
 }
+
+/* DISP-08: custom CSS. */
+.ws-css,
+.ws-css-out {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  width: 100%;
+}
+.ws-css-out {
+  margin: var(--space-2) 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 200px;
+  overflow: auto;
+}

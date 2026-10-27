@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **Video tools** in the inbox drawer ([`docs/help/video.md`](docs/help/video.md)): trim with a waveform and a preview (the original is kept, so a trim can be changed or undone; captions follow the cut), pick the poster from a frame or upload one, replace the file (it's converted and transcribed again), and download the original or the MP4. Each change is in the history and sends `testimonial.updated`.
+
+- **A page for each testimonial** at `/t/<id>`: the quote or video, the person, a button to your site, plain share links, review data and a link preview image of the quote. Approved and public testimonials only. See [`docs/help/share.md`](docs/help/share.md).
+
+- **Image studio** (feature flag `share`): images of 1, 3 or 6 testimonials in 14 templates, every social size or your own, wording for the image only, highlight colour, backgrounds, your logo, PNG, JPEG, ZIP and copy, saved templates, the brand kit, and “Share to X / LinkedIn”. Drawn on your server.
+
+- **Custom CSS for saved widgets**, inside the widget only and cleaned so it never loads anything from another site ([`docs/EMBED.md`](docs/EMBED.md#custom-css)). `widget.js` is 7,157 bytes gzipped.
+
+- **Wall head options**: a favicon, Plausible or Google Analytics 4 for one wall (its CSP allows exactly that provider), and site-verification codes. No raw HTML or scripts.
+
+- Migration 0015 adds trim and poster columns, widget CSS, a wall favicon, and the image studio's uploads and templates; nothing existing changes.
+
 - **Analytics** (feature flag `analytics`; `ANALYTICS=off` turns collection off too). See [`docs/help/analytics.md`](docs/help/analytics.md).
   - A dashboard at `/admin/analytics`: any period, compared with the one before, for one project or all. New testimonials by source, the review backlog, average rating, widget views, visitors and clicks, form views and completions, wall views and CTA clicks, review booster clicks, snippet renders and the campaign invite funnel; views by day; sortable tables of widgets, forms and walls.
   - Each widget shows where it's live ("Live on example.com/pricing"), its views, visitors, clicks by kind and top pages. A widget unseen for 7 days raises an alert in the app, an optional email, and the opt-in `widget.removed` webhook (`widget.installed` when it's seen).

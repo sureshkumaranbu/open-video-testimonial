@@ -5,6 +5,7 @@ import { WallBeacon } from "@/app/wall/WallBeacon";
 import { jsonLdText } from "@/lib/seo";
 import { textOn } from "@/lib/contrast";
 import { accentStyle } from "@/lib/theme";
+import { activeAnalytics, type WallHead } from "@/lib/wall-config";
 import type { WallViewData } from "@/lib/walls";
 import { WIDGET_FONTS } from "@/lib/widget-config";
 import { Stars, TestimonialCard } from "./TestimonialCard";
@@ -32,6 +33,29 @@ function Link({ href, className, children, preview }: { href: string; className?
     <a className={className} href={href} {...(isExternal(href) ? { rel: "noopener" } : {})}>
       {children}
     </a>
+  );
+}
+
+/**
+ * WALL-07: the analytics provider the owner chose, as fixed markup we write
+ * ourselves from validated values (a domain, or a G- measurement ID). The
+ * wall's CSP allows only that provider's hosts (src/proxy.ts). Nothing
+ * loads when no provider is set.
+ */
+function WallAnalytics({ head }: { head: WallHead }) {
+  const a = activeAnalytics(head);
+  if (!a) return null;
+  if (a.provider === "plausible") return <script defer data-domain={a.domain} src="https://plausible.io/js/script.js" data-testid="wall-analytics" />;
+  return (
+    <>
+      <script async src={`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(a.id)}`} data-testid="wall-analytics" />
+      <script
+        dangerouslySetInnerHTML={{
+          // The ID matched /^G-[A-Z0-9]{4,12}$/, and JSON.stringify quotes it anyway.
+          __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date());gtag("config",${JSON.stringify(a.id)});`,
+        }}
+      />
+    </>
   );
 }
 
@@ -100,6 +124,7 @@ export function WallView({ data, preview, jsonLd }: Props) {
     >
       {jsonLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdText(jsonLd) }} />}
       {!preview && <WallBeacon wallId={wall.id} />}
+      {!preview && <WallAnalytics head={cfg.head} />}
       {font?.file && (
         <style>{`@font-face{font-family:${font.family.split(",")[0]};src:url(${font.file}) format("woff2");font-display:swap;font-weight:100 900}`}</style>
       )}

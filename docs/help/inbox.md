@@ -37,6 +37,8 @@ Rows that can't take the action are skipped, and the result says why: one whose 
 
 Keys while it's open: **j** next, **k** previous, **a** approve, **h** hide, **Escape** close.
 
+A video testimonial has a **Video** section: trim, poster, replace and download ([video tools](video.md)). **Its page** opens an approved testimonial's own public page, and **Create image** opens it in the [image studio](share.md).
+
 ### Editing
 
 **Edit** changes the name, job title, company, website, rating, headline, the text of **every** answer, the date posted, the source platform and link, language and tags. Changing what the author wrote marks the testimonial **Edited after consent**, adds it to the consent record and the history, and keeps your highlights on their phrases.

@@ -15,6 +15,7 @@ import {
   type WidgetLabels,
   type WidgetOptions,
 } from "@/lib/widget-config";
+import { MAX_CUSTOM_CSS, sanitizeCss } from "@/lib/custom-css";
 import { accentStyle } from "@/lib/theme";
 import { LayoutThumb } from "../LayoutThumb";
 import { setSection, type Draft, type Update } from "./Studio";
@@ -212,7 +213,52 @@ export function DesignPanel({ draft, update, accent }: PanelProps & { accent: st
           hint="0 always shows the whole text."
         />
       </fieldset>
+      <CustomCss draft={draft} update={update} />
     </div>
+  );
+}
+
+/** Class names widget.js draws with, for people writing their own CSS. */
+const CSS_HOOKS = ".c (a card), p (the words), .s (stars), .a (the person), .n (name), .m (title and date), .av (photo), .b (buttons), mark (highlights)";
+
+/**
+ * DISP-08: the owner's CSS, scoped to the widget's shadow root, so it can't
+ * touch the rest of the page. What the server keeps is shown when cleaning
+ * changed something (no @import, no outside url(), no "<").
+ */
+function CustomCss({ draft, update }: PanelProps) {
+  const css = draft.config.css;
+  const cleaned = sanitizeCss(css, { origin: typeof location === "undefined" ? "" : location.origin });
+  const changed = css.trim() !== cleaned;
+  return (
+    <fieldset className="ws-fieldset" data-testid="custom-css">
+      <legend>Custom CSS</legend>
+      <label>
+        CSS for this widget only
+        <textarea
+          rows={8}
+          spellCheck={false}
+          maxLength={MAX_CUSTOM_CSS}
+          className="ws-css"
+          value={css}
+          placeholder={".x .c { border-width: 2px; }\n.x .n { text-transform: uppercase; }"}
+          onChange={(e) => update((d) => ({ ...d, config: { ...d.config, css: e.target.value } }))}
+          data-testid="custom-css-input"
+        />
+        <span className="ws-hint">
+          {`${css.length.toLocaleString("en")} of ${MAX_CUSTOM_CSS.toLocaleString("en")} characters. It applies inside the widget only (its shadow root), and shows in the preview. Classes: ${CSS_HOOKS}; :host is the widget's box. Start selectors with .x (as in .x .n) so they win over the widget's own styles.`}
+        </span>
+      </label>
+      {changed && (
+        <div className="notice warn small" role="status" data-testid="custom-css-cleaned">
+          <p style={{ margin: 0 }}>
+            Some of this won&rsquo;t be used: widgets never load anything from other sites (@import, outside url(), image-set) and never take &ldquo;&lt;&rdquo;. What
+            will apply:
+          </p>
+          <pre className="ws-css-out">{cleaned || "(nothing)"}</pre>
+        </div>
+      )}
+    </fieldset>
   );
 }
 

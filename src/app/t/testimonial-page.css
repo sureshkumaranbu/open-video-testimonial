@@ -1,0 +1,157 @@
+/* WALL-04: a testimonial's own page. Tokens from globals.css; works from 360 px up. */
+.tp-page {
+  min-height: 100vh;
+  background: var(--paper);
+  color: var(--ink);
+}
+.tp-head {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-4) 0;
+}
+.tp-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+.tp-brand img {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+.tp-main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--space-5, 24px) var(--space-4) var(--space-6, 48px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5, 24px);
+}
+.tp-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: clamp(20px, 5vw, 40px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  box-shadow: 0 1px 0 rgb(22 27 46 / 0.04), 0 8px 24px rgb(22 27 46 / 0.06);
+}
+.tp-video {
+  width: 100%;
+  max-height: 70vh;
+  border-radius: 14px;
+  background: var(--stage);
+  object-fit: contain;
+}
+.tp-headline {
+  margin: 0;
+  font-size: var(--text-xl);
+  line-height: 1.3;
+}
+.tp-quote {
+  margin: 0;
+}
+.tp-quote p {
+  margin: 0;
+  font-family: var(--font-voice);
+  font-size: clamp(1.25rem, 1rem + 1.4vw, 1.75rem);
+  line-height: 1.45;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.tp-quote p::before {
+  content: "\201C";
+  color: var(--accent);
+}
+.tp-quote p::after {
+  content: "\201D";
+  color: var(--accent);
+}
+.tp-quote mark {
+  background: var(--highlight);
+  color: var(--highlight-ink);
+  border-radius: 3px;
+  padding: 0 2px;
+}
+.tp-transcript summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+.tp-transcript p {
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+}
+.tp-person {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+}
+.tp-person > span:last-child {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.tp-avatar {
+  width: 48px;
+  height: 48px;
+  flex: none;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.tp-initials {
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+.tp-byline {
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+}
+.tp-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.tp-cta .button {
+  flex: 1 1 200px;
+  justify-content: center;
+}
+.tp-share h2 {
+  font-size: var(--text-base);
+  margin: 0 0 var(--space-2);
+}
+.tp-share-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.tp-share-links a,
+.tp-copy {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.tp-share-links a:hover,
+.tp-copy:hover {
+  border-color: var(--ink-3);
+}

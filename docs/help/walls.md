@@ -36,6 +36,18 @@ Every published wall, and the classic page, is rendered on the server: the testi
 - **Review data** (JSON-LD, schema.org `Review` and `AggregateRating`): up to 10 reviews and, once at least one has stars, the average. Text is escaped, so nothing a customer wrote can break out of it.
 - **Link preview image** (`/wall/<project>/<wall>/opengraph-image`, 1200×630): your title, rating and three short quotes in the wall's theme, or your cover image when it's a PNG or JPEG.
 
+## Favicon, analytics and verification
+
+The **SEO** tab also has a few head options for the wall. They're fixed fields that Plaudit turns into tags itself; you can't paste HTML or scripts, so nothing you or a teammate types can run on the page.
+
+- **Favicon**: a PNG or ICO under 512 KB. Without one, the project's logo is used.
+- **Analytics**: none (the default), **Plausible** (your site's domain, such as `example.com`) or **Google Analytics 4** (a measurement ID such as `G-ABC123DEF4`). Once chosen, that provider's script loads on this wall only, and the wall's Content Security Policy allows that provider's addresses and no others; your other walls, forms, widgets and the dashboard stay as they were. **The provider will see this wall's visitors**: their address, browser and the pages they view. Mention it in your privacy notice and, for Google Analytics (which sets cookies), ask for consent where the law needs it. Plaudit's own wall numbers are cookieless and need none of this ([analytics](analytics.md)).
+- **Site verification**: the code from Google Search Console, Bing Webmaster Tools or Facebook's domain verification meta tag (only the `content` value: letters, digits, `-` and `_`).
+
+## A testimonial's own page
+
+Each approved testimonial also has a page of its own at `/t/<id>`, with review data and a link preview image of the quote. See [Sharing](share.md).
+
 ## Review snippets for your own pages
 
 The **SEO** tab makes review data for pages on your own site, such as a product or pricing page. Pick which testimonials count (all, some tags, or one form), what's being reviewed (product, organisation, local business, software or course), its name and page. Each snippet has two codes:

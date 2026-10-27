@@ -35,10 +35,14 @@ const common = {
  * Next.js's inline bootstrap scripts need 'unsafe-inline'. Everything still
  * has to come from this server.
  */
-export function publicCsp({ frameable = false } = {}) {
+export function publicCsp({ frameable = false, extra }: { frameable?: boolean; extra?: { script: string[]; connect: string[]; img: string[] } } = {}) {
+  // WALL-07: a wall's chosen analytics provider, and nothing else (src/lib/wall-config.ts analyticsCspHosts).
+  const add = (list: string[] | undefined) => (list?.length ? ` ${list.join(" ")}` : "");
   return join({
     ...common,
-    "script-src": `'self' 'unsafe-inline'${devScript}`,
+    "img-src": `${common["img-src"]}${add(extra?.img)}`,
+    "connect-src": `${common["connect-src"]}${add(extra?.connect)}`,
+    "script-src": `'self' 'unsafe-inline'${devScript}${add(extra?.script)}`,
     "base-uri": "'self'",
     // Only /embed/* is meant to be shown inside other sites.
     "frame-ancestors": frameable ? "*" : "'none'",

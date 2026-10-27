@@ -67,6 +67,8 @@ export function Inbox({
   initialQuery,
   initialPrefs,
   widgetStudio,
+  shareStudio,
+  publicPages = false,
   initialOpenId,
 }: {
   project: Project;
@@ -75,6 +77,10 @@ export function Inbox({
   initialQuery: InboxQuery;
   initialPrefs: InboxPrefs;
   widgetStudio?: string;
+  /** The image studio (SHARE-01), when the share flag is on: the drawer's "Create image" goes there. */
+  shareStudio?: string;
+  /** Testimonials' own pages (/t/, WALL-04) are on with the walls flag. */
+  publicPages?: boolean;
   /** Opens this testimonial in the drawer at once (the "Review and approve" link in notifications). */
   initialOpenId?: string;
 }) {
@@ -404,6 +410,8 @@ export function Inbox({
         onNext={nextId ? () => setOpenId(nextId) : undefined}
         onChanged={() => void load(true)}
         tags={facets?.tags ?? []}
+        shareStudio={shareStudio}
+        publicPages={publicPages}
       />
       <Toast message={toast?.message ?? null} tone={toast?.tone} onDismiss={() => setToast(null)} testId="inbox-toast" />
     </div>

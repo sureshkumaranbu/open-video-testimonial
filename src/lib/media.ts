@@ -104,14 +104,36 @@ export async function probe(file: string): Promise<ProbeResult> {
 }
 
 const threads = String(Math.max(1, Math.min(os.cpus().length - 1, 4)));
+
+/**
+ * A time for an ffmpeg argument, from milliseconds we validated ourselves.
+ * Only a non-negative safe integer gets through, so no string from a request
+ * ever reaches the command line.
+ */
+export function ffmpegSeconds(ms: number): string {
+  if (!Number.isSafeInteger(ms) || ms < 0) throw new Error(`Invalid time: ${ms}`);
+  return (ms / 1000).toFixed(3);
+}
+
+/** VID-01: the part of the original to keep, in ms (end null = to the end). */
+export type TrimRange = { startMs: number; endMs: number | null };
 const fit = `scale=w='min(${MAX_SIDE},iw)':h='min(${MAX_SIDE},ih)':force_original_aspect_ratio=decrease:force_divisible_by=2`;
 
-export async function transcodeToMp4(input: string, output: string) {
+export async function transcodeToMp4(input: string, output: string, trim: TrimRange | null = null) {
+  // Seeking before -i while re-encoding is frame-accurate, and much faster than decoding the skipped part.
+  const cut = trim
+    ? {
+        before: trim.startMs > 0 ? ["-ss", ffmpegSeconds(trim.startMs)] : [],
+        after: trim.endMs !== null ? ["-t", ffmpegSeconds(trim.endMs - trim.startMs)] : [],
+      }
+    : { before: [], after: [] };
   await run(
     env.ffmpegPath,
     [
       "-nostdin", "-hide_banner", "-loglevel", "error", ...SAFE_INPUT,
+      ...cut.before,
       "-i", input,
+      ...cut.after,
       "-map", "0:v:0", "-map", "0:a:0?",
       "-vf", fit,
       "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p",
@@ -124,14 +146,21 @@ export async function transcodeToMp4(input: string, output: string) {
   );
 }
 
-export async function extractPoster(input: string, output: string, durationMs: number | null) {
-  // A frame one second in usually beats the first frame (people blink, cameras adjust).
-  const at = durationMs ? Math.min(1, durationMs / 2000) : 0;
+/**
+ * Grabs one frame as a JPEG. `atMs` is the frame the owner picked (VID-02),
+ * kept inside the video; without it, a frame one second in, which usually
+ * beats the first frame (people blink, cameras adjust).
+ */
+export async function extractPoster(input: string, output: string, durationMs: number | null, atMs: number | null = null) {
+  const at =
+    atMs !== null
+      ? Math.max(0, Math.min(atMs, durationMs ? durationMs - 100 : atMs))
+      : Math.round(durationMs ? Math.min(1000, durationMs / 2) : 0);
   await run(
     env.ffmpegPath,
     [
       "-nostdin", "-hide_banner", "-loglevel", "error", ...SAFE_INPUT,
-      "-ss", at.toFixed(2), "-i", input,
+      "-ss", ffmpegSeconds(Math.round(at)), "-i", input,
       "-frames:v", "1", "-vf", fit, "-q:v", "3",
       "-y", output,
     ],
@@ -152,6 +181,40 @@ export async function extractAudio(input: string, output: string) {
   );
 }
 
+/** Samples per second read for a waveform: plenty for a few hundred bars, small for a long video. */
+const WAVE_RATE = 2000;
+
+/**
+ * VID-01: loudness peaks across the file, `bars` values from 0 to 1, for the
+ * trim tool's waveform. Silent or soundless videos give all zeros.
+ */
+export async function waveformPeaks(input: string, bars = 240): Promise<number[]> {
+  if (!Number.isSafeInteger(bars) || bars < 1 || bars > 2000) throw new Error("Invalid bar count");
+  if (!(await probe(input)).hasAudio) return new Array(bars).fill(0);
+  await fs.promises.mkdir(env.tmpDir, { recursive: true });
+  const raw = path.join(env.tmpDir, `wave-${crypto.randomUUID()}.pcm`);
+  try {
+    await run(
+      env.ffmpegPath,
+      ["-nostdin", "-hide_banner", "-loglevel", "error", ...SAFE_INPUT, "-i", input, "-vn", "-ac", "1", "-ar", String(WAVE_RATE), "-f", "s16le", "-y", raw],
+      5 * 60 * 1000,
+    );
+    const pcm = await fs.promises.readFile(raw);
+    const samples = Math.floor(pcm.byteLength / 2);
+    const per = Math.max(1, Math.floor(samples / bars));
+    const peaks = new Array<number>(bars).fill(0);
+    for (let b = 0; b < bars; b++) {
+      let max = 0;
+      for (let i = b * per; i < Math.min(samples, (b + 1) * per); i++) max = Math.max(max, Math.abs(pcm.readInt16LE(i * 2)));
+      peaks[b] = max;
+    }
+    const top = Math.max(...peaks, 1);
+    return peaks.map((p) => Math.round((p / top) * 100) / 100);
+  } finally {
+    await fs.promises.rm(raw, { force: true });
+  }
+}
+
 /**
  * Queues processing for a testimonial's video, or marks it skipped without
  * ffmpeg. `autoApprove` applies the project's auto-approve rule once it's done;
@@ -170,7 +233,8 @@ export async function queueVideoProcessing(testimonialId: string, opts: { autoAp
 /** What a conversion produced, already in storage. */
 type Converted = {
   mp4Key: string;
-  posterKey: string;
+  /** null when the poster was kept (an uploaded one, VID-02). */
+  posterKey: string | null;
   durationMs: number | null;
   width: number | null;
   height: number | null;
@@ -180,11 +244,15 @@ type Converted = {
  * Converts a stored original to MP4 plus a poster and puts both in storage.
  * ffmpeg writes to DATA_DIR/tmp; the results are then put in storage (a
  * rename on local disk, an upload on S3), so nothing half-written is stored.
- * On failure nothing new is left behind.
+ * On failure nothing new is left behind. `trim` cuts the MP4 (VID-01);
+ * `posterAtMs` picks the poster's frame and `keepPoster` makes none (VID-02).
  */
-async function convertStored(originalKey: string): Promise<Converted> {
+async function convertStored(
+  originalKey: string,
+  o: { trim?: TrimRange | null; posterAtMs?: number | null; keepPoster?: boolean } = {},
+): Promise<Converted> {
   const mp4Key = newKey("video", "mp4");
-  const posterKey = newKey("image", "jpg");
+  const posterKey = o.keepPoster ? null : newKey("image", "jpg");
   const mp4 = path.join(env.tmpDir, `convert-${crypto.randomUUID()}.mp4`);
   const poster = path.join(env.tmpDir, `poster-${crypto.randomUUID()}.jpg`);
   const stored: string[] = [];
@@ -194,15 +262,20 @@ async function convertStored(originalKey: string): Promise<Converted> {
     const { info, out } = await store.withLocalFile(originalKey, async (input) => {
       if (!fs.existsSync(input)) throw new PermanentJobError("The original video file is missing");
       const info = await probe(input);
-      await transcodeToMp4(input, mp4);
-      await extractPoster(mp4, poster, info.durationMs);
-      return { info, out: await probe(mp4) };
+      await transcodeToMp4(input, mp4, o.trim ?? null);
+      const out = await probe(mp4);
+      if (posterKey) await extractPoster(mp4, poster, out.durationMs ?? info.durationMs, o.posterAtMs ?? null);
+      return { info, out };
     });
     await store.put(mp4Key, { path: mp4, move: true }, "video/mp4");
     stored.push(mp4Key);
-    await store.put(posterKey, { path: poster, move: true }, "image/jpeg");
-    stored.push(posterKey);
-    return { mp4Key, posterKey, durationMs: out.durationMs ?? info.durationMs, width: out.width, height: out.height };
+    if (posterKey) {
+      await store.put(posterKey, { path: poster, move: true }, "image/jpeg");
+      stored.push(posterKey);
+    }
+    // A cut keeps no duration of the original's.
+    const durationMs = out.durationMs ?? (o.trim ? null : info.durationMs);
+    return { mp4Key, posterKey, durationMs, width: out.width, height: out.height };
   } catch (err) {
     await Promise.all([mp4, poster].map((f) => fs.promises.rm(f, { force: true })));
     await Promise.all(stored.map((k) => storage().remove(k).catch(() => undefined)));
@@ -213,7 +286,23 @@ async function convertStored(originalKey: string): Promise<Converted> {
 /** The row a video belongs to: a testimonial's main video, or the answer to a further question (D13: answers stay private). */
 export type VideoTarget = { testimonialId: string } | { answerId: string };
 
-type VideoRow = { videoKey: string | null; videoOriginalKey: string | null; posterKey: string | null };
+type VideoRow = {
+  videoKey: string | null;
+  videoOriginalKey: string | null;
+  posterKey: string | null;
+  // Testimonials only (answers have no trim or picked poster).
+  trimStartMs?: number | null;
+  trimEndMs?: number | null;
+  posterAtMs?: number | null;
+  posterCustom?: boolean;
+};
+
+/** The row's trim (VID-01), or null when the whole original is served. */
+export function trimOf(row: { trimStartMs?: number | null; trimEndMs?: number | null }): TrimRange | null {
+  const startMs = row.trimStartMs ?? 0;
+  const endMs = row.trimEndMs ?? null;
+  return startMs > 0 || endMs !== null ? { startMs, endMs } : null;
+}
 type VideoFields = Partial<typeof testimonials.$inferInsert & typeof answers.$inferInsert>;
 
 function targetRow(t: VideoTarget): { read: () => VideoRow | null; write: (f: VideoFields) => void } {
@@ -242,9 +331,11 @@ export async function processVideoTarget(target: VideoTarget, opts: { willRetry?
     return;
   }
   row.write({ mediaStatus: "processing" });
+  // An uploaded poster stays; a picked frame is taken again from the new cut.
+  const keepPoster = Boolean(current.posterCustom && current.posterKey);
   let converted: Converted;
   try {
-    converted = await convertStored(originalKey);
+    converted = await convertStored(originalKey, { trim: trimOf(current), posterAtMs: current.posterAtMs ?? null, keepPoster });
   } catch (err) {
     const retrying = opts.willRetry && !(err instanceof PermanentJobError);
     if (row.read()) row.write({ mediaStatus: retrying ? "queued" : "failed", mediaError: (err as Error).message.slice(0, 500) });
@@ -252,16 +343,23 @@ export async function processVideoTarget(target: VideoTarget, opts: { willRetry?
   }
   // The row may have been deleted while ffmpeg ran or the files went up.
   const now = row.read();
+  const made = [converted.mp4Key, converted.posterKey].filter((k): k is string => Boolean(k));
   if (!now) {
-    await Promise.all([converted.mp4Key, converted.posterKey].map((k) => storage().remove(k).catch(() => undefined)));
+    await Promise.all(made.map((k) => storage().remove(k).catch(() => undefined)));
     throw new PermanentJobError("Deleted during processing");
   }
-  const replaced = [now.videoKey, now.posterKey].filter((k): k is string => Boolean(k) && k !== originalKey);
+  // Replaced while ffmpeg ran (VID-03): this result is for a file that's gone; the new file's own job follows.
+  if ((now.videoOriginalKey ?? now.videoKey) !== originalKey) {
+    await Promise.all(made.map((k) => storage().remove(k).catch(() => undefined)));
+    return;
+  }
+  const keep = (k: string | null) => k === originalKey || (keepPoster && k === now.posterKey);
+  const replaced = [now.videoKey, now.posterKey].filter((k): k is string => Boolean(k) && !keep(k));
   row.write({
     videoOriginalKey: originalKey,
     videoKey: converted.mp4Key,
     videoMime: "video/mp4",
-    posterKey: converted.posterKey,
+    ...(converted.posterKey ? { posterKey: converted.posterKey } : {}),
     videoDurationMs: converted.durationMs,
     videoWidth: converted.width,
     videoHeight: converted.height,

@@ -16,6 +16,7 @@ const TABS = [
   { id: "settings", label: "Project settings", path: "/settings", feature: "forms" },
   { id: "campaigns", label: "Campaigns", path: "/campaigns", feature: "campaigns" },
   { id: "boosters", label: "Review booster", path: "/boosters", feature: "booster" },
+  { id: "share", label: "Image studio", path: "/share", feature: "share" },
 ] as const satisfies readonly { id: string; label: string; path: string; feature?: Feature }[];
 
 export type ProjectTab = (typeof TABS)[number]["id"];

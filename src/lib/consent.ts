@@ -247,4 +247,4 @@ export function withdrawConsent(testimonialId: string, opts: { actor: Actor; ip?
 }
 
 /** Fields the author wrote or agreed to; changing them is logged as an edit. */
-export const CONSENTED_FIELDS = ["text", "authorName", "authorTitle", "authorCompany", "rating", "headline"] as const;
+export const CONSENTED_FIELDS = ["text", "authorName", "authorTitle", "authorCompany", "rating", "headline", "trimStartMs", "trimEndMs", "videoKey"] as const;

@@ -8,7 +8,7 @@ import { formUrl, logoInUse } from "./forms";
 import { parseBrand } from "./projects";
 import { feedAggregate, listFeed, ratingSummary } from "./public-feed";
 import { reviewJsonLd } from "./seo";
-import { deleteObject, mediaUrl, removeFiles, saveUpload } from "./storage";
+import { deleteObject, mediaUrl, removeFiles, saveFavicon, saveUpload } from "./storage";
 import { firstIssue, slugSchema } from "./validation";
 import {
   defaultWallConfig,
@@ -267,20 +267,24 @@ export async function deleteWall(id: string): Promise<boolean> {
   const w = getWall(id);
   if (!w) return false;
   getDb().delete(walls).where(eq(walls.id, id)).run();
-  const keys = [w.logoKey, w.coverKey].filter((k): k is string => Boolean(k) && !logoInUse(k!));
+  const keys = [w.logoKey, w.coverKey, w.faviconKey].filter((k): k is string => Boolean(k) && !logoInUse(k!));
   if (keys.length) await removeFiles(keys);
   return true;
 }
 
-export const WALL_IMAGE_KINDS = ["cover", "logo"] as const;
+export const WALL_IMAGE_KINDS = ["cover", "logo", "favicon"] as const;
 export type WallImageKind = (typeof WALL_IMAGE_KINDS)[number];
-const column = (kind: WallImageKind) => (kind === "cover" ? "coverKey" : "logoKey");
+const column = (kind: WallImageKind) => (kind === "cover" ? "coverKey" : kind === "favicon" ? "faviconKey" : "logoKey");
 
-/** Stores a PNG, JPEG, WebP or GIF (never SVG) as the wall's cover or logo, replacing the old one. Public only while the wall is published. */
+/**
+ * Stores a PNG, JPEG, WebP or GIF (never SVG) as the wall's cover or logo, or
+ * a PNG or ICO as its favicon (WALL-07), replacing the old one. Public only
+ * while the wall is published.
+ */
 export async function setWallImage(id: string, kind: WallImageKind, file: File): Promise<Wall> {
   const w = getWall(id);
   if (!w) throw notFound();
-  const stored = await saveUpload(file, "image");
+  const stored = kind === "favicon" ? await saveFavicon(file) : await saveUpload(file, "image");
   const updated = getDb()
     .update(walls)
     .set({ [column(kind)]: stored.key, updatedAt: new Date() })
@@ -430,14 +434,24 @@ export function wallSeoText(wall: Pick<Wall, "name" | "config">, project: Pick<P
  * /wall/<project>).
  */
 export function wallMetadata(
-  wall: Pick<Wall, "name" | "config">,
-  project: Pick<Project, "name">,
+  wall: Pick<Wall, "name" | "config"> & Partial<Pick<Wall, "faviconKey">>,
+  project: Pick<Project, "name"> & Partial<Pick<Project, "logoKey">>,
   o: { canonical: string; ogImage: string },
 ): Metadata {
   const seo = wallSeoText(wall, project);
   const url = absoluteUrl(o.canonical);
   const image = absoluteUrl(o.ogImage);
+  const head = wallConfig(wall).head;
+  // WALL-07: the wall's favicon, else the project's logo; verification codes as <meta> tags.
+  const icon = mediaUrl(wall.faviconKey ?? null) ?? mediaUrl(project.logoKey ?? null);
+  const other: Record<string, string> = {};
+  if (head.bingVerification) other["msvalidate.01"] = head.bingVerification;
+  if (head.facebookVerification) other["facebook-domain-verification"] = head.facebookVerification;
   return {
+    ...(icon ? { icons: { icon: [{ url: icon }] } } : {}),
+    ...(head.googleVerification || Object.keys(other).length
+      ? { verification: { ...(head.googleVerification ? { google: head.googleVerification } : {}), ...(Object.keys(other).length ? { other } : {}) } }
+      : {}),
     metadataBase: new URL(env.publicUrl),
     title: { absolute: seo.title },
     description: seo.description,
@@ -467,6 +481,7 @@ export function wallToAdmin(w: Wall, project: Pick<Project, "slug">) {
     config: wallConfig(w),
     logoUrl: mediaUrl(w.logoKey),
     coverUrl: mediaUrl(w.coverKey),
+    faviconUrl: mediaUrl(w.faviconKey),
     featuredTestimonialId: w.featuredTestimonialId,
     connectedFormId: w.connectedFormId,
     /** Its own address (always works once published). */

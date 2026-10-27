@@ -74,6 +74,12 @@
       "$comment": "AN-01 is the /admin/analytics dashboard (PRD §15), which has no ID of its own in the PRD.",
       "packages": [],
       "requirements": ["DISP-13", "DISP-14", "FORM-15", "WALL-05", "SEO-04", "AN-01"]
+    },
+    "M12": {
+      "name": "Video and sharing (Phase 2)",
+      "$comment": "WALL-07 is the safe version the product owner asked for: a favicon, Plausible or GA4, and verification codes as fixed fields; never raw head HTML.",
+      "packages": [],
+      "requirements": ["VID-01", "VID-02", "VID-03", "VID-04", "WALL-04", "SHARE-01", "SHARE-02", "SHARE-03", "DISP-08", "WALL-07"]
     }
   },
   "concurrent": [

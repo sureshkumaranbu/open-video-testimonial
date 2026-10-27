@@ -9,13 +9,14 @@ import { BarList, fmt, LineChart, Tile } from "./charts";
 import { presetRange, RangePicker, type Range } from "./RangePicker";
 import { pageName } from "./InstallStatus";
 
-const CLICK_LABELS: Record<string, string> = { more: "Read more", source: "Original review link", cta: "Call to action", play: "Video plays", link: "Other links" };
+const CLICK_LABELS: Record<string, string> = { more: "Read more", source: "Original review link", cta: "Call to action", play: "Video plays", link: "Other links", share: "Share buttons" };
 
 const EMPTY: Record<AnalyticsObject, { title: string; body: string }> = {
   widget: { title: "No views yet", body: "Once the widget is on a page and someone opens it, views and clicks show here by day." },
   form: { title: "Nobody has opened this form yet", body: "Share its link or embed it. Views, starts, completions and where people stop show here." },
   wall: { title: "No visits yet", body: "Make the wall public and share its link. Views and clicks on its buttons and links show here." },
   snippet: { title: "Not fetched yet", body: "Each time a page (or a search engine) loads the dynamic snippet, it counts as a render here." },
+  testimonial: { title: "No visits yet", body: "Once the testimonial is approved, share its own page. Views and clicks on its share buttons show here." },
 };
 
 /** The rate as "12.5%", or a dash when there's nothing to divide by. */

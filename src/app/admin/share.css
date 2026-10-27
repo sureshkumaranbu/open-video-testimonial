@@ -1,0 +1,226 @@
+/* Image studio (SHARE-01..03). Prefix sh-. Controls on the left, the server's render on the right; one column on phones. */
+
+.sh-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: var(--space-5, 24px);
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .sh-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sh-side {
+    order: -1;
+  }
+}
+.sh-side {
+  position: sticky;
+  top: var(--space-4);
+}
+@media (max-width: 900px) {
+  .sh-side {
+    position: static;
+  }
+}
+.sh-panel {
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.sh-title {
+  font-size: var(--text-base);
+  margin: 0;
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.sh-row {
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.sh-row input {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.sh-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  gap: var(--space-3);
+}
+.sh-pick-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+.sh-pick-list li + li {
+  border-top: 1px solid var(--line);
+}
+.sh-pick {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  font-weight: 400;
+}
+.sh-pick input {
+  margin-top: 4px;
+  flex: none;
+}
+.sh-excerpt {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.sh-override {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin: 0;
+  gap: var(--space-2);
+}
+.sh-override textarea {
+  width: 100%;
+}
+.sh-templates {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: var(--space-2);
+}
+.sh-template {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  min-height: 0;
+}
+.sh-template[aria-checked="true"] {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--focus);
+}
+/* Small sketches of each template's layout (our own). */
+.sh-thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 6px;
+  background: var(--paper-2);
+  margin-bottom: 4px;
+  --b: var(--ink-3);
+}
+.sh-thumb-spotlight { background: radial-gradient(circle at 50% 30%, var(--b) 0 6%, transparent 7%), linear-gradient(var(--b), var(--b)) 50% 55% / 70% 8% no-repeat, linear-gradient(var(--b), var(--b)) 50% 72% / 50% 8% no-repeat, var(--paper-2); }
+.sh-thumb-margin { background: linear-gradient(var(--focus), var(--focus)) 12% 50% / 4% 70% no-repeat, linear-gradient(var(--b), var(--b)) 60% 35% / 60% 8% no-repeat, linear-gradient(var(--b), var(--b)) 55% 55% / 50% 8% no-repeat, var(--paper-2); }
+.sh-thumb-postcard { background: linear-gradient(var(--surface), var(--surface)) 50% 50% / 76% 64% no-repeat, var(--paper-2); }
+.sh-thumb-headline { background: linear-gradient(var(--b), var(--b)) 30% 30% / 50% 16% no-repeat, linear-gradient(var(--b), var(--b)) 30% 62% / 50% 6% no-repeat, var(--paper-2); }
+.sh-thumb-portrait { background: radial-gradient(circle at 28% 50%, var(--b) 0 18%, transparent 19%), linear-gradient(var(--b), var(--b)) 80% 45% / 34% 8% no-repeat, var(--paper-2); }
+.sh-thumb-split { background: linear-gradient(90deg, var(--focus) 0 36%, transparent 36%), linear-gradient(var(--b), var(--b)) 85% 50% / 40% 8% no-repeat, var(--paper-2); }
+.sh-thumb-bubble { background: linear-gradient(var(--focus), var(--focus)) 50% 35% / 80% 46% no-repeat, var(--paper-2); }
+.sh-thumb-stamp { background: radial-gradient(circle at 28% 50%, transparent 0 15%, var(--focus) 16% 19%, transparent 20%), linear-gradient(var(--b), var(--b)) 82% 50% / 36% 8% no-repeat, var(--paper-2); }
+.sh-thumb-minimal { background: linear-gradient(var(--b), var(--b)) 40% 45% / 60% 8% no-repeat, linear-gradient(var(--b), var(--b)) 30% 62% / 40% 5% no-repeat, var(--paper-2); }
+.sh-thumb-ticket { background: linear-gradient(90deg, var(--surface) 0 66%, transparent 66% 68%, var(--surface) 68%) 50% 50% / 84% 56% no-repeat, var(--paper-2); }
+.sh-thumb-trio { background: linear-gradient(90deg, var(--surface) 0 30%, transparent 30% 35%, var(--surface) 35% 65%, transparent 65% 70%, var(--surface) 70%) 50% 50% / 88% 76% no-repeat, var(--paper-2); }
+.sh-thumb-stack { background: linear-gradient(var(--b), var(--b)) 60% 20% / 64% 8% no-repeat, linear-gradient(var(--b), var(--b)) 40% 50% / 64% 8% no-repeat, linear-gradient(var(--b), var(--b)) 60% 80% / 64% 8% no-repeat, var(--paper-2); }
+.sh-thumb-grid { background: repeating-linear-gradient(90deg, var(--surface) 0 30%, transparent 30% 35%) 6% 12% / 100% 34% no-repeat, repeating-linear-gradient(90deg, var(--surface) 0 30%, transparent 30% 35%) 6% 88% / 100% 34% no-repeat, var(--paper-2); }
+.sh-thumb-mosaic { background: linear-gradient(var(--focus), var(--focus)) 8% 50% / 46% 80% no-repeat, linear-gradient(var(--surface), var(--surface)) 92% 15% / 38% 36% no-repeat, linear-gradient(var(--surface), var(--surface)) 92% 85% / 38% 36% no-repeat, var(--paper-2); }
+
+.sh-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  /* A checkerboard, so a transparent background shows as such. */
+  background: repeating-conic-gradient(var(--paper-2) 0 25%, var(--surface) 0 50%) 0 0 / 20px 20px;
+}
+.sh-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: 6px;
+  box-shadow: var(--shadow-2);
+}
+.sh-preview-empty {
+  padding: var(--space-6, 48px) var(--space-4);
+  text-align: center;
+  background: var(--surface);
+  border-radius: 6px;
+}
+.sh-zip {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+.sh-zip-sizes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+}
+.sh-check {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-weight: 400;
+}
+.sh-saved,
+.sh-assets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.sh-saved li,
+.sh-assets li {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+.sh-asset {
+  padding: 2px;
+  border: 2px solid transparent;
+  background: var(--paper-2);
+  border-radius: var(--radius-md);
+  min-height: 0;
+}
+.sh-asset[aria-pressed="true"] {
+  border-color: var(--focus);
+}
+.sh-asset img {
+  display: block;
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+.sh-upload {
+  align-self: flex-start;
+  cursor: pointer;
+}
+.sh-controls output {
+  margin-left: var(--space-1);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}

@@ -167,7 +167,7 @@ function summary(t: MetricTotals, clickMetrics: readonly AnalyticsMetric[]): Obj
   };
 }
 
-const CLICKS_OF: Record<AnalyticsObject, readonly AnalyticsMetric[]> = { widget: WIDGET_CLICKS, wall: ["cta", "link"], form: [], snippet: [] };
+const CLICKS_OF: Record<AnalyticsObject, readonly AnalyticsMetric[]> = { widget: WIDGET_CLICKS, wall: ["cta", "link"], form: [], snippet: [], testimonial: ["cta", "share"] };
 
 /**
  * One widget, form, wall or snippet over a period, with the previous period

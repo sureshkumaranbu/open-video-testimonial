@@ -23,6 +23,9 @@ export type AdminTestimonial = {
   videoMime: string | null;
   posterKey: string | null;
   videoOriginalKey: string | null;
+  /** VID-01: a trimmed video never falls back to its original. */
+  trimStartMs?: number | null;
+  trimEndMs?: number | null;
   mediaStatus: MediaStatus;
   mediaError: string | null;
   transcript: string | null;
@@ -375,7 +378,7 @@ export function TestimonialRow({
           key={t.videoKey}
         >
           <source src={`/api/media/${t.videoKey}`} type={t.mediaStatus === "ready" ? 'video/mp4; codecs="avc1.640028, mp4a.40.2"' : (t.videoMime ?? undefined)} />
-          {t.videoOriginalKey && t.videoOriginalKey !== t.videoKey && <source src={`/api/media/${t.videoOriginalKey}`} />}
+          {t.trimStartMs == null && t.trimEndMs == null && t.videoOriginalKey && t.videoOriginalKey !== t.videoKey && <source src={`/api/media/${t.videoOriginalKey}`} />}
         </video>
       )}
       {t.videoKey && MEDIA_NOTE[t.mediaStatus] && (

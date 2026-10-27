@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { WidgetLayout, WidgetSelectionMode } from "@/db/schema";
+import { MAX_CUSTOM_CSS } from "./custom-css";
 
 /**
  * A saved widget's configuration (DISP-01..07): which testimonials it shows,
@@ -217,6 +218,8 @@ export const widgetConfigSchema = z.object({
   labels: labelsSchema.default(labelsSchema.parse({})),
   cta: ctaSchema.default(ctaSchema.parse({})),
   aggregate: aggregateSchema.default(aggregateSchema.parse({})),
+  /** DISP-08: the owner's CSS for the widget's shadow root, cleaned on save (src/lib/custom-css.ts). */
+  css: z.string().max(MAX_CUSTOM_CSS, `Keep custom CSS under ${MAX_CUSTOM_CSS.toLocaleString("en")} characters`).default(""),
 });
 export type WidgetConfig = z.output<typeof widgetConfigSchema>;
 export type WidgetConfigInput = z.input<typeof widgetConfigSchema>;
@@ -245,6 +248,7 @@ export function parseConfigLenient(raw: Record<string, unknown>): WidgetConfig {
     labels: part(labelsSchema, raw.labels),
     cta: part(ctaSchema, raw.cta),
     aggregate: part(aggregateSchema, raw.aggregate),
+    css: typeof raw.css === "string" ? raw.css.slice(0, MAX_CUSTOM_CSS) : "",
   };
 }
 
@@ -268,6 +272,8 @@ export type PublicWidget = {
   aggregate: { show: boolean };
   /** Where the rating badge links: the project's wall. */
   wallUrl: string;
+  /** DISP-08: the owner's cleaned CSS, appended inside the shadow root ("" = none). */
+  css: string;
 };
 
 export type FeedImage = { url: string; alt: string | null };

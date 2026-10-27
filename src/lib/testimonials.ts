@@ -308,8 +308,9 @@ export function getTestimonial(id: string): TestimonialWithTags | null {
  * Whether a stored file may be shown to the public. Testimonial files (avatar,
  * poster, every video rendition, the company logo) and attached images only
  * while their testimonial is approved and its author hasn't withdrawn consent;
- * project and form logos always; wall logos and covers while the wall is
- * published. Answer videos (questions 2..N) stay private (D13), and so does
+ * a trimmed video's original never (it holds what the owner cut, VID-01);
+ * project and form logos always; wall logos, covers and favicons while the
+ * wall is published. Answer videos (questions 2..N) stay private (D13), and so does
  * every file nothing uses. One indexed query, run on every /api/media request.
  */
 export function isMediaPublic(key: string) {
@@ -320,7 +321,8 @@ export function isMediaPublic(key: string) {
 export function publicMediaQuery(key: string) {
   return sql`
     SELECT 1 AS ok FROM testimonials
-      WHERE (avatar_key = ${key} OR video_key = ${key} OR video_original_key = ${key} OR poster_key = ${key} OR company_logo_key = ${key})
+      WHERE (avatar_key = ${key} OR video_key = ${key} OR poster_key = ${key} OR company_logo_key = ${key}
+          OR (video_original_key = ${key} AND trim_start_ms IS NULL AND trim_end_ms IS NULL))
         AND status = 'approved' AND withdrawn_at IS NULL
     UNION ALL
     SELECT 1 FROM testimonial_images i JOIN testimonials t ON t.id = i.testimonial_id
@@ -330,7 +332,7 @@ export function publicMediaQuery(key: string) {
     UNION ALL
     SELECT 1 FROM forms WHERE logo_key = ${key}
     UNION ALL
-    SELECT 1 FROM walls WHERE (logo_key = ${key} OR cover_key = ${key}) AND published = 1
+    SELECT 1 FROM walls WHERE (logo_key = ${key} OR cover_key = ${key} OR favicon_key = ${key}) AND published = 1
     UNION ALL
     SELECT 1 FROM boosters WHERE logo_key = ${key} AND published = 1
     LIMIT 1`;
@@ -405,6 +407,14 @@ export type TestimonialPatch = {
   customFields?: Record<string, unknown>;
   isFeatured?: boolean;
   pinOrder?: number | null;
+  /** Set only through lib/video-tools.ts (VID-01..03), which stores and checks the files first. */
+  videoKey?: string | null;
+  videoOriginalKey?: string | null;
+  posterKey?: string | null;
+  posterAtMs?: number | null;
+  posterCustom?: boolean;
+  trimStartMs?: number | null;
+  trimEndMs?: number | null;
 };
 
 type EditableField = Exclude<keyof TestimonialPatch, "status" | "tags">;
@@ -605,8 +615,8 @@ export function mediaKeysOf(ids: string[]): string[] {
   return [...new Set(keys.filter((k): k is string => Boolean(k)))];
 }
 
-/** Whether any row still points at a file: another testimonial, answer or image, or a customer's photo. */
-function stillUsed(key: string) {
+/** Whether any row still points at a file: another testimonial, answer or image, a customer's photo, or an image studio upload. */
+export function stillUsed(key: string) {
   return Boolean(
     getDb().get(sql`
       SELECT 1 FROM testimonials
@@ -614,6 +624,7 @@ function stillUsed(key: string) {
       UNION ALL SELECT 1 FROM answers WHERE video_key = ${key} OR video_original_key = ${key} OR poster_key = ${key}
       UNION ALL SELECT 1 FROM testimonial_images WHERE key = ${key}
       UNION ALL SELECT 1 FROM customers WHERE avatar_key = ${key}
+      UNION ALL SELECT 1 FROM share_assets WHERE key = ${key}
       LIMIT 1`),
   );
 }
@@ -662,13 +673,21 @@ export interface PublicTestimonial {
 // Naming the codecs lets a browser without H.264 skip straight to the original.
 const PROCESSED_TYPE = 'video/mp4; codecs="avc1.640028, mp4a.40.2"';
 
-/** The converted MP4 first (plays everywhere), then the original upload as a fallback. */
+/** Whether the served video is a cut of the original (VID-01). */
+export function isTrimmed(t: Pick<Testimonial, "trimStartMs" | "trimEndMs">) {
+  return t.trimStartMs !== null || t.trimEndMs !== null;
+}
+
+/**
+ * The converted MP4 first (plays everywhere), then the original upload as a
+ * fallback. A trimmed video has no fallback: the original holds what was cut.
+ */
 export function videoSources(t: Testimonial) {
   if (!t.videoKey) return [];
   const sources = [
     { url: mediaUrl(t.videoKey)!, type: t.mediaStatus === "ready" ? PROCESSED_TYPE : (t.videoMime ?? "video/webm") },
   ];
-  if (t.mediaStatus === "ready" && t.videoOriginalKey && t.videoOriginalKey !== t.videoKey) {
+  if (t.mediaStatus === "ready" && !isTrimmed(t) && t.videoOriginalKey && t.videoOriginalKey !== t.videoKey) {
     const ext = t.videoOriginalKey.split(".").pop() ?? "";
     sources.push({ url: mediaUrl(t.videoOriginalKey)!, type: MIME_BY_EXT[ext] ?? "video/webm" });
   }

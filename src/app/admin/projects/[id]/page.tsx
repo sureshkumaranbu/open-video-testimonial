@@ -67,6 +67,8 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           initialQuery={query}
           initialPrefs={prefs}
           widgetStudio={featureOn("widgets") ? `/admin/projects/${project.id}/widgets` : undefined}
+          shareStudio={featureOn("share") ? `/admin/projects/${project.id}/share` : undefined}
+          publicPages={featureOn("walls")}
           initialOpenId={open}
         />
       </main>
