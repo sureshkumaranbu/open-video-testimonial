@@ -295,9 +295,11 @@ export const consentEvents = sqliteTable(
   (t) => [index("consent_events_testimonial_idx").on(t.testimonialId)],
 );
 
-export const REQUEST_STATUSES = ["waiting", "responded", "unsubscribed"] as const;
+// "declined" (M9): the person pressed "No thanks" in a campaign email.
+export const REQUEST_STATUSES = ["waiting", "responded", "unsubscribed", "declined"] as const;
 export type RequestStatus = (typeof REQUEST_STATUSES)[number];
-export const EMAIL_STATUSES = ["not_sent", "queued", "sent", "failed"] as const;
+// "bounced" (M9): the mail server refused the address for good at send time.
+export const EMAIL_STATUSES = ["not_sent", "queued", "sent", "failed", "bounced"] as const;
 export type EmailStatus = (typeof EMAIL_STATUSES)[number];
 
 /** A personal invitation to leave a testimonial, with a prefilled link and reminders. */
@@ -323,13 +325,90 @@ export const requests = sqliteTable(
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
     /** The form the link opens; null means the project's default form. */
     formId: text("form_id").references(() => forms.id, { onDelete: "set null" }),
+    // 0012 (M9): campaigns and per-recipient tracking. Timestamps only: no IPs, no user agents.
+    /** The campaign this person is a recipient of; null for a request from the Requests tab. */
+    campaignId: text("campaign_id").references(() => campaigns.id, { onDelete: "cascade" }),
+    /** Job title, from a CSV or a customer record. */
+    title: text("title"),
+    /** JSON object of custom template variables ({{plan}}), string values. */
+    custom: text("custom").notNull().default("{}"),
+    /** When a delayed invitation is due (auto-collect); null once it's sent or when it isn't delayed. */
+    scheduledFor: integer("scheduled_for", { mode: "timestamp_ms" }),
+    /** First open, from the pixel of a campaign that turned open tracking on. */
+    openedAt: integer("opened_at", { mode: "timestamp_ms" }),
+    /** First press of the personal link (through the /r redirect). */
+    clickedAt: integer("clicked_at", { mode: "timestamp_ms" }),
+    /** First time the form was opened with this request's token. */
+    startedAt: integer("started_at", { mode: "timestamp_ms" }),
+    declinedAt: integer("declined_at", { mode: "timestamp_ms" }),
   },
   (t) => [
     index("requests_project_idx").on(t.projectId),
     index("requests_reminder_idx").on(t.status, t.nextReminderAt),
     // 0011: deleting a form sets this to null.
     index("requests_form_idx").on(t.formId),
+    index("requests_campaign_idx").on(t.campaignId),
   ],
+);
+
+export const CAMPAIGN_STATUSES = ["draft", "active", "paused"] as const;
+export type CampaignStatus = (typeof CAMPAIGN_STATUSES)[number];
+
+/**
+ * An email campaign (M9, REQ-01): its own wording, sender and reminder
+ * schedule, sent to its recipients (rows in `requests` with this campaign_id).
+ * Nothing is sent while it's a draft or paused.
+ */
+export const campaigns = sqliteTable(
+  "campaigns",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    /** The form the personal links open; null means the project's default form. */
+    formId: text("form_id").references(() => forms.id, { onDelete: "set null" }),
+    name: text("name").notNull(),
+    status: text("status", { enum: CAMPAIGN_STATUSES }).notNull().default("draft"),
+    /** Shown as the sender's name, with SMTP_FROM's address. Empty uses SMTP_FROM as it is. */
+    senderName: text("sender_name").notNull().default(""),
+    replyTo: text("reply_to").notNull().default(""),
+    subject: text("subject").notNull().default(""),
+    body: text("body").notNull().default(""),
+    buttonText: text("button_text").notNull().default(""),
+    rtl: integer("rtl", { mode: "boolean" }).notNull().default(false),
+    /** JSON array of up to three day offsets after the invitation, e.g. [2,5,10]. */
+    reminders: text("reminders").notNull().default("[]"),
+    /** The open pixel is opt-in per campaign (privacy); off by default. */
+    trackOpens: integer("track_opens", { mode: "boolean" }).notNull().default(false),
+    /** SHA-256 of the incoming webhook token; null while the webhook is off. */
+    webhookTokenHash: text("webhook_token_hash"),
+    /** First characters of the token, to recognise the URL in the dashboard. */
+    webhookTokenPrefix: text("webhook_token_prefix"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index("campaigns_project_idx").on(t.projectId),
+    index("campaigns_form_idx").on(t.formId),
+    uniqueIndex("campaigns_webhook_token_idx").on(t.webhookTokenHash),
+  ],
+);
+
+/**
+ * Addresses that unsubscribed from a project's emails (M9: unsubscribe is
+ * project-wide, by lower-cased email). Kept even when the request is deleted.
+ */
+export const unsubscribes = sqliteTable(
+  "unsubscribes",
+  {
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.projectId, t.email] })],
 );
 
 export const API_KEY_SCOPES = ["read", "write"] as const;
@@ -355,7 +434,7 @@ export const WEBHOOK_EVENTS = [
   "testimonial.deleted",
   "testimonial.transcribed",
   "consent.withdrawn",
-  // Phase 1 (append only). invite.* and widget.* arrive with campaigns and install detection (P1).
+  // Phase 1 (append only). widget.* arrives with install detection (P1).
   "testimonial.updated",
   "testimonial.hidden",
   "testimonial.trashed",
@@ -363,6 +442,11 @@ export const WEBHOOK_EVENTS = [
   "feedback.created",
   "form.submitted",
   "import.completed",
+  // M9 campaigns: opt-in, never in DEFAULT_EVENTS.
+  "invite.sent",
+  "invite.opened",
+  "invite.clicked",
+  "invite.declined",
 ] as const;
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number] | "ping";
 
@@ -901,6 +985,7 @@ export type Job = typeof jobs.$inferSelect;
 export type ConsentVersion = typeof consentVersions.$inferSelect;
 export type ConsentEvent = typeof consentEvents.$inferSelect;
 export type TestimonialRequest = typeof requests.$inferSelect;
+export type Campaign = typeof campaigns.$inferSelect;
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type Webhook = typeof webhooks.$inferSelect;
 export type WebhookDelivery = typeof webhookDeliveries.$inferSelect;
