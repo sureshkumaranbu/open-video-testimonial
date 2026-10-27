@@ -38,8 +38,8 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // Private withdrawal links must not leak through the Referer header.
-        source: "/:prefix(w|u)/:path*",
+        // Private withdrawal, unsubscribe, "No thanks" and campaign links must not leak through the Referer header.
+        source: "/:prefix(w|u|d|r)/:path*",
         headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
       },
       {

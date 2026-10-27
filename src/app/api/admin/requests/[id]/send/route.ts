@@ -11,7 +11,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!r) return jsonError(404, "Request not found");
   if (!emailEnabled()) return jsonError(409, "Email isn't set up on this server (SMTP_URL)");
   if (r.status !== "waiting") {
-    return jsonError(409, r.status === "unsubscribed" ? "This person unsubscribed" : "This person already responded");
+    const why = { unsubscribed: "This person unsubscribed", declined: "This person said no thanks", responded: "This person already responded" };
+    return jsonError(409, why[r.status]);
   }
   const project = getProjectById(r.projectId)!;
   return Response.json({ request: withLink(project, queueInvite(project, r)) });

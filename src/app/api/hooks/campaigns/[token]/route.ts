@@ -1,0 +1,105 @@
+import { z } from "zod";
+import { CampaignError, createInvite, findCampaignByWebhookToken, inviteInput } from "@/lib/campaigns";
+import { jsonError } from "@/lib/http";
+import { clientKey, rateLimit } from "@/lib/rate-limit";
+import { getProjectById } from "@/lib/testimonials";
+import { firstIssue } from "@/lib/validation";
+
+/** Largest body accepted: an invite is a handful of short fields. */
+const MAX_BYTES = 16 * 1024;
+/** A backstop if the URL leaks: it can't make your mail server send more than this a day for one campaign. */
+const DAILY_LIMIT = 2000;
+const HEADERS = { "Cache-Control": "no-store" };
+
+const KNOWN = new Set(["email", "name", "company", "title", "delayDays", "variables"]);
+
+/** `{ email, name, company, title?, delayDays?, ...anything else }`: the rest become template variables. */
+const body = z
+  .record(z.string().max(40), z.unknown())
+  .refine((o) => Object.keys(o).length <= 40, "Send at most 40 fields")
+  .transform((o, ctx) => {
+    const extra = Object.fromEntries(Object.entries(o).filter(([k]) => !KNOWN.has(k)));
+    const nested = o.variables && typeof o.variables === "object" && !Array.isArray(o.variables) ? (o.variables as Record<string, unknown>) : {};
+    const parsed = inviteInput.safeParse({
+      email: o.email,
+      name: o.name ?? undefined,
+      company: o.company ?? undefined,
+      title: o.title ?? undefined,
+      delayDays: o.delayDays ?? undefined,
+      variables: Object.fromEntries(
+        Object.entries({ ...extra, ...nested }).filter(([, v]) => v === null || ["string", "number", "boolean"].includes(typeof v)),
+      ),
+    });
+    if (!parsed.success) {
+      ctx.addIssue({ code: "custom", message: firstIssue(parsed.error) });
+      return z.NEVER;
+    }
+    return parsed.data;
+  });
+
+/** The body as text, or null once it passes `max` bytes (it stops reading there, even without a Content-Length). */
+async function readCapped(req: Request, max: number) {
+  if (!req.body) return "";
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) {
+      await reader.cancel().catch(() => {});
+      return null;
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+/**
+ * A campaign's incoming webhook (REQ-07): POST JSON from your shop, CRM or an
+ * automation tool, and the person gets the campaign's invitation, optionally
+ * `delayDays` (or `?delay=`) days later. The URL's token is random and only
+ * its hash is stored; regenerating the URL in the dashboard retires the old one.
+ */
+export async function POST(req: Request, ctx: { params: Promise<{ token: string }> }) {
+  // Slows anyone trying tokens, and keeps one sender from flooding a campaign.
+  if (!rateLimit(`campaign-hook-ip:${clientKey(req)}`, 120, 60 * 1000)) {
+    return jsonError(429, "Too many requests: wait a minute, then try again", { ...HEADERS, "Retry-After": "60" });
+  }
+  const campaign = findCampaignByWebhookToken((await ctx.params).token);
+  const project = campaign && getProjectById(campaign.projectId);
+  if (!campaign || !project) return jsonError(404, "Unknown webhook URL", HEADERS);
+  if (!rateLimit(`campaign-hook:${campaign.id}`, 120, 60 * 1000)) {
+    return jsonError(429, "This campaign's webhook takes at most 120 invites a minute", { ...HEADERS, "Retry-After": "60" });
+  }
+  if (!rateLimit(`campaign-hook-day:${campaign.id}`, DAILY_LIMIT, 24 * 60 * 60 * 1000)) {
+    return jsonError(429, `This campaign's webhook takes at most ${DAILY_LIMIT} invites a day; add more with the API`, { ...HEADERS, "Retry-After": "3600" });
+  }
+  if (!/^application\/json\b/i.test(req.headers.get("content-type") ?? "")) return jsonError(415, "Send JSON (Content-Type: application/json)", HEADERS);
+  if (Number(req.headers.get("content-length") ?? 0) > MAX_BYTES) return jsonError(413, "The body is too large (16 KB at most)", HEADERS);
+  const raw = await readCapped(req, MAX_BYTES);
+  if (raw === null) return jsonError(413, "The body is too large (16 KB at most)", HEADERS);
+  let json: unknown;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    return jsonError(400, "The body isn't valid JSON", HEADERS);
+  }
+  const delay = new URL(req.url).searchParams.get("delay");
+  if (delay !== null && json && typeof json === "object" && !Array.isArray(json) && !("delayDays" in json)) {
+    (json as Record<string, unknown>).delayDays = /^\d+(\.\d+)?$/.test(delay) ? Number(delay) : delay;
+  }
+  const parsed = body.safeParse(json);
+  if (!parsed.success) return jsonError(400, firstIssue(parsed.error), HEADERS);
+  try {
+    const { invite, skipped } = createInvite(project, campaign, parsed.data);
+    return Response.json(
+      { ok: true, inviteId: invite?.id ?? null, ...(skipped ? { skipped } : {}), scheduledFor: invite?.scheduledFor?.toISOString() ?? null },
+      { status: skipped ? 200 : 202, headers: HEADERS },
+    );
+  } catch (err) {
+    if (err instanceof CampaignError) return jsonError(err.status, err.message, HEADERS);
+    throw err;
+  }
+}

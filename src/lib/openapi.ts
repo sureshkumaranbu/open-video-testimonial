@@ -21,7 +21,8 @@ export function openApiSpec(serverUrl: string) {
       version: "1.0.0",
       description:
         "Read and manage testimonials. Authenticate with `Authorization: Bearer plk_…` (create keys under Settings). " +
-        "Keys are read-only or read-write. Limit: 600 requests per minute per key.",
+        "Keys are read-only or read-write. Limit: 600 requests per minute per key. " +
+        "Campaign invites: POST /invites. A campaign's incoming webhook URL is separate and needs no key.",
       license: { name: "MIT" },
     },
     servers: [{ url: `${serverUrl}/api/v1` }],
@@ -109,6 +110,39 @@ export function openApiSpec(serverUrl: string) {
           summary: "Delete a testimonial and its media (write scope)",
           operationId: "deleteTestimonial",
           responses: { "200": { description: "Deleted" }, "401": error, "403": error, "404": error },
+        },
+      },
+      "/invites": {
+        post: {
+          summary: "Invite someone through a campaign (write scope)",
+          description:
+            "Adds one person to an active campaign and queues its invitation, optionally delayDays later. " +
+            "Someone already in the campaign, unsubscribed from the project, or who already responded gets no second email: " +
+            "the answer is 200 with skipped saying why (data is the existing invite, or null). A draft or paused campaign answers 409.",
+          operationId: "createInvite",
+          requestBody: { required: true, content: { "application/json": { schema: ref("NewInvite") } } },
+          responses: {
+            "201": one("Invite"),
+            "200": {
+              description: "Skipped: no new email was sent",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      data: { oneOf: [ref("Invite"), { type: "null" }] },
+                      skipped: { type: "string", enum: ["duplicate", "unsubscribed", "responded"] },
+                    },
+                  },
+                },
+              },
+            },
+            "400": error,
+            "401": error,
+            "403": error,
+            "404": error,
+            "409": error,
+          },
         },
       },
     },
@@ -312,6 +346,54 @@ export function openApiSpec(serverUrl: string) {
             pinOrder: nullable("integer", { minimum: 0 }),
           },
         },
+        NewInvite: {
+          type: "object",
+          required: ["campaignId", "email"],
+          properties: {
+            campaignId: { type: "string", description: "Shown on the campaign's Auto-collect tab" },
+            email: { type: "string", format: "email" },
+            name: { type: "string", maxLength: 120 },
+            company: { type: "string", maxLength: 120 },
+            title: { type: "string", maxLength: 120 },
+            variables: {
+              type: "object",
+              description: "Template variables for {{key}} in the campaign's wording (keys: letters, digits and _, up to 20)",
+              additionalProperties: { type: ["string", "number", "boolean", "null"] },
+            },
+            delayDays: { type: "number", minimum: 0, maximum: 365, description: "Send this many days later; 0 or absent sends now" },
+          },
+        },
+        Invite: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            campaignId: nullable("string"),
+            email: { type: "string" },
+            name: nullable("string"),
+            company: nullable("string"),
+            title: nullable("string"),
+            variables: { type: "object", additionalProperties: { type: "string" } },
+            stage: {
+              type: "string",
+              enum: ["not_sent", "queued", "sent", "failed", "bounced", "opened", "clicked", "started", "submitted", "declined", "unsubscribed"],
+              description: "The furthest step: opened only for campaigns that track opens",
+            },
+            status: { type: "string", enum: ["waiting", "responded", "unsubscribed", "declined"] },
+            emailStatus: { type: "string", enum: ["not_sent", "queued", "sent", "failed", "bounced"] },
+            scheduledFor: nullable("string", { format: "date-time", description: "When a delayed invitation goes out" }),
+            sentAt: nullable("string", { format: "date-time" }),
+            remindersSent: { type: "integer" },
+            openedAt: nullable("string", { format: "date-time" }),
+            clickedAt: nullable("string", { format: "date-time" }),
+            startedAt: nullable("string", { format: "date-time" }),
+            respondedAt: nullable("string", { format: "date-time" }),
+            declinedAt: nullable("string", { format: "date-time" }),
+            unsubscribedAt: nullable("string", { format: "date-time" }),
+            testimonialId: nullable("string"),
+            link: { type: "string", format: "uri", description: "The personal form link" },
+            createdAt: { type: "string", format: "date-time" },
+          },
+        },
         WebhookPayload: {
           type: "object",
           properties: {
@@ -323,6 +405,8 @@ export function openApiSpec(serverUrl: string) {
               type: "object",
               properties: {
                 testimonial: ref("Testimonial"),
+                invite: { ...ref("Invite"), description: "On invite.* events" },
+                kind: { type: "string", enum: ["invite", "reminder"], description: "Only on invite.sent" },
                 approvedBy: { type: "string", enum: ["owner", "api", "auto"], description: "Only on testimonial.approved" },
                 message: { type: "string" },
               },

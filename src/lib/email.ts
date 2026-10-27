@@ -10,13 +10,25 @@ import { env } from "./env";
  * no per-email cost and mail comes from the owner's domain. With
  * MAIL_OUTBOX=true, messages are written to DATA_DIR/mail-outbox as .eml
  * files instead, which is handy for trying things out locally.
- * Messages are plain text: no tracking pixels, no remote images.
+ * Messages are plain text. Campaign emails (M9) add an HTML part with a
+ * button; only a campaign that opted in carries an open pixel, and it loads
+ * from this server.
  */
 export interface Mail {
   to: string;
   subject: string;
   text: string;
+  html?: string;
+  /** Shown as the sender's name; the address is always SMTP_FROM's. */
+  fromName?: string;
+  replyTo?: string;
   headers?: Record<string, string>;
+}
+
+/** The bare address in SMTP_FROM ("Acme <hello@acme.com>" gives hello@acme.com). */
+export function fromAddress(from = env.smtpFrom) {
+  const m = /<([^<>\s]+@[^<>\s]+)>/.exec(from);
+  return (m ? m[1] : from).trim();
 }
 
 /** How long to wait on a mail server, so a wrong host or port fails in seconds rather than minutes. */
@@ -71,11 +83,14 @@ export function headerSafe(value: string) {
 }
 
 export async function sendMail(mail: Mail) {
+  const name = mail.fromName ? headerSafe(mail.fromName) : "";
   const message = {
-    from: env.smtpFrom,
+    from: name ? { name, address: fromAddress() } : env.smtpFrom,
     to: mail.to,
     subject: headerSafe(mail.subject),
     text: mail.text,
+    ...(mail.html ? { html: mail.html } : {}),
+    ...(mail.replyTo ? { replyTo: mail.replyTo } : {}),
     headers: mail.headers,
   };
   const mode = emailMode();
@@ -90,6 +105,19 @@ export async function sendMail(mail: Mail) {
   const file = path.join(dir, `${Date.now()}-${crypto.randomUUID()}.eml`);
   await fs.promises.writeFile(file, built.message as Buffer);
   return { messageId: built.messageId as string, file };
+}
+
+/**
+ * True for an error where the receiving server refused the address itself
+ * (a 5xx to RCPT TO, or a 5.1.x status): the campaign shows it as bounced.
+ * There's no inbound bounce processing; this is what the send itself says.
+ */
+export function isRecipientRejection(err: unknown) {
+  const e = err as SmtpError & { command?: string };
+  if (!(e instanceof Error)) return false;
+  const code = e.responseCode ?? 0;
+  if (code < 500 || code >= 600) return false;
+  return /RCPT/i.test(e.command ?? "") || /\b5\.1\.\d\b|recipient|mailbox|user unknown|no such user|does not exist/i.test(`${e.message} ${e.response ?? ""}`);
 }
 
 /** Fills `{name}`-style placeholders. Unknown placeholders are left as they are. */

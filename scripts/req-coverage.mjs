@@ -63,7 +63,7 @@ function main() {
   const args = process.argv.slice(2);
   const milestone = args.includes("--all") ? "all" : args[args.indexOf("--milestone") + 1];
   if (!milestone || (!args.includes("--all") && !args.includes("--milestone"))) {
-    console.error("Usage: node scripts/req-coverage.mjs --milestone <M1..M7> | --all [--report]");
+    console.error("Usage: node scripts/req-coverage.mjs --milestone <M1..M7, M9> | --all [--report]");
     process.exit(2);
   }
   const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, "docs", "plan", "ownership.json"), "utf8"));
@@ -74,7 +74,7 @@ function main() {
     const hits = result[id];
     console.log(hits.length ? `  ok       ${id}  ${hits.length} test(s), e.g. ${hits[0].file}:${hits[0].line}` : `  MISSING  ${id}`);
   }
-  const label = milestone === "all" ? "Phase 1" : milestone;
+  const label = milestone === "all" ? "All milestones" : milestone;
   if (missing.length && !args.includes("--report")) {
     console.error(`\n${label}: ${missing.length} of ${ids.length} requirements have no test title naming them: ${missing.join(", ")}`);
     process.exit(1);

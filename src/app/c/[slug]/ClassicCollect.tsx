@@ -3,7 +3,7 @@ import type { Form, Project } from "@/db/schema";
 import { currentConsentVersion } from "@/lib/consent";
 import { env } from "@/lib/env";
 import { parseFormRow } from "@/lib/forms/schema";
-import { findRequestByToken } from "@/lib/requests";
+import { findRequestByToken, markStarted } from "@/lib/requests";
 import { projectQuestions } from "@/lib/testimonials";
 import { accentStyle } from "@/lib/theme";
 import { CollectForm } from "./CollectForm";
@@ -33,6 +33,8 @@ export function ClassicCollect({ project, form, query }: { project: Project; for
   // A personal request link (?r=…) prefills who they are.
   const token = query.r;
   const request = typeof token === "string" ? findRequestByToken(token) : null;
+  // Opening the form through the link counts as "started" for that request (M9 tracking).
+  if (request && request.projectId === project.id) markStarted(request);
   const prefill =
     request && request.projectId === project.id
       ? { token: token as string, name: request.name ?? "", email: request.email, company: request.company ?? "" }
