@@ -46,8 +46,9 @@ export const MAX_IMPORT_ROWS = 5000;
 
 const reminderDays = z
   .array(z.number().int("Reminders are whole days").min(1, "A reminder is at least 1 day after the invitation").max(60, "A reminder is at most 60 days after the invitation"))
-  .max(3, "Up to three reminders")
-  .transform((days) => [...new Set(days)].sort((a, b) => a - b));
+  .max(10)
+  .transform((days) => [...new Set(days)].sort((a, b) => a - b))
+  .refine((days) => days.length <= 3, "Up to three reminders");
 
 export const campaignFields = z.object({
   name: z.string().trim().min(1, "Give the campaign a name").max(120),

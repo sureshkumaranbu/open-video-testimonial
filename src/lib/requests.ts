@@ -480,8 +480,11 @@ export function decline(r: TestimonialRequest) {
   return row ?? r;
 }
 
+export const INVITE_STAGES = ["not_sent", "queued", "sent", "failed", "bounced", "opened", "clicked", "started", "submitted", "declined", "unsubscribed"] as const;
+export type InviteStage = (typeof INVITE_STAGES)[number];
+
 /** Where a recipient is, furthest step first: what the campaign page and the API show. */
-export function inviteStage(r: TestimonialRequest) {
+export function inviteStage(r: TestimonialRequest): InviteStage {
   if (r.status === "responded") return "submitted";
   if (r.status === "declined") return "declined";
   if (r.status === "unsubscribed") return "unsubscribed";
@@ -493,7 +496,6 @@ export function inviteStage(r: TestimonialRequest) {
   if (r.emailStatus === "queued") return "queued";
   return "not_sent";
 }
-export type InviteStage = ReturnType<typeof inviteStage>;
 
 /** A recipient as the API and the invite webhooks show them. */
 export function inviteToApi(project: Project, r: TestimonialRequest) {
