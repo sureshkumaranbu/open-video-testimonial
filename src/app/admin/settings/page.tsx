@@ -112,7 +112,13 @@ export default async function SettingsPage() {
 
         {featureOn("notifications") && <Notifications email={session.email} projects={projects} widgetAlerts={analyticsUi()} />}
 
-        <Settings apiBase={`${env.publicUrl}/api/v1`} events={[...WEBHOOK_EVENTS]} projects={projects} forms={forms} />
+        <Settings
+          apiBase={`${env.publicUrl}/api/v1`}
+          mcpUrl={featureOn("mcp") ? `${env.publicUrl}/mcp` : null}
+          events={[...WEBHOOK_EVENTS]}
+          projects={projects}
+          forms={forms}
+        />
       </main>
     </>
   );

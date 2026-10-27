@@ -66,11 +66,14 @@ function Copy({ text, label = "Copy" }: { text: string; label?: string }) {
 
 export function Settings({
   apiBase,
+  mcpUrl = null,
   events,
   projects,
   forms = [],
 }: {
   apiBase: string;
+  /** INT-04: the MCP server's address, or null while the `mcp` flag is off. */
+  mcpUrl?: string | null;
   events: string[];
   projects: { id: string; name: string }[];
   /** For the webhook editor's "only this form" choice (FORM-10). */
@@ -78,13 +81,13 @@ export function Settings({
 }) {
   return (
     <>
-      <ApiKeys apiBase={apiBase} />
+      <ApiKeys apiBase={apiBase} mcpUrl={mcpUrl} />
       <Webhooks events={events} projects={projects} forms={forms} />
     </>
   );
 }
 
-function ApiKeys({ apiBase }: { apiBase: string }) {
+function ApiKeys({ apiBase, mcpUrl }: { apiBase: string; mcpUrl: string | null }) {
   const [keys, setKeys] = useState<Key[]>([]);
   const [created, setCreated] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -108,6 +111,12 @@ function ApiKeys({ apiBase }: { apiBase: string }) {
           For scripts and tools such as n8n. Send <code>Authorization: Bearer plk_…</code> to <code>{apiBase}</code>.
           The full reference is at <a href="/api/v1/openapi.json">/api/v1/openapi.json</a> (OpenAPI 3.1).
         </p>
+        {mcpUrl && (
+          <p className="muted small" data-testid="mcp-url">
+            AI assistants (Claude, Cursor and other MCP clients) connect to <code>{mcpUrl}</code> with a key as the bearer token. A read-only key
+            can look things up but not send invitations. Setup: docs/help/mcp.md.
+          </p>
+        )}
         <form
           className="row"
           onSubmit={async (e) => {
