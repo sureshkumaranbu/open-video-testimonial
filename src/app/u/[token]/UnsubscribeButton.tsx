@@ -5,7 +5,7 @@ import { useState } from "react";
 export function UnsubscribeButton({ token }: { token: string }) {
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  if (done) return <p role="status">You won&apos;t get any more emails about this request.</p>;
+  if (done) return <p role="status">You won&apos;t get any more emails from them.</p>;
   return (
     <>
       {error && (

@@ -1,16 +1,18 @@
 import crypto from "node:crypto";
-import { and, desc, eq, inArray, isNotNull, lte } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, lte } from "drizzle-orm";
 import { z } from "zod";
 import { getDb, schema } from "@/db";
-import type { Form, Project, TestimonialRequest } from "@/db/schema";
+import type { Campaign, Form, Project, TestimonialRequest } from "@/db/schema";
+import { renderCampaignEmail } from "./campaign-email";
 import { parseCsv } from "./csv";
-import { emailEnabled, fillTemplate, headerSafe, isPermanentSmtpError, sendMail } from "./email";
+import { emailEnabled, fillTemplate, headerSafe, isPermanentSmtpError, isRecipientRejection, sendMail } from "./email";
 import { env } from "./env";
 import { formUrl, getForm } from "./forms";
 import { parseFormRow } from "./forms/schema";
 import { enqueue, PermanentJobError } from "./jobs";
+import { emitEvent } from "./webhooks";
 
-const { requests, projects } = schema;
+const { requests, projects, campaigns, unsubscribes } = schema;
 
 /**
  * Personal testimonial requests. Each one gets a signed link that prefills
@@ -37,12 +39,15 @@ function sign(purpose: string, id: string) {
   return crypto.createHmac("sha256", env.sessionSecret).update(`${purpose}:${id}`).digest("base64url").slice(0, 22);
 }
 
+/** What a signed link is for; each purpose has its own signature, so one can't stand in for another. */
+type Purpose = "request" | "unsubscribe" | "decline" | "open";
+
 /** `<id>.<signature>`; changing SESSION_SECRET invalidates old links. */
-function token(purpose: "request" | "unsubscribe", id: string) {
+function token(purpose: Purpose, id: string) {
   return `${id}.${sign(purpose, id)}`;
 }
 
-function verify(purpose: "request" | "unsubscribe", value: string | null | undefined) {
+function verify(purpose: Purpose, value: string | null | undefined) {
   const [id, sig] = (value ?? "").split(".");
   if (!id || !sig || !/^[0-9a-f-]{36}$/.test(id)) return null;
   const expected = Buffer.from(sign(purpose, id));
@@ -55,6 +60,10 @@ export const requestToken = (id: string) => token("request", id);
 export const unsubscribeToken = (id: string) => token("unsubscribe", id);
 export const findRequestByToken = (value: string | null | undefined) => verify("request", value);
 export const findRequestByUnsubscribeToken = (value: string | null | undefined) => verify("unsubscribe", value);
+export const declineToken = (id: string) => token("decline", id);
+export const findRequestByDeclineToken = (value: string | null | undefined) => verify("decline", value);
+export const openToken = (id: string) => token("open", id);
+export const findRequestByOpenToken = (value: string | null | undefined) => verify("open", value);
 
 /**
  * The personal link: the request's form when it has one (/f/<project>/<form>),
@@ -79,6 +88,47 @@ export function withLink<T extends { id: string; formId?: string | null }>(proje
 
 export function unsubscribeLink(id: string) {
   return `${env.publicUrl}/u/${unsubscribeToken(id)}`;
+}
+
+/** Campaign emails link through /r, which records the click and sends the person on to their form. */
+export function clickLink(id: string) {
+  return `${env.publicUrl}/r/${requestToken(id)}`;
+}
+
+export function declineLink(id: string) {
+  return `${env.publicUrl}/d/${declineToken(id)}`;
+}
+
+export function openPixelUrl(id: string) {
+  return `${env.publicUrl}/api/open/${openToken(id)}`;
+}
+
+// ------------------------------------------------------------------ unsubscribes
+
+/**
+ * Unsubscribing is project-wide, by email (M9): it stops every request and
+ * campaign of the project for that address, and later imports skip it.
+ */
+export function isUnsubscribed(projectId: string, email: string) {
+  return Boolean(
+    getDb()
+      .select({ email: unsubscribes.email })
+      .from(unsubscribes)
+      .where(and(eq(unsubscribes.projectId, projectId), eq(unsubscribes.email, email.toLowerCase())))
+      .get(),
+  );
+}
+
+/** The project's unsubscribed addresses among `emails` (lower-cased). */
+export function unsubscribedAmong(projectId: string, emails: string[]) {
+  const lower = [...new Set(emails.map((e) => e.toLowerCase()))];
+  if (!lower.length) return new Set<string>();
+  const rows = getDb()
+    .select({ email: unsubscribes.email })
+    .from(unsubscribes)
+    .where(and(eq(unsubscribes.projectId, projectId), inArray(unsubscribes.email, lower)))
+    .all();
+  return new Set(rows.map((r) => r.email));
 }
 
 // ------------------------------------------------------------------ input
@@ -128,8 +178,15 @@ export function parseReminderDays(value: string) {
 
 // ------------------------------------------------------------------ CRUD
 
-export function listRequests(projectId: string) {
-  return getDb().select().from(requests).where(eq(requests.projectId, projectId)).orderBy(desc(requests.createdAt)).all();
+/**
+ * The project's requests, newest first. `campaignId: null` keeps the Requests
+ * tab's own (no campaign); a campaign id gives that campaign's recipients.
+ */
+export function listRequests(projectId: string, o: { campaignId?: string | null } = {}) {
+  const where = [eq(requests.projectId, projectId)];
+  if (o.campaignId === null) where.push(isNull(requests.campaignId));
+  else if (o.campaignId) where.push(eq(requests.campaignId, o.campaignId));
+  return getDb().select().from(requests).where(and(...where)).orderBy(desc(requests.createdAt)).all();
 }
 
 export function getRequest(id: string) {
@@ -153,6 +210,8 @@ export function createRequests(project: Project, rows: RequestRow[], opts: { sen
   const blocked = new Map(
     existing.filter((r) => r.status !== "responded").map((r) => [r.email, r.status === "unsubscribed" ? "unsubscribed" : "duplicate"]),
   );
+  // Unsubscribing is project-wide, and outlives a deleted request.
+  for (const address of unsubscribedAmong(project.id, emails)) blocked.set(address, "unsubscribed");
   const created: TestimonialRequest[] = [];
   const skipped: { email: string; reason: "duplicate" | "unsubscribed" }[] = [];
   for (const row of rows) {
@@ -182,7 +241,7 @@ export function createRequests(project: Project, rows: RequestRow[], opts: { sen
 
 // ------------------------------------------------------------------ email
 
-type EmailKind = "invite" | "reminder";
+export type EmailKind = "invite" | "reminder";
 
 function inviteEmail(project: Project, r: TestimonialRequest, kind: EmailKind) {
   const values = {
@@ -208,45 +267,117 @@ function inviteEmail(project: Project, r: TestimonialRequest, kind: EmailKind) {
   };
 }
 
+/** The custom template variables saved with a campaign recipient. */
+export function parseCustom(raw: string): Record<string, string> {
+  try {
+    const v: unknown = JSON.parse(raw);
+    if (!v || typeof v !== "object" || Array.isArray(v)) return {};
+    return Object.fromEntries(Object.entries(v).filter((e): e is [string, string] => typeof e[1] === "string"));
+  } catch {
+    return {};
+  }
+}
+
+/** A campaign's reminder schedule: up to three whole days after the invitation, ascending. */
+export function parseReminderList(raw: string): number[] {
+  try {
+    const v: unknown = JSON.parse(raw);
+    return Array.isArray(v) ? parseReminderDays(v.filter((n) => typeof n === "number").join(",")) : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The campaign email for one recipient: what the worker sends, and (with
+ * `preview`) the dashboard's preview of it, which leaves out only the open pixel.
+ */
+export function campaignEmail(
+  project: Project,
+  campaign: Pick<Campaign, "subject" | "body" | "buttonText" | "rtl" | "senderName" | "replyTo" | "trackOpens">,
+  r: TestimonialRequest,
+  kind: EmailKind,
+  o: { preview?: boolean } = {},
+) {
+  return renderCampaignEmail({
+    projectName: project.name,
+    accentColor: project.accentColor,
+    content: campaign,
+    recipient: { name: r.name, email: r.email, company: r.company, title: r.title, custom: parseCustom(r.custom) },
+    links: {
+      link: clickLink(r.id),
+      decline: declineLink(r.id),
+      unsubscribe: unsubscribeLink(r.id),
+      oneClick: `${env.publicUrl}/api/unsubscribe/${unsubscribeToken(r.id)}`,
+      open: campaign.trackOpens && !o.preview ? openPixelUrl(r.id) : null,
+    },
+    kind,
+  });
+}
+
 function update(id: string, fields: Partial<typeof requests.$inferInsert>) {
   return getDb().update(requests).set(fields).where(eq(requests.id, id)).returning().get();
 }
 
-/** Queues the invitation (again). Resets the reminder schedule. */
-export function queueInvite(project: Project, r: TestimonialRequest) {
+function campaignOf(r: Pick<TestimonialRequest, "campaignId">) {
+  return r.campaignId ? (getDb().select().from(campaigns).where(eq(campaigns.id, r.campaignId)).get() ?? null) : null;
+}
+
+/**
+ * Queues the invitation (again). Resets the reminder schedule. `delayMs`
+ * holds it back (auto-collect's "send N days later").
+ */
+export function queueInvite(project: Project, r: TestimonialRequest, o: { delayMs?: number } = {}) {
   if (!emailEnabled()) throw new Error("Email isn't set up on this server (SMTP_URL)");
-  enqueue(SEND_EMAIL_JOB, { requestId: r.id, kind: "invite" satisfies EmailKind }, { maxAttempts: 4 });
-  return update(r.id, { emailStatus: "queued", emailError: null, remindersSent: 0, nextReminderAt: null });
+  const runAt = o.delayMs ? new Date(Date.now() + o.delayMs) : undefined;
+  enqueue(SEND_EMAIL_JOB, { requestId: r.id, kind: "invite" satisfies EmailKind }, { maxAttempts: 4, runAt });
+  return update(r.id, { emailStatus: "queued", emailError: null, remindersSent: 0, nextReminderAt: null, scheduledFor: runAt ?? null });
 }
 
 /** Job handler for invitations and reminders. */
 export async function sendRequestEmail(payload: { requestId: string; kind: EmailKind }, final: boolean) {
   const r = getRequest(payload.requestId);
   if (!r) return; // deleted
-  if (r.status !== "waiting") return; // responded or unsubscribed meanwhile
+  if (r.status !== "waiting") return; // responded, unsubscribed or declined meanwhile
   const project = getDb().select().from(projects).where(eq(projects.id, r.projectId)).get();
   if (!project) return;
+  if (isUnsubscribed(project.id, r.email)) {
+    // Unsubscribed through another request or campaign of this project.
+    update(r.id, { status: "unsubscribed", unsubscribedAt: new Date(), nextReminderAt: null, emailStatus: r.sentAt ? "sent" : "not_sent", scheduledFor: null });
+    return;
+  }
+  const campaign = campaignOf(r);
+  if (r.campaignId && !campaign) return; // the campaign was deleted
+  if (campaign && campaign.status !== "active") {
+    // Paused (or back to draft): nothing goes out. Resuming queues it again.
+    update(r.id, payload.kind === "invite" ? { emailStatus: "not_sent", scheduledFor: null } : { emailStatus: "sent", nextReminderAt: new Date() });
+    return;
+  }
   try {
-    await sendMail(inviteEmail(project, r, payload.kind));
+    await sendMail(campaign ? campaignEmail(project, campaign, r, payload.kind) : inviteEmail(project, r, payload.kind));
   } catch (err) {
     // A refused login, sender or address fails the same way every time: stop now.
     const permanent = isPermanentSmtpError(err) || (err instanceof Error && /isn't set up/.test(err.message));
-    update(r.id, { emailStatus: final || permanent ? "failed" : "queued", emailError: (err as Error).message.slice(0, 300) });
+    // A campaign shows an address the server refused for good as bounced.
+    const gaveUp = campaign && permanent && isRecipientRejection(err) ? "bounced" : "failed";
+    update(r.id, { emailStatus: final || permanent ? gaveUp : "queued", emailError: (err as Error).message.slice(0, 300) });
     if (permanent) throw new PermanentJobError((err as Error).message);
     throw err;
   }
   const now = new Date();
   const sentAt = payload.kind === "invite" ? now : (r.sentAt ?? now);
   const remindersSent = payload.kind === "reminder" ? r.remindersSent + 1 : 0;
-  const schedule = parseReminderDays(project.reminderDays);
+  const schedule = campaign ? parseReminderList(campaign.reminders) : parseReminderDays(project.reminderDays);
   const next = schedule[remindersSent];
-  update(r.id, {
+  const sent = update(r.id, {
     emailStatus: "sent",
     emailError: null,
     sentAt,
+    scheduledFor: null,
     remindersSent,
     nextReminderAt: next ? new Date(sentAt.getTime() + next * DAY) : null,
   });
+  if (sent) emitInvite("invite.sent", project, sent, { kind: payload.kind });
 }
 
 /** Periodic task: queues reminders that are due. */
@@ -257,12 +388,22 @@ export function queueDueReminders(now = new Date()) {
     .from(requests)
     .where(and(eq(requests.status, "waiting"), isNotNull(requests.nextReminderAt), lte(requests.nextReminderAt, now)))
     .all();
+  const paused = new Set(
+    getDb()
+      .select({ id: campaigns.id })
+      .from(campaigns)
+      .where(inArray(campaigns.status, ["draft", "paused"]))
+      .all()
+      .map((c) => c.id),
+  );
   for (const r of due) {
+    // A paused campaign's reminders wait; they go out once it's resumed.
+    if (r.campaignId && paused.has(r.campaignId)) continue;
     // Clear the due time first so a slow send can't queue the same reminder twice.
     update(r.id, { nextReminderAt: null, emailStatus: "queued" });
     enqueue(SEND_EMAIL_JOB, { requestId: r.id, kind: "reminder" satisfies EmailKind }, { maxAttempts: 4 });
   }
-  return due.length;
+  return due.filter((r) => !(r.campaignId && paused.has(r.campaignId))).length;
 }
 
 // ------------------------------------------------------------------ outcomes
@@ -277,13 +418,110 @@ export function markResponded(r: TestimonialRequest, testimonialId: string) {
   });
 }
 
+/**
+ * Stops email to this address from the whole project (M9): the address is
+ * remembered, and every request or campaign still waiting on it stops.
+ */
 export function unsubscribe(r: TestimonialRequest) {
-  if (r.status === "unsubscribed") return r;
-  return update(r.id, {
-    status: r.status === "responded" ? "responded" : "unsubscribed",
-    unsubscribedAt: new Date(),
-    nextReminderAt: null,
-  });
+  const db = getDb();
+  const now = new Date();
+  const email = r.email.toLowerCase();
+  db.insert(unsubscribes).values({ projectId: r.projectId, email, createdAt: now }).onConflictDoNothing().run();
+  db.update(requests)
+    .set({ status: "unsubscribed", unsubscribedAt: now, nextReminderAt: null })
+    .where(and(eq(requests.projectId, r.projectId), eq(requests.email, email), inArray(requests.status, ["waiting", "declined"]), isNull(requests.unsubscribedAt)))
+    .run();
+  if (r.unsubscribedAt) return getRequest(r.id) ?? r;
+  // A person who already responded keeps that status; the date still records the unsubscribe.
+  return update(r.id, { unsubscribedAt: r.unsubscribedAt ?? now, nextReminderAt: null }) ?? r;
+}
+
+// ------------------------------------------------------------------ tracking (M9, REQ-04 and REQ-05)
+
+/** Invite webhooks (opt-in events): the recipient, with their campaign. */
+function emitInvite(event: "invite.sent" | "invite.opened" | "invite.clicked" | "invite.declined", project: Project, r: TestimonialRequest, extra: object = {}) {
+  emitEvent(event, project, { invite: inviteToApi(project, r), ...extra }, { formId: r.formId });
+}
+
+function projectOf(r: TestimonialRequest) {
+  return getDb().select().from(projects).where(eq(projects.id, r.projectId)).get() ?? null;
+}
+
+/** The first press of the personal link. Later presses change nothing. */
+export function markClicked(r: TestimonialRequest) {
+  if (r.clickedAt) return r;
+  const row = getDb().update(requests).set({ clickedAt: new Date() }).where(and(eq(requests.id, r.id), isNull(requests.clickedAt))).returning().get();
+  const project = row && projectOf(row);
+  if (row && project) emitInvite("invite.clicked", project, row);
+  return row ?? r;
+}
+
+/** The first open, only for a campaign that turned open tracking on. */
+export function markOpened(r: TestimonialRequest) {
+  if (r.openedAt || !campaignOf(r)?.trackOpens) return r;
+  const row = getDb().update(requests).set({ openedAt: new Date() }).where(and(eq(requests.id, r.id), isNull(requests.openedAt))).returning().get();
+  const project = row && projectOf(row);
+  if (row && project) emitInvite("invite.opened", project, row);
+  return row ?? r;
+}
+
+/** The form was opened with this request's token (the link's prefill). */
+export function markStarted(r: TestimonialRequest) {
+  if (r.startedAt) return r;
+  return getDb().update(requests).set({ startedAt: new Date() }).where(and(eq(requests.id, r.id), isNull(requests.startedAt))).returning().get() ?? r;
+}
+
+/** "No thanks": no more reminders for this request. Someone who already responded stays responded. */
+export function decline(r: TestimonialRequest) {
+  if (r.status !== "waiting") return r;
+  const row = update(r.id, { status: "declined", declinedAt: new Date(), nextReminderAt: null });
+  const project = row && projectOf(row);
+  if (row && project) emitInvite("invite.declined", project, row);
+  return row ?? r;
+}
+
+/** Where a recipient is, furthest step first: what the campaign page and the API show. */
+export function inviteStage(r: TestimonialRequest) {
+  if (r.status === "responded") return "submitted";
+  if (r.status === "declined") return "declined";
+  if (r.status === "unsubscribed") return "unsubscribed";
+  if (r.startedAt) return "started";
+  if (r.clickedAt) return "clicked";
+  if (r.openedAt) return "opened";
+  if (r.emailStatus === "bounced" || r.emailStatus === "failed") return r.emailStatus;
+  if (r.emailStatus === "sent") return "sent";
+  if (r.emailStatus === "queued") return "queued";
+  return "not_sent";
+}
+export type InviteStage = ReturnType<typeof inviteStage>;
+
+/** A recipient as the API and the invite webhooks show them. */
+export function inviteToApi(project: Project, r: TestimonialRequest) {
+  const iso = (d: Date | null) => d?.toISOString() ?? null;
+  return {
+    id: r.id,
+    campaignId: r.campaignId,
+    email: r.email,
+    name: r.name,
+    company: r.company,
+    title: r.title,
+    variables: parseCustom(r.custom),
+    stage: inviteStage(r),
+    status: r.status,
+    emailStatus: r.emailStatus,
+    scheduledFor: iso(r.scheduledFor),
+    sentAt: iso(r.sentAt),
+    remindersSent: r.remindersSent,
+    openedAt: iso(r.openedAt),
+    clickedAt: iso(r.clickedAt),
+    startedAt: iso(r.startedAt),
+    respondedAt: iso(r.respondedAt),
+    declinedAt: iso(r.declinedAt),
+    unsubscribedAt: iso(r.unsubscribedAt),
+    testimonialId: r.testimonialId,
+    link: requestLink(project, r.id, formOf(project, r)),
+    createdAt: r.createdAt.toISOString(),
+  };
 }
 
 // ------------------------------------------------------------------ receipts

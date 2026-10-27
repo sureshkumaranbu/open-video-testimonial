@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { emailMode } from "@/lib/email";
 import { env } from "@/lib/env";
+import { featureOn } from "@/lib/features";
 import { DEFAULT_INVITE_MESSAGE, DEFAULT_INVITE_SUBJECT } from "@/lib/requests";
 import { requireAdminPage } from "@/lib/server-session";
 import { getProjectById } from "@/lib/testimonials";
@@ -25,6 +26,7 @@ export default async function RequestsPage({ params }: { params: Promise<{ id: s
           project={project}
           email={{ mode, from: mode === "off" ? null : env.smtpFrom }}
           defaults={{ subject: DEFAULT_INVITE_SUBJECT, message: DEFAULT_INVITE_MESSAGE }}
+          campaignsHref={featureOn("campaigns") ? `/admin/projects/${project.id}/campaigns` : null}
         />
       </main>
     </>

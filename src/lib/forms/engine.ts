@@ -403,7 +403,7 @@ export type Prefill = {
 export function parsePrefill(
   q: Record<string, string | string[] | undefined>,
   cfg: Pick<FormConfig, "settings">,
-  request?: { name?: string | null; email?: string | null; company?: string | null } | null,
+  request?: { name?: string | null; email?: string | null; company?: string | null; title?: string | null } | null,
 ): Prefill {
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)?.trim().slice(0, PREFILL_MAX_CHARS) || undefined;
   const keys = Object.keys(q).slice(0, PREFILL_MAX_KEYS);
@@ -418,7 +418,7 @@ export function parsePrefill(
   if (person.email && !EMAIL_RE.test(person.email)) delete person.email;
   if (person.website && !isUrl(person.website)) delete person.website;
   if (request) {
-    for (const k of ["name", "email", "company"] as const) {
+    for (const k of ["name", "email", "company", "title"] as const) {
       const v = request[k]?.trim();
       if (v) person[k] = v.slice(0, PREFILL_MAX_CHARS);
     }

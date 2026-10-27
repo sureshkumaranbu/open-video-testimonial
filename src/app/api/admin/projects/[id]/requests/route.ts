@@ -16,7 +16,8 @@ export async function GET(req: Request, ctx: Ctx) {
   if (!project) return jsonError(404, "Project not found");
   return Response.json({
     email: emailEnabled(),
-    requests: listRequests(project.id).map((r) => withLink(project, r)),
+    // Campaign recipients are on the campaign's own page.
+    requests: listRequests(project.id, { campaignId: null }).map((r) => withLink(project, r)),
     // For the form picker: which form a new batch of links opens.
     forms: listForms(project.id).map((f) => ({ id: f.id, name: f.name, isDefault: f.isDefault, status: f.status })),
   });

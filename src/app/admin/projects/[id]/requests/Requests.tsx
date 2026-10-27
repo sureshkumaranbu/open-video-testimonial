@@ -23,6 +23,8 @@ type Row = {
 
 type Props = {
   project: Project;
+  /** Where campaigns live, when the campaigns section is on. */
+  campaignsHref?: string | null;
   email: { mode: "smtp" | "outbox" | "off"; from: string | null };
   defaults: { subject: string; message: string };
 };
@@ -38,6 +40,7 @@ const STATUS_LABEL: Record<RequestStatus, string> = {
   waiting: "Waiting",
   responded: "Responded",
   unsubscribed: "Unsubscribed",
+  declined: "Declined",
 };
 
 const date = (iso: string | null) =>
@@ -47,14 +50,14 @@ function emailSummary(r: Row) {
   if (r.emailStatus === "not_sent") return "Link only";
   // A failed attempt that will be tried again: say why rather than "Sending…" for minutes.
   if (r.emailStatus === "queued") return r.emailError ? `Retrying: ${r.emailError}` : "Sending…";
-  if (r.emailStatus === "failed") return `Failed: ${r.emailError ?? "unknown error"}`;
+  if (r.emailStatus === "failed" || r.emailStatus === "bounced") return `Failed: ${r.emailError ?? "unknown error"}`;
   const reminders = r.remindersSent ? ` · ${r.remindersSent} reminder${r.remindersSent > 1 ? "s" : ""}` : "";
   const next = r.status === "waiting" && r.nextReminderAt ? ` · next ${date(r.nextReminderAt)}` : "";
   return `Sent ${date(r.sentAt)}${reminders}${next}`;
 }
 
 /** Ask people for testimonials: personal links, invitation emails and reminders. */
-export function Requests({ project, email, defaults }: Props) {
+export function Requests({ project, email, defaults, campaignsHref }: Props) {
   const [rows, setRows] = useState<Row[]>([]);
   const [recipients, setRecipients] = useState("");
   const [send, setSend] = useState(email.mode !== "off");
@@ -137,6 +140,12 @@ export function Requests({ project, email, defaults }: Props) {
             Send people a personal link. Their name and email are filled in, the testimonial is marked as requested,
             and reminders stop once they respond.
           </p>
+          {campaignsHref && (
+            <p className="muted small" data-testid="requests-campaigns-note">
+              For your own wording per batch, tracking and auto-collect, use <a href={campaignsHref}>Campaigns</a>. Campaign
+              recipients are listed there, not here.
+            </p>
+          )}
         </div>
       </div>
 
@@ -219,7 +228,7 @@ export function Requests({ project, email, defaults }: Props) {
                         </span>
                         {r.respondedAt && <div className="muted xsmall">{date(r.respondedAt)}</div>}
                       </td>
-                      <td className={r.emailStatus === "failed" || r.emailError ? "error-text" : "muted"}>{emailSummary(r)}</td>
+                      <td className={r.emailStatus === "failed" || r.emailStatus === "bounced" || r.emailError ? "error-text" : "muted"}>{emailSummary(r)}</td>
                       <td>
                         <div className="row" style={{ gap: "var(--space-2)", flexWrap: "nowrap" }}>
                           <CopyLink link={r.link} />

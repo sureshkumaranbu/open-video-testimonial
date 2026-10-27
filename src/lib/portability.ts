@@ -957,7 +957,8 @@ const manifestSchema = z.object({
         name: z.string().max(120).nullable(),
         email: z.string().max(254),
         company: z.string().max(120).nullable(),
-        status: z.enum(["waiting", "responded", "unsubscribed"]),
+        // "declined" since M9 (a campaign's "No thanks"); campaigns themselves aren't in the archive yet.
+        status: z.enum(["waiting", "responded", "unsubscribed", "declined"]),
         sentAt: nullableIso,
         remindersSent: z.number().int().default(0),
         respondedAt: nullableIso,
@@ -1500,6 +1501,13 @@ export async function importArchive(zipPath: string, projectId: string) {
             createdAt: new Date(r.createdAt),
           })
           .run();
+        // Unsubscribing is project-wide (M9): the imported project remembers the address too.
+        if (r.unsubscribedAt) {
+          tx.insert(schema.unsubscribes)
+            .values({ projectId, email: r.email.toLowerCase(), createdAt: new Date(r.unsubscribedAt) })
+            .onConflictDoNothing()
+            .run();
+        }
       }
 
       for (const f of manifest.feedback) {
