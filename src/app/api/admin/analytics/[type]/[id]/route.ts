@@ -1,8 +1,8 @@
-import { ANALYTICS_OBJECTS, type AnalyticsObject } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
+import { ANALYTICS_OBJECTS, type AnalyticsObject } from "@/db/schema";
 import { analyticsUi, objectReport, parseRange } from "@/lib/analytics";
 import { jsonError, requireAdmin } from "@/lib/http";
-import { eq } from "drizzle-orm";
 
 const TABLES = { widget: schema.widgets, form: schema.forms, wall: schema.walls, snippet: schema.seoSnippets } as const;
 

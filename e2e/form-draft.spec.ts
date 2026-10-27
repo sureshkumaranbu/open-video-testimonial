@@ -30,8 +30,11 @@ test("FORM-14 two steps survive a reload: continue where you left off, then send
   const api = await adminApi(baseURL!);
   const { project, form, url } = await formProject(api, "Draft Co", { pages: PAGES });
   const posts: string[] = [];
+  const beacons: string[] = [];
   page.on("request", (r) => {
-    if (r.method() !== "GET") posts.push(r.url());
+    // FORM-15's analytics beacons say which page was reached, never what was typed (checked below).
+    if (r.url().endsWith("/api/collect")) beacons.push(r.postData() ?? "");
+    else if (r.method() !== "GET") posts.push(r.url());
   });
 
   await page.goto(url);
@@ -66,6 +69,9 @@ test("FORM-14 two steps survive a reload: continue where you left off, then send
   await next(page);
   await page.getByLabel("Your name").fill("Dana Draft");
   expect(posts).toEqual([]);
+  expect(beacons.length).toBeGreaterThan(0);
+  for (const b of beacons) expect(Object.keys(JSON.parse(b)).sort()).toEqual(expect.arrayContaining(["id", "k", "t"]));
+  expect(beacons.join(" ")).not.toMatch(/onboarding|Support|Dana/);
   await page.getByRole("button", { name: "Send" }).click();
   await expect(page.getByTestId("thank-you")).toBeVisible({ timeout: 20_000 });
   expect(await draftOf(page, form.id)).toBeNull();

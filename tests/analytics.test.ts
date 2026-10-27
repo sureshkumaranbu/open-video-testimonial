@@ -226,10 +226,13 @@ describe("rollup and retention (DISP-14)", () => {
     // A 500-day-old day is rolled when the job ran back then.
     expect(rollupDays(new Date("2025-06-16T01:00:00Z"))).toContain("2025-06-15");
     expect(rollupDays(new Date("2025-06-16T02:00:00Z"))).toEqual([]);
+    // A day the job never got to is still rolled (and so deleted later), however old.
+    seedEvents([{ id: w.id, metric: "view", dim: "https://example.com/", visitor: "late", at: new Date("2025-01-05T12:00:00Z") }]);
     const now = new Date("2026-10-27T12:00:00Z");
     const out = runAnalyticsTask(now);
     expect(out.rolled).toContain("2026-10-20");
-    expect(out.purged.events).toBe(3);
+    expect(out.rolled).toContain("2025-01-05");
+    expect(out.purged.events).toBe(4);
     expect(events()).toHaveLength(1);
     const daily = getDb().select().from(analyticsDaily).all();
     expect(daily.find((r) => r.day === "2025-06-15" && r.objectId === w.id && r.metric === "view" && r.dim === "")).toMatchObject({ count: 2, uniques: 2 });

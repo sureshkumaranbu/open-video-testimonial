@@ -131,11 +131,19 @@ export function capDims(rows: TotalRow[]): TotalRow[] {
 
 // ------------------------------------------------------------------ rollup
 
-/** Finished days (before today) with no rollup yet, among the ones raw events can still exist for. */
+/**
+ * Finished days (before today) with no rollup yet: each of the last
+ * RETENTION_DAYS + 1 days, plus any older day that still has raw events (a
+ * worker that was off for a long time), so nothing is left unrolled and
+ * never deleted.
+ */
 function daysToRoll(now: Date): string[] {
   const db = getDb();
   const done = new Set(db.select({ day: analyticsRollups.day }).from(analyticsRollups).all().map((r) => r.day));
-  const out: string[] = [];
+  const first = utcDay(new Date(now.getTime() - (RETENTION_DAYS + 1) * DAY_MS));
+  // Normally empty: older days are deleted once rolled.
+  const older = db.all<{ day: string }>(sql`SELECT DISTINCT day FROM analytics_events WHERE day < ${first}`).map((r) => r.day);
+  const out = older.filter((d) => !done.has(d));
   for (let i = RETENTION_DAYS + 1; i >= 1; i--) {
     const day = utcDay(new Date(now.getTime() - i * DAY_MS));
     if (!done.has(day)) out.push(day);

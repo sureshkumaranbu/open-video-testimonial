@@ -442,6 +442,7 @@ The Playwright run starts the server with these settings, so every feature is te
 | `e2e/walls.spec.ts` | Walls: the editor (hero, tabs, inline call to action, themes), publishing, drafts as 404, load more and infinite scroll, phones, meta and JSON-LD with JavaScript off, the link preview image, the main wall |
 | `e2e/seo.spec.ts` | Review snippets: static and dynamic code on another site, guidance below 5 reviews, changing the scope |
 | `e2e/security-walls.spec.ts` | Walls: headers and CSP on pages and images, drafts 404 everywhere, hostile text in cards and JSON-LD, no CSP violations in the editor |
+| `e2e/analytics.spec.ts` | Analytics: widget beacons from another site (only the app's origin contacted, no query kept), "Live on" and the removed alert, form drop-off and the classic page, wall CTA clicks, snippet renders, the dashboard at 360 px and in the dark theme, empty states |
 
 To test a running instance instead, for example `docker compose up`, set `E2E_BASE_URL=http://127.0.0.1:3000`. Its `E2E_ADMIN_EMAIL` and `E2E_ADMIN_PASSWORD` must match that instance's admin credentials. Tests that need the outbox, the stand-in transcriber or a local webhook receiver skip themselves when those aren't available. `UPDATE_SCREENSHOTS=1` refreshes the images in `docs/screenshots/`.
 
