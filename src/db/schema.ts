@@ -114,16 +114,17 @@ export type ChannelType = (typeof CHANNEL_TYPES)[number];
 export const NOTIFY_FREQUENCIES = ["instant", "daily", "off"] as const;
 
 /** What analytics counts (M11, docs/help/analytics.md). */
-export const ANALYTICS_OBJECTS = ["widget", "form", "wall", "snippet"] as const;
+export const ANALYTICS_OBJECTS = ["widget", "form", "wall", "snippet", "testimonial"] as const;
 export type AnalyticsObject = (typeof ANALYTICS_OBJECTS)[number];
 /**
  * view: a widget, wall or form was shown. more/source/cta/play: widget clicks
  * (read more, the original review's link, the call to action, a video
  * started). link: a wall's other links. start/step/complete: a form was
  * begun, reached a page, was sent. render: a dynamic snippet was fetched.
+ * share: a share button on a testimonial's own page (/t/, WALL-04).
  * dropped: events past the daily cap (counted, not stored).
  */
-export const ANALYTICS_METRICS = ["view", "more", "source", "cta", "play", "link", "start", "step", "complete", "render", "dropped"] as const;
+export const ANALYTICS_METRICS = ["view", "more", "source", "cta", "play", "link", "start", "step", "complete", "render", "share", "dropped"] as const;
 export type AnalyticsMetric = (typeof ANALYTICS_METRICS)[number];
 export type NotifyFrequency = (typeof NOTIFY_FREQUENCIES)[number];
 
@@ -213,6 +214,17 @@ export const testimonials = sqliteTable(
     statusBeforeTrash: text("status_before_trash", { enum: TESTIMONIAL_STATUSES }),
     /** false only when the customer chose "keep private" on the consent page (D11). */
     consentPublic: integer("consent_public", { mode: "boolean" }).notNull().default(true),
+    /**
+     * VID-01 trim, in ms of the original upload: the served MP4 is re-cut from
+     * the original between these (null = from the start / to the end). The
+     * original is kept; captions stay in its timeline and are shifted when served.
+     */
+    trimStartMs: integer("trim_start_ms"),
+    trimEndMs: integer("trim_end_ms"),
+    /** VID-02: the frame picked as the poster, in ms of the served video; null = the default frame. */
+    posterAtMs: integer("poster_at_ms"),
+    /** VID-02: the poster is an uploaded image, so re-cutting the video keeps it. */
+    posterCustom: integer("poster_custom", { mode: "boolean" }).notNull().default(false),
   },
   (t) => [
     index("testimonials_project_status_idx").on(t.projectId, t.status),
@@ -876,6 +888,8 @@ export const widgets = sqliteTable(
     removedAt: integer("removed_at", { mode: "timestamp_ms" }),
     /** The owner hid the in-app alert for this removal. */
     removedDismissed: integer("removed_dismissed", { mode: "boolean" }).notNull().default(false),
+    /** DISP-08: the owner's CSS, already sanitised (src/lib/custom-css.ts), applied inside the widget's shadow root only. */
+    customCss: text("custom_css").notNull().default(""),
     deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -902,6 +916,8 @@ export const walls = sqliteTable(
     config: text("config").notNull().default("{}"),
     logoKey: text("logo_key"),
     coverKey: text("cover_key"),
+    /** WALL-07: a PNG or ICO favicon; null = the project's logo. Public while the wall is published. */
+    faviconKey: text("favicon_key"),
     featuredTestimonialId: text("featured_testimonial_id").references(() => testimonials.id, { onDelete: "set null" }),
     connectedFormId: text("connected_form_id").references(() => forms.id, { onDelete: "set null" }),
     configVersion: integer("config_version").notNull().default(1),
@@ -913,6 +929,7 @@ export const walls = sqliteTable(
     uniqueIndex("walls_project_main_idx").on(t.projectId).where(sql`is_main = 1`),
     index("walls_logo_key_idx").on(t.logoKey),
     index("walls_cover_key_idx").on(t.coverKey),
+    index("walls_favicon_key_idx").on(t.faviconKey),
     index("walls_featured_testimonial_idx").on(t.featuredTestimonialId),
     index("walls_connected_form_idx").on(t.connectedFormId),
   ],
@@ -1147,6 +1164,44 @@ export const analyticsRollups = sqliteTable("analytics_rollups", {
 });
 
 /** Per-person prefs keyed by lower-cased email (D14; the owner signs in before editing prefs, so a members row exists). */
+/**
+ * An image uploaded in the image studio (SHARE-01): a background or a logo.
+ * Owner-only: the studio draws it on the server, so it is never public media.
+ */
+export const SHARE_ASSET_KINDS = ["background", "logo"] as const;
+export type ShareAssetKind = (typeof SHARE_ASSET_KINDS)[number];
+
+export const shareAssets = sqliteTable(
+  "share_assets",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: SHARE_ASSET_KINDS }).notNull(),
+    key: text("key").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("share_assets_project_idx").on(t.projectId), index("share_assets_key_idx").on(t.key)],
+);
+
+/** "Save as my template" in the image studio (SHARE-02): a design without any testimonial content. */
+export const shareTemplates = sqliteTable(
+  "share_templates",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    /** JSON, src/lib/share/design.ts shareDesignSchema. */
+    design: text("design").notNull().default("{}"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("share_templates_project_idx").on(t.projectId)],
+);
+
 export const memberPrefs = sqliteTable("member_prefs", {
   email: text("email").primaryKey(),
   /** {newTestimonial:'instant'|'daily'|'off', weeklyPending, importSummary, monthlyReport, widgetRemoved, projectIds:[]}: all off by default. */
@@ -1191,3 +1246,5 @@ export type BoosterClick = typeof boosterClicks.$inferSelect;
 export type RewardCode = typeof rewardCodes.$inferSelect;
 export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
 export type AnalyticsDaily = typeof analyticsDaily.$inferSelect;
+export type ShareAsset = typeof shareAssets.$inferSelect;
+export type ShareTemplate = typeof shareTemplates.$inferSelect;
