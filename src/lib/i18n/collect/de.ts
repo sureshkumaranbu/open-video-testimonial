@@ -99,6 +99,10 @@ export const de = {
   withdrawNote:
     "Du überlegst es dir später anders? Mit diesem privaten Link kannst du dein Testimonial jederzeit zurückziehen. Bewahre ihn sicher auf: Wer ihn hat, kann es zurückziehen.",
   copyLink: "Link kopieren",
+  draftFound: "Du hast dieses Testimonial auf diesem Gerät schon angefangen.",
+  draftResume: "Dort weitermachen, wo du aufgehört hast",
+  draftStartOver: "Neu beginnen",
+  draftVideoAgain: "Videos werden im Entwurf nicht gespeichert, du nimmst deins also noch einmal auf.",
   recRecordWithCamera: "Mit der Kamera aufnehmen",
   recIntro: "Bis zu {limit}. Es gibt einen 3-Sekunden-Countdown, und die Fragen bleiben sichtbar, während du sprichst.",
   recIntroNoCamera: "Dieser Browser kann auf der Seite nicht aufnehmen. Nutze die Kamera-App oder lade unten ein Video hoch.",

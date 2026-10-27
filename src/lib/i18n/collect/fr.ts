@@ -99,6 +99,10 @@ export const fr = {
   withdrawNote:
     "Vous changez d'avis plus tard ? Ce lien privé vous permet de retirer votre témoignage à tout moment. Gardez-le en lieu sûr : toute personne qui l'a peut le retirer.",
   copyLink: "Copier le lien",
+  draftFound: "Vous avez commencé ce témoignage plus tôt sur cet appareil.",
+  draftResume: "Reprendre là où vous en étiez",
+  draftStartOver: "Recommencer",
+  draftVideoAgain: "Les vidéos ne sont pas gardées dans le brouillon : vous enregistrerez la vôtre à nouveau.",
   recRecordWithCamera: "Filmer avec la caméra",
   recIntro: "Jusqu'à {limit}. Un compte à rebours de 3 secondes, et les questions restent à l'écran pendant que vous parlez.",
   recIntroNoCamera: "Ce navigateur ne peut pas filmer dans la page. Utilisez l'appli appareil photo ou importez une vidéo ci-dessous.",

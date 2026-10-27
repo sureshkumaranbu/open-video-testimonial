@@ -34,7 +34,7 @@ Pages, in order: rating, welcome, the questions, private questions, consent, abo
 
 ### Design
 
-Logo (PNG, JPEG, WebP or GIF; shown unless you hide it), colours (primary, background, text, button, button text, stars), heading and body fonts, wide or compact, solid or soft buttons, corner radius and light or dark. Colours you leave empty follow the project's brand kit, then its colour. Fonts are served by your own server, so the form never contacts another site.
+Logo (PNG, JPEG, WebP or GIF; shown unless you hide it), colours (primary, background, text, button, button text, stars), heading and body fonts, wide or compact, solid or soft buttons, corner radius and light or dark. Colours you leave empty follow the project's brand kit, then its colour. A colour that would be hard to read shows a contrast warning (text needs 4.5:1, buttons, the primary colour and stars 3:1, as WCAG asks); it never stops you saving. Fonts are served by your own server, so the form never contacts another site.
 
 **Language**: English, Spanish, French, German, Portuguese, Italian, Dutch, Polish, Hindi, Tamil or Arabic. Every default label switches with it, and Arabic (like Hebrew and Farsi) reads right to left. Search for any label to change its wording for this form.
 
@@ -53,6 +53,10 @@ Logo (PNG, JPEG, WebP or GIF; shown unless you hide it), colours (primary, backg
 ### Share
 
 The hosted link, a QR code (download as PNG or SVG, in any colour), and three ways to embed the form on your site: inline, a popup button, or an iframe. See [`docs/EMBED.md`](../EMBED.md).
+
+## Drafts
+
+While someone fills in a step-by-step form, their written answers, rating, details and the step they're on are kept in their own browser for 7 days. If they come back, the form asks whether to **continue where they left off** or **start over**. Nothing is sent to you before they press Send, and the draft is deleted once they do. Videos, photos and consent aren't kept in a draft: a video is recorded again and consent is given again. In a private window, or where the browser blocks storage, the form simply works without drafts. The classic page (`/c/<project>`) keeps no drafts.
 
 ## Links that fill in the form
 

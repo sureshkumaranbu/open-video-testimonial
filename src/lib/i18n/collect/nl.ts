@@ -99,6 +99,10 @@ export const nl = {
   withdrawNote:
     "Bedenk je je later? Met deze privélink kun je je ervaring op elk moment intrekken. Bewaar hem goed: iedereen met deze link kan intrekken.",
   copyLink: "Link kopiëren",
+  draftFound: "Je bent eerder op dit apparaat aan deze ervaring begonnen.",
+  draftResume: "Verdergaan waar je was gebleven",
+  draftStartOver: "Opnieuw beginnen",
+  draftVideoAgain: "Video's worden niet in het concept bewaard, dus je neemt je video opnieuw op.",
   recRecordWithCamera: "Opnemen met camera",
   recIntro: "Tot {limit}. Er is een aftelling van 3 seconden en de vragen blijven in beeld terwijl je praat.",
   recIntroNoCamera: "Deze browser kan niet opnemen op de pagina. Gebruik je camera-app of upload hieronder een video.",

@@ -17,6 +17,7 @@ import { dirFor, fillLabel, type LabelKey, type Labels } from "@/lib/forms/label
 import type { FormPage, PublicForm } from "@/lib/forms/schema";
 import { createAnswerUploads } from "./answer-uploads";
 import { ConsentStep } from "./ConsentBlock";
+import { clearDraft, hasContent, loadDraft, restoreDraft, saveDraft, toDraft, type FormDraft } from "./draft";
 import { AboutCompanyStep, AboutYouStep } from "./steps/AboutSteps";
 import { QuestionStep } from "./steps/QuestionStep";
 import { ReviewStep } from "./steps/ReviewStep";
@@ -54,8 +55,10 @@ function tellHost(message: object) {
 /**
  * The step-by-step form (FORM-03): one page per screen with a progress bar
  * and Back, which keeps every answer. Recordings belong to answer-uploads
- * controllers, so stepping away never aborts an upload. The same component
- * is the builder's preview (`preview`), so they can't drift apart.
+ * controllers, so stepping away never aborts an upload. Answers are kept as
+ * a draft in this browser (FORM-14, ./draft.ts) and offered back on return.
+ * The same component is the builder's preview (`preview`), so they can't
+ * drift apart; the preview keeps no draft.
  */
 export function FormRunner(props: FormRunnerProps) {
   const { project, form, labels: l, consent, prefill, preview = false, embed = false } = props;
@@ -76,9 +79,22 @@ export function FormRunner(props: FormRunnerProps) {
     ),
   );
   const doneRef = useRef(false);
+  // A draft from an earlier visit, waiting for "Continue" or "Start over"; autosave starts once that's settled.
+  const [resume, setResume] = useState<FormDraft | null>(null);
+  const [draftChecked, setDraftChecked] = useState(false);
+  const keepsDraft = !preview && form.status !== "paused";
   // Marks the page interactive (scripts loaded), for people's tools and tests alike.
   const [ready, setReady] = useState(false);
-  useEffect(() => setReady(true), []);
+  useEffect(() => {
+    // localStorage exists only in the browser, so the draft is read after the first render.
+    if (keepsDraft) setResume(loadDraft(form.id));
+    setDraftChecked(true);
+    setReady(true);
+  }, [keepsDraft, form.id]);
+  useEffect(() => {
+    if (!keepsDraft || !draftChecked || resume || done) return;
+    if (hasContent(state, prefill.person)) saveDraft(form.id, toDraft(state, steps, step));
+  }, [keepsDraft, draftChecked, resume, done, state, step, steps, form.id, prefill.person]);
   // Leaving the form without sending throws its uploads away.
   useEffect(() => () => {
     if (!doneRef.current) uploads.abortAll();
@@ -204,6 +220,7 @@ export function FormRunner(props: FormRunnerProps) {
       const reply = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(reply.error || l.errorSend);
       doneRef.current = true;
+      clearDraft(form.id);
       setDone({ withdrawUrl: reply.withdrawUrl, thankYou: reply.thankYou ?? thankYouFor(form, state.rating) });
       if (embed) tellHost({ type: "plaudit:form-submitted", form: form.id, slug: form.slug });
     } catch (err) {
@@ -224,6 +241,19 @@ export function FormRunner(props: FormRunnerProps) {
     }
     if (isLast) void send();
     else setStep((s) => Math.min(s + 1, steps.length - 1));
+  }
+
+  /** The prompt's two answers; either way focus moves to the step's heading. */
+  function settleDraft(keep: boolean) {
+    if (resume && keep) {
+      const restored = restoreDraft(resume, state, steps, prefill.locked);
+      setState(restored.state);
+      setStep(restored.step);
+    } else {
+      clearDraft(form.id);
+    }
+    setResume(null);
+    requestAnimationFrame(() => headingRef.current?.focus());
   }
 
   function back() {
@@ -253,6 +283,21 @@ export function FormRunner(props: FormRunnerProps) {
         social={done ? state.consent.scopes.includes("social") : true}
         withdrawUrl={done?.withdrawUrl ?? null}
       />
+    );
+  } else if (resume && !preview) {
+    body = (
+      <section className="fr-step fr-resume" data-testid="fr-resume" aria-labelledby="fr-resume-title">
+        <h1 id="fr-resume-title">{l.draftFound}</h1>
+        {resume.hadVideo && <p className="fr-sub">{l.draftVideoAgain}</p>}
+        <div className="fr-nav">
+          <button type="button" className="secondary" onClick={() => settleDraft(false)} data-testid="draft-start-over">
+            {l.draftStartOver}
+          </button>
+          <button type="button" className="accent fr-primary fr-next" onClick={() => settleDraft(true)} data-testid="draft-resume">
+            {l.draftResume}
+          </button>
+        </div>
+      </section>
     );
   } else if (shown) {
     const stepBody = (() => {
