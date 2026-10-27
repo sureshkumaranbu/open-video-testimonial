@@ -51,6 +51,8 @@ Logo (PNG, JPEG, WebP or GIF; shown unless you hide it), colours (primary, backg
 - **Form webhooks** receive this form's testimonials only.
 - **Low ratings** and **Rewards**: see below.
 
+**Translate new testimonials into** (with the `translations` section on): up to 10 language codes. Each new testimonial from this form is translated into them by your provider (`TRANSLATE_PROVIDER`) as it arrives, and you can edit the result in the inbox. The form's own language is skipped. Without a provider nothing is sent.
+
 ### Low ratings
 
 Off by default. Turn on **Ask for private feedback after a low rating** and choose a number of stars (1 to 4). Someone who rates at or below it doesn't see the questions: they get a private page instead (“We're sorry it wasn't better”), with optional name and email fields so you can reply. What they write is stored as **feedback** (the inbox's Feedback tab, marked “Low rating”), never as a testimonial, so it's never published and has nothing to withdraw. A personal request link counts as answered, and `feedback.created` webhooks fire.

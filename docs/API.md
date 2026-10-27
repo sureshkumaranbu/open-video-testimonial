@@ -10,6 +10,7 @@ Plaudit has a small REST API and signed webhooks, so you can connect it to n8n, 
 - [Walls and review snippets](#walls-and-review-snippets)
 - [Testimonial pages](#testimonial-pages)
 - [Dashboard endpoints: video tools and the image studio](#dashboard-endpoints-video-tools-and-the-image-studio)
+- [Dashboard endpoints: imports, customers, merging, translations and smart search](#dashboard-endpoints-imports-customers-merging-translations-and-smart-search)
 
 The machine-readable description is served by your instance at **`/api/v1/openapi.json`** (OpenAPI 3.1). You can import it into Postman, Insomnia or an API client generator.
 
@@ -207,7 +208,7 @@ Under **Settings → Webhooks**, add the URL of your endpoint. You can limit it 
 | `testimonial.updated` | *Opt-in.* Someone changed its content in the dashboard or through the API: the text, an answer, the author's details, the rating, the transcript or captions, or another field the [API can edit](#editing-a-testimonial). Status and tag changes don't send it |
 | `form.submitted` | *Opt-in.* Someone sent a form (any form, including the classic page). `data` is `{ form: { id, slug, name }, testimonialId, hiddenFields }`; the testimonial itself comes with `testimonial.created` |
 | `feedback.created` | *Opt-in.* Someone answered a form's private question, or a low rating sent them to private feedback (FORM-12). `data.feedback` is `{ id, formId, testimonialId, rating, text, createdAt }`, plus `source: "low-rating"` and `testimonialId: null` for the low-rating branch. Private feedback is never published |
-| `import.completed` | *Opt-in.* An import from a review site or another tool finished (once per run). `data.import` is `{ id, source, platform, imported, duplicates, skipped, failed, startedAt, finishedAt }`. See [IMPORT.md](IMPORT.md) |
+| `import.completed` | *Opt-in.* An import from a review site or another tool finished (once per run). `data.import` is `{ id, source, platform, imported, duplicates, skipped, failed, startedAt, finishedAt }`, plus `syncId` for a run of a synced source (IMP-02), which sends it only when the run added testimonials. See [IMPORT.md](IMPORT.md) |
 | `invite.sent` | *Opt-in.* A campaign or Requests-tab invitation or reminder was handed to the mail server. `data` is `{ invite, kind }`, `kind` being `invite` or `reminder`; `invite` is the shape [above](#campaign-invites) |
 | `invite.opened` | *Opt-in.* The first open of a campaign email, for campaigns that track opens |
 | `invite.clicked` | *Opt-in.* The first click on the personal link in a campaign email |
@@ -323,6 +324,7 @@ What `widget.js` reads. No key is needed, responses are CORS-enabled (`Access-Co
 
   Each testimonial has the same fields as the slug feed plus `extra`. The widget's filters, picks and pins are applied on the server before the limit; its filters, picked ids and form id are never sent. With **first name only** on, the surname never leaves the server. A deleted widget answers `{"project": null, "widget": null, "testimonials": [], "aggregate": {"count": 0, "average": null}}`; an unknown id answers 404.
   `widget.css` is the widget's own cleaned CSS (DISP-08, `""` when there is none), which `widget.js` appends inside the shadow root ([`EMBED.md`](EMBED.md#custom-css)).
+  `?l=<language>` is the visitor's browser language (`widget.js` sends `navigator.language`). For a widget set to show translations (INBOX-13), each testimonial with a stored translation into that language (or its base language: `fr` for `fr-CA`) has its `text` and `extra.headline` replaced, and `extra.highlights` emptied, since they point into the original words. Other widgets ignore it. Nothing is translated on the fly.
 - **`GET /api/widget/w_<id>/html`** (`?jsonld=1`): the same widget as escaped HTML for a server-side include ([`EMBED.md`](EMBED.md#seo-html-include)).
 
 Widgets are managed in the dashboard; there is no `/api/v1` endpoint for them yet.
@@ -343,6 +345,7 @@ Walls and snippets are managed in the dashboard; there is no `/api/v1` endpoint 
 Public, no key (they follow the `walls` flag). See [Sharing](help/share.md).
 
 - **`GET /t/<id>`**: one testimonial's own page (WALL-04), server-rendered with JSON-LD (`Review`) and Open Graph tags. `<id>` is the testimonial's id (a random UUID). Only for testimonials that are approved, not withdrawn and whose author didn't keep them private; anything else answers 404, exactly like an id that doesn't exist.
+- `?lang=<language>` on `/t/<id>` (with the `translations` flag) shows its stored translation into that language, if any.
 - **`GET /t/<id>/opengraph-image`**: its 1200×630 PNG link preview, revalidated on every fetch (`Cache-Control: public, no-cache`), so a takedown removes it at once. 404 under the same rule.
 
 ## Dashboard endpoints: video tools and the image studio
@@ -392,3 +395,34 @@ The public form endpoint (`POST /api/projects/<project>/forms/<form>/submissions
 - **`feedbackOnly: true`** (FORM-12), when the form's low-rating branch stored the submission as private feedback; `withdrawUrl` is then `null`. Such a submission sends `{ rating, lowFeedback, person: { name?, email? }, requestToken?, hiddenFields?, language? }` instead of answers and consent.
 
 A form with neither answers exactly as before.
+
+## Dashboard endpoints: imports, customers, merging, translations and smart search
+
+The dashboard's own endpoints for M13 (signed-in session, same-origin requests only; not part of the versioned API, and they may change). Every id in the path is checked against the project in the path. JSON bodies are read with a size cap (`413` past it).
+
+**Spreadsheets** (IMP-04): **`POST /api/admin/projects/{id}/import-csv/xlsx`** with the .xlsx file as the raw body (at most 20 MB) answers `{ csv, rows, truncated }`: the first sheet as CSV for the column mapper (`POST …/import-csv/preview` and `POST …/import-csv`, unchanged). A pasted table is sent to those as `csv` directly.
+
+**Synced sources** (IMP-02, [guide](IMPORT.md#keeping-a-source-in-sync)):
+
+- **`GET /api/admin/projects/{id}/import-sources`**: `{ sources: [{ id, adapter, label, intervalHours, paused, options, lastRunAt, lastStatus, lastError, failures, alerting, nextRunAt, itemsAdded, running, lastRun, createdAt }] }`.
+- **`POST /api/admin/projects/{id}/import-sources`**: `{ runId, intervalHours: 12 | 24 }` keeps a finished import in sync (201). 400 for a file or saved-page import, 409 for the same source twice.
+- **`PATCH /api/admin/projects/{id}/import-sources/{sourceId}`**: `{ paused?, intervalHours?, options? }`. **`DELETE`** stops syncing (204). **`POST …/{sourceId}/run`** runs it now (202, `{ runId, source }`; a run already going is left alone).
+
+**Customers** (INBOX-12, [guide](help/customers.md)):
+
+- **`GET /api/admin/projects/{id}/customers?q=&page=`**: 50 a page, with `testimonials`, `feedback` and `invites` counts.
+- **`GET /api/admin/projects/{id}/customers/{customerId}`**: the profile: `customer`, `testimonials`, `feedback`, `invites` (with each personal `link`), `rewards` and the project's `forms` (with `asksForVideo`). **`PATCH`** `{ name?, email?, title?, company?, website? }` edits the record only (409 when another customer has that email).
+- **`POST …/customers/{customerId}/invite`**: `{ formId: string | null, send: boolean }` creates a personal request (201, `{ request }` with its `link`); 409 when they already have an open one or unsubscribed, 400 without an email address.
+- `POST /api/admin/projects/{id}/testimonials/manual` takes `customerId` in its payload to link the new testimonial to that person.
+
+**Duplicates and merging** (INBOX-11): the inbox list takes `dupes=1` (only testimonials with a likely duplicate), and `GET /api/admin/testimonials/{id}/detail` has `duplicates` and `mergedInto`. **`POST /api/admin/projects/{id}/testimonials/merge`** `{ from, into }` copies `from`'s main answer, other answers, highlights, images (owner-only unless `from` was public under the same consent), tags and consent ledger onto `into`, moves `from` to the trash, and sends `testimonial.updated` for `into` and `testimonial.trashed` for `from`. 404 across projects; 409 from or into the trash, after a withdrawal, or while a video is still processing.
+
+**Translations** (INBOX-13, [guide](help/inbox.md#translations)):
+
+- **`GET /api/admin/testimonials/{id}/translations`**: `{ translations, provider }` (`provider` is null when none is set up).
+- **`PUT /api/admin/testimonials/{id}/translations/{lang}`** `{ headline?, text? }` adds or edits one by hand; **`DELETE`** removes it. `lang` is lower-case BCP 47 (`fr`, `pt-br`).
+- **`POST /api/admin/testimonials/{id}/translations`** `{ lang }` has your provider write it now (201); 409 without a provider, 502 when it fails.
+- The bulk endpoint takes `action: "translate"` with `langs: ["fr", …]` (up to 10): one background job per testimonial, keeping translations written by hand.
+- The inbox's JSON export adds `translations: [{ lang, headline, text, machine }]` to rows that have some, and the project's zip export carries them.
+
+**Smart search** (INBOX-14, [guide](help/inbox.md#smart-search)): the inbox list takes `smart=1` with `q`. With the `aisearch` flag on and `EMBEDDINGS_MODEL` set, the rows are the best matches by meaning (at most 100, best first) with every other filter applied, and the answer has `search: { mode: "smart" }`. Otherwise it's the usual keyword search with `search: { mode: "keyword", fallback: "off" | "failed" }`.
