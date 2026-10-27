@@ -7,7 +7,7 @@ import type { AnalyticsMetric, AnalyticsObject } from "@/db/schema";
 import { env } from "../env";
 import { clientIpFrom, clientKey, rateLimit } from "../rate-limit";
 
-const { analyticsEvents, analyticsDaily, analyticsSalts, widgets, forms, walls, seoSnippets } = schema;
+const { analyticsEvents, analyticsDaily, analyticsSalts, widgets, forms, walls, seoSnippets, testimonials } = schema;
 
 /**
  * Cookieless event collection (M11, PRD §15; what is and isn't kept is in
@@ -166,7 +166,11 @@ export function recordEvent(e: EventInput): boolean {
   return true;
 }
 
-/** The project an object belongs to, while it can be counted: a live widget, an existing form, a published wall, a snippet. */
+/**
+ * The project an object belongs to, while it can be counted: a live widget,
+ * an existing form, a published wall, a snippet, a testimonial with a public
+ * page (approved, not withdrawn, public consent: WALL-04).
+ */
 export function objectProject(type: AnalyticsObject, id: string): string | null {
   if (!id || id.length > 64) return null;
   const db = getDb();
@@ -177,7 +181,13 @@ export function objectProject(type: AnalyticsObject, id: string): string | null 
         ? db.select({ p: forms.projectId }).from(forms).where(eq(forms.id, id)).get()
         : type === "wall"
           ? db.select({ p: walls.projectId }).from(walls).where(and(eq(walls.id, id), eq(walls.published, true))).get()
-          : db.select({ p: seoSnippets.projectId }).from(seoSnippets).where(eq(seoSnippets.id, id)).get();
+          : type === "testimonial"
+            ? db
+                .select({ p: testimonials.projectId })
+                .from(testimonials)
+                .where(and(eq(testimonials.id, id), eq(testimonials.status, "approved"), isNull(testimonials.withdrawnAt), eq(testimonials.consentPublic, true)))
+                .get()
+            : db.select({ p: seoSnippets.projectId }).from(seoSnippets).where(eq(seoSnippets.id, id)).get();
   return row?.p ?? null;
 }
 
@@ -227,9 +237,10 @@ const empty = (status: number) => new Response(null, { status, headers: BEACON_H
 export const widgetBeacon = z.object({ k: z.enum(["view", "play", "more", "source", "cta", "rm", "src", "b", "bd"]), u: z.string().max(4096).optional() });
 const WIDGET_KIND: Record<z.infer<typeof widgetBeacon>["k"], AnalyticsMetric> = { view: "view", play: "play", more: "more", source: "source", cta: "cta", rm: "more", src: "source", b: "cta", bd: "cta" };
 
-/** Walls and step-by-step forms: `{t, id, k}`, plus the form page's index `s` for "step". */
+/** Walls, step-by-step forms and testimonial pages: `{t, id, k}`, plus the form page's index `s` for "step". */
 export const pageBeacon = z.discriminatedUnion("t", [
   z.object({ t: z.literal("wall"), id: z.string().max(64), k: z.enum(["view", "cta", "link"]) }),
+  z.object({ t: z.literal("testimonial"), id: z.string().max(64), k: z.enum(["view", "cta", "share"]) }),
   z.object({ t: z.literal("form"), id: z.string().max(64), k: z.enum(["view", "start", "step"]), s: z.number().int().min(0).max(99).optional() }),
 ]);
 
@@ -293,7 +304,7 @@ export async function widgetBeaconResponse(req: Request, widgetId: string): Prom
   return empty(204);
 }
 
-/** POST /api/collect: the wall and step-by-step form beacons (WALL-05, FORM-15). */
+/** POST /api/collect: the wall, step-by-step form and testimonial page beacons (WALL-05, FORM-15, WALL-04). */
 export async function pageBeaconResponse(req: Request): Promise<Response> {
   const stop = gate(req);
   if (stop) return stop;

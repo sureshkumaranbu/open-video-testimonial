@@ -123,6 +123,8 @@ export function DetailDrawer({
   onPrev,
   onNext,
   onChanged,
+  shareStudio,
+  publicPages = false,
 }: {
   id: string | null;
   position: { index: number; count: number } | null;
@@ -131,6 +133,8 @@ export function DetailDrawer({
   onNext?: () => void;
   onChanged: () => void;
   tags: string[];
+  shareStudio?: string;
+  publicPages?: boolean;
 }) {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -289,6 +293,18 @@ export function DetailDrawer({
                     <Icon name="undo" />
                     Move to pending
                   </button>
+                )}
+                {publicPages && t.status === "approved" && !t.withdrawnAt && (t as { consentPublic?: boolean }).consentPublic !== false && (
+                  <a className="button ghost small" href={`/t/${t.id}`} target="_blank" rel="noopener" data-testid="open-public-page">
+                    <Icon name="external" />
+                    Its page
+                  </a>
+                )}
+                {shareStudio && (
+                  <a className="button ghost small" href={`${shareStudio}?ids=${t.id}`} data-testid="create-image">
+                    <Icon name="image" />
+                    Create image
+                  </a>
                 )}
                 <button type="button" className="ghost small" onClick={() => setEditing((e) => !e)} aria-expanded={editing} data-testid="edit-toggle">
                   <Icon name="pen" />

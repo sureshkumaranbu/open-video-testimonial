@@ -3,7 +3,7 @@
  * beacon with the kind and the id, nothing about the person (the server
  * hashes the address with a daily salt; docs/help/analytics.md). Never throws.
  */
-export function beacon(body: { t: "wall" | "form"; id: string; k: string; s?: number }) {
+export function beacon(body: { t: "wall" | "form" | "testimonial"; id: string; k: string; s?: number }) {
   try {
     navigator.sendBeacon?.("/api/collect", JSON.stringify(body));
   } catch {
