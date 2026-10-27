@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { useState } from "react";
 
-type Methods = { password: boolean; email: boolean; google: boolean; apple: boolean };
+type Methods = { password: boolean; email: boolean; google: boolean; apple: boolean; oidc: boolean; oidcLabel: string };
 
 export function LoginForm({ methods, error: initialError }: { methods: Methods; error: string | null }) {
   const [error, setError] = useState<string | null>(initialError);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const providers = methods.google || methods.apple;
+  const providers = methods.google || methods.apple || methods.oidc;
   const none = !methods.password && !methods.email && !providers;
 
   async function post(url: string, body: unknown) {
@@ -70,6 +70,11 @@ export function LoginForm({ methods, error: initialError }: { methods: Methods; 
               {methods.apple && (
                 <a className="button secondary lg block" href="/api/auth/apple">
                   Continue with Apple
+                </a>
+              )}
+              {methods.oidc && (
+                <a className="button secondary lg block" href="/api/auth/oidc">
+                  Continue with {methods.oidcLabel}
                 </a>
               )}
             </div>

@@ -2,14 +2,15 @@ import { createSessionToken, sessionCookieHeader, type SignInMethod } from "./au
 import { emailEnabled } from "./email";
 import { env } from "./env";
 import { recordSignIn, roleFor } from "./members";
-import { providerStatus } from "./oidc";
+import { providerLabel, providerStatus } from "./oidc";
 
 /** Which ways of signing in this server offers. */
 export function signInMethods() {
   const email = emailEnabled();
   const google = providerStatus("google");
   const apple = providerStatus("apple");
-  const others = email || google.enabled || apple.enabled;
+  const oidc = providerStatus("oidc");
+  const others = email || google.enabled || apple.enabled || oidc.enabled;
   const hasPassword = Boolean(env.adminEmail && env.adminPassword);
   // PASSWORD_LOGIN=false only takes effect once another way in works, so a
   // typo can't lock everyone out.
@@ -20,7 +21,10 @@ export function signInMethods() {
     email,
     google: google.enabled,
     apple: apple.enabled,
-    status: { google, apple },
+    /** TEAM-03: a generic OpenID Connect provider, and the name on its button. */
+    oidc: oidc.enabled,
+    oidcLabel: providerLabel("oidc"),
+    status: { google, apple, oidc },
   };
 }
 

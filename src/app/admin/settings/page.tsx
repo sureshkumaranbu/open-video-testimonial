@@ -87,6 +87,12 @@ export default async function SettingsPage() {
             <dd data-on={signIn.apple}>
               {signIn.apple ? `On: return URL ${callbackUrl("apple")}` : missing(signIn.status.apple.missing)}
             </dd>
+            <dt>Single sign-on (OIDC)</dt>
+            <dd data-on={signIn.oidc}>
+              {signIn.oidc
+                ? `On: “${signIn.oidcLabel}”, ${env.oidcIssuer}, redirect URI ${callbackUrl("oidc")}${env.oidcTrustEmail ? "; addresses trusted without email_verified" : ""}`
+                : missing(signIn.status.oidc.missing)}
+            </dd>
           </dl>
           {system.email.mode !== "off" && (
             <div className="panel-body stack">
@@ -102,7 +108,7 @@ export default async function SettingsPage() {
 
         <StorageStatus isOwner={session.role === "owner"} />
 
-        <Team you={session} canInvite={signIn.email || signIn.google || signIn.apple} emailOn={signIn.email} />
+        <Team you={session} canInvite={signIn.email || signIn.google || signIn.apple || signIn.oidc} emailOn={signIn.email} />
 
         {featureOn("notifications") && <Notifications email={session.email} projects={projects} widgetAlerts={analyticsUi()} />}
 

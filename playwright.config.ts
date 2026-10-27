@@ -8,12 +8,13 @@ const external = process.env.E2E_BASE_URL;
 const baseURL = external || `http://127.0.0.1:${PORT}`;
 
 /**
- * A stand-in Google/Apple sign-in server (e2e/fixtures/mock-oidc.mjs), so the
- * suite needs no real accounts. It's on "localhost" while the app is on
- * 127.0.0.1: a different site, so Apple's cross-site form_post is real.
+ * A stand-in Google/Apple/generic OIDC sign-in server (e2e/fixtures/mock-oidc.mjs),
+ * so the suite needs no real accounts. It's on "localhost" while the app is on
+ * 127.0.0.1: a different site, so Apple's cross-site form_post is real. The
+ * generic provider's issuer ends in "/", as Authentik's does.
  */
 const MOCK_PORT = Number(process.env.E2E_MOCK_OIDC_PORT || 3199);
-const mockIssuer = (provider: string) => `http://localhost:${MOCK_PORT}/${provider}`;
+const mockIssuer = (provider: string) => `http://localhost:${MOCK_PORT}/${provider}${provider === "oidc" ? "/" : ""}`;
 const appleKey = crypto.generateKeyPairSync("ec", { namedCurve: "prime256v1" });
 const APPLE = {
   teamId: "MOCKTEAM01",
@@ -90,6 +91,7 @@ export default defineConfig({
             MOCK_APPLE_PUBLIC_KEY: APPLE.publicKey,
             MOCK_APPLE_TEAM_ID: APPLE.teamId,
             MOCK_APPLE_KEY_ID: APPLE.keyId,
+            MOCK_OIDC_SECRET: "e2e-oidc-secret",
           },
         },
         {
@@ -132,6 +134,11 @@ export default defineConfig({
             APPLE_KEY_ID: APPLE.keyId,
             APPLE_PRIVATE_KEY: APPLE.privateKey,
             APPLE_ISSUER: mockIssuer("apple"),
+            // Generic OpenID Connect (TEAM-03), against the same stand-in.
+            OIDC_ISSUER: mockIssuer("oidc"),
+            OIDC_CLIENT_ID: "e2e-oidc-client",
+            OIDC_CLIENT_SECRET: "e2e-oidc-secret",
+            OIDC_LABEL: "Acme SSO",
             // Lets the team spec sign in people other than the owner.
             ALLOWED_EMAIL_DOMAINS: "team.example",
             // Every Phase 1 feature on (also the default since release; set explicitly so a local override can't hide pages).

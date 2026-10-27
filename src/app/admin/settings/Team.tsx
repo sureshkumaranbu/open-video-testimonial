@@ -153,7 +153,7 @@ export function Team({ you, canInvite, emailOn }: { you: { email: string; role: 
         )}
         {owner && !canInvite && (
           <p className="notice warn">
-            Invited people sign in with an email link, Google or Apple, and none of those is on yet. Only the owner can use the password. See docs/AUTH.md.
+            Invited people sign in with an email link, Google, Apple or single sign-on, and none of those is on yet. Only the owner can use the password. See docs/AUTH.md.
           </p>
         )}
         {owner && canInvite && !emailOn && (

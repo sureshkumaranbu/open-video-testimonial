@@ -2,7 +2,7 @@ import { env } from "@/lib/env";
 import { flowCookieHeader, PROVIDERS, type Provider, SignInError, startSignIn } from "@/lib/oidc";
 import { clientKey, rateLimit } from "@/lib/rate-limit";
 
-/** "Sign in with Google/Apple": sends the browser to the provider. */
+/** "Sign in with Google/Apple/your OIDC provider": sends the browser to the provider. */
 export async function GET(req: Request, ctx: { params: Promise<{ provider: string }> }) {
   const { provider } = await ctx.params;
   if (!PROVIDERS.includes(provider as Provider)) return new Response("Not found", { status: 404 });

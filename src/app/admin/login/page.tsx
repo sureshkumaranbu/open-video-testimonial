@@ -10,6 +10,7 @@ const ERRORS: Record<string, string> = {
     "is a private Apple relay address, which hasn't been invited. Sign in again and choose “Share My Email”, or ask the owner to invite the relay address.",
   unverified: "That account's email address isn't verified yet. Verify it with the provider, then try again.",
   "wrong-domain": "Use your work Google account for this team.",
+  "sso-domain": "Single sign-on here accepts only your organisation's addresses. Use your work account.",
   expired: "That sign-in took too long or started in another browser. Please try again.",
   cancelled: "Sign-in was cancelled.",
   "not-configured": "That sign-in method isn't set up on this server.",
@@ -22,5 +23,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const email = typeof params.email === "string" ? params.email.slice(0, 254) : "";
   const message = ERRORS[code] ? (code === "not-allowed" || code === "private-relay" ? `${email || "That address"} ${ERRORS[code]}` : ERRORS[code]) : null;
   const m = signInMethods();
-  return <LoginForm methods={{ password: m.password, email: m.email, google: m.google, apple: m.apple }} error={message} />;
+  return (
+    <LoginForm methods={{ password: m.password, email: m.email, google: m.google, apple: m.apple, oidc: m.oidc, oidcLabel: m.oidcLabel }} error={message} />
+  );
 }

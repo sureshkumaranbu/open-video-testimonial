@@ -19,7 +19,7 @@ export function sessionCookieName() {
   return `plaudit_session_${crypto.createHash("sha256").update(env.publicUrl).digest("hex").slice(0, 8)}`;
 }
 
-export type SignInMethod = "password" | "email" | "google" | "apple";
+export type SignInMethod = "password" | "email" | "google" | "apple" | "oidc";
 
 function sign(payload: string) {
   return crypto.createHmac("sha256", env.sessionSecret).update(payload).digest("base64url");
