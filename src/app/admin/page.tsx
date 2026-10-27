@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { RemovedAlerts } from "@/components/analytics/RemovedAlerts";
+import { SyncAlerts } from "@/components/SyncAlerts";
 import { analyticsUi, removedAlerts } from "@/lib/analytics";
 import { featureOn } from "@/lib/features";
+import { failingSyncs } from "@/lib/importers/sync";
 import { getWelcome } from "@/lib/onboarding";
 import { requireAdminPage } from "@/lib/server-session";
 import { countByStatus, listProjects } from "@/lib/testimonials";
@@ -38,6 +40,7 @@ export default async function AdminHome() {
           </div>
         </div>
         {analyticsUi() && <RemovedAlerts alerts={removedAlerts()} />}
+        {featureOn("imports2") && <SyncAlerts alerts={failingSyncs()} />}
         {welcome && <WelcomeCard first={projects.length === 0} />}
         <div className="project-grid">
           {projects.map((p) => (

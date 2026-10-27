@@ -5,6 +5,7 @@ import { getDb, schema } from "@/db";
 import type { Project, Widget, WidgetLayout } from "@/db/schema";
 import { cssForWidget, sanitizeCss } from "./custom-css";
 import { env } from "./env";
+import { applyTranslations, languagesOf } from "./translations";
 import { formUrl, getForm } from "./forms";
 import {
   LAYOUTS,
@@ -232,8 +233,9 @@ export function toPublicWidget(
   cfg: WidgetConfig,
   ctx: { cta: { url: string; embedUrl: string } | null; wallUrl: string; projectAccent?: string },
 ): PublicWidget {
-  const { font, firstNameOnly, ...design } = cfg.design;
+  const { font, firstNameOnly, translations, ...design } = cfg.design;
   void firstNameOnly;
+  void translations;
   const f = WIDGET_FONTS.find((x) => x.id === font) ?? WIDGET_FONTS[0];
   const accent = design.accent || ctx.projectAccent || "#0f766e";
   return {
@@ -277,15 +279,19 @@ export function widgetPayload(
   project: Pick<Project, "id" | "name" | "slug" | "accentColor">,
   w: Pick<Widget, "id" | "connectedFormId">,
   cfg: WidgetConfig,
+  /** INBOX-13: the visitor's browser language, which widget.js sends as ?l=. */
+  o: { lang?: string | null } = {},
 ): WidgetPayload {
   const sel = cfg.selection;
-  const testimonials = listFeed(project.id, cfg.filters, {
+  const feed = listFeed(project.id, cfg.filters, {
     mode: sel.mode,
     manualIds: sel.manualIds,
     pinnedIds: sel.pinnedIds,
     limit: cfg.filters.max,
     firstNameOnly: cfg.design.firstNameOnly,
   });
+  // Only stored translations of these public rows; the provider is never called here.
+  const testimonials = cfg.design.translations === "visitor" && o.lang ? applyTranslations(feed, o.lang, languagesOf(feed.map((t) => t.id))) : feed;
   const aggregate = feedAggregate(project.id, cfg.filters, { scope: cfg.aggregate.scope, mode: sel.mode, manualIds: sel.manualIds });
   const widget = toPublicWidget(w, cfg, { cta: ctaLinks(project, w.connectedFormId), wallUrl: `/wall/${project.slug}`, projectAccent: project.accentColor });
   const pins = new Set(sel.pinnedIds);

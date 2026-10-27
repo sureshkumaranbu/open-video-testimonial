@@ -61,7 +61,7 @@ describe("docs/plan/ownership.json", () => {
       ].sort(),
     );
     // Phase 2 milestones (M9 on) gate requirement IDs only; they have no work packages.
-    expect(Object.keys(manifest.milestones)).toEqual(["M1", "M2", "M3", "M4", "M5", "M6", "M7", "M9", "M10", "M11", "M12", "M14"]);
+    expect(Object.keys(manifest.milestones)).toEqual(["M1", "M2", "M3", "M4", "M5", "M6", "M7", "M9", "M10", "M11", "M12", "M13", "M14"]);
   });
 
   it("is consistent, with no file owned by two packages that run at the same time", () => {
@@ -143,24 +143,25 @@ describe("requirement coverage", () => {
     expect(coverage(["FORM-01", "FORM-02"], titles)).toEqual({ "FORM-01": [titles[2]], "FORM-02": [] });
   });
 
-  it("gates each milestone's IDs, and every ID with --all (54 from Phase 1, then M9's REQ-01..07, M10's 8, M11's 6, M12's 10 and M14's 9 new ones)", () => {
+  it("gates each milestone's IDs, and every ID with --all (54 from Phase 1, then M9's REQ-01..07, M10's 8, M11's 6, M12's 10, M13's 6 and M14's 9 new ones)", () => {
     expect(requirementsFor(manifest, "M1")).toEqual(["TEAM-04", "TEAM-05"]);
     expect(requirementsFor(manifest, "M2")).toContain("FORM-18");
     expect(requirementsFor(manifest, "M9")).toEqual(["REQ-01", "REQ-02", "REQ-03", "REQ-04", "REQ-05", "REQ-06", "REQ-07"]);
     expect(requirementsFor(manifest, "M10")).toEqual(["BOOST-01", "BOOST-02", "BOOST-03", "BOOST-04", "BOOST-05", "FORM-12", "FORM-13", "REQ-08"]);
     expect(requirementsFor(manifest, "M11")).toEqual(["DISP-13", "DISP-14", "FORM-15", "WALL-05", "SEO-04", "AN-01"]);
     expect(requirementsFor(manifest, "M12")).toEqual(["VID-01", "VID-02", "VID-03", "VID-04", "WALL-04", "SHARE-01", "SHARE-02", "SHARE-03", "DISP-08", "WALL-07"]);
+    expect(requirementsFor(manifest, "M13")).toEqual(["IMP-02", "IMP-04", "INBOX-11", "INBOX-12", "INBOX-13", "INBOX-14"]);
     // M14 also lists REQ-07 (from M9) for its native Stripe and Shopify triggers; --all counts it once.
     expect(requirementsFor(manifest, "M14")).toEqual(["TEAM-01", "TEAM-02", "TEAM-03", "API-01", "API-02", "INT-03", "INT-04", "INT-05", "INT-06", "REQ-07"]);
     const all = requirementsFor(manifest, "all");
-    expect(all).toHaveLength(94);
+    expect(all).toHaveLength(100);
     expect(new Set(all).size).toBe(all.length);
-    expect(() => requirementsFor(manifest, "M13")).toThrow(/Unknown milestone/);
+    expect(() => requirementsFor(manifest, "M15")).toThrow(/Unknown milestone/);
   });
 
   it("prints the table and passes with --report", () => {
     const run = spawnSync(process.execPath, ["scripts/req-coverage.mjs", "--all", "--report"], { cwd: ROOT, encoding: "utf8" });
     expect(run.status).toBe(0);
-    expect(run.stdout).toMatch(/All milestones: \d+ of 94 requirements covered/);
+    expect(run.stdout).toMatch(/All milestones: \d+ of 100 requirements covered/);
   });
 });

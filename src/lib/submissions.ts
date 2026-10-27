@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import type { Form, Project } from "@/db/schema";
 import { maybeAutoApprove } from "./auto-approve";
+import { queueTranslations } from "./translations";
 import { grantConsent, withdrawUrl, type ConsentScope } from "./consent";
 import { upsertCustomer } from "./customers";
 import { insertAnswers, type NewAnswer } from "./answers";
@@ -294,6 +295,8 @@ export async function submitForm(a: {
 
     const created = getTestimonial(testimonial.id);
     emitTestimonialEvent("testimonial.created", created);
+    // INBOX-13: the form's "translate on arrival" languages, with the owner's provider (a no-op without one).
+    if (cfg.settings.autoTranslate.length) queueTranslations(testimonial.id, cfg.settings.autoTranslate);
     emitEvent(
       "form.submitted",
       project,

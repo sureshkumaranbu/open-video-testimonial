@@ -39,6 +39,10 @@ The left side has six tabs; the right side is a live preview that runs the real 
 - **Labels.** Every word visitors see, so the widget can match your site's language.
 - **Share.** The script, iframe, hosted link, React component and SEO include, an email with all of them for your developer, and steps for common site builders. See [`docs/EMBED.md`](../EMBED.md#saved-widgets).
 
+### Translations
+
+With the `translations` section on, **Design → Translations** can show **Visitor's language**: a visitor whose browser is set to French sees the French translation of each testimonial that has one (saved in the inbox), and the original otherwise. `widget.js` sends the browser's language with the feed request; nothing is translated on the fly and nothing else about the visitor is sent. Highlights aren't drawn on a translated testimonial.
+
 ## Custom CSS
 
 The **Design** tab ends with a **Custom CSS** field for small touches (a thicker border, uppercase names). It applies inside the widget only, so it can't change the rest of your page, and the preview shows it as you type. Start selectors with `.x` (as in `.x .n { … }`) so they win over the widget's own styles; the hint lists the class names. Widgets never load anything from other sites, so `@import`, `url()` pointing anywhere but your Plaudit server and `<` are dropped, and the field shows what will apply. Up to 10,000 characters. See [`EMBED.md`](../EMBED.md#custom-css).

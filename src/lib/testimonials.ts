@@ -310,8 +310,8 @@ export function getTestimonial(id: string): TestimonialWithTags | null {
  * while their testimonial is approved and its author hasn't withdrawn consent;
  * a trimmed video's original never (it holds what the owner cut, VID-01);
  * project and form logos always; wall logos, covers and favicons while the
- * wall is published. Answer videos (questions 2..N) stay private (D13), and so does
- * every file nothing uses. One indexed query, run on every /api/media request.
+ * wall is published. Answer videos (questions 2..N) stay private (D13), and so do
+ * images a merge brought in as owner-only (INBOX-11) and every file nothing uses. One indexed query, run on every /api/media request.
  */
 export function isMediaPublic(key: string) {
   return Boolean(getDb().get<{ ok: number }>(publicMediaQuery(key)));
@@ -326,7 +326,7 @@ export function publicMediaQuery(key: string) {
         AND status = 'approved' AND withdrawn_at IS NULL
     UNION ALL
     SELECT 1 FROM testimonial_images i JOIN testimonials t ON t.id = i.testimonial_id
-      WHERE i.key = ${key} AND t.status = 'approved' AND t.withdrawn_at IS NULL
+      WHERE i.key = ${key} AND i.owner_only = 0 AND t.status = 'approved' AND t.withdrawn_at IS NULL
     UNION ALL
     SELECT 1 FROM projects WHERE logo_key = ${key}
     UNION ALL

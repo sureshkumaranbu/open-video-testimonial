@@ -8,7 +8,7 @@ import { enqueue, PermanentJobError } from "../jobs";
 import { getProjectById, getTestimonial } from "../testimonials";
 import { type EventContext, registerEventListener } from "../webhooks";
 import { CHANNEL_EVENTS, type ChannelEvent, channelEvents, channelFormIds, ChannelGoneError, getChannel, listChannels, noteResult, sendToChannel } from "./channels";
-import { digestMail, importMail, instantMail, type MailKind, monthlyMail, sendNotificationMail, weeklyMail, widgetRemovedMail } from "./email";
+import { digestMail, importMail, instantMail, type MailKind, monthlyMail, sendNotificationMail, syncFailedMail, weeklyMail, widgetRemovedMail } from "./email";
 import { buildMessage } from "./format";
 import { canEmail, getPrefs, type Prefs, recipients, wantsProject } from "./prefs";
 
@@ -94,6 +94,17 @@ export function notifyWidgetRemoved(projectId: string, widgetId: string): void {
   }
 }
 
+/** IMP-02: a synced import failed 3 times in a row; email whoever wants import emails. Never throws. */
+export function notifySyncFailing(projectId: string, sourceId: string): void {
+  try {
+    for (const r of recipients((p) => p.importSummary && wantsProject(p, projectId))) {
+      enqueue(NOTIFY_EMAIL_JOB, { email: r.email, kind: "sync-failed", sourceId }, { maxAttempts: ATTEMPTS });
+    }
+  } catch (err) {
+    console.error("[notifications] couldn't queue the sync failure email:", err);
+  }
+}
+
 // ------------------------------------------------------------------- jobs
 
 type ChannelJob = { channelId: string; testimonialId: string; event: string };
@@ -117,7 +128,7 @@ export async function deliverChannelJob(p: ChannelJob, o: { final?: boolean } = 
   }
 }
 
-type EmailJob = { email: string; kind: MailKind; ids?: string[]; projectIds?: string[]; runId?: string; widgetId?: string; now?: number };
+type EmailJob = { email: string; kind: MailKind; ids?: string[]; projectIds?: string[]; runId?: string; widgetId?: string; sourceId?: string; now?: number };
 
 /** Still allowed and still wanted when it's time to send (prefs can change while a job waits). */
 function stillWanted(kind: MailKind, prefs: Prefs) {
@@ -131,6 +142,7 @@ function stillWanted(kind: MailKind, prefs: Prefs) {
     case "monthly":
       return prefs.monthlyReport;
     case "import":
+    case "sync-failed":
       return prefs.importSummary;
     case "widget-removed":
       return prefs.widgetRemoved;
@@ -158,6 +170,9 @@ export async function deliverEmailJob(p: EmailJob) {
   } else if (p.kind === "import" && p.runId) {
     const run = getDb().select().from(taskRuns).where(eq(taskRuns.id, p.runId)).get();
     if (run && wantsProject(prefs, run.projectId)) mail = importMail(p.email, run);
+  } else if (p.kind === "sync-failed" && p.sourceId) {
+    const src = getDb().select({ projectId: schema.importSources.projectId }).from(schema.importSources).where(eq(schema.importSources.id, p.sourceId)).get();
+    if (src && wantsProject(prefs, src.projectId)) mail = syncFailedMail(p.email, p.sourceId);
   } else if (p.kind === "widget-removed" && p.widgetId) {
     const w = getDb().select({ projectId: schema.widgets.projectId }).from(schema.widgets).where(eq(schema.widgets.id, p.widgetId)).get();
     if (w && wantsProject(prefs, w.projectId)) mail = widgetRemovedMail(p.email, p.widgetId);

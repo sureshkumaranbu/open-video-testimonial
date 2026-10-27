@@ -10,7 +10,7 @@ Each person on the team sets their own, and they go to the address you sign in w
 
 - **New testimonials**: an email for each one as it arrives, one email a day (a digest of what came in over the last day), or none.
 - **Weekly reminder**: on Mondays, how many testimonials are waiting for review in each project.
-- **Import summary**: when an import from a review site or another tool finishes.
+- **Import summary**: when an import from a review site or another tool finishes, when an automatically synced source adds reviews, and when one has failed 3 times in a row (it keeps trying; [importing](../IMPORT.md#keeping-a-source-in-sync)).
 - **Monthly report**: on the 1st, last month's numbers for each project: received, approved, with video, and the average rating.
 - **A widget stops showing on your site**: a widget that was live has had no views for 7 days, with the page it was last on. Shown only while analytics is on ([analytics](analytics.md)).
 - **Projects**: all of them, or only the ones you tick.

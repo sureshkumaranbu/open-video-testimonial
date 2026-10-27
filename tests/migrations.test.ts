@@ -65,7 +65,7 @@ describe("migration files", () => {
     expect(checkMigrations(MIGRATIONS_DIR)).toEqual([]);
   });
 
-  it("L7 index every foreign key added since 0008 (0011), so deleting a parent never scans the child table", () => {
+  it("L7 L12 index every foreign key (0011, then 0016 for the five older ones), so deleting a parent never scans the child table", () => {
     type Snapshot = {
       tables: Record<
         string,
@@ -86,8 +86,8 @@ describe("migration files", () => {
         .filter((col) => !leading.includes(col) && !t.columns[col]?.primaryKey)
         .map((col) => `${name}.${col}`);
     });
-    // Gaps from before Phase 1, outside what 0011 was allowed to change (D19 amendment: Phase 1 foreign keys only).
-    expect(unindexed.sort()).toEqual(["consent_events.version_id", "requests.testimonial_id", "testimonial_tags.tag_id", "uploads.project_id", "webhooks.project_id"]);
+    // The five gaps from before Phase 1 got their indexes in 0016 (L12), so nothing is allow-listed any more.
+    expect(unindexed.sort()).toEqual([]);
   });
 
   it("allow an additive migration with hand-fixed ON DELETE clauses", () => {

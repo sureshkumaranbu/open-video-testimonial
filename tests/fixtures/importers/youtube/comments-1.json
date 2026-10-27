@@ -1,0 +1,45 @@
+{
+ "nextPageToken": "PAGE2",
+ "items": [
+  {
+   "id": "Ugw1",
+   "snippet": {
+    "topLevelComment": {
+     "id": "Ugw1",
+     "snippet": {
+      "authorDisplayName": "@morgan.codes",
+      "authorProfileImageUrl": "https://yt3.ggpht.example/morgan.jpg",
+      "textOriginal": "Acme saved our launch week. Setup took ten minutes.",
+      "publishedAt": "2026-09-03T10:00:00Z"
+     }
+    }
+   }
+  },
+  {
+   "id": "Ugw2",
+   "snippet": {
+    "topLevelComment": {
+     "id": "Ugw2",
+     "snippet": {
+      "authorDisplayName": "Priya",
+      "authorProfileImageUrl": "javascript:alert(1)",
+      "textOriginal": "<b>Great</b> walkthrough &amp; tool",
+      "publishedAt": "2026-09-02T09:00:00Z"
+     }
+    }
+   }
+  },
+  {
+   "id": "Ugw3",
+   "snippet": {
+    "topLevelComment": {
+     "id": "Ugw3",
+     "snippet": {
+      "authorDisplayName": "Empty",
+      "textOriginal": "   "
+     }
+    }
+   }
+  }
+ ]
+}

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb, schema } from "@/db";
 import type { Project } from "@/db/schema";
@@ -43,6 +43,8 @@ export const manualInputSchema = z
     language: edit.language,
     tags: edit.tags,
     status: z.enum(["approved", "pending", "hidden", "rejected"]).default("approved"),
+    /** INBOX-12 "Add testimonial" from a customer's profile: link to that person (checked against the project). */
+    customerId: z.string().min(1).max(64).optional(),
   })
   .refine((v) => v.kind !== "text" || Boolean(v.text?.trim()), { message: "Add the testimonial's text", path: ["text"] });
 export type ManualInput = z.input<typeof manualInputSchema>;
@@ -78,6 +80,9 @@ export async function addManualTestimonial(project: Project, raw: ManualInput, f
   if (input.kind === "video" && !upload) throw new ManualAddError(400, "Choose the video file");
   if (input.kind === "image" && !images.length) throw new ManualAddError(400, "Attach the screenshot or image");
   if (!input.text?.trim() && !upload && !images.length) throw new ManualAddError(400, "Add the text, a video or an image");
+  if (input.customerId && !getDb().select({ id: schema.customers.id }).from(schema.customers).where(and(eq(schema.customers.id, input.customerId), eq(schema.customers.projectId, project.id))).get()) {
+    throw new ManualAddError(404, "Customer not found");
+  }
 
   const saved: string[] = [];
   let id: string | null = null;
@@ -95,16 +100,20 @@ export async function addManualTestimonial(project: Project, raw: ManualInput, f
       stored.push(s.key);
     }
 
-    const customer = input.email
-      ? upsertCustomer(project.id, {
-          email: input.email,
-          name: input.name,
-          title: input.title ?? undefined,
-          company: input.company ?? undefined,
-          website: input.authorWebsite ?? undefined,
-          avatarKey: avatar?.key,
-        })
+    // INBOX-12: the profile's person when it came from one, else found by email (or a new record).
+    const chosen = input.customerId
+      ? getDb().select().from(schema.customers).where(and(eq(schema.customers.id, input.customerId), eq(schema.customers.projectId, project.id))).get()
       : null;
+    const customer =
+      chosen ??
+      upsertCustomer(project.id, {
+        email: input.email,
+        name: input.name,
+        title: input.title ?? undefined,
+        company: input.company ?? undefined,
+        website: input.authorWebsite ?? undefined,
+        avatarKey: avatar?.key,
+      });
     const t = createTestimonial(
       project.id,
       {

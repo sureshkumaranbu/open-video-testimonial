@@ -81,6 +81,12 @@
       "packages": [],
       "requirements": ["VID-01", "VID-02", "VID-03", "VID-04", "WALL-04", "SHARE-01", "SHARE-02", "SHARE-03", "DISP-08", "WALL-07"]
     },
+    "M13": {
+      "name": "Import and inbox growth (Phase 2)",
+      "$comment": "The remaining P1 importers (PRD §8.2) and leftovers L12 and L14 ship here too; their tests carry IMP-01 and L12/L14, which aren't gated.",
+      "packages": [],
+      "requirements": ["IMP-02", "IMP-04", "INBOX-11", "INBOX-12", "INBOX-13", "INBOX-14"]
+    },
     "M14": {
       "name": "Team, API and integrations (Phase 2)",
       "$comment": "API-01 is the /api/v1 CRUD of PRD §19 (forms, widgets, walls, campaigns, tags, customers, feedback) and API-02 its analytics read (L16); the PRD gives §19 no IDs of its own. REQ-07 (auto-collect, M9) gains native Stripe and Shopify triggers here. TEAM-01, TEAM-02 and the REQ-07 triggers are the milestone's second part, after M13.",

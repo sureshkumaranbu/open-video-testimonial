@@ -38,6 +38,8 @@ export type InboxPage = {
   counts: InboxCounts;
   stats: InboxStats;
   facets?: InboxFacetsJson;
+  /** INBOX-14: how a smart search ran (absent when it wasn't asked for). */
+  search?: { mode: "smart" | "keyword"; fallback?: "off" | "failed" };
 };
 
 export type BulkResult = { updated: string[]; skipped: { id: string; reason: string }[] };

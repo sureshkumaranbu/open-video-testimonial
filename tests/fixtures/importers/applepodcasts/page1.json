@@ -1,0 +1,58 @@
+{
+ "feed": {
+  "link": [
+   {
+    "attributes": {
+     "rel": "last",
+     "href": "https://itunes.apple.com/us/rss/customerreviews/page=1/id=1500000000/sortby=mostrecent/json"
+    }
+   }
+  ],
+  "entry": [
+   {
+    "id": {
+     "label": "11111111001"
+    },
+    "author": {
+     "name": {
+      "label": "CommuteListener"
+     }
+    },
+    "updated": {
+     "label": "2026-09-10T07:00:00-07:00"
+    },
+    "im:rating": {
+     "label": "5"
+    },
+    "title": {
+     "label": "My Monday ritual"
+    },
+    "content": {
+     "label": "Thoughtful guests and no fluff."
+    }
+   },
+   {
+    "id": {
+     "label": "11111111002"
+    },
+    "author": {
+     "name": {
+      "label": "Rae"
+     }
+    },
+    "updated": {
+     "label": "2026-08-01T07:00:00-07:00"
+    },
+    "im:rating": {
+     "label": "4"
+    },
+    "title": {
+     "label": "Great show"
+    },
+    "content": {
+     "label": "Wish episodes came out weekly."
+    }
+   }
+  ]
+ }
+}

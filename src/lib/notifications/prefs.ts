@@ -16,7 +16,7 @@ export const prefsSchema = z.object({
   newTestimonial: z.enum(NOTIFY_FREQUENCIES).default("off"),
   /** Monday: how many testimonials wait for review. */
   weeklyPending: z.boolean().default(false),
-  /** When an import finishes. */
+  /** When an import finishes, when an automatic import adds reviews, and when one fails 3 times in a row (IMP-02). */
   importSummary: z.boolean().default(false),
   /** The 1st of the month: last month's numbers. */
   monthlyReport: z.boolean().default(false),

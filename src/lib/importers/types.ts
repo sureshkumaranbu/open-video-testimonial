@@ -22,10 +22,34 @@ export const ADAPTER_IDS = [
   "senja",
   "shapo",
   "website",
+  // M13 (PRD §8.2 P1), behind the imports2 flag.
+  "yelp",
+  "facebook",
+  "linkedin",
+  "youtube",
+  "reddit",
+  "tripadvisor",
+  "appsumo",
+  "udemy",
+  "shopify",
+  "woocommerce",
+  "etsy",
+  "amazon",
+  "clutch",
+  "fiverr",
+  "airbnb",
+  "zillow",
+  "realtor",
+  "chromewebstore",
+  "wordpress",
+  "applepodcasts",
+  "feefo",
+  "trustindex",
 ] as const;
 export type AdapterId = (typeof ADAPTER_IDS)[number];
 
-export const IMPORT_METHODS = ["official-api", "feed", "structured-data", "page-parse", "oembed", "file", "api-key"] as const;
+/** "saved-page": the site needs a login or blocks automated visits, so only a copy saved from the owner's browser is read. */
+export const IMPORT_METHODS = ["official-api", "feed", "structured-data", "page-parse", "oembed", "file", "api-key", "saved-page"] as const;
 export type ImportMethod = (typeof IMPORT_METHODS)[number];
 
 /** One review or testimonial as a source gave it, before any of the owner's options apply. */
@@ -88,6 +112,10 @@ export interface ImporterAdapter {
   unavailable?(): string | null;
   /** Hidden from the source picker (website is the onboarding wizard's). */
   unlisted?: boolean;
+  /** Listed only while this feature flag is on (M13's sources: imports2). */
+  feature?: "imports2";
+  /** Only a saved copy of the page can be read (no identify step, no auto-sync). */
+  savedPageOnly?: boolean;
   fetchPage(input: unknown, cursor: string | null, ctx: ImportCtx): Promise<FetchPage>;
   /** The "Upload the saved page instead" fallback. */
   parseHtml?(html: string): ImportedReview[];

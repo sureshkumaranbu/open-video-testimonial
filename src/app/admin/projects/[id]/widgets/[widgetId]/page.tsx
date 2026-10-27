@@ -3,7 +3,7 @@ import { InstallStatus } from "@/components/analytics/InstallStatus";
 import { ObjectAnalytics } from "@/components/analytics/ObjectAnalytics";
 import { analyticsUi, installStatus } from "@/lib/analytics";
 import { env } from "@/lib/env";
-import { requireFeature } from "@/lib/features";
+import { featureOn, requireFeature } from "@/lib/features";
 import { inboxFacets, parseInboxParams, queryTestimonials } from "@/lib/inbox";
 import { requireAdminPage } from "@/lib/server-session";
 import { getProjectById } from "@/lib/testimonials";
@@ -58,6 +58,7 @@ export default async function WidgetStudioPage({
           origin={env.publicUrl}
           initialTab={TABS.includes(tab as StudioTab) ? (tab as StudioTab) : "layout"}
           banner={analyticsUi() ? <InstallStatus widgetId={widget.id} status={installStatus(widget)} /> : undefined}
+          translations={featureOn("translations")}
         />
         {analyticsUi() && (
           <div className="panel panel-body">

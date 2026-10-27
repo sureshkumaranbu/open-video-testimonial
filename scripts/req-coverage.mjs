@@ -63,7 +63,7 @@ function main() {
   const args = process.argv.slice(2);
   const milestone = args.includes("--all") ? "all" : args[args.indexOf("--milestone") + 1];
   if (!milestone || (!args.includes("--all") && !args.includes("--milestone"))) {
-    console.error("Usage: node scripts/req-coverage.mjs --milestone <M1..M7, M9..M12, M14> | --all [--report]");
+    console.error("Usage: node scripts/req-coverage.mjs --milestone <M1..M7, M9..M14> | --all [--report]");
     process.exit(2);
   }
   const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, "docs", "plan", "ownership.json"), "utf8"));

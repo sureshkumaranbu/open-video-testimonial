@@ -9,7 +9,7 @@ import { env } from "./env";
  * Two Phase 2 flags also switch endpoints, not just pages: `api2` (the
  * /api/v1 CRUD and analytics paths, M14) and `mcp` (the /mcp server).
  */
-export const FEATURES = ["forms", "inbox2", "widgets", "walls", "importers", "notifications", "onboarding", "campaigns", "booster", "analytics", "share", "api2", "mcp"] as const;
+export const FEATURES = ["forms", "inbox2", "widgets", "walls", "importers", "notifications", "onboarding", "campaigns", "booster", "analytics", "share", "imports2", "customers", "translations", "aisearch", "api2", "mcp"] as const;
 export type Feature = (typeof FEATURES)[number];
 
 export function featureOn(f: Feature): boolean {

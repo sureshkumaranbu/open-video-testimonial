@@ -115,7 +115,7 @@ function EmailPrefs({ email, projects, widgetAlerts }: { email: string; projects
         </select>
       </label>
       <Toggle label="Weekly reminder of testimonials waiting for review (Mondays)" checked={prefs.weeklyPending} onChange={(weeklyPending) => set({ weeklyPending })} />
-      <Toggle label="A summary when an import finishes" checked={prefs.importSummary} onChange={(importSummary) => set({ importSummary })} />
+      <Toggle label="A summary when an import finishes" hint="Also when an automatic import adds reviews, or fails 3 times in a row." checked={prefs.importSummary} onChange={(importSummary) => set({ importSummary })} />
       <Toggle label="A monthly report (on the 1st)" checked={prefs.monthlyReport} onChange={(monthlyReport) => set({ monthlyReport })} />
       {widgetAlerts && (
         <Toggle

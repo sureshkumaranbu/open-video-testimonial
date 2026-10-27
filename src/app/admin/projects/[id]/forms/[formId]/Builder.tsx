@@ -27,6 +27,8 @@ export type BuilderProject = {
   accentColor: string;
   brand: Brand;
   logoUrl: string | null;
+  /** INBOX-13 (translations flag): offer "translate new testimonials into…"; `provider` is null when none is set up. */
+  translations?: { provider: string | null };
 };
 
 type Props = {

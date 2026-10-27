@@ -1,6 +1,6 @@
 "use client";
 
-import { SearchField, Segmented } from "@/components/admin";
+import { SearchField, Segmented, Toggle } from "@/components/admin";
 import { Icon } from "@/components/Icon";
 import type { InboxPrefs, InboxQuery, InboxSort } from "@/lib/inbox-query";
 
@@ -32,6 +32,7 @@ export function InboxToolbar({
   onSort,
   onView,
   exportHref,
+  smart,
 }: {
   query: InboxQuery;
   view: InboxPrefs["inboxView"];
@@ -42,12 +43,21 @@ export function InboxToolbar({
   onSort: (sort: InboxSort, dir: "asc" | "desc") => void;
   onView: (v: InboxPrefs["inboxView"]) => void;
   exportHref: (format: "csv" | "json") => string;
+  /** INBOX-14 (aisearch flag): the "Smart search" switch. */
+  smart?: { on: boolean; onChange: (on: boolean) => void };
 }) {
   return (
     <div className="ib-toolbar" role="toolbar" aria-label="Inbox view">
       <div className="ib-search">
-        <SearchField label="Search testimonials" value={query.q} onChange={onSearch} placeholder="Search names, words, tags…" testId="inbox-search" />
+        <SearchField
+          label="Search testimonials"
+          value={query.q}
+          onChange={onSearch}
+          placeholder={smart?.on ? "Describe what you’re looking for…" : "Search names, words, tags…"}
+          testId="inbox-search"
+        />
       </div>
+      {smart && <Toggle label="Smart search" checked={smart.on} onChange={smart.onChange} hint="By meaning, with your own AI provider" testId="smart-search" />}
       <button type="button" className="secondary small" aria-expanded={filtersOpen} aria-controls="inbox-filters" onClick={onToggleFilters} data-testid="filters-toggle">
         <Icon name="filter" />
         Filters{filterCount > 0 ? ` (${filterCount})` : ""}

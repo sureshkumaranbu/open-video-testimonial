@@ -5,6 +5,8 @@ import { ConsentWithdrawnError, deleteTestimonial, DuplicateReviewError, NoPubli
 import { firstIssue, testimonialUpdateSchema } from "@/lib/validation";
 // Registers the notifications listener in this route's bundle (approvals post to chat channels).
 import "@/lib/notifications";
+// And smart search's (INBOX-14): an edit is embedded again a little later.
+import "@/lib/embeddings";
 
 type Ctx = { params: Promise<{ id: string }> };
 

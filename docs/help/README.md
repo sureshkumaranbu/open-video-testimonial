@@ -6,7 +6,8 @@ How to use each part of the Plaudit dashboard. Every section is on by default; `
 |---|---|
 | [Getting started](getting-started.md) | The setup guide at `/admin/welcome`, finding testimonials on your site, the starter form, wall and widgets, and the Get started checklist |
 | [Forms](forms.md) | Several forms per project, the builder, questions, custom and hidden fields, languages, design, per-form rules, low ratings, rewards and sharing |
-| [The inbox](inbox.md) | Reviewing, searching, filtering, bulk actions, the trash, the detail drawer and adding testimonials by hand |
+| [The inbox](inbox.md) | Reviewing, searching, filtering, bulk actions, the trash, the detail drawer, adding testimonials by hand, possible duplicates and merging, translations and smart search |
+| [Customers](customers.md) | One record per person: their testimonials, feedback, invitations and rewards, and inviting them or asking for a video |
 | [Video tools](video.md) | Trimming a video, picking or uploading its poster, replacing the file and downloading it |
 | [Sharing](share.md) | A testimonial's own page with share links, and the image studio for social posts, slides and emails |
 | [Widgets](widgets.md) | The widget studio: layouts, choosing testimonials, design and every way to embed |
@@ -19,4 +20,4 @@ How to use each part of the Plaudit dashboard. Every section is on by default; `
 | [WordPress](wordpress.md) | The plugin: the block, shortcodes, the site-wide toast, SEO mode and caching plugins |
 | [Zapier, Make, n8n and React](integrations.md) | The Zapier app, n8n and Make templates, and the `@plaudit/react` components |
 
-Elsewhere in `docs/`: [importing](../IMPORT.md), [embedding a form](../EMBED.md), [embedding widgets](../embeds/README.md), [email setup](../EMAIL.md), [sign-in and team](../AUTH.md) and the [REST API and webhooks](../API.md).
+Elsewhere in `docs/`: [importing](../IMPORT.md) (review sites, saved pages, auto-sync, spreadsheets), [embedding a form](../EMBED.md), [embedding widgets](../embeds/README.md), [email setup](../EMAIL.md), [sign-in and team](../AUTH.md) and the [REST API and webhooks](../API.md).

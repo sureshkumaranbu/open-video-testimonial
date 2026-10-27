@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { ObjectAnalytics } from "@/components/analytics/ObjectAnalytics";
 import { analyticsUi } from "@/lib/analytics";
 import { env } from "@/lib/env";
-import { requireFeature } from "@/lib/features";
+import { featureOn, requireFeature } from "@/lib/features";
+import { translationProviderName } from "@/lib/translate";
 import { getForm } from "@/lib/forms";
 import { formToAdmin } from "@/lib/forms/admin";
 import { parseBrand } from "@/lib/projects";
@@ -52,6 +53,7 @@ export default async function FormBuilderPage({
             accentColor: project.accentColor,
             brand: parseBrand(project.brand),
             logoUrl: project.logoKey ? `/api/media/${project.logoKey}` : null,
+            translations: featureOn("translations") ? { provider: translationProviderName() } : undefined,
           }}
           initial={JSON.parse(JSON.stringify(formToAdmin(project, form)))}
           limits={{ maxVideoBytes: env.maxVideoBytes, maxImageBytes: env.maxImageBytes }}
