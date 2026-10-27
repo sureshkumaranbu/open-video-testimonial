@@ -465,6 +465,8 @@ export const apiKeys = sqliteTable("api_keys", {
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
   lastUsedAt: integer("last_used_at", { mode: "timestamp_ms" }),
   revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
+  /** 0017 (TEAM-01): false limits the key to the projects in api_key_projects. Older keys reach every project. */
+  allProjects: integer("all_projects", { mode: "boolean" }).notNull().default(true),
 });
 
 export const WEBHOOK_EVENTS = [
@@ -509,9 +511,11 @@ export const webhooks = sqliteTable(
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
     /** Only this form's events (FORM-10 override), or every form when null. Deleted with the form. */
     formId: text("form_id").references(() => forms.id, { onDelete: "cascade" }),
+    /** 0017: the API key that subscribed it (POST /api/v1/webhooks, Zapier's REST hooks); null when made in the dashboard. */
+    apiKeyId: text("api_key_id").references((): AnySQLiteColumn => apiKeys.id, { onDelete: "set null" }),
   },
   // 0011: an index on each Phase 1 foreign key, so deleting the parent doesn't scan this table.
-  (t) => [index("webhooks_form_idx").on(t.formId), index("webhooks_project_idx").on(t.projectId)],
+  (t) => [index("webhooks_form_idx").on(t.formId), index("webhooks_project_idx").on(t.projectId), index("webhooks_api_key_idx").on(t.apiKeyId)],
 );
 
 export const DELIVERY_STATUSES = ["pending", "success", "failed"] as const;
@@ -580,7 +584,8 @@ export const uploads = sqliteTable("uploads", {
   expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
 }, (t) => [index("uploads_project_idx").on(t.projectId)]);
 
-export const MEMBER_ROLES = ["owner", "admin"] as const;
+/** TEAM-01 (0017, flag team2) adds editor (content, no team or settings) and viewer (read and share). */
+export const MEMBER_ROLES = ["owner", "admin", "editor", "viewer"] as const;
 export type MemberRole = (typeof MEMBER_ROLES)[number];
 
 /**
@@ -599,6 +604,8 @@ export const members = sqliteTable("members", {
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
   activatedAt: integer("activated_at", { mode: "timestamp_ms" }),
   lastSignInAt: integer("last_sign_in_at", { mode: "timestamp_ms" }),
+  /** 0017 (TEAM-01): false limits an editor or viewer to the projects in member_projects. */
+  allProjects: integer("all_projects", { mode: "boolean" }).notNull().default(true),
 });
 
 export const LOGIN_TOKEN_PURPOSES = ["sign-in", "invite"] as const;
@@ -1329,6 +1336,203 @@ export const memberPrefs = sqliteTable("member_prefs", {
   updatedAt: updatedAt(),
 });
 
+// ------------------------------------------------------------- M14 (0017)
+
+/** TEAM-01: the projects a member limited to some (members.all_projects false) may open. */
+export const memberProjects = sqliteTable(
+  "member_projects",
+  {
+    memberId: text("member_id")
+      .notNull()
+      .references(() => members.id, { onDelete: "cascade" }),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.memberId, t.projectId] }), index("member_projects_project_idx").on(t.projectId)],
+);
+
+/** TEAM-01: the projects a key limited to some (api_keys.all_projects false) may reach. */
+export const apiKeyProjects = sqliteTable(
+  "api_key_projects",
+  {
+    apiKeyId: text("api_key_id")
+      .notNull()
+      .references(() => apiKeys.id, { onDelete: "cascade" }),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.apiKeyId, t.projectId] }), index("api_key_projects_project_idx").on(t.projectId)],
+);
+
+export const AUDIT_ACTOR_TYPES = ["member", "api_key", "oauth", "system"] as const;
+export type AuditActorType = (typeof AUDIT_ACTOR_TYPES)[number];
+
+/**
+ * TEAM-02: who did what. `project_id` has no foreign key on purpose, so the
+ * record of deleting a project outlives it. Never holds secrets, IP
+ * addresses or user agents.
+ */
+export const auditLog = sqliteTable(
+  "audit_log",
+  {
+    id: text("id").primaryKey(),
+    at: integer("at", { mode: "timestamp_ms" }).notNull(),
+    actorType: text("actor_type", { enum: AUDIT_ACTOR_TYPES }).notNull(),
+    /** The member's email, the key's or grant's id, or "system". */
+    actorId: text("actor_id").notNull(),
+    /** What the log shows: the email, or the key's name and prefix. */
+    actorLabel: text("actor_label").notNull(),
+    /** e.g. testimonial.approve, export.csv, api_key.create, oauth.grant. */
+    action: text("action").notNull(),
+    objectType: text("object_type"),
+    objectId: text("object_id"),
+    projectId: text("project_id"),
+    /** A short line for the log, e.g. the testimonial's author. */
+    summary: text("summary").notNull().default(""),
+    meta: text("meta").notNull().default("{}"),
+  },
+  (t) => [
+    index("audit_log_at_idx").on(t.at),
+    index("audit_log_project_at_idx").on(t.projectId, t.at),
+    index("audit_log_actor_at_idx").on(t.actorId, t.at),
+    index("audit_log_action_at_idx").on(t.action, t.at),
+    index("audit_log_object_idx").on(t.objectType, t.objectId),
+  ],
+);
+
+export const TRIGGER_PROVIDERS = ["stripe", "shopify"] as const;
+export type TriggerProvider = (typeof TRIGGER_PROVIDERS)[number];
+
+/**
+ * REQ-07: a native Stripe or Shopify trigger on a campaign. Its endpoint is
+ * /api/hooks/<provider>/<id>; every delivery must carry the provider's
+ * signature, made with `secret` (entered by the owner, never sent back).
+ */
+export const campaignTriggers = sqliteTable(
+  "campaign_triggers",
+  {
+    id: text("id").primaryKey(),
+    campaignId: text("campaign_id")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    provider: text("provider", { enum: TRIGGER_PROVIDERS }).notNull(),
+    /** The provider's signing secret, needed in full to check signatures. Empty until it's entered. */
+    secret: text("secret").notNull().default(""),
+    /** JSON array of the provider's event names this trigger acts on. */
+    events: text("events").notNull().default("[]"),
+    delayDays: integer("delay_days").notNull().default(0),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+    lastEventAt: integer("last_event_at", { mode: "timestamp_ms" }),
+    /** What happened to the last delivery, for the campaign page ("Invited ada@…", "Skipped: duplicate"). */
+    lastResult: text("last_result"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("campaign_triggers_campaign_idx").on(t.campaignId)],
+);
+
+/** Deliveries already handled (Stripe's event id, Shopify's webhook id), so a retry never invites twice. */
+export const triggerEvents = sqliteTable(
+  "trigger_events",
+  {
+    triggerId: text("trigger_id")
+      .notNull()
+      .references(() => campaignTriggers.id, { onDelete: "cascade" }),
+    externalId: text("external_id").notNull(),
+    receivedAt: integer("received_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.triggerId, t.externalId] }), index("trigger_events_received_idx").on(t.receivedAt)],
+);
+
+/** INT-04: an MCP client that registered itself (RFC 7591, public clients only). */
+export const oauthClients = sqliteTable("oauth_clients", {
+  /** The client_id (mcpc_ and random characters). */
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  /** JSON array of exact redirect URIs. */
+  redirectUris: text("redirect_uris").notNull(),
+  createdAt: createdAt(),
+  lastUsedAt: integer("last_used_at", { mode: "timestamp_ms" }),
+});
+
+export const OAUTH_SCOPES = ["read", "write"] as const;
+export type OAuthScope = (typeof OAUTH_SCOPES)[number];
+
+/** What a member allowed an MCP client to do: tokens act with the member's own role and project access, within this. */
+export const oauthGrants = sqliteTable(
+  "oauth_grants",
+  {
+    id: text("id").primaryKey(),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => oauthClients.id, { onDelete: "cascade" }),
+    memberEmail: text("member_email").notNull(),
+    scope: text("scope", { enum: OAUTH_SCOPES }).notNull(),
+    allProjects: integer("all_projects", { mode: "boolean" }).notNull().default(true),
+    createdAt: createdAt(),
+    lastUsedAt: integer("last_used_at", { mode: "timestamp_ms" }),
+    revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
+  },
+  (t) => [index("oauth_grants_client_idx").on(t.clientId), index("oauth_grants_member_idx").on(t.memberEmail)],
+);
+
+export const oauthGrantProjects = sqliteTable(
+  "oauth_grant_projects",
+  {
+    grantId: text("grant_id")
+      .notNull()
+      .references(() => oauthGrants.id, { onDelete: "cascade" }),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.grantId, t.projectId] }), index("oauth_grant_projects_project_idx").on(t.projectId)],
+);
+
+/** Authorization codes: single use, a few minutes, PKCE S256. Only a hash is stored. */
+export const oauthCodes = sqliteTable(
+  "oauth_codes",
+  {
+    id: text("id").primaryKey(),
+    codeHash: text("code_hash").notNull().unique(),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => oauthClients.id, { onDelete: "cascade" }),
+    memberEmail: text("member_email").notNull(),
+    scope: text("scope", { enum: OAUTH_SCOPES }).notNull(),
+    /** JSON array of project ids, or null for every project the member can open. */
+    projectIds: text("project_ids"),
+    redirectUri: text("redirect_uri").notNull(),
+    codeChallenge: text("code_challenge").notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    usedAt: integer("used_at", { mode: "timestamp_ms" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("oauth_codes_client_idx").on(t.clientId)],
+);
+
+export const OAUTH_TOKEN_KINDS = ["access", "refresh"] as const;
+
+/** Access tokens (an hour) and refresh tokens (30 days, rotated on use), as hashes. */
+export const oauthTokens = sqliteTable(
+  "oauth_tokens",
+  {
+    id: text("id").primaryKey(),
+    tokenHash: text("token_hash").notNull().unique(),
+    grantId: text("grant_id")
+      .notNull()
+      .references(() => oauthGrants.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: OAUTH_TOKEN_KINDS }).notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    /** A refresh token is used once; using it again revokes the whole grant. */
+    usedAt: integer("used_at", { mode: "timestamp_ms" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("oauth_tokens_grant_idx").on(t.grantId), index("oauth_tokens_expires_idx").on(t.expiresAt)],
+);
+
 export type Member = typeof members.$inferSelect;
 export type Project = typeof projects.$inferSelect;
 export type Testimonial = typeof testimonials.$inferSelect;
@@ -1366,3 +1570,7 @@ export type ShareTemplate = typeof shareTemplates.$inferSelect;
 export type ImportSource = typeof importSources.$inferSelect;
 export type Translation = typeof translations.$inferSelect;
 export type TestimonialEmbedding = typeof testimonialEmbeddings.$inferSelect;
+export type AuditEntry = typeof auditLog.$inferSelect;
+export type CampaignTrigger = typeof campaignTriggers.$inferSelect;
+export type OAuthClient = typeof oauthClients.$inferSelect;
+export type OAuthGrant = typeof oauthGrants.$inferSelect;
