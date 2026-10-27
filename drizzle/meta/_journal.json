@@ -99,6 +99,13 @@
       "when": 1793125221579,
       "tag": "0013_booster_rewards",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1793129024782,
+      "tag": "0014_analytics",
+      "breakpoints": true
     }
   ]
 }

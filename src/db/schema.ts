@@ -112,6 +112,19 @@ export type TaskRunStatus = (typeof TASK_RUN_STATUSES)[number];
 export const CHANNEL_TYPES = ["slack", "discord", "teams", "telegram"] as const;
 export type ChannelType = (typeof CHANNEL_TYPES)[number];
 export const NOTIFY_FREQUENCIES = ["instant", "daily", "off"] as const;
+
+/** What analytics counts (M11, docs/help/analytics.md). */
+export const ANALYTICS_OBJECTS = ["widget", "form", "wall", "snippet"] as const;
+export type AnalyticsObject = (typeof ANALYTICS_OBJECTS)[number];
+/**
+ * view: a widget, wall or form was shown. more/source/cta/play: widget clicks
+ * (read more, the original review's link, the call to action, a video
+ * started). link: a wall's other links. start/step/complete: a form was
+ * begun, reached a page, was sent. render: a dynamic snippet was fetched.
+ * dropped: events past the daily cap (counted, not stored).
+ */
+export const ANALYTICS_METRICS = ["view", "more", "source", "cta", "play", "link", "start", "step", "complete", "render", "dropped"] as const;
+export type AnalyticsMetric = (typeof ANALYTICS_METRICS)[number];
 export type NotifyFrequency = (typeof NOTIFY_FREQUENCIES)[number];
 
 export const testimonials = sqliteTable(
@@ -449,6 +462,9 @@ export const WEBHOOK_EVENTS = [
   "invite.opened",
   "invite.clicked",
   "invite.declined",
+  // M11 install detection (DISP-13): opt-in too.
+  "widget.installed",
+  "widget.removed",
 ] as const;
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number] | "ping";
 
@@ -852,9 +868,14 @@ export const widgets = sqliteTable(
     configVersion: integer("config_version").notNull().default(1),
     connectedFormId: text("connected_form_id").references(() => forms.id, { onDelete: "set null" }),
     placement: text("placement"),
-    /** DISP-13 install detection (P1); unused for now. */
+    /** DISP-13 install detection: the last page (origin + path, no query) a view came from, set by the hourly analytics job. */
     lastSeenAt: integer("last_seen_at", { mode: "timestamp_ms" }),
     lastSeenOrigin: text("last_seen_origin"),
+    lastSeenPath: text("last_seen_path"),
+    /** When the "removed" alert went out (no view for 7 days after being live); cleared when a view arrives again. */
+    removedAt: integer("removed_at", { mode: "timestamp_ms" }),
+    /** The owner hid the in-app alert for this removal. */
+    removedDismissed: integer("removed_dismissed", { mode: "boolean" }).notNull().default(false),
     deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -1051,10 +1072,84 @@ export const rewardCodes = sqliteTable(
   ],
 );
 
+// 0014 (M11): cookieless analytics (PRD §15, docs/help/analytics.md).
+
+/**
+ * Raw analytics events, kept for 30 days and then deleted. No IPs, user
+ * agents, cookies or query strings: `visitor` is a hash of IP + user agent +
+ * project with a salt that changes every day and is deleted after two, so it
+ * can't be reversed or matched across days.
+ */
+export const analyticsEvents = sqliteTable(
+  "analytics_events",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    objectType: text("object_type", { enum: ANALYTICS_OBJECTS }).notNull(),
+    /** The widget, form, wall or snippet id (no foreign key: one column for four tables, and stats outlive a deleted wall). */
+    objectId: text("object_id").notNull(),
+    metric: text("metric", { enum: ANALYTICS_METRICS }).notNull(),
+    /** The page (origin + path) for widget views and clicks, a form page's index for `step`, the referring site for `render`; "" otherwise. */
+    dim: text("dim").notNull().default(""),
+    visitor: text("visitor").notNull(),
+    /** UTC day, YYYY-MM-DD. */
+    day: text("day").notNull(),
+    at: integer("at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [
+    index("analytics_events_project_idx").on(t.projectId, t.day),
+    index("analytics_events_object_idx").on(t.objectType, t.objectId, t.day),
+    // Covers rolling up a day, the dashboard's live "today" and deleting old days (their GROUP BYs read it in order).
+    index("analytics_events_day_idx").on(t.day, t.projectId, t.objectType, t.metric, t.visitor, t.objectId),
+  ],
+);
+
+/**
+ * Daily totals, kept forever. One row per object, day, metric and dim; an
+ * empty object_id is the project's total for that type (its visitors are
+ * counted once across all of them). `uniques` = distinct visitors that day.
+ */
+export const analyticsDaily = sqliteTable(
+  "analytics_daily",
+  {
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    objectType: text("object_type", { enum: ANALYTICS_OBJECTS }).notNull(),
+    objectId: text("object_id").notNull(),
+    day: text("day").notNull(),
+    metric: text("metric", { enum: ANALYTICS_METRICS }).notNull(),
+    dim: text("dim").notNull().default(""),
+    count: integer("count").notNull().default(0),
+    uniques: integer("uniques").notNull().default(0),
+  },
+  (t) => [
+    primaryKey({ columns: [t.projectId, t.objectType, t.objectId, t.day, t.metric, t.dim] }),
+    // The dashboard's "all projects" view.
+    index("analytics_daily_day_idx").on(t.day),
+  ],
+);
+
+/** One random salt per UTC day for the visitor hash; rows older than yesterday are deleted. */
+export const analyticsSalts = sqliteTable("analytics_salts", {
+  day: text("day").primaryKey(),
+  salt: text("salt").notNull(),
+  createdAt: createdAt(),
+});
+
+/** Days whose raw events have been rolled up into analytics_daily (a finished day is rolled once). */
+export const analyticsRollups = sqliteTable("analytics_rollups", {
+  day: text("day").primaryKey(),
+  events: integer("events").notNull().default(0),
+  rolledAt: integer("rolled_at", { mode: "timestamp_ms" }).notNull(),
+});
+
 /** Per-person prefs keyed by lower-cased email (D14; the owner signs in before editing prefs, so a members row exists). */
 export const memberPrefs = sqliteTable("member_prefs", {
   email: text("email").primaryKey(),
-  /** {newTestimonial:'instant'|'daily'|'off', weeklyPending, importSummary, monthlyReport, projectIds:[]}: all off by default. */
+  /** {newTestimonial:'instant'|'daily'|'off', weeklyPending, importSummary, monthlyReport, widgetRemoved, projectIds:[]}: all off by default. */
   notifications: text("notifications").notNull().default("{}"),
   /** {inboxView:'card'|'table', inboxSort, inboxDir, pageSize}. */
   ui: text("ui").notNull().default("{}"),
@@ -1094,3 +1189,5 @@ export type MemberPrefs = typeof memberPrefs.$inferSelect;
 export type Booster = typeof boosters.$inferSelect;
 export type BoosterClick = typeof boosterClicks.$inferSelect;
 export type RewardCode = typeof rewardCodes.$inferSelect;
+export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
+export type AnalyticsDaily = typeof analyticsDaily.$inferSelect;
