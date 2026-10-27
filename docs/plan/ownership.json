@@ -63,6 +63,11 @@
       "$comment": "Phase 2 milestones are one branch and one implementer each (docs/STATUS.md), so they list no work packages; only their requirement IDs are gated.",
       "packages": [],
       "requirements": ["REQ-01", "REQ-02", "REQ-03", "REQ-04", "REQ-05", "REQ-06", "REQ-07"]
+    },
+    "M10": {
+      "name": "Review booster, rewards, low-rating branch (Phase 2)",
+      "packages": [],
+      "requirements": ["BOOST-01", "BOOST-02", "BOOST-03", "BOOST-04", "BOOST-05", "FORM-12", "FORM-13", "REQ-08"]
     }
   },
   "concurrent": [

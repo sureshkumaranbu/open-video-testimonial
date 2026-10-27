@@ -3,6 +3,8 @@
 import { useState } from "react";
 import type { ThankYou as ThankYouContent } from "@/lib/forms/engine";
 import { fillLabel, type Labels } from "@/lib/forms/labels";
+import type { GrantedReward } from "@/lib/rewards-config";
+import { RewardReveal } from "./RewardReveal";
 
 type Props = {
   content: ThankYouContent;
@@ -13,6 +15,8 @@ type Props = {
   /** Share links appear only when they agreed to social use (FORM-16). */
   social: boolean;
   withdrawUrl?: string | null;
+  /** FORM-13: what the server gave for this submission. */
+  reward?: GrantedReward | null;
 };
 
 const SHARE = [
@@ -22,7 +26,7 @@ const SHARE = [
 ];
 
 /** After sending: thanks, their words to copy or share, the owner's link, and the private withdraw link. */
-export function ThankYou({ content, labels: l, projectName, words, social, withdrawUrl }: Props) {
+export function ThankYou({ content, labels: l, projectName, words, social, withdrawUrl, reward }: Props) {
   const [copied, setCopied] = useState<"words" | "link" | null>(null);
   const t = (s: string) => fillLabel(s, { project: projectName });
   const quote = words.trim();
@@ -43,6 +47,7 @@ export function ThankYou({ content, labels: l, projectName, words, social, withd
       </span>
       <h1>{t(content.title || l.thankYouTitle)}</h1>
       <p className="fr-sub">{t(content.message || l.thankYouMessage)}</p>
+      {reward && <RewardReveal reward={reward} labels={l} projectName={projectName} />}
       {content.cta && (
         <a className="button accent fr-primary" href={content.cta.url} target="_blank" rel="noopener noreferrer">
           {content.cta.label}

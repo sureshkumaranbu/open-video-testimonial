@@ -331,6 +331,8 @@ export function publicMediaQuery(key: string) {
     SELECT 1 FROM forms WHERE logo_key = ${key}
     UNION ALL
     SELECT 1 FROM walls WHERE (logo_key = ${key} OR cover_key = ${key}) AND published = 1
+    UNION ALL
+    SELECT 1 FROM boosters WHERE logo_key = ${key} AND published = 1
     LIMIT 1`;
 }
 

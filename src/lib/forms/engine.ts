@@ -7,6 +7,7 @@ import {
   type CustomField,
   type FormConfig,
   type FormPage,
+  type LowRatingSettings,
   type QuestionPage,
 } from "./schema";
 
@@ -77,14 +78,38 @@ export function pageEnabled(p: FormPage): boolean {
   return !("enabled" in p) || p.enabled;
 }
 
+/** The key of the private feedback step the low-rating branch shows (never a valid field key, so it can't clash). */
+export const LOW_RATING_KEY = "_low";
+
+type BranchCfg = Pick<FormConfig, "pages"> & { settings?: { lowRating?: LowRatingSettings } };
+
+/**
+ * FORM-12: whether this rating sends the person to private feedback. Only
+ * when the owner turned the branch on and the rating page is shown.
+ */
+export function inLowRatingBranch(cfg: BranchCfg, rating: number | null | undefined): boolean {
+  const low = cfg.settings?.lowRating;
+  if (!low?.enabled || !rating || rating < 1) return false;
+  if (!cfg.pages.some((p) => p.type === "rating" && p.enabled)) return false;
+  return rating <= low.threshold;
+}
+
+/** The low-rating branch's private feedback step, as a feedback page (the runner draws it with name and email). */
+export function lowRatingPage(low: LowRatingSettings): Extract<FormPage, { type: "feedback" }> {
+  return { type: "feedback", key: LOW_RATING_KEY, enabled: true, required: true, title: low.title, subtitle: low.subtitle || undefined, placeholder: low.placeholder || undefined };
+}
+
 /**
  * The steps in order: every enabled page, without the thank-you page (shown
- * after sending). `state` is for branching rules (FORM-12 is P1); today the
- * pages don't depend on the answers.
+ * after sending). With `state`, branching applies: a rating in the
+ * low-rating branch keeps the pages up to the rating, then the private
+ * feedback step, and drops the questions, consent and the rest.
  */
-export function visiblePages(cfg: Pick<FormConfig, "pages">, state?: Answers): FormPage[] {
-  void state;
-  return cfg.pages.filter((p) => p.type !== "thank_you" && pageEnabled(p));
+export function visiblePages(cfg: BranchCfg, state?: Pick<Answers, "rating">): FormPage[] {
+  const pages = cfg.pages.filter((p) => p.type !== "thank_you" && pageEnabled(p));
+  if (!state || !inLowRatingBranch(cfg, state.rating)) return pages;
+  const at = pages.findIndex((p) => p.type === "rating");
+  return [...pages.slice(0, at + 1), lowRatingPage(cfg.settings!.lowRating!)];
 }
 
 export const isQuestion = (p: FormPage): p is QuestionPage => p.type === "question";
@@ -157,6 +182,7 @@ export function validateStep(page: FormPage, state: Answers, labels: Labels): Re
     }
     case "feedback":
       if (page.required && !state.feedback[page.key]?.trim()) errors[`f:${page.key}`] = labels.errorRequired;
+      if (page.key === LOW_RATING_KEY && state.person.email.trim() && !EMAIL_RE.test(state.person.email.trim())) errors.email = labels.errorEmail;
       break;
     case "consent":
       if (!state.consent.agreed) errors.consent = labels.errorConsent;
@@ -361,6 +387,32 @@ export function buildSubmissionSchema(cfg: FormConfig, labels: Labels = resolveL
     .transform(keep);
 }
 export type CheckedSubmission = ReturnType<ReturnType<typeof buildSubmissionSchema>["parse"]>;
+
+/**
+ * What the runner sends from the low-rating branch (FORM-12): the rating,
+ * the private feedback and, if they gave them, a name and email. No answers,
+ * consent or files: nothing of it is ever published.
+ */
+export const lowRatingSubmissionSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  lowFeedback: z.string().trim().min(1, "Please tell us what went wrong").max(5000),
+  person: z
+    .object({
+      name: optionalText(120),
+      email: z
+        .string()
+        .trim()
+        .max(254)
+        .optional()
+        .transform((v) => (v ? v : undefined))
+        .pipe(z.email("Please enter a valid email").optional()),
+    })
+    .prefault({}),
+  hiddenFields: z.record(z.string().max(40), z.string().max(PREFILL_MAX_CHARS)).default({}),
+  requestToken: z.string().max(100).optional(),
+  language: z.string().max(16).optional(),
+});
+export type LowRatingSubmission = z.output<typeof lowRatingSubmissionSchema>;
 
 /**
  * The answer that becomes the testimonial's own text and video: the main

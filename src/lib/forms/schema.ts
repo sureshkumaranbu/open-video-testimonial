@@ -225,6 +225,19 @@ export const autoApproveRuleSchema = z.object({
 });
 export type AutoApproveRule = z.infer<typeof autoApproveRuleSchema>;
 
+export const lowRatingSchema = z.object({
+  enabled: z.boolean().default(false),
+  /** 1 to 4 stars: 5 would send everyone to private feedback. */
+  threshold: z.number().int().min(1).max(4).default(2),
+  /** Empty = the language's default wording. */
+  title: copy(300).default(""),
+  subtitle: copy(500).default(""),
+  placeholder: copy(200).default(""),
+  /** Offer name and email fields (both optional) so the owner can reply. */
+  askContact: z.boolean().default(true),
+});
+export type LowRatingSettings = z.infer<typeof lowRatingSchema>;
+
 export const formSettingsSchema = z.object({
   autoApprove: autoApproveRuleSchema.prefault({}),
   /** Tags every submission gets. */
@@ -245,6 +258,13 @@ export const formSettingsSchema = z.object({
   /** Prefilled fields the person can't change. */
   lockPrefill: z.array(z.string().max(40)).max(20).default([]),
   noindex: z.boolean().default(false),
+  /**
+   * FORM-12 (off by default): a rating at or below `threshold` shows a private
+   * feedback page instead of the questions, and is stored as feedback, never
+   * as a testimonial. Only for private testimonials: review sites forbid
+   * gating, and booster pages never do it (BOOST-03).
+   */
+  lowRating: lowRatingSchema.prefault({}),
 });
 export type FormSettings = z.infer<typeof formSettingsSchema>;
 
@@ -259,6 +279,8 @@ export type FormConfig = {
 
 /** What updateForm accepts; layout, slug and status have their own calls. */
 export type FormPatch = Partial<Pick<FormConfig, "pages" | "design" | "labels" | "settings">> & {
+  /** FORM-13: the forms.reward column, checked by rewardConfigSchema (src/lib/rewards-config.ts). */
+  reward?: unknown;
   name?: string;
   language?: string;
   logoKey?: string | null;
@@ -276,7 +298,8 @@ export type PublicForm = {
   pages: FormPage[];
   design: FormDesign;
   labels: FormLabels;
-  settings: Pick<FormSettings, "closedMessage" | "landscapePrompt">;
+  /** lowRating is there only while the owner has it on (FORM-12). */
+  settings: Pick<FormSettings, "closedMessage" | "landscapePrompt"> & Partial<Pick<FormSettings, "lowRating">>;
 };
 
 /**
@@ -379,6 +402,10 @@ export function toPublicForm(row: Form, cfg: FormConfig): PublicForm {
     pages: cfg.pages.map((p) => (p.type === "about_you" || p.type === "about_company" ? { ...p, custom: publicFields(p.custom) } : p)),
     design: cfg.design,
     labels: cfg.labels,
-    settings: { closedMessage: cfg.settings.closedMessage, landscapePrompt: cfg.settings.landscapePrompt },
+    settings: {
+      closedMessage: cfg.settings.closedMessage,
+      landscapePrompt: cfg.settings.landscapePrompt,
+      ...(cfg.settings.lowRating.enabled ? { lowRating: cfg.settings.lowRating } : {}),
+    },
   };
 }

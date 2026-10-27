@@ -8,6 +8,7 @@ import { FormRunner } from "@/components/collect/FormRunner";
 import { designWithBrand } from "@/lib/forms/design";
 import { resolveLabels } from "@/lib/forms/labels";
 import type { FormConfig, FormPage, PublicForm } from "@/lib/forms/schema";
+import type { RewardConfig } from "@/lib/rewards-config";
 import type { Brand } from "@/lib/validation";
 import type { FormRow } from "../types";
 import { ContentEditor, PageList } from "./ContentEditor";
@@ -17,7 +18,7 @@ import { SharePanel } from "./SharePanel";
 
 export type BuilderTab = "content" | "design" | "settings" | "share";
 
-export type Draft = Pick<FormConfig, "pages" | "design" | "labels" | "settings"> & { name: string; language: string };
+export type Draft = Pick<FormConfig, "pages" | "design" | "labels" | "settings"> & { name: string; language: string; reward: RewardConfig };
 
 export type BuilderProject = {
   id: string;
@@ -42,6 +43,7 @@ const draftOf = (f: FormRow): Draft => ({
   design: f.config.design,
   labels: f.config.labels,
   settings: f.config.settings,
+  reward: f.reward,
 });
 
 /** What counts as a change: autoApprove.since is the server's bookkeeping, not something the owner edits. */
@@ -78,7 +80,7 @@ export function Builder({ project, initial, limits, initialTab }: Props) {
       pages: draft.pages,
       design: designWithBrand(draft.design, project.brand),
       labels: draft.labels,
-      settings: { closedMessage: draft.settings.closedMessage, landscapePrompt: draft.settings.landscapePrompt },
+      settings: { closedMessage: draft.settings.closedMessage, landscapePrompt: draft.settings.landscapePrompt, lowRating: draft.settings.lowRating },
     }),
     [form, draft, project.brand],
   );
@@ -224,7 +226,9 @@ export function Builder({ project, initial, limits, initialTab }: Props) {
                 onAction={action}
               />
             )}
-            {tab === "share" && <SharePanel form={form} accent={draft.design.primary ?? project.brand.colors.primary ?? project.accentColor} />}
+            {tab === "share" && (
+              <SharePanel form={form} accent={draft.design.primary ?? project.brand.colors.primary ?? project.accentColor} logoUrl={form.logoUrl ?? project.logoUrl} />
+            )}
           </section>
         </div>
       </Tabs>

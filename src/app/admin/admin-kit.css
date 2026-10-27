@@ -1111,3 +1111,20 @@ button.ak-chip[data-removable] .icon {
     background: Highlight;
   }
 }
+
+/* QrStudio (FORM-11, BOOST-04) */
+.ak-qr {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.ak-qr-img {
+  width: 160px;
+  height: 160px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  flex: none;
+}

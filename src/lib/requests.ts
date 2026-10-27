@@ -3,13 +3,14 @@ import { and, desc, eq, inArray, isNotNull, isNull, lte } from "drizzle-orm";
 import { z } from "zod";
 import { getDb, schema } from "@/db";
 import type { Campaign, Form, Project, TestimonialRequest } from "@/db/schema";
-import { renderCampaignEmail } from "./campaign-email";
+import { renderCampaignEmail, usesRewardCode } from "./campaign-email";
 import { parseCsv } from "./csv";
 import { emailEnabled, fillTemplate, headerSafe, isPermanentSmtpError, isRecipientRejection, sendMail } from "./email";
 import { env } from "./env";
-import { formUrl, getForm } from "./forms";
+import { formUrl, getDefaultForm, getForm } from "./forms";
 import { parseFormRow } from "./forms/schema";
 import { enqueue, PermanentJobError } from "./jobs";
+import { reserveCodeForRequest, rewardText, type GrantedReward } from "./rewards";
 import { emitEvent } from "./webhooks";
 
 const { requests, projects, campaigns, unsubscribes } = schema;
@@ -288,13 +289,43 @@ export function parseReminderList(raw: string): number[] {
   }
 }
 
+/** Shown for {{reward_code}} when the pool ran out before this recipient's email went out. */
+export const NO_CODE_LEFT = "(sorry, all the codes have been claimed)";
+/** What a preview shows for {{reward_code}} before a recipient has a code. */
+export const SAMPLE_CODE = "SAMPLE-CODE";
+
+/** The form whose code pool a campaign's recipients draw from: the one its links open. */
+export function rewardFormId(project: Pick<Project, "id">, campaign: Pick<Campaign, "formId">) {
+  const own = campaign.formId ? getForm(campaign.formId) : null;
+  return own && own.projectId === project.id ? own.id : getDefaultForm(project.id).id;
+}
+
+/**
+ * {{reward_code}} for one recipient (REQ-08). Sending reserves their code
+ * from the pool (once; reminders repeat the same one). A preview never
+ * reserves: it shows their code if they already have one, else a sample.
+ */
+function recipientCode(
+  project: Project,
+  campaign: Pick<Campaign, "subject" | "body" | "rewardCodes" | "formId">,
+  r: TestimonialRequest,
+  preview: boolean,
+): string | undefined {
+  if (!campaign.rewardCodes || !usesRewardCode(campaign)) return undefined;
+  if (preview) {
+    const own = getDb().select({ code: schema.rewardCodes.code }).from(schema.rewardCodes).where(eq(schema.rewardCodes.requestId, r.id)).get();
+    return own?.code ?? SAMPLE_CODE;
+  }
+  return reserveCodeForRequest(rewardFormId(project, campaign), r.id) ?? NO_CODE_LEFT;
+}
+
 /**
  * The campaign email for one recipient: what the worker sends, and (with
  * `preview`) the dashboard's preview of it, which leaves out only the open pixel.
  */
 export function campaignEmail(
   project: Project,
-  campaign: Pick<Campaign, "subject" | "body" | "buttonText" | "rtl" | "senderName" | "replyTo" | "trackOpens">,
+  campaign: Pick<Campaign, "subject" | "body" | "buttonText" | "rtl" | "senderName" | "replyTo" | "trackOpens" | "rewardCodes" | "formId">,
   r: TestimonialRequest,
   kind: EmailKind,
   o: { preview?: boolean } = {},
@@ -303,7 +334,14 @@ export function campaignEmail(
     projectName: project.name,
     accentColor: project.accentColor,
     content: campaign,
-    recipient: { name: r.name, email: r.email, company: r.company, title: r.title, custom: parseCustom(r.custom) },
+    recipient: {
+      name: r.name,
+      email: r.email,
+      company: r.company,
+      title: r.title,
+      custom: parseCustom(r.custom),
+      rewardCode: recipientCode(project, campaign, r, Boolean(o.preview)),
+    },
     links: {
       link: clickLink(r.id),
       decline: declineLink(r.id),
@@ -408,8 +446,8 @@ export function queueDueReminders(now = new Date()) {
 
 // ------------------------------------------------------------------ outcomes
 
-/** Links a submission to its request and stops further reminders. */
-export function markResponded(r: TestimonialRequest, testimonialId: string) {
+/** Links a submission to its request and stops further reminders. null: they answered with private feedback (FORM-12). */
+export function markResponded(r: TestimonialRequest, testimonialId: string | null) {
   return update(r.id, {
     status: r.status === "unsubscribed" ? "unsubscribed" : "responded",
     respondedAt: new Date(),
@@ -536,36 +574,71 @@ export const THANK_YOU_JOB = "email.thank-you";
  * Open-form submissions get no email, so the public form can't be used to
  * send mail from the owner's server to arbitrary addresses. `form` is the
  * form it was sent through: its confirmation setting and template apply.
+ * `reward` (FORM-13) goes into the mail; `feedback` is the low-rating
+ * branch's receipt (FORM-12), which has no withdrawal link.
  */
-export function queueThankYou(project: Project, request: TestimonialRequest | null, withdrawUrl: string, form?: Form | null) {
+export function queueThankYou(
+  project: Project,
+  request: TestimonialRequest | null,
+  withdrawUrl: string | null,
+  form?: Form | null,
+  extra: { reward?: GrantedReward | null; feedback?: boolean } = {},
+) {
   const to = request?.email;
   const enabled = form ? parseFormRow(form).settings.confirmationEmail.enabled : project.thankYouEmail;
   if (!to || !enabled || !emailEnabled()) return false;
-  enqueue(THANK_YOU_JOB, { projectId: project.id, to, withdrawUrl, ...(form ? { formId: form.id } : {}) }, { maxAttempts: 4 });
+  enqueue(
+    THANK_YOU_JOB,
+    {
+      projectId: project.id,
+      to,
+      withdrawUrl,
+      ...(form ? { formId: form.id } : {}),
+      ...(extra.reward ? { reward: extra.reward } : {}),
+      ...(extra.feedback ? { feedback: true } : {}),
+    },
+    { maxAttempts: 4 },
+  );
   return true;
 }
 
-export async function sendThankYou(payload: { projectId: string; to: string; withdrawUrl: string; formId?: string }) {
+export async function sendThankYou(payload: {
+  projectId: string;
+  to: string;
+  withdrawUrl: string | null;
+  formId?: string;
+  reward?: GrantedReward;
+  feedback?: boolean;
+}) {
   const project = getDb().select().from(projects).where(eq(projects.id, payload.projectId)).get();
   if (!project) return;
   const form = payload.formId ? getForm(payload.formId) : null;
   const settings = form && form.projectId === project.id ? parseFormRow(form).settings : null;
-  const autoApproves = settings ? settings.autoApprove.mode !== "off" : project.autoApprove;
-  const values = { project: project.name, link: payload.withdrawUrl };
-  const subject = settings?.confirmationEmail.subject.trim();
-  let body = settings?.confirmationEmail.body.trim() ? fillTemplate(settings.confirmationEmail.body, values) : null;
-  // The withdrawal link is always in the mail, even if the owner's template dropped it.
-  if (body && !body.includes(payload.withdrawUrl)) body += `\n\nTo withdraw your testimonial at any time: ${payload.withdrawUrl}`;
+  const reward = payload.reward ? `\n\n${rewardText(payload.reward, project.name)}\n` : "";
   try {
+    if (payload.feedback || !payload.withdrawUrl) {
+      await sendMail({
+        to: payload.to,
+        subject: `Thanks for your feedback for ${headerSafe(project.name)}`,
+        text: `Thank you for telling ${project.name} how it went. What you wrote goes only to them and is never published.${reward}\n`,
+      });
+      return;
+    }
+    const autoApproves = settings ? settings.autoApprove.mode !== "off" : project.autoApprove;
+    const values = { project: project.name, link: payload.withdrawUrl };
+    const subject = settings?.confirmationEmail.subject.trim();
+    let body = settings?.confirmationEmail.body.trim() ? fillTemplate(settings.confirmationEmail.body, values) : null;
+    // The withdrawal link is always in the mail, even if the owner's template dropped it.
+    if (body && !body.includes(payload.withdrawUrl)) body += `\n\nTo withdraw your testimonial at any time: ${payload.withdrawUrl}`;
     await sendMail({
       to: payload.to,
       subject: subject ? headerSafe(fillTemplate(subject, values)) : `Thanks for your testimonial for ${project.name}`,
       // With auto-approve on it may go live without a review, so don't promise one.
       text:
-        body ??
+        (body ? `${body}${reward}` : null) ??
         `Thank you for taking the time to share your experience with ${project.name}. ${
           autoApproves ? "It may appear on their website soon." : "They'll review it before it appears anywhere."
-        }
+        }${reward}
 
 If you change your mind, you can withdraw your testimonial at any time with this private link:
 ${payload.withdrawUrl}

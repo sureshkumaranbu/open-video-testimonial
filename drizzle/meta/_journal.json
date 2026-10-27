@@ -92,6 +92,13 @@
       "when": 1793116924154,
       "tag": "0012_campaigns",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1793125221579,
+      "tag": "0013_booster_rewards",
+      "breakpoints": true
     }
   ]
 }

@@ -23,12 +23,19 @@ A campaign emails a group of people your own invitation to leave a testimonial, 
 | Right-to-left text | For Arabic, Hebrew, Persian or Urdu wording |
 | Reminders | Up to three, each a number of days after the invitation (any days you like, such as 2, 5 and 10). They stop when the person responds, says no thanks or unsubscribes |
 | Track opens | Off by default. When on, the email carries a tiny image from your server, so you can see who opened it |
+| Give each recipient their own reward code | Off by default. See [Reward codes](#reward-codes) |
 
 Every email also ends with a **No thanks** link and an **unsubscribe** link; you can't remove them.
 
 **Preview.** The preview beside the editor is built by the same code that builds the real email, so it's what people get. It shows your unsaved changes, as a sample person or as any recipient (**Preview as**), in the email or plain-text version. The open pixel is left out, so previewing never counts as an open.
 
 **Send a test to me.** Sends the email, marked "[Test]", to the address you're signed in with, using the sample person. It also shows what your sending domain publishes for SPF and DMARC. That's information only: a missing record never stops a campaign, but mail is more likely to land in spam without them ([how to add them](../EMAIL.md#make-sure-mail-lands-in-the-inbox)).
+
+## Reward codes
+
+Turn on **Give each recipient their own reward code** and each person gets a code of their own from the unique-code list of the form the links open (set up in that form's [Rewards](forms.md#rewards) settings). It's shown on their thank-you page and in their receipt when they respond, and replaces the form's own reward for them. Put `{{reward_code}}` in the subject or message to include it in the email too: the code is set aside for that person when their email goes out, and reminders repeat the same one. The preview shows `SAMPLE-CODE` and never uses up a code.
+
+The campaign shows how many codes are left. If the list runs out, an email shows “(sorry, all the codes have been claimed)” for `{{reward_code}}` and the thank-you page says so politely. The code never depends on what people say or how they rate.
 
 ## Recipients
 

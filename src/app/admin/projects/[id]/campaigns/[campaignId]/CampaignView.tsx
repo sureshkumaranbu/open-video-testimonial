@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, errorMessage } from "@/app/admin/api";
 import { ConfirmDialog, Tabs, UnsavedGuard } from "@/components/admin";
 import { Icon } from "@/components/Icon";
-import type { AdminCampaign, AdminRecipient, Funnel } from "@/lib/campaigns";
+import type { AdminCampaign, CampaignRewardPool, AdminRecipient, Funnel } from "@/lib/campaigns";
 import { STATUS_LABEL } from "../labels";
 import { AutoCollectPanel } from "./AutoCollectPanel";
 import { EmailPanel, type Draft } from "./EmailPanel";
@@ -15,7 +15,7 @@ import { RecipientsPanel } from "./RecipientsPanel";
 export type Customer = { id: string; name: string; email: string; company: string | null; title: string | null };
 export type FormChoice = { id: string; name: string; isDefault: boolean };
 export type EmailInfo = { mode: "smtp" | "outbox" | "off"; from: string | null; me: string | null };
-type Data = { campaign: AdminCampaign; recipients: AdminRecipient[]; customers: Customer[] };
+type Data = { campaign: AdminCampaign; recipients: AdminRecipient[]; customers: Customer[]; rewardPool: CampaignRewardPool };
 
 type Props = {
   project: { id: string; name: string };
@@ -44,6 +44,7 @@ function draftOf(c: AdminCampaign): Draft {
     rtl: c.rtl,
     reminders: c.reminders,
     trackOpens: c.trackOpens,
+    rewardCodes: c.rewardCodes,
   };
 }
 
@@ -168,6 +169,7 @@ export function CampaignView({ project, email, apiBase, forms, initial }: Props)
             forms={forms}
             email={email}
             recipients={data.recipients}
+            rewardPool={data.rewardPool}
           />
         )}
         {tab === "auto" && <AutoCollectPanel campaign={c} apiBase={apiBase} onChange={load} />}

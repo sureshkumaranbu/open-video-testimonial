@@ -5,7 +5,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fontFaceCss, formDesignStyle } from "@/lib/forms/design";
 import {
   emptyAnswers,
+  inLowRatingBranch,
   isQuestion,
+  LOW_RATING_KEY,
   thankYouFor,
   validateStep,
   visiblePages,
@@ -15,13 +17,14 @@ import {
 } from "@/lib/forms/engine";
 import { dirFor, fillLabel, type LabelKey, type Labels } from "@/lib/forms/labels";
 import type { FormPage, PublicForm } from "@/lib/forms/schema";
+import type { GrantedReward } from "@/lib/rewards-config";
 import { createAnswerUploads } from "./answer-uploads";
 import { ConsentStep } from "./ConsentBlock";
 import { clearDraft, hasContent, loadDraft, restoreDraft, saveDraft, toDraft, type FormDraft } from "./draft";
 import { AboutCompanyStep, AboutYouStep } from "./steps/AboutSteps";
 import { QuestionStep } from "./steps/QuestionStep";
 import { ReviewStep } from "./steps/ReviewStep";
-import { FeedbackStep, RatingStep, WelcomeStep } from "./steps/SimpleSteps";
+import { FeedbackStep, LowRatingStep, RatingStep, WelcomeStep } from "./steps/SimpleSteps";
 import type { RunnerFiles, StepCtx } from "./steps/types";
 import { ThankYou } from "./ThankYou";
 
@@ -45,7 +48,7 @@ export type FormRunnerProps = {
   previewPage?: number;
 };
 
-type Done = { withdrawUrl: string; thankYou: ThankYouContent };
+type Done = { withdrawUrl: string | null; thankYou: ThankYouContent; reward: GrantedReward | null; feedbackOnly: boolean };
 
 /** Posts to the page embedding us; nothing private is ever in these messages. */
 function tellHost(message: object) {
@@ -58,15 +61,19 @@ function tellHost(message: object) {
  * controllers, so stepping away never aborts an upload. Answers are kept as
  * a draft in this browser (FORM-14, ./draft.ts) and offered back on return.
  * The same component is the builder's preview (`preview`), so they can't
- * drift apart; the preview keeps no draft.
+ * drift apart; the preview keeps no draft. With the low-rating branch on
+ * (FORM-12), a rating at or below its threshold swaps the questions for a
+ * private feedback step (the server makes the same call when it's sent).
  */
 export function FormRunner(props: FormRunnerProps) {
   const { project, form, labels: l, consent, prefill, preview = false, embed = false } = props;
   const rootRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLDivElement>(null);
   const honeypotRef = useRef<HTMLInputElement>(null);
-  const steps = useMemo(() => visiblePages(form), [form]);
   const [state, setState] = useState<Answers>(() => emptyAnswers(form, prefill.person));
+  const lowBranch = inLowRatingBranch(form, state.rating);
+  // Recomputed only when the rating crosses the low-rating threshold.
+  const steps = useMemo(() => visiblePages(form, { rating: lowBranch ? 1 : 0 }), [form, lowBranch]);
   const [files, setFiles] = useState<RunnerFiles>({ photo: null, logo: null, images: {} });
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -138,7 +145,7 @@ export function FormRunner(props: FormRunnerProps) {
     if (!embed) window.scrollTo({ top: 0 });
   }, [step, done, preview, embed]);
 
-  const shown: FormPage | undefined = preview && props.previewPage !== undefined ? form.pages[props.previewPage] : steps[step];
+  const shown: FormPage | undefined = preview && props.previewPage !== undefined ? form.pages[props.previewPage] : steps[Math.min(step, steps.length - 1)];
   const atStep = shown ? steps.indexOf(shown) : -1;
   const isLast = atStep === steps.length - 1;
 
@@ -174,10 +181,52 @@ export function FormRunner(props: FormRunnerProps) {
     return "";
   };
 
+  /** POSTs the multipart body; the reply is the thank-you content (and any reward). */
+  async function post(body: FormData) {
+    const res = await fetch(`/api/projects/${encodeURIComponent(project.slug)}/forms/${encodeURIComponent(form.slug)}/submissions`, {
+      method: "POST",
+      body,
+    });
+    const reply = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(reply.error || l.errorSend);
+    doneRef.current = true;
+    clearDraft(form.id);
+    setDone({
+      withdrawUrl: reply.withdrawUrl ?? null,
+      thankYou: reply.thankYou ?? thankYouFor(form, state.rating),
+      reward: reply.reward ?? null,
+      feedbackOnly: Boolean(reply.feedbackOnly),
+    });
+    if (embed) tellHost({ type: "plaudit:form-submitted", form: form.id, slug: form.slug });
+  }
+
+  /** FORM-12: only the rating, the private feedback and (if given) a name and email go. */
+  async function sendLowRating() {
+    const body = new FormData();
+    const { name, email } = state.person;
+    body.set(
+      "payload",
+      JSON.stringify({
+        rating: state.rating,
+        lowFeedback: state.feedback[LOW_RATING_KEY] ?? "",
+        person: form.settings.lowRating?.askContact ? { name, email } : {},
+        hiddenFields: prefill.hidden,
+        ...(props.requestToken ? { requestToken: props.requestToken } : {}),
+        language: form.language,
+      }),
+    );
+    if (honeypotRef.current?.value) body.set("website", honeypotRef.current.value);
+    await post(body);
+  }
+
   async function send() {
     setSubmitting(true);
     setError(null);
     try {
+      if (lowBranch) {
+        await sendLowRating();
+        return;
+      }
       const answers: { key: string; text?: string; videoUpload?: string; videoUploadToken?: string }[] = [];
       for (const q of steps.filter(isQuestion)) {
         const a = state.answers[q.key];
@@ -213,16 +262,7 @@ export function FormRunner(props: FormRunnerProps) {
       if (files.logo) body.set("companyLogo", files.logo);
       for (const [key, list] of Object.entries(files.images)) for (const f of list) body.append(`images:${key}`, f);
       if (honeypotRef.current?.value) body.set("website", honeypotRef.current.value);
-      const res = await fetch(`/api/projects/${encodeURIComponent(project.slug)}/forms/${encodeURIComponent(form.slug)}/submissions`, {
-        method: "POST",
-        body,
-      });
-      const reply = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(reply.error || l.errorSend);
-      doneRef.current = true;
-      clearDraft(form.id);
-      setDone({ withdrawUrl: reply.withdrawUrl, thankYou: reply.thankYou ?? thankYouFor(form, state.rating) });
-      if (embed) tellHost({ type: "plaudit:form-submitted", form: form.id, slug: form.slug });
+      await post(body);
     } catch (err) {
       setError((err as Error).message || l.errorSend);
     } finally {
@@ -279,9 +319,10 @@ export function FormRunner(props: FormRunnerProps) {
         content={done?.thankYou ?? thankYouFor(form, state.rating)}
         labels={l}
         projectName={project.name}
-        words={done ? words() : thankYouPage?.type === "thank_you" && thankYouPage.copyText ? l.textPlaceholder : ""}
+        words={done ? (done.feedbackOnly ? "" : words()) : thankYouPage?.type === "thank_you" && thankYouPage.copyText ? l.textPlaceholder : ""}
         social={done ? state.consent.scopes.includes("social") : true}
         withdrawUrl={done?.withdrawUrl ?? null}
+        reward={done?.reward ?? null}
       />
     );
   } else if (resume && !preview) {
@@ -309,7 +350,11 @@ export function FormRunner(props: FormRunnerProps) {
         case "question":
           return <QuestionStep key={shown.key} page={shown} ctx={ctx} />;
         case "feedback":
-          return <FeedbackStep page={shown} ctx={ctx} />;
+          return shown.key === LOW_RATING_KEY ? (
+            <LowRatingStep page={shown} ctx={ctx} askContact={form.settings.lowRating?.askContact ?? false} />
+          ) : (
+            <FeedbackStep page={shown} ctx={ctx} />
+          );
         case "consent":
           return <ConsentStep page={shown} ctx={ctx} wording={consent.text} />;
         case "about_you":

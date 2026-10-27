@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- **Review booster** (feature flag `booster`). See [`docs/help/booster.md`](docs/help/booster.md).
+  - Pages of “Leave us a review” buttons at `/b/<project>/<page>`: up to 10 links for Google, Trustpilot, Yelp, Facebook, G2, Capterra, Tripadvisor, the App Store, Google Play, any link or one of your forms, in the order you drag them. Title, message, logo, colours, button style, a phone and desktop preview, and draft or public. Old addresses keep working.
+  - Every visitor sees every link: there's no rating step, and the page never mentions a reward.
+  - A Google review link from a Place ID or a Maps link, and business search when `GOOGLE_PLACES_API_KEY` is set (from the server only).
+  - QR codes for booster pages and forms: any colour, your logo in the centre, print sizes at 300 dpi, PNG and SVG.
+  - Clicks per link and day, with no addresses, devices or cookies kept. The page is plain HTML under 50 KB that loads nothing from other sites.
+
+- **Rewards on forms.** A coupon code, a link, a unique code each from your own list (with claim tracking), or a wheel spun on the server, on the thank-you page and in the receipt email. Optional “only for video”. A reward never depends on the rating or the words. See [`docs/help/forms.md`](docs/help/forms.md#rewards).
+
+- **Low ratings, privately** (off by default). A rating at or below your threshold shows a private feedback page instead of the questions and is kept as feedback, never published. It gets the same reward as everyone. Not for gating reviews on Google or Trustpilot.
+
+- **Campaign reward codes.** A campaign can give each recipient their own code, in the email with `{{reward_code}}` and on their thank-you page.
+
+- Migration 0013 adds the booster, click and reward-code tables; nothing existing changes.
+
 - **Phase 1 is on by default.** Forms, the new inbox, the widget studio, walls and SEO, importers, notifications and the setup guide no longer need `PLAUDIT_FEATURES`; set it to a shorter list, or `none`, to hide sections. Nothing about your data, the API or public pages changes.
 
 - **Notifications.** See [`docs/help/notifications.md`](docs/help/notifications.md).
