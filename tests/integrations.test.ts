@@ -1,11 +1,25 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { openApiSpec } from "@/lib/openapi";
+import { signatureHeader } from "@/lib/webhooks";
 
 const ROOT = path.resolve(__dirname, "..");
 const INT = path.join(ROOT, "integrations");
 const read = (p: string) => fs.readFileSync(path.join(INT, p), "utf8");
+const requireFrom = createRequire(path.join(INT, "zapier", "index.js"));
+
+/** Whether `method path` (as a client sends it, query and all) is an operation in Plaudit's OpenAPI description. */
+function inOpenApi(method: string, url: string) {
+  const spec = openApiSpec("https://plaudit.example");
+  const p = new URL(url).pathname.replace(/^\/api\/v1/, "");
+  return Object.entries(spec.paths).some(([template, ops]) => {
+    const re = new RegExp(`^${template.replace(/\{[^}]+\}/g, "[^/]+")}$`);
+    return re.test(p) && method.toLowerCase() in (ops as object);
+  });
+}
 
 const hasPhp = (() => {
   try {
@@ -98,5 +112,88 @@ describe("INT-05 WordPress plugin", () => {
       expect(out.badServer).toContain("set your Plaudit address");
       expect(out.toast).toContain('data-widget="w_toast0000000"');
     });
+  });
+});
+
+describe("INT-03 Zapier, n8n and Make", () => {
+  /** Runs a Zapier perform() against a stand-in for z.request and returns the requests it made. */
+  async function runZap(file: string, exportName: string | null, inputData: Record<string, unknown>, respond: (url: string) => unknown = () => ({ data: [] })) {
+    const mod = requireFrom(`./${file}`);
+    const def = exportName ? mod[exportName] : mod;
+    const calls: { method: string; url: string; json?: unknown }[] = [];
+    const z = {
+      request: async (o: { url: string; method?: string; json?: unknown }) => {
+        calls.push({ method: o.method ?? "GET", url: o.url, json: o.json });
+        return { status: 200, data: respond(o.url) };
+      },
+      errors: { Error: class extends Error {}, RefreshAuthError: class extends Error {} },
+    };
+    const result = await def.operation.perform(z, { authData: { server: "https://plaudit.example/", apiKey: "plk_x" }, inputData });
+    return { calls, result };
+  }
+
+  it("INT-03 every Zapier trigger and action calls an operation in the OpenAPI description, with the key on every request", async () => {
+    const cases: [string, string | null, Record<string, unknown>][] = [
+      ["triggers/projects.js", null, {}],
+      ["triggers/campaigns.js", null, { project: "acme" }],
+      ["triggers/testimonial.js", "created", { project: "acme" }],
+      ["triggers/testimonial.js", "approved", { project: "acme" }],
+      ["triggers/feedback.js", null, { project: "acme" }],
+      ["creates/testimonial.js", null, { project: "acme", name: "Ada", text: "Great", consent: "true", tags: ["sales"] }],
+      ["creates/invite.js", null, { campaignId: "c1", email: "ada@example.com", delayDays: "3" }],
+      ["creates/moderate.js", "approve", { testimonialId: "t1" }],
+      ["creates/moderate.js", "tag", { testimonialId: "t1", tags: ["Pricing"] }],
+    ];
+    for (const [file, name, input] of cases) {
+      const { calls } = await runZap(file, name, input, (url) => (url.includes("/testimonials/t1") ? { data: { id: "t1", tags: ["homepage"] } } : { data: [] }));
+      expect(calls.length, file).toBeGreaterThan(0);
+      for (const c of calls) expect(inOpenApi(c.method, c.url), `${file}: ${c.method} ${c.url}`).toBe(true);
+    }
+    const approved = await runZap("triggers/testimonial.js", "approved", { project: "acme" });
+    expect(approved.calls[0].url).toBe("https://plaudit.example/api/v1/projects/acme/testimonials?limit=50&status=approved");
+    const tag = await runZap("creates/moderate.js", "tag", { testimonialId: "t1", tags: ["Pricing"] }, () => ({ data: { id: "t1", tags: ["homepage"] } }));
+    expect(tag.calls[1]).toMatchObject({ method: "PATCH", json: { tags: ["homepage", "pricing"] } });
+
+    const index = read("zapier/index.js");
+    expect(index).toContain("Authorization: `Bearer ${bundle.authData.apiKey}`");
+    for (const f of ["triggers/projects", "triggers/campaigns", "triggers/testimonial", "triggers/feedback", "creates/testimonial", "creates/invite", "creates/moderate"]) expect(index).toContain(`require("./${f}")`);
+  });
+
+  it("INT-03 Create Testimonial refuses without the person's consent", async () => {
+    await expect(runZap("creates/testimonial.js", null, { project: "acme", name: "Ada", text: "Great", consent: "false" })).rejects.toThrow(/consent/);
+  });
+
+  it("INT-03 the n8n workflow checks Plaudit's signature over the raw body before it posts anything", async () => {
+    const flow = JSON.parse(read("n8n/plaudit-approved-to-slack.json"));
+    expect(flow.nodes.map((n: { type: string }) => n.type)).toEqual(["n8n-nodes-base.webhook", "n8n-nodes-base.code", "n8n-nodes-base.slack"]);
+    expect(flow.nodes[0].parameters.options.rawBody).toBe(true);
+    const code = (flow.nodes[1].parameters.jsCode as string).replace("whsec_REPLACE_ME", "whsec_test");
+    const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
+    const run = (raw: string, header: string) =>
+      new AsyncFunction("$input", "require", code).call(
+        { helpers: { getBinaryDataBuffer: async () => Buffer.from(raw) } },
+        { first: () => ({ json: { headers: { "plaudit-signature": header } } }) },
+        createRequire(__filename),
+      );
+    const approved = JSON.stringify({ event: "testimonial.approved", data: { testimonial: { text: "Great" } } });
+    expect(await run(approved, signatureHeader("whsec_test", approved))).toEqual([{ json: JSON.parse(approved) }]);
+    const ping = JSON.stringify({ event: "ping" });
+    expect(await run(ping, signatureHeader("whsec_test", ping))).toEqual([]);
+    await expect(run(approved, signatureHeader("whsec_other", approved))).rejects.toThrow(/Bad Plaudit signature/);
+    await expect(run(approved, signatureHeader("whsec_test", approved, Date.now() - 600_000))).rejects.toThrow(/timestamp/);
+  });
+
+  it("INT-03 the n8n and Make invite templates call POST /invites, and no template carries a real key", () => {
+    const n8n = JSON.parse(read("n8n/plaudit-invite-after-purchase.json"));
+    const http = n8n.nodes.find((n: { type: string }) => n.type === "n8n-nodes-base.httpRequest");
+    expect(inOpenApi(http.parameters.method, http.parameters.url)).toBe(true);
+    expect(http.parameters.genericAuthType).toBe("httpHeaderAuth");
+    const make = JSON.parse(read("make/plaudit-invite-after-purchase.blueprint.json"));
+    const call = make.flow.find((m: { module: string }) => m.module === "http:ActionSendData");
+    expect(inOpenApi(call.mapper.method, call.mapper.url)).toBe(true);
+    expect(make.metadata.scenario.confidential).toBe(true);
+    for (const f of ["n8n/plaudit-approved-to-slack.json", "n8n/plaudit-invite-after-purchase.json", "make/plaudit-invite-after-purchase.blueprint.json"]) {
+      expect(read(f), f).not.toMatch(/plk_[A-Za-z0-9_-]{20,}|whsec_(?!REPLACE_ME)[A-Za-z0-9_-]{10,}/);
+    }
   });
 });

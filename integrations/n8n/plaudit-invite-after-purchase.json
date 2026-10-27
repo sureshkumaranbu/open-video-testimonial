@@ -1,0 +1,62 @@
+{
+  "name": "Plaudit: invite customers after a purchase",
+  "nodes": [
+    {
+      "id": "c2e4d6f8-1a3b-4c5d-8e9f-2a4b6c8d0001",
+      "name": "Order paid (your shop)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "plaudit-order",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "plaudit-order",
+        "responseMode": "onReceived",
+        "options": {}
+      }
+    },
+    {
+      "id": "c2e4d6f8-1a3b-4c5d-8e9f-2a4b6c8d0002",
+      "name": "Invite through Plaudit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://plaudit.example.com/api/v1/invites",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ campaignId: 'REPLACE_WITH_CAMPAIGN_ID', email: $json.body.email, name: $json.body.name, delayDays: 7 }) }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Order paid (your shop)": {
+      "main": [
+        [
+          {
+            "node": "Invite through Plaudit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "pinData": {}
+}

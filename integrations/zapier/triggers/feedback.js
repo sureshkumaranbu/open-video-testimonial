@@ -1,0 +1,20 @@
+const { api } = require("../lib/api");
+
+/** Private feedback (a low rating or a private question): needs the api2 flag on the server. Never publish it. */
+module.exports = {
+  key: "feedback_received",
+  noun: "Feedback",
+  display: { label: "New Private Feedback", description: "Triggers when someone leaves private feedback, such as a low rating sent to your feedback page." },
+  operation: {
+    inputFields: [{ key: "project", label: "Project", required: true, dynamic: "projects.id.name" }],
+    perform: async (z, bundle) => (await api(z, bundle, `/projects/${encodeURIComponent(bundle.inputData.project)}/feedback?limit=50`)).data,
+    sample: {
+      id: "a1b2…",
+      source: "low-rating",
+      rating: 2,
+      text: "Support took a week to reply.",
+      author: { name: "Grace", email: "grace@example.com" },
+      createdAt: "2026-10-22T09:30:00.000Z",
+    },
+  },
+};

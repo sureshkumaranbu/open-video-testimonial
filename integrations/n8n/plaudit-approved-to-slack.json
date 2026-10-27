@@ -1,0 +1,89 @@
+{
+  "name": "Plaudit: approved testimonial to Slack",
+  "nodes": [
+    {
+      "id": "b7d1b7a2-0f1e-4c39-9c4e-1f0a6a1c0001",
+      "name": "Plaudit webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "plaudit-approved",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "plaudit-approved",
+        "responseMode": "onReceived",
+        "options": {
+          "rawBody": true
+        }
+      }
+    },
+    {
+      "id": "b7d1b7a2-0f1e-4c39-9c4e-1f0a6a1c0002",
+      "name": "Verify signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Checks Plaudit's signature over the raw body, then passes on testimonial.approved only.\n// Needs NODE_FUNCTION_ALLOW_BUILTIN=crypto on your n8n server, and the Webhook node's Raw Body option on.\nconst crypto = require('crypto');\nconst SECRET = 'whsec_REPLACE_ME'; // Plaudit › Settings › Webhooks › your endpoint › Reveal\n\nconst item = $input.first();\nconst raw = (await this.helpers.getBinaryDataBuffer(0, 'data')).toString('utf8');\nconst header = item.json.headers['plaudit-signature'] || '';\nconst parts = Object.fromEntries(header.split(',').map((p) => p.split('=')));\nconst t = Number(parts.t);\nif (!t || Math.abs(Date.now() / 1000 - t) > 300) throw new Error('Old or missing Plaudit-Signature timestamp');\nconst expected = crypto.createHmac('sha256', SECRET).update(`${t}.${raw}`).digest('hex');\nconst a = Buffer.from(expected);\nconst b = Buffer.from(parts.v1 || '');\nif (a.length !== b.length || !crypto.timingSafeEqual(a, b)) throw new Error('Bad Plaudit signature');\n\nconst payload = JSON.parse(raw);\nif (payload.event !== 'testimonial.approved') return [];\nreturn [{ json: payload }];\n"
+      }
+    },
+    {
+      "id": "b7d1b7a2-0f1e-4c39-9c4e-1f0a6a1c0003",
+      "name": "Post to Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#testimonials",
+          "mode": "name"
+        },
+        "text": "=New approved testimonial from {{ $json.data.testimonial.author.name }}{{ $json.data.testimonial.rating ? ' (' + '★'.repeat($json.data.testimonial.rating) + ')' : '' }}:\n> {{ $json.data.testimonial.text }}",
+        "otherOptions": {}
+      }
+    }
+  ],
+  "connections": {
+    "Plaudit webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify signature": {
+      "main": [
+        [
+          {
+            "node": "Post to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "pinData": {}
+}
