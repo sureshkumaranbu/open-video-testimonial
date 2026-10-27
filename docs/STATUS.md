@@ -12,9 +12,9 @@ Last updated: 2026-10-27.
 
 | Item | State |
 |---|---|
-| Branch | `plaudit/v1-parity` (based on the auto-approve work from #13, which is now closed) |
-| Pull request | [#14](https://github.com/sureshkumaranbu/open-video-testimonial/pull/14) is open with CI green (test and docker). **Not merged into `main` yet.** |
-| Tests | 767 unit tests pass and the full e2e suite is green in CI at f572b70. Requirement coverage: 54 of 54. |
+| `main` | Phase 1 merged through [#14](https://github.com/sureshkumaranbu/open-video-testimonial/pull/14) on 2026-10-27 (5a1758c) |
+| Current branch | `plaudit/m8-closeout` (M8), PR against `main` |
+| Tests | 780 unit tests pass (6 MinIO tests run only in CI). Locally: Chromium e2e green apart from 4 recorder tests that timed out under load and passed on a rerun, and WebKit e2e 143 passed. Requirement coverage: 54 of 54. |
 | Local demo | `plaudit-v1-demo` in `Development/.claude/launch.json`, http://127.0.0.1:3300 |
 
 ## Phase 1: "Parity core" (P0). Done.
@@ -36,26 +36,28 @@ These are either partly done or need something from Suresh.
 
 | # | Item | State | Needs |
 |---|---|---|---|
-| L1 | Merge PR #14 into `main` | Waiting for review | Suresh |
-| L2 | Senja, Shapo and Testimonial.to migrations, and Google Play and Product Hunt imports, were checked only against fixtures we wrote | Code done, not checked against real files | A real CSV export from your Senja and Shapo accounts |
+| L1 | Merge PR #14 into `main` | **Done** 2026-10-27 | — |
+| L2 | Check the migrations against real files | **Senja done** (a real export showed job titles and headlines were mapped wrongly; fixed in M8). **Shapo** has no export button, so its importer uses the API and was checked against Shapo's API docs. Testimonial.to, Google Play and Product Hunt are still checked only against our own fixtures | A Shapo API key test run, if you want one; a Testimonial.to export |
 | L3 | 10 non-English form languages are our own wording | Shipped, marked "needs native review" | A native speaker (Tamil and Hindi first) |
-| L4 | The inbox drawer can't change a testimonial's avatar or company logo (rest of INBOX-08 is done) | Partly done | — |
-| L5 | No colour-contrast warning in the form and widget builders (white buttons on white are possible) | Not built | — |
-| L6 | Draft autosave on forms (FORM-14, a stretch goal for M2) | Not built | — |
-| L7 | Indexes on the new foreign-key columns (migration 0011) | Deferred | — |
-| L8 | WebKit (Safari) e2e and a MinIO run in CI | Not added | — |
+| L4 | Change a testimonial's photo and company logo in the inbox (INBOX-08) | **Done** in M8 | — |
+| L5 | Contrast warnings in the form builder, widget studio, wall editor and brand kit; automatic text colours pick the readable one | **Done** in M8. Visible change: button text on some mid-tone colours flips from white to dark, and the Sunrise wall theme's button is a deeper orange | — |
+| L6 | Draft autosave on step-by-step forms (FORM-14): kept in the visitor's browser for 7 days; videos and consent are never saved | **Done** in M8 | — |
+| L7 | Indexes on the foreign keys Phase 1 added (migration 0011), plus a test that fails when a new foreign key has no index | **Done** in M8 | — |
+| L8 | WebKit (Safari) e2e and MinIO S3 tests in CI | **Done** in M8. It found that every admin dialog was invisible in Safari, which is fixed | — |
 | L9 | Direct-to-S3 uploads (decision D16 relays uploads through the server for now) | Deferred to Phase 2 | — |
 | L10 | Brand scrape (ONB-02): colour and logo from the site work by heuristics; the background job and any AI step are open | Partly done | Decision on an AI provider (PRD Q2) |
 | L11 | Cloud billing and the "Powered by" badge (CLOUD-01, CLOUD-02) | Not in this repo | Belongs to the cloud edition |
+| L12 | Five foreign keys from before Phase 1 have no index (`testimonial_tags.tag_id` matters most: the tag-rename trigger scans it) | Allow-listed in the index test | — |
+| L13 | The recorder e2e tests can time out when the whole suite runs on a busy machine | Flaky locally, passes alone | — |
 
-## Phase 2: "Growth" (P1). Not started.
+## Phase 2: "Growth" (P1). In progress.
 
 Proposed order. Each milestone is one branch, one agent, then one review, to keep the token cost down.
 
 | Milestone | Scope | PRD IDs | Status |
 |---|---|---|---|
-| M8 Phase 1 close-out | L4–L8 above, plus making a real Senja or Shapo export pass (L2) | INBOX-08, FORM-14 | Next |
-| M9 Campaigns and auto-collect | Email campaigns with recipients from CSV or customers, preview and test send, per-recipient tracking, decline link, `POST /api/v1/invites` and an incoming webhook, invite webhooks | REQ-01..07 | Planned |
+| M8 Phase 1 close-out | L4–L8 above, plus the real Senja export (L2) | INBOX-08, FORM-14 | Built and reviewed; PR open |
+| M9 Campaigns and auto-collect | Email campaigns with recipients from CSV or customers, preview and test send, per-recipient tracking, decline link, `POST /api/v1/invites` and an incoming webhook, invite webhooks | REQ-01..07 | Next |
 | M10 Review booster, rewards, low-rating branch | Link page for Google and other review sites, Google review link helper, QR codes, link clicks; rewards and unique codes; opt-in private feedback for low ratings | BOOST-01..05, FORM-12, FORM-13, REQ-08 | Planned |
 | M11 Analytics | Install detection, widget and wall analytics, form analytics, snippet analytics, the `/admin/analytics` dashboard (cookieless) | DISP-13, DISP-14, FORM-15, WALL-05, SEO-04, AN | Planned |
 | M12 Video and sharing | Trim, poster frame, replace and download video; single testimonial page; image studio and social share; custom CSS | VID-01..04, WALL-04, SHARE-01..03, DISP-08 | Planned |

@@ -1,49 +1,12 @@
-/** Colour helpers for ColorField and the builders' contrast warnings (WCAG 2.2, 1.4.3). */
+/** Colour helpers for ColorField and the builders' contrast warnings (WCAG 2.2, 1.4.3); the maths is in lib/contrast.ts. */
 
-const HEX = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i;
+import { contrastRatio } from "@/lib/contrast";
 
-/** "#ABC", "abc" and "#aabbcc" all become "#aabbcc"; anything else is null. */
-export function normalizeHex(input: string): string | null {
-  const m = HEX.exec(input.trim());
-  if (!m) return null;
-  const h = m[1].toLowerCase();
-  return h.length === 3 ? `#${h[0]}${h[0]}${h[1]}${h[1]}${h[2]}${h[2]}` : `#${h}`;
-}
-
-function channels(hex: string): [number, number, number] | null {
-  const h = normalizeHex(hex);
-  if (!h) return null;
-  return [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)) as [number, number, number];
-}
-
-/** WCAG relative luminance, 0 (black) to 1 (white). */
-export function relativeLuminance(hex: string): number | null {
-  const c = channels(hex);
-  if (!c) return null;
-  const [r, g, b] = c.map((v) => {
-    const s = v / 255;
-    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-  });
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-
-/** The WCAG contrast ratio of two colours (1 to 21), or null when either isn't a hex colour. */
-export function contrastRatio(a: string, b: string): number | null {
-  const la = relativeLuminance(a);
-  const lb = relativeLuminance(b);
-  if (la == null || lb == null) return null;
-  const [hi, lo] = la > lb ? [la, lb] : [lb, la];
-  return (hi + 0.05) / (lo + 0.05);
-}
+export { contrastRatio, formatRatio, normalizeHex, relativeLuminance, textOn, worstPair } from "@/lib/contrast";
 
 /** Black or white, whichever reads better on `background`. */
 export function readableOn(background: string): "#000000" | "#ffffff" {
   const dark = contrastRatio(background, "#000000") ?? 21;
   const light = contrastRatio(background, "#ffffff") ?? 1;
   return dark >= light ? "#000000" : "#ffffff";
-}
-
-/** "4.5:1", rounded down to one decimal so a near miss never shows as a pass. */
-export function formatRatio(ratio: number) {
-  return `${(Math.floor(ratio * 10) / 10).toFixed(1)}:1`;
 }

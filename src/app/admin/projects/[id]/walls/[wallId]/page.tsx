@@ -37,7 +37,7 @@ export default async function WallEditorPage({ params }: { params: Promise<{ id:
       <main className="container stack-lg">
         <ProjectTabs projectId={project.id} active="walls" />
         <WallEditor
-          project={{ id: project.id, slug: project.slug, name: project.name }}
+          project={{ id: project.id, slug: project.slug, name: project.name, accentColor: project.accentColor }}
           initial={JSON.parse(JSON.stringify(wallToAdmin(wall, project)))}
           origin={env.publicUrl}
           tags={listTagUsage(project.id).map((t) => t.name)}

@@ -99,6 +99,10 @@ export const pl = {
   withdrawNote:
     "Zmienisz zdanie? Ten prywatny link pozwala w każdej chwili wycofać opinię. Przechowuj go bezpiecznie: każdy, kto go ma, może ją wycofać.",
   copyLink: "Kopiuj link",
+  draftFound: "Ta opinia została już rozpoczęta na tym urządzeniu.",
+  draftResume: "Wróć do miejsca, w którym przerwano",
+  draftStartOver: "Zacznij od nowa",
+  draftVideoAgain: "Filmy nie są zapisywane w wersji roboczej, więc nagrasz swój ponownie.",
   recRecordWithCamera: "Nagraj kamerą",
   recIntro: "Do {limit}. Jest 3-sekundowe odliczanie, a pytania zostają na ekranie, gdy mówisz.",
   recIntroNoCamera: "Ta przeglądarka nie nagrywa na stronie. Użyj aplikacji aparatu lub prześlij wideo poniżej.",

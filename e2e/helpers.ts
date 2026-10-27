@@ -2,7 +2,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
-import { expect, request as pwRequest, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, request as pwRequest, test, type APIRequestContext, type BrowserContext, type Page } from "@playwright/test";
 import { E2E_ADMIN, FIXTURE_ORIGIN } from "../playwright.config";
 import type { CannedResponse, RecordedRequest } from "./fixtures/fixture-server.mjs";
 
@@ -26,6 +26,41 @@ export function freshIp() {
 
 export async function useFreshIp(page: Page) {
   await page.setExtraHTTPHeaders({ "x-forwarded-for": freshIp() });
+}
+
+/**
+ * Skips a test that depends on how video loads or plays when it runs in
+ * Playwright's Linux WebKit (the CI runner). That build plays media through
+ * GStreamer, which preloads clips and loads caption tracks differently from
+ * Safari on macOS and iOS, the WebKit real visitors use. These tests still
+ * run in Chromium everywhere and in WebKit on macOS.
+ */
+export function skipLinuxWebkitMedia(browserName: string) {
+  test.skip(browserName === "webkit" && process.platform === "linux", "Linux WebKit's GStreamer media stack loads video unlike Safari (runs in Chromium, and in WebKit on macOS)");
+}
+
+/**
+ * Lets a test read back what the page copied. Chromium gets the real
+ * clipboard permissions. WebKit has none to grant (Playwright answers
+ * "Unknown permission: clipboard-write") and its readText() waits for a real
+ * paste gesture, so there, as a test-only workaround, navigator.clipboard is
+ * an in-memory stand-in installed before the page loads. The app's copy code
+ * runs unchanged; only the system clipboard is replaced. The text is kept in
+ * sessionStorage so it survives a navigation within the tab.
+ */
+export async function allowClipboard(context: BrowserContext, browserName: string, origin?: string) {
+  if (browserName !== "webkit") {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"], origin ? { origin } : undefined);
+    return;
+  }
+  await context.addInitScript(() => {
+    const KEY = "e2e:clipboard";
+    const clipboard = {
+      writeText: async (text: string) => sessionStorage.setItem(KEY, String(text)),
+      readText: async () => sessionStorage.getItem(KEY) ?? "",
+    };
+    Object.defineProperty(navigator, "clipboard", { value: clipboard, configurable: true });
+  });
 }
 
 export async function signIn(page: Page) {

@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
-import { adminApi, createProject, signIn, useFreshIp } from "./helpers";
+import { adminApi, allowClipboard, createProject, signIn, useFreshIp } from "./helpers";
 
 /**
  * The form builder (FORM-01, 02, 08, 10, 11, 18): a form from a template,
@@ -106,8 +106,37 @@ test("FORM-18 FORM-02 builds a form from a template: reorder, add a video-only q
   await expect(page.getByTestId("form-card").filter({ hasText: "SaaS stories" })).toBeVisible();
 });
 
-test("FORM-11 share panel: copy the link, QR as PNG and SVG, the three embed snippets", async ({ page, baseURL, context }) => {
-  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+test("FORM-08 L5 a white button on a white page, and white text on it, get contrast warnings (saving still works)", async ({ page, baseURL }) => {
+  const api = await adminApi(baseURL!);
+  const project = await createProject(api, "Contrast Co", `contrast-${RUN}`);
+  const form = (await (await api.post(`/api/admin/projects/${project.id}/forms`, { data: { name: "Stories", slug: "stories" } })).json()).form;
+  await signIn(page);
+  await page.goto(`/admin/projects/${project.id}/forms/${form.id}`);
+  await page.getByRole("tab", { name: "Design" }).click();
+  const button = page.getByTestId("color-button");
+  const buttonText = page.getByTestId("color-buttonText");
+  await expect(page.getByTestId("design-editor").getByText(/Low contrast/)).toHaveCount(0);
+
+  await button.locator("input[type=text]").fill("#ffffff");
+  await expect(button.getByText(/Low contrast \(1\.0:1\).*at least 3:1/)).toBeVisible();
+  // Left empty, the button text follows the button and stays readable.
+  await expect(buttonText.getByText(/Low contrast/)).toHaveCount(0);
+  await buttonText.locator("input[type=text]").fill("#ffffff");
+  await expect(buttonText.getByText(/Low contrast \(1\.0:1\).*at least 4\.5:1/)).toBeVisible();
+  // The hex box points at the warning for screen readers.
+  const warnId = await buttonText.locator(".ak-field-warn").getAttribute("id");
+  await expect(buttonText.locator("input[type=text]")).toHaveAttribute("aria-describedby", new RegExp(warnId!));
+
+  // A warning, not a block.
+  await page.getByTestId("save-form").click();
+  await expect(page.getByTestId("save-form")).toHaveText("Saved");
+  await buttonText.locator("input[type=text]").fill("#161b2e");
+  await expect(buttonText.getByText(/Low contrast/)).toHaveCount(0);
+  await expect(button.getByText(/Low contrast/)).toBeVisible();
+});
+
+test("FORM-11 share panel: copy the link, QR as PNG and SVG, the three embed snippets", async ({ page, baseURL, context, browserName }) => {
+  await allowClipboard(context, browserName);
   const api = await adminApi(baseURL!);
   const project = await createProject(api, "Share Co", `share-${RUN}`);
   const form = (await (await api.post(`/api/admin/projects/${project.id}/forms`, { data: { name: "Stories", slug: "stories" } })).json()).form;

@@ -45,7 +45,7 @@ export { DEVICE_LABELS, DEVICE_WIDTHS, DEVICES, fitScale, type Device } from "./
 export { fontFamilyOf, type FontChoice } from "./fonts";
 export { keepListed, selectRange, selectState, toggleAll, toggleId, toggleValue, type SelectState } from "./selection";
 export { describeRun } from "./run-summary";
-export { contrastRatio, formatRatio, normalizeHex, readableOn, relativeLuminance } from "./color";
+export { contrastRatio, formatRatio, normalizeHex, readableOn, relativeLuminance, textOn, worstPair } from "./color";
 export { clampPage, pageCount, pageItems, pageRange, type PageItem } from "./paging";
 export { copyText } from "./clipboard";
 export { leavesPage } from "./navigation";

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { api, errorMessage } from "@/app/admin/api";
-import { ColorField, FontField, fontFamilyOf, readableOn, type FontChoice } from "@/components/admin";
+import { ColorField, FontField, fontFamilyOf, textOn, type FontChoice } from "@/components/admin";
 import { Icon } from "@/components/Icon";
 import type { Brand } from "@/lib/validation";
 import "@/app/admin/project-settings.css";
@@ -81,12 +81,12 @@ export function BrandKit({
   const dirty = JSON.stringify({ colors, fonts }) !== JSON.stringify(saved);
   useEffect(() => onDirty(dirty), [dirty, onDirty]);
 
-  // What each colour falls back to while it's empty, as the preview shows it.
+  // What each colour falls back to while it's empty, as the preview (and a new form, lib/forms/design.ts) shows it.
   const primary = colors.primary || accentColor;
   const background = colors.background || "#ffffff";
-  const text = colors.text || "#161b2e";
+  const text = colors.text || (colors.background ? textOn(background) : "#161b2e");
   const button = colors.button || primary;
-  const buttonText = colors.buttonText || readableOn(button);
+  const buttonText = colors.buttonText || textOn(button);
   const star = colors.star || "#f2a93b";
   const set = (key: ColorKey) => (hex: string) => setColors((c) => ({ ...c, [key]: hex }));
 
@@ -192,19 +192,31 @@ export function BrandKit({
           <div className="stack">
             <h3 className="ps-subtitle">Colours</h3>
             <div className="ps-colors">
-              <ColorField label="Primary" value={colors.primary} onChange={set("primary")} allowEmpty placeholder={accentColor} testId="brand-primary" />
-              <ColorField label="Background" value={colors.background} onChange={set("background")} allowEmpty placeholder="#ffffff" />
-              <ColorField label="Text" value={colors.text} onChange={set("text")} allowEmpty placeholder="#161b2e" contrastWith={background} />
-              <ColorField label="Button" value={colors.button} onChange={set("button")} allowEmpty placeholder={primary} />
+              {/* Text needs 4.5:1; the primary colour, buttons and stars are shapes, so 3:1 against the background. */}
               <ColorField
-                label="Button text"
-                value={colors.buttonText}
-                onChange={set("buttonText")}
+                label="Primary"
+                value={colors.primary}
+                onChange={set("primary")}
                 allowEmpty
-                placeholder={readableOn(button)}
-                contrastWith={button}
+                placeholder={accentColor}
+                contrastWith={background}
+                minContrast={3}
+                testId="brand-primary"
               />
-              <ColorField label="Stars" value={colors.star} onChange={set("star")} allowEmpty placeholder="#f2a93b" contrastWith={background} minContrast={3} />
+              <ColorField label="Background" value={colors.background} onChange={set("background")} allowEmpty placeholder="#ffffff" />
+              <ColorField label="Text" value={colors.text} onChange={set("text")} allowEmpty placeholder={text} contrastWith={background} />
+              <ColorField label="Button" value={colors.button} onChange={set("button")} allowEmpty placeholder={primary} contrastWith={background} minContrast={3} />
+              <ColorField label="Button text" value={colors.buttonText} onChange={set("buttonText")} allowEmpty placeholder={textOn(button)} contrastWith={button} />
+              <ColorField
+                label="Stars"
+                value={colors.star}
+                onChange={set("star")}
+                allowEmpty
+                placeholder="#f2a93b"
+                // The default gold is ours to get right; warn once the stars or the background are your own.
+                contrastWith={colors.star || colors.background ? background : undefined}
+                minContrast={3}
+              />
             </div>
           </div>
 

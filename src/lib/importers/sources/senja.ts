@@ -30,9 +30,9 @@ export const senja: ImporterAdapter = {
   kind: "migration",
   method: "api-key",
   tosNotes: "Uses Senja’s API with your own key (Senja’s paid plans), or the CSV you export from Senja. The key is used for this import only and isn’t kept afterwards.",
-  fields: [{ key: "apiKey", label: "Senja API key", type: "password", optional: true, hint: "In Senja: Automate → API. Or leave this empty and upload the CSV export." }],
+  fields: [{ key: "apiKey", label: "Senja API key", type: "password", optional: true, hint: "In Senja: Automate → API (paid plans). Or leave this empty and upload the CSV export." }],
   input,
-  upload: { accept: ".csv,text/csv", label: "Upload the Senja CSV export" },
+  upload: { accept: ".csv,text/csv", label: "Upload the Senja CSV export (in Senja: Proof → ⋮ → Export all to CSV)" },
   async fetchPage(raw, cursor, ctx) {
     const { apiKey } = raw as Input;
     const page = cursor ? Math.max(1, Number(cursor) || 1) : 1;

@@ -406,7 +406,7 @@ See [`SECURITY.md`](SECURITY.md) for how to report a vulnerability and what Plau
 ```bash
 npm run dev         # development server with hot reload
 npm run typecheck   # TypeScript
-npm test            # Vitest: unit and integration tests (ffmpeg tests are skipped without ffmpeg)
+npm test            # Vitest: unit and integration tests (ffmpeg tests are skipped without ffmpeg, real-S3 tests without S3_TEST_ENDPOINT)
 npm run test:e2e    # Playwright: builds and starts the production server, then runs the browser suites in Chromium
 npm run test:all    # both
 ```
@@ -416,7 +416,7 @@ The Playwright run starts the server with these settings, so every feature is te
 - `MAIL_OUTBOX=true`, so the tests can read the emails.
 - A stand-in for whisper.cpp ([`e2e/fixtures/fake-whisper.mjs`](e2e/fixtures/fake-whisper.mjs)), so transcripts run without a model.
 - `PLAUDIT_FEATURES=all`, so every section is tested.
-- With `E2E_WEBKIT=1` (after `npx playwright install webkit`), the specs that don't record video also run in WebKit.
+- With `E2E_WEBKIT=1` (after `npx playwright install webkit`), `npx playwright test --project=webkit` runs every spec in WebKit except the ones that record with the camera (`CAMERA_SPECS` in `playwright.config.ts`). CI runs both browsers.
 - A fixture server ([`e2e/fixtures/fixture-server.mjs`](e2e/fixtures/fixture-server.mjs)) that stands in for the outside web. Two test-only settings let the app reach it: `NET_GUARD_ALLOW` lets exact `host:port` origins through the guard on outgoing requests, and `IMPORTER_ORIGINS` sends importers there instead of the real sites. Never set them on a real server.
 
 | Suite | Covers |

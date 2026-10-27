@@ -9,7 +9,10 @@ import "@/app/admin/admin-kit.css";
  * which is always "#rrggbb" (or "" for "use the default" when `allowEmpty`).
  * A half-typed hex waits until it's valid and only shows an error on blur.
  * With `contrastWith` it warns when text in one colour on the other would be
- * hard to read (below 4.5:1, WCAG AA).
+ * hard to read (below 4.5:1, WCAG AA). An empty value is checked as its
+ * `placeholder`, the default it falls back to, so a background changed
+ * elsewhere still warns about the default text on it. The warning never
+ * blocks saving.
  */
 export type ColorFieldProps = {
   label: string;
@@ -20,7 +23,7 @@ export type ColorFieldProps = {
   hint?: string;
   /** The colour shown in the picker while the value is empty (the default it falls back to). */
   placeholder?: string;
-  /** The colour this one sits on or under, for the contrast warning. */
+  /** The colour this one sits on or under, for the contrast warning (as it will show: pass the default when that one is empty). */
   contrastWith?: string;
   /** Large text and icons need only 3:1. */
   minContrast?: number;
@@ -53,7 +56,8 @@ export function ColorField({
 
   const hex = normalizeHex(value);
   const swatch = hex ?? normalizeHex(placeholder ?? "") ?? "#000000";
-  const ratio = hex && contrastWith ? contrastRatio(hex, contrastWith) : null;
+  const shown = hex ?? normalizeHex(placeholder ?? "");
+  const ratio = shown && contrastWith ? contrastRatio(shown, contrastWith) : null;
   const low = ratio != null && ratio < minContrast ? ratio : null;
   const hintId = hint ? `${id}-hint` : undefined;
   const errorId = invalid ? `${id}-error` : undefined;

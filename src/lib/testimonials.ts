@@ -392,6 +392,8 @@ export type TestimonialPatch = {
   authorWebsite?: string | null;
   authorPhone?: string | null;
   authorSocials?: Record<string, string>;
+  /** Set only through lib/author-images.ts, which stores the file first. */
+  avatarKey?: string | null;
   companyLogoKey?: string | null;
   sourceUrl?: string | null;
   sourceDate?: Date | null;

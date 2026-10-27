@@ -99,6 +99,10 @@ export const pt = {
   withdrawNote:
     "Mudou de ideias mais tarde? Este link privado permite retirar o seu testemunho a qualquer momento. Guarde-o num local seguro: quem o tiver pode retirá-lo.",
   copyLink: "Copiar link",
+  draftFound: "Começou este testemunho antes neste dispositivo.",
+  draftResume: "Continuar onde parou",
+  draftStartOver: "Recomeçar",
+  draftVideoAgain: "Os vídeos não ficam guardados no rascunho, por isso vai gravar o seu novamente.",
   recRecordWithCamera: "Gravar com a câmara",
   recIntro: "Até {limit}. Há uma contagem de 3 segundos e as perguntas ficam no ecrã enquanto fala.",
   recIntroNoCamera: "Este navegador não consegue gravar na página. Use a app da câmara ou carregue um vídeo abaixo.",

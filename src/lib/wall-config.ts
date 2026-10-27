@@ -30,9 +30,24 @@ export const THEME_LABELS: Record<WallTheme, { name: string; blurb: string }> = 
 export const THEME_SWATCHES: Record<WallTheme, { bg: string; card: string; ink: string; accent: string }> = {
   paper: { bg: "#f6f7f9", card: "#ffffff", ink: "#161b2e", accent: "#161b2e" },
   night: { bg: "#0f1220", card: "#171b2b", ink: "#eef0f6", accent: "#8fa8ff" },
-  sunrise: { bg: "#fff4ea", card: "#ffffff", ink: "#3b1f14", accent: "#e8603c" },
+  sunrise: { bg: "#fff4ea", card: "#ffffff", ink: "#3b1f14", accent: "#c4471f" },
   meadow: { bg: "#eef6ef", card: "#fbfefb", ink: "#17301f", accent: "#2f7d4f" },
   studio: { bg: "#ffffff", card: "#ffffff", ink: "#0a0a0a", accent: "#0a0a0a" },
+};
+
+/**
+ * Each theme's own colours for what the editor lets you change, as
+ * wall-view.css sets them (tests/walls.test.ts keeps the two in step), so the
+ * editor can show the defaults and check contrast. A hero without its own
+ * background shows the page's (sunrise: the deeper end of its gradient). A
+ * null call to action follows the project colour, with ink or white on it.
+ */
+export const THEME_COLOURS: Record<WallTheme, { heroBg: string; heroInk: string; card: string; cardInk: string; ctaBg: string | null; ctaInk: string | null }> = {
+  paper: { heroBg: "#f6f7f9", heroInk: "#161b2e", card: "#ffffff", cardInk: "#161b2e", ctaBg: null, ctaInk: null },
+  night: { heroBg: "#151929", heroInk: "#eef0f6", card: "#171b2b", cardInk: "#eef0f6", ctaBg: null, ctaInk: null },
+  sunrise: { heroBg: "#ffdcc4", heroInk: "#3b1f14", card: "#ffffff", cardInk: "#3b1f14", ctaBg: "#c4471f", ctaInk: "#ffffff" },
+  meadow: { heroBg: "#dcefe0", heroInk: "#17301f", card: "#fbfefb", cardInk: "#17301f", ctaBg: "#2f7d4f", ctaInk: "#ffffff" },
+  studio: { heroBg: "#ffffff", heroInk: "#0a0a0a", card: "#ffffff", cardInk: "#0a0a0a", ctaBg: "#0a0a0a", ctaInk: "#ffffff" },
 };
 
 export function parseWallTheme(v: unknown): WallTheme {

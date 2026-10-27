@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { expect, request as pwRequest, test } from "@playwright/test";
-import { adminApi, createProject, seed, shot, signIn, useFreshIp } from "./helpers";
+import { adminApi, allowClipboard, createProject, seed, shot, signIn, useFreshIp } from "./helpers";
 
 /** Settings: API keys used against the REST API, and signed webhooks. */
 
@@ -12,8 +12,8 @@ test.beforeEach(async ({ page }) => {
   await useFreshIp(page);
 });
 
-test("an API key created in Settings works against the REST API", async ({ page, context, baseURL }) => {
-  await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: baseURL! });
+test("an API key created in Settings works against the REST API", async ({ page, context, baseURL, browserName }) => {
+  await allowClipboard(context, browserName, baseURL!);
   const admin = await adminApi(baseURL!);
   const p = await createProject(admin, "Api Co", `api-${RUN}`);
   await seed(admin, p.slug, [{ name: "Ivy Api", text: "Scriptable.", email: "ivy@example.com", status: "approved" }]);

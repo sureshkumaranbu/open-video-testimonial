@@ -6,8 +6,10 @@ import { listOf, reviewFromObject } from "./_json";
 
 /**
  * Moving from Shapo: their API with the owner's own key
- * (GET https://api.shapo.io/testimonials, paged), or a CSV export. Video
- * links come across when the export or API has them, through import.media.
+ * (GET https://api.shapo.io/testimonials, paged). Shapo has no export
+ * button (checked 2026-10-27), so the CSV upload is only for a file the
+ * owner made themselves. Video links come across when the API has them,
+ * through import.media.
  * Whether Shapo counts pages from 0 or 1 isn't documented, so we start at
  * 0 and skip a page that repeats the one before.
  */
@@ -37,10 +39,10 @@ export const shapo: ImporterAdapter = {
   platform: "shapo",
   kind: "migration",
   method: "api-key",
-  tosNotes: "Uses Shapo’s API with your own key from Workspace settings (Shapo’s free plan shares only the first 15), or a CSV export. The key is used for this import only and isn’t kept afterwards.",
-  fields: [{ key: "apiKey", label: "Shapo API key", type: "password", optional: true, hint: "In Shapo: Settings → Workspace settings → API key. Or leave this empty and upload a CSV." }],
+  tosNotes: "Uses Shapo’s API with your own key (Shapo’s free plan shares only your 15 newest testimonials). The key is used for this import only and isn’t kept afterwards.",
+  fields: [{ key: "apiKey", label: "Shapo API key", type: "password", optional: true, hint: "In Shapo: Settings → General → API Key. Shapo has no export button, so the key is the way to bring everything across." }],
   input,
-  upload: { accept: ".csv,text/csv", label: "Upload a Shapo CSV export" },
+  upload: { accept: ".csv,text/csv", label: "Or upload a CSV you made from Shapo" },
   async fetchPage(raw, cursor, ctx) {
     const { apiKey } = raw as Input;
     const { page, prev } = readCursor(cursor);

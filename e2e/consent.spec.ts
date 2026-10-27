@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { adminApi, createProject, signIn, useFreshIp } from "./helpers";
+import { adminApi, allowClipboard, createProject, signIn, useFreshIp } from "./helpers";
 
 /** The consent ledger: versioned wording, scopes, edit tracking and withdrawal. */
 
@@ -9,8 +9,8 @@ test.beforeEach(async ({ page }) => {
   await useFreshIp(page);
 });
 
-test("consent wording, scopes, edits and withdrawal are recorded end to end", async ({ page, context, baseURL }) => {
-  await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: baseURL! });
+test("consent wording, scopes, edits and withdrawal are recorded end to end", async ({ page, context, baseURL, browserName }) => {
+  await allowClipboard(context, browserName, baseURL!);
   const api = await adminApi(baseURL!);
   const p = await createProject(api, "Consent Co", `consent-${RUN}`);
 

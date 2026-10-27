@@ -115,6 +115,11 @@ export const en = {
   withdrawNote:
     "Changed your mind later? This private link lets you withdraw your testimonial at any time. Keep it somewhere safe; anyone with it can withdraw.",
   copyLink: "Copy link",
+  // A saved draft (FORM-14)
+  draftFound: "You started this testimonial earlier on this device.",
+  draftResume: "Continue where you left off",
+  draftStartOver: "Start over",
+  draftVideoAgain: "Videos aren't kept in a draft, so you'll record yours again.",
   // The recorder
   ...RECORDER_LABELS,
 };

@@ -99,6 +99,10 @@ export const it = {
   withdrawNote:
     "Cambi idea più avanti? Con questo link privato puoi ritirare la tua testimonianza quando vuoi. Conservalo in un posto sicuro: chiunque lo abbia può ritirarla.",
   copyLink: "Copia link",
+  draftFound: "Hai iniziato questa testimonianza in precedenza su questo dispositivo.",
+  draftResume: "Riprendi da dove eri rimasto",
+  draftStartOver: "Ricomincia",
+  draftVideoAgain: "I video non vengono salvati nella bozza, quindi registrerai di nuovo il tuo.",
   recRecordWithCamera: "Registra con la fotocamera",
   recIntro: "Fino a {limit}. C'è un conto alla rovescia di 3 secondi e le domande restano sullo schermo mentre parli.",
   recIntroNoCamera: "Questo browser non può registrare nella pagina. Usa l'app fotocamera o carica un video qui sotto.",

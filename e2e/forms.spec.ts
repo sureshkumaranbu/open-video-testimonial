@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { formProject } from "./form-helpers";
-import { adminApi, useFreshIp } from "./helpers";
+import { adminApi, allowClipboard, useFreshIp } from "./helpers";
 
 /**
  * The public step-by-step form (FORM-03..07, 09, 10, 16): one step per
@@ -93,8 +93,8 @@ test("FORM-03 steps at 375 px: Back keeps answers, Q2 skipped, Q3's recording su
   expect(detail.answers.map((a: { questionKey: string }) => a.questionKey)).toEqual(["q3"]);
 });
 
-test("FORM-03 on desktop the same steps work, and FORM-16 offers to copy their words", async ({ page, baseURL, context }) => {
-  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+test("FORM-03 on desktop the same steps work, and FORM-16 offers to copy their words", async ({ page, baseURL, context, browserName }) => {
+  await allowClipboard(context, browserName);
   const api = await adminApi(baseURL!);
   const { url } = await formProject(api, "Desktop Co", {
     pages: [

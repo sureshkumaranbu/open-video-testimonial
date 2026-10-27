@@ -1,6 +1,6 @@
 "use client";
 
-import { ColorField, Segmented, Toggle } from "@/components/admin";
+import { ColorField, Segmented, Toggle, worstPair } from "@/components/admin";
 import type { WidgetLayout } from "@/db/schema";
 import {
   LAYOUT_LABELS,
@@ -15,6 +15,7 @@ import {
   type WidgetLabels,
   type WidgetOptions,
 } from "@/lib/widget-config";
+import { accentStyle } from "@/lib/theme";
 import { LayoutThumb } from "../LayoutThumb";
 import { setSection, type Draft, type Update } from "./Studio";
 
@@ -74,16 +75,46 @@ export function LayoutPanel({ draft, update }: PanelProps) {
 
 // ------------------------------------------------------------------ design
 
-const COLOURS: { key: keyof WidgetDesign; label: string; placeholder: string }[] = [
-  { key: "accent", label: "Accent (initials, quote marks, buttons)", placeholder: "" },
-  { key: "text", label: "Text", placeholder: "#161b2e" },
-  { key: "titleColor", label: "Names", placeholder: "#161b2e" },
-  { key: "dateColor", label: "Dates and job titles", placeholder: "#545c70" },
-  { key: "star", label: "Stars", placeholder: "#f2a93b" },
-  { key: "card", label: "Cards", placeholder: "#ffffff" },
-  { key: "border", label: "Card borders", placeholder: "#e3e6ec" },
-  { key: "background", label: "Background (empty is transparent)", placeholder: "#ffffff" },
+type ColourKey = "accent" | "text" | "titleColor" | "dateColor" | "star" | "card" | "border" | "background";
+
+/** The light and dark defaults (widget-html.ts and widget.js use the same). */
+const COLOURS: { key: ColourKey; label: string; light: string; dark: string }[] = [
+  { key: "accent", label: "Accent (initials, quote marks, buttons)", light: "", dark: "" },
+  { key: "text", label: "Text", light: "#161b2e", dark: "#eef0f6" },
+  { key: "titleColor", label: "Names", light: "#161b2e", dark: "#eef0f6" },
+  { key: "dateColor", label: "Dates and job titles", light: "#545c70", dark: "#a4abbd" },
+  { key: "star", label: "Stars", light: "#f2a93b", dark: "#f2a93b" },
+  { key: "card", label: "Cards", light: "#ffffff", dark: "#171b2b" },
+  { key: "border", label: "Card borders", light: "#e3e6ec", dark: "#262c40" },
+  { key: "background", label: "Background (empty is transparent)", light: "#ffffff", dark: "#ffffff" },
 ];
+const DEFAULTS = Object.fromEntries(COLOURS.map((c) => [c.key, c])) as Record<ColourKey, (typeof COLOURS)[number]>;
+
+/**
+ * What each colour is checked against (DISP-03): text, names and dates sit
+ * on the card (4.5:1), stars need 3:1, and the accent against the text the
+ * widget puts on it. With "Match the visitor" both themes are checked and
+ * the worse pair is shown, so its default is the one in the placeholder.
+ */
+function contrastTargets(d: WidgetDesign, accent: string) {
+  const modes: ("light" | "dark")[] = d.theme === "auto" ? ["light", "dark"] : [d.theme === "dark" ? "dark" : "light"];
+  const value = (k: ColourKey) => String(d[k] ?? "");
+  const fg = (k: ColourKey, m: "light" | "dark"): string => value(k) || (k === "titleColor" ? fg("text", m) : DEFAULTS[k][m]);
+  const onCard = (k: ColourKey, min: number) => {
+    const [shows, on] = worstPair(modes.map((m): [string, string] => [fg(k, m), value("card") || DEFAULTS.card[m]])) ?? [fg(k, modes[0]), undefined];
+    return { shows, on, min };
+  };
+  const accentNow = value("accent") || accent;
+  const star = onCard("star", 3);
+  return {
+    accent: { shows: accentNow, on: accentStyle(accentNow)["--on-accent"], min: 4.5 },
+    text: onCard("text", 4.5),
+    titleColor: onCard("titleColor", 4.5),
+    dateColor: onCard("dateColor", 4.5),
+    // The default gold is ours to get right; warn once the stars or cards are your own.
+    star: { ...star, on: value("star") || value("card") ? star.on : undefined },
+  } as Partial<Record<ColourKey, { shows: string; on: string | undefined; min: number }>>;
+}
 
 const SHOW: { key: keyof WidgetDesign; label: string }[] = [
   { key: "showRating", label: "Star rating" },
@@ -101,6 +132,8 @@ const SHOW: { key: keyof WidgetDesign; label: string }[] = [
 export function DesignPanel({ draft, update, accent }: PanelProps & { accent: string }) {
   const d = draft.config.design;
   const set = (patch: Partial<WidgetDesign>) => setSection(update, "design", patch);
+  const targets = contrastTargets(d, accent);
+  const mode = d.theme === "dark" ? "dark" : "light";
   return (
     <div className="stack">
       <Segmented
@@ -132,8 +165,11 @@ export function DesignPanel({ draft, update, accent }: PanelProps & { accent: st
             label={c.label}
             value={String(d[c.key] ?? "")}
             allowEmpty
-            placeholder={c.key === "accent" ? accent : c.placeholder}
+            placeholder={targets[c.key]?.shows ?? c[mode]}
+            contrastWith={targets[c.key]?.on}
+            minContrast={targets[c.key]?.min}
             onChange={(hex) => set({ [c.key]: hex } as Partial<WidgetDesign>)}
+            testId={`widget-color-${c.key}`}
           />
         ))}
       </fieldset>

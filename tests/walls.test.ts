@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -11,7 +13,10 @@ import { POST as mainRoute } from "@/app/api/admin/walls/[id]/main/route";
 import { POST as slugRoute } from "@/app/api/admin/walls/[id]/slug/route";
 import { POST as imageRoute } from "@/app/api/admin/walls/[id]/image/route";
 import { POST as previewRoute } from "@/app/api/admin/walls/[id]/preview/route";
+import { inkFor } from "@/components/WallView";
+import { contrastRatio } from "@/lib/contrast";
 import { createForm } from "@/lib/forms";
+import { THEME_COLOURS, WALL_THEMES } from "@/lib/wall-config";
 import { createProject, createTestimonial, getProjectById, isMediaPublic, updateTestimonial } from "@/lib/testimonials";
 import {
   changeWallSlug,
@@ -87,6 +92,36 @@ describe("wall config", () => {
       expect(wallConfigSchema.safeParse({ heroCta: { url } }).success, url).toBe(false);
     expect(wallConfigSchema.safeParse({ nav: Array.from({ length: 5 }, () => ({ label: "x", url: "/x" })) }).success).toBe(false);
     expect(wallConfigSchema.safeParse({ heroCta: { url: "https://acme.example/start" }, nav: [{ label: "Home", url: "/" }] }).success).toBe(true);
+  });
+
+  it("WALL-01 L5 the editor's theme colours match wall-view.css, and every theme's own text reads at 4.5:1", () => {
+    const css = fs.readFileSync(path.resolve(__dirname, "../src/components/wall-view.css"), "utf8");
+    const block = (theme: string) => {
+      const m = theme === "paper" ? /\.wl-page \{([^}]*)\}/.exec(css) : new RegExp(`\\.wl-page\\[data-wall-theme="${theme}"\\] \\{([^}]*)\\}`).exec(css);
+      return Object.fromEntries([...(m?.[1] ?? "").matchAll(/(--wl-[\w-]+):\s*([^;]+);/g)].map((x) => [x[1], x[2].trim()]));
+    };
+    const paper = block("paper");
+    for (const theme of WALL_THEMES) {
+      const v = { ...paper, ...block(theme) };
+      const c = THEME_COLOURS[theme];
+      expect(v["--wl-card"], theme).toBe(c.card);
+      expect(v["--wl-card-ink"], theme).toBe(c.cardInk);
+      expect(v["--wl-hero-ink"] === "var(--wl-ink)" ? v["--wl-ink"] : v["--wl-hero-ink"], theme).toBe(c.heroInk);
+      const hero = v["--wl-hero-bg"] === "transparent" ? v["--wl-bg"] : v["--wl-hero-bg"];
+      expect(hero.startsWith("#") ? hero : /#[0-9a-f]{6}/.exec(hero)![0], theme).toBe(c.heroBg);
+      expect(v["--wl-cta-bg"] === "var(--accent)" ? null : v["--wl-cta-bg"], theme).toBe(c.ctaBg);
+      expect(v["--wl-cta-ink"].startsWith("var(") ? null : v["--wl-cta-ink"], theme).toBe(c.ctaInk);
+      expect(contrastRatio(c.cardInk, c.card)!, theme).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(c.heroInk, c.heroBg)!, theme).toBeGreaterThanOrEqual(4.5);
+      if (c.ctaBg) expect(contrastRatio(c.ctaInk!, c.ctaBg)!, theme).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("WALL-01 L5 a background the owner picks gets readable text unless they pick the text too", () => {
+    expect(inkFor("", "#ffffff")).toBe("#161b2e");
+    expect(inkFor("", "#101010")).toBe("#ffffff");
+    expect(inkFor("#ff0000", "#ffffff")).toBe("#ff0000");
+    expect(inkFor("", "")).toBe("");
   });
 
   it("WALL-02 resolves the tab from ?tab= or the default tab", () => {

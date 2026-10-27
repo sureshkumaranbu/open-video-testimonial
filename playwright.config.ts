@@ -31,18 +31,19 @@ const APPLE = {
 const FIXTURE_PORT = Number(process.env.E2E_FIXTURE_PORT || 3198);
 export const FIXTURE_ORIGIN = `http://127.0.0.1:${FIXTURE_PORT}`;
 
-/** Specs that never use the camera or microphone, so they also run in WebKit. */
-const WEBKIT_SPECS = [
-  "empty-states.spec.ts",
-  "importers.spec.ts",
-  "inbox.spec.ts",
-  "mobile.spec.ts",
-  "notifications.spec.ts",
-  "onboarding.spec.ts",
-  "seo.spec.ts",
-  "walls.spec.ts",
-  "widget-studio.spec.ts",
-  "widgets.spec.ts",
+/**
+ * WebKit (Safari's engine) runs every spec except the ones that record with
+ * the camera (D24): WebKit has no fake camera or microphone, so a recording
+ * can't start headless. These five press "Record with camera" / "Start
+ * recording"; the rest only use the page, uploads, the API and email.
+ * A new spec that records goes on this list.
+ */
+const CAMERA_SPECS = [
+  "collect-toggle.spec.ts", // records on the classic page, then turns video off
+  "flow.spec.ts", // the classic page end to end, recording a video
+  "forms.spec.ts", // the step-by-step form records answers on camera
+  "forms-embed.spec.ts", // records inside the iframe embed
+  "recorder.spec.ts", // the recorder itself
 ];
 
 export const E2E_ADMIN = {
@@ -68,10 +69,11 @@ export default defineConfig({
   },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-    // Safari's engine, for the specs that don't record video (WebKit has no fake camera).
-    // Opt-in: `npx playwright install webkit` first (it downloads the browser), then E2E_WEBKIT=1.
+    // Safari's engine, for the specs that don't record video. Opt-in, since it needs its own browser:
+    // `npx playwright install webkit`, then `E2E_WEBKIT=1 npx playwright test --project=webkit` (CI does).
+    // No camera permission, and none of Chromium's fake-media flags, which WebKit doesn't know.
     ...(process.env.E2E_WEBKIT === "1"
-      ? [{ name: "webkit", use: { ...devices["Desktop Safari"], permissions: [] }, testMatch: WEBKIT_SPECS }]
+      ? [{ name: "webkit", use: { ...devices["Desktop Safari"], permissions: [], launchOptions: {} }, testIgnore: CAMERA_SPECS }]
       : []),
   ],
   webServer: external
