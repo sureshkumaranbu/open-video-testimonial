@@ -76,6 +76,27 @@ test("DISP-04 every layout renders through data-widget on a hostile cross-origin
   await expect(page.locator("[data-plaudit-error]")).toHaveCount(0);
 });
 
+test("DISP-04 a lazy layout still mounts when another widget.js tag runs before its file arrives", async ({ page, baseURL }) => {
+  const f = await project(baseURL!, "Late layout");
+  const carousel = await widget(f, "carousel");
+  const grid = await widget(f, "grid");
+  // While carousel.js is held back, a second tag runs (and replaces W.loaded) before the file arrives.
+  await page.route("**/widget/carousel.js", async (r) => {
+    await page.evaluate(([src, id]) => {
+      const s = document.createElement("script");
+      s.src = src;
+      s.dataset.widget = id;
+      document.body.appendChild(s);
+    }, [`${baseURL}/widget.js`, grid.id]);
+    await expect(page.locator(`[data-plaudit-widget="${grid.id}"]`)).toHaveAttribute("data-plaudit-ready", "4");
+    await r.continue();
+  });
+  host.pages["/late-layout"] = hostPage("Late layout", tag(baseURL!, carousel.id));
+  await page.goto(`${host.url}/late-layout`);
+  await expect(page.locator(`[data-plaudit-widget="${grid.id}"]`)).toHaveAttribute("data-plaudit-ready", "4");
+  await expect(page.locator(`[data-plaudit-widget="${carousel.id}"]`)).toHaveAttribute("data-plaudit-ready", "4");
+});
+
 test("DISP-04 the carousel moves with arrows, dots and arrow keys, and Tab focus pauses autoplay", async ({ page, baseURL }) => {
   const f = await project(baseURL!, "Carousel");
   const w = await widget(f, "carousel", { options: { delay: 2 } });

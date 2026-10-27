@@ -283,7 +283,8 @@
     document.head.appendChild(st);
   }
 
-  var waiting = {};
+  // Each widget.js tag on a page runs this file again and replaces W.loaded, so the queue lives on the shared object.
+  var waiting = (W.waiting = W.waiting || {});
   function need(name, b, cb) {
     if (W.layouts[name]) return cb();
     if (waiting[name]) return waiting[name].push(cb);
