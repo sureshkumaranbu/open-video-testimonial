@@ -210,6 +210,8 @@ Under **Settings → Webhooks**, add the URL of your endpoint. You can limit it 
 | `invite.opened` | *Opt-in.* The first open of a campaign email, for campaigns that track opens |
 | `invite.clicked` | *Opt-in.* The first click on the personal link in a campaign email |
 | `invite.declined` | *Opt-in.* The person pressed "No thanks" in a campaign email. Reminders stop |
+| `widget.installed` | *Opt-in.* A saved widget was seen on a website for the first time, or again after `widget.removed` (DISP-13). Checked hourly. `data` is `{ widget: { id, name, layout }, page: { url, origin, path }, lastSeenAt }`; the page never has a query string. Views on Plaudit's own hosted link don't count |
+| `widget.removed` | *Opt-in.* A widget that was live has had no views from any page for 7 days. Same `data`, with the last page it was seen on. People who turned on the matching email in **Settings → Notifications** get one too |
 | `ping` | You pressed **Send test event** |
 
 Every way a testimonial leaves your site (rejected, hidden, trashed, deleted or withdrawn) is in the default set, so an endpoint that mirrors your testimonials elsewhere can always take them down. Hiding sends `testimonial.hidden`, never `testimonial.rejected`. The one exception is deleting a whole project: that sends no per-testimonial events, and the project's own webhooks are deleted with it, so treat a project missing from `GET /projects` as taking down all of its testimonials.
@@ -340,6 +342,17 @@ Public, no key needed (feature flag `booster` for the dashboard pages; these are
 - **`GET /b/<project>/<page>/go/<link-id>`**: counts one click for that link today (UTC) and answers 302 to the link's stored address. The address always comes from the saved page, never from the request, so it can't redirect anywhere else; an unknown link is a 404. Only a daily count per link is stored. 60 clicks per visitor address per 10 minutes, then 429.
 
 Booster pages are managed in the dashboard; there is no `/api/v1` endpoint for them yet.
+
+## Analytics beacons
+
+Public, no key, cookieless ([what's collected](help/analytics.md)). Each answers `204` with an empty body and `Access-Control-Allow-Origin: *`, whatever it was sent: anything that isn't in the shape below, or names an unknown, deleted or draft object, is dropped without saying so. Bodies are JSON sent as `text/plain` (so browsers send them without a CORS preflight), at most 2 KB (`413` past that). Each IP address may send 600 in 10 minutes (`429` past that; the address is kept in memory only). With `ANALYTICS=off` they store nothing.
+
+- **`POST /api/widget/w_<id>/seen`**: from `widget.js` (DISP-13, DISP-14). `{ "k": "view" | "more" | "source" | "cta" | "play", "u": "<page address>" }`. `widget.js` sends a view once per page load, and sends the clicked element's class (`rm`, `src`, `b`, `bd`) as `k` to stay small; both forms are accepted. The address is stored as its origin and path only; without `u`, the `Origin` header is used.
+- **`POST /api/collect`**: walls and step-by-step forms (WALL-05, FORM-15). `{ "t": "wall", "id": "<wall id>", "k": "view" | "cta" | "link" }` or `{ "t": "form", "id": "<form id>", "k": "view" | "start" | "step", "s": <page index> }`. Completions aren't accepted here: the server counts them when a form is sent.
+
+The server also counts, by itself, views of the classic `/c/<project>` page, every form submission, and each fetch of `/schema/s_<id>.js` (SEO-04, with the referring site's origin; crawlers included).
+
+The numbers are read in the dashboard (`/admin/analytics`); there's no `/api/v1` endpoint for them yet.
 
 ## Form submissions: rewards and low ratings
 

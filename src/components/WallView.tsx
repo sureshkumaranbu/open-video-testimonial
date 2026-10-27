@@ -1,6 +1,7 @@
 import "./wall-view.css";
 import type { CSSProperties, ReactNode } from "react";
 import { LoadMore } from "@/app/wall/LoadMore";
+import { WallBeacon } from "@/app/wall/WallBeacon";
 import { jsonLdText } from "@/lib/seo";
 import { textOn } from "@/lib/contrast";
 import { accentStyle } from "@/lib/theme";
@@ -98,6 +99,7 @@ export function WallView({ data, preview, jsonLd }: Props) {
       style={vars(data)}
     >
       {jsonLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdText(jsonLd) }} />}
+      {!preview && <WallBeacon wallId={wall.id} />}
       {font?.file && (
         <style>{`@font-face{font-family:${font.family.split(",")[0]};src:url(${font.file}) format("woff2");font-display:swap;font-weight:100 900}`}</style>
       )}

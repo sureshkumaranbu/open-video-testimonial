@@ -6,18 +6,21 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/app/admin/api";
 import { ConfirmDialog, EmptyState } from "@/components/admin";
+import { pageName } from "@/components/analytics/InstallStatus";
 import { Icon } from "@/components/Icon";
 import type { WidgetLayout } from "@/db/schema";
 import { LAYOUT_LABELS, LAYOUTS, PLACEMENT_LABELS, PLACEMENTS, placementHint } from "@/lib/widget-config";
 import type { AdminWidget } from "@/lib/widgets";
 import { LayoutThumb } from "./LayoutThumb";
 
-type Props = { projectId: string; initial: AdminWidget[] };
+/** DISP-12, DISP-13: per widget, whether it's on a site and its views in the last 30 days (absent with analytics off). */
+type Stats = Record<string, { state: "live" | "removed" | "never"; page: string | null; views: number }>;
+type Props = { projectId: string; initial: AdminWidget[]; stats?: Stats };
 
 const dateFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
 /** DISP-12 and DISP-15: the widgets list, and a new widget with a layout suggested by where it goes. */
-export function WidgetsList({ projectId, initial }: Props) {
+export function WidgetsList({ projectId, initial, stats }: Props) {
   const router = useRouter();
   const [widgets, setWidgets] = useState(initial);
   const [name, setName] = useState("");
@@ -156,6 +159,7 @@ export function WidgetsList({ projectId, initial }: Props) {
                       <LayoutThumb layout={w.layout} />
                       {w.name}
                     </Link>
+                    {stats?.[w.id] && <WidgetStat stat={stats[w.id]} />}
                   </td>
                   <td>{LAYOUT_LABELS[w.layout].name}</td>
                   <td className="muted">{w.placement ? PLACEMENT_LABELS[w.placement as keyof typeof PLACEMENT_LABELS] ?? w.placement : "—"}</td>
@@ -207,5 +211,14 @@ export function WidgetsList({ projectId, initial }: Props) {
         <p>Pages that embed it will show nothing from now on. Your other widgets and testimonials stay as they are.</p>
       </ConfirmDialog>
     </div>
+  );
+}
+
+function WidgetStat({ stat }: { stat: Stats[string] }) {
+  const where = stat.state === "live" && stat.page ? `Live on ${pageName(stat.page)}` : stat.state === "removed" ? "Not seen for 7 days" : "Not on a site yet";
+  return (
+    <span className="muted xsmall" style={{ display: "block", marginTop: 2 }} data-testid="widget-stat" data-state={stat.state}>
+      {where} · {stat.views.toLocaleString("en-GB")} view{stat.views === 1 ? "" : "s"} in 30 days
+    </span>
   );
 }

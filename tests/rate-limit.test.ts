@@ -4,7 +4,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST as login } from "@/app/api/admin/login/route";
-import { clientIp, loginDelayMs, resetRateLimits } from "@/lib/rate-limit";
+import { clientIp, loginDelayMs, rateLimit, rateLimitBucketCount, resetRateLimits } from "@/lib/rate-limit";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, useTempDataDir } from "./helpers";
 
 type PeerGlobal = { __plauditPeerHeader?: boolean };
@@ -131,5 +131,26 @@ describe("loginDelayMs", () => {
     expect(loginDelayMs(5)).toBe(250);
     expect(loginDelayMs(6)).toBe(500);
     expect(loginDelayMs(20)).toBe(4000);
+  });
+});
+
+describe("rate limit buckets", () => {
+  beforeEach(() => resetRateLimits());
+  afterEach(() => resetRateLimits());
+
+  it("sweeps expired buckets, so many addresses can't grow memory without end", () => {
+    const start = 1_000_000;
+    for (let i = 0; i < 5000; i++) rateLimit(`ip-${i}`, 10, 1000, start);
+    expect(rateLimitBucketCount()).toBe(5000);
+    // A minute later every window above has ended; the next sweep drops them.
+    for (let i = 0; i < 1000; i++) rateLimit(`late-${i}`, 10, 1000, start + 60_000);
+    expect(rateLimitBucketCount()).toBeLessThanOrEqual(1000);
+  });
+
+  it("still limits inside a window after a sweep", () => {
+    const now = 2_000_000;
+    for (let i = 0; i < 3; i++) expect(rateLimit("same", 3, 60_000, now)).toBe(true);
+    for (let i = 0; i < 1500; i++) rateLimit(`other-${i}`, 10, 60_000, now);
+    expect(rateLimit("same", 3, 60_000, now)).toBe(false);
   });
 });

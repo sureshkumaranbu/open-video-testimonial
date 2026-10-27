@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
+import { recordPageView } from "@/lib/analytics";
 import { formUrl, getDefaultForm } from "@/lib/forms";
 import { findProjectBySlugOrAlias, withQuery } from "@/lib/projects";
 import { ClassicCollect } from "./ClassicCollect";
@@ -23,5 +24,7 @@ export default async function CollectPage({ params, searchParams }: Props) {
   const form = getDefaultForm(project.id);
   // Once the default form is step by step, /c sends visitors to it, ?r= and all (D1).
   if (form.layout === "steps") permanentRedirect(withQuery(formUrl(project, form), query));
+  // FORM-15: the classic page is counted here, on the server, so its markup stays as it was.
+  await recordPageView({ type: "form", id: form.id, projectId: project.id });
   return <ClassicCollect project={project} form={form} query={query} />;
 }

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Analytics** (feature flag `analytics`; `ANALYTICS=off` turns collection off too). See [`docs/help/analytics.md`](docs/help/analytics.md).
+  - A dashboard at `/admin/analytics`: any period, compared with the one before, for one project or all. New testimonials by source, the review backlog, average rating, widget views, visitors and clicks, form views and completions, wall views and CTA clicks, review booster clicks, snippet renders and the campaign invite funnel; views by day; sortable tables of widgets, forms and walls.
+  - Each widget shows where it's live ("Live on example.com/pricing"), its views, visitors, clicks by kind and top pages. A widget unseen for 7 days raises an alert in the app, an optional email, and the opt-in `widget.removed` webhook (`widget.installed` when it's seen).
+  - Forms: views, visitors, starts, completions, completion rate, average rating and where people stop. The classic page counts views and completions on the server, with its markup unchanged. Walls: views, visitors, CTA and link clicks. Snippets: renders.
+  - Cookieless: no cookies, no IP addresses or user agents stored, no third-party scripts; a visitor is a hash with a daily salt that's deleted after two days. Paths are kept without their query or fragment. Raw events are deleted after 30 days; daily totals stay.
+  - `widget.js` stays within its budget (7,147 bytes gzipped); `data-project` embeds are unchanged and send nothing.
+
+- Migration 0014 adds the analytics tables and three widget columns; nothing existing changes.
+
 - **Review booster** (feature flag `booster`). See [`docs/help/booster.md`](docs/help/booster.md).
   - Pages of “Leave us a review” buttons at `/b/<project>/<page>`: up to 10 links for Google, Trustpilot, Yelp, Facebook, G2, Capterra, Tripadvisor, the App Store, Google Play, any link or one of your forms, in the order you drag them. Title, message, logo, colours, button style, a phone and desktop preview, and draft or public. Old addresses keep working.
   - Every visitor sees every link: there's no rating step, and the page never mentions a reward.

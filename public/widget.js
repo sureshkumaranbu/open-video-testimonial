@@ -1,8 +1,6 @@
 /*!
- * Plaudit embed widget (MIT): approved testimonials in a Shadow DOM, safe from the host page's CSS.
+ * Plaudit embed widget (MIT): approved testimonials in a Shadow DOM. Options: docs/EMBED.md
  * <script src="https://your-plaudit.example/widget.js" data-widget="w_abc123def456" async></script>
- * or data-project="acme" (with data-theme, data-layout=grid|list, data-tag, data-limit), and data-target.
- * Layouts other than grid and list load from /widget/<layout>.js. Docs: docs/EMBED.md
  */
 (function () {
   "use strict";
@@ -12,7 +10,7 @@
   var base = script && script.src ? new URL(script.src, location.href).origin : location.origin;
   var ds = script ? script.dataset : {};
 
-  // Same palette as the app (see src/app/globals.css), scoped to the shadow root.
+  // The app's palette (src/app/globals.css).
   var DARK = "--card:#171b2b;--text:#eef0f6;--muted:#a4abbd;--border:#262c40;--star-off:#343b52;--shadow:none";
   var CSS =
     ":host{all:initial;display:block}" +
@@ -35,7 +33,7 @@
     ".tr{margin:10px 6px 0;font-size:14px;color:var(--muted)}.tr summary{cursor:pointer;font-weight:600}.tr p{font-family:inherit;font-size:14px;margin-top:6px;color:var(--text)}" +
     ".e{color:var(--muted);font-size:14px;text-align:center;padding:32px;border:1px dashed var(--border);border-radius:18px}";
 
-  // Saved widgets only: the design settings arrive as custom properties on .x.
+  // Saved widgets: design settings arrive as custom properties on .x.
   var XCSS =
     ".x{--g:20px;--r:18px;background:var(--bg,transparent);max-width:var(--mw,none);margin:0 auto;box-sizing:border-box}" +
     ".x.ff,.x.ff p{font-family:var(--ff)}.x.ns{--shadow:none}" +
@@ -104,7 +102,7 @@
   }
   var abs = absFrom(base);
 
-  // Portrait phone videos get a taller frame instead of a thin landscape crop.
+  // Portrait phone videos get a taller frame.
   function ratio(v) {
     if (!v.width || !v.height) return "16 / 10";
     return String(Math.min(Math.max(v.width / v.height, 0.75), 1.78));
@@ -144,7 +142,7 @@
     return isNaN(d) ? "" : d.toLocaleDateString(void 0, o);
   }
 
-  // Without `o`: exactly the original data-project card. A saved widget passes design, labels and options.
+  // Without `o`: the data-project card, exactly as it was.
   function card(t, accent, o) {
     var d = o && o.d;
     var L = (o && o.l) || {};
@@ -266,8 +264,6 @@
     return c;
   }
 
-  // ------------------------------------------------------------ saved widgets
-
   var reduced = function () {
     return !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
   };
@@ -277,13 +273,13 @@
     var name = family.split(",")[0];
     if (!file || fonts[name]) return;
     fonts[name] = 1;
-    // A shadow root ignores @font-face, so the rule goes into the host page's <head>.
+    // Shadow roots ignore @font-face, so it goes in the host page's <head>.
     var st = el("style", null, "@font-face{font-family:" + name + ";src:url(" + b + file + ') format("woff2");font-display:swap;font-weight:100 900}');
     st.setAttribute("data-plaudit-font", "");
     document.head.appendChild(st);
   }
 
-  // Each widget.js tag on a page runs this file again and replaces W.loaded, so the queue lives on the shared object.
+  // On W: every widget.js tag runs this file again.
   var waiting = (W.waiting = W.waiting || {});
   function need(name, b, cb) {
     if (W.layouts[name]) return cb();
@@ -342,8 +338,8 @@
     return row;
   }
 
-  // Pins (the first `from`) stay first.
   function shuffle(a, from) {
+    // The first `from` (pins) stay first.
     for (var i = a.length - 1; i > from; i--) {
       var j = from + Math.floor(Math.random() * (i - from + 1));
       var t = a[i];
@@ -353,7 +349,12 @@
     return a;
   }
 
-  // Draws a saved widget's payload into host's shadow root (the studio preview uses it too). cfg: {base, preview}.
+  function ping(b, id, k) {
+    var u = location.origin == b ? document.referrer : location.origin + location.pathname;
+    navigator.sendBeacon(b + "/api/widget/" + encodeURIComponent(id) + "/seen", JSON.stringify({ k: k, u: u }));
+  }
+
+  // Draws a saved widget into host's shadow root (the studio preview too). cfg: {base, preview, id}.
   W.mount = function (host, cfg, data) {
     cfg = cfg || {};
     if (host._plauditStop) host._plauditStop();
@@ -370,7 +371,7 @@
     var wrap = el("div", "w x " + ((w && w.design.theme) || "light"));
     root.appendChild(wrap);
     if (!w) {
-      // A deleted widget: nothing at all on the host page.
+      // Deleted: nothing on the host page.
       host.setAttribute("data-plaudit-ready", "0");
       return;
     }
@@ -386,6 +387,15 @@
       loadFont(d.fontFamily, d.fontFile, b);
     }
     if (!d.shadow) wrap.className += " ns";
+    if (cfg.id) {
+      wrap.onclick = function (e) {
+        var t = e.target.closest(".rm,.src,.b,.bd");
+        if (t && t.getAttribute("aria-expanded") != "false") ping(b, cfg.id, t.className);
+      };
+      wrap.addEventListener("play", function (e) {
+        e.target.pl || ping(b, cfg.id, "play", (e.target.pl = 1));
+      }, true);
+    }
     for (var p in css) wrap.style.setProperty(p, css[p]);
     host.setAttribute("data-layout", w.layout);
 
@@ -426,8 +436,6 @@
     });
   };
 
-  // ------------------------------------------------------------ auto start
-
   if (!script || ds.mount === "manual") return;
   var id = ds.widget;
   var slug = ds.project;
@@ -450,7 +458,8 @@
         return r.json();
       })
       .then(function (data) {
-        W.mount(host, { base: base }, data);
+        W.mount(host, { base: base, id: id }, data);
+        if (data.widget) ping(base, id, "view");
       })
       .catch(function (err) {
         console.warn("[plaudit] could not load the widget:", err);

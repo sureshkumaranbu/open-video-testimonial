@@ -61,7 +61,7 @@ describe("docs/plan/ownership.json", () => {
       ].sort(),
     );
     // Phase 2 milestones (M9 on) gate requirement IDs only; they have no work packages.
-    expect(Object.keys(manifest.milestones)).toEqual(["M1", "M2", "M3", "M4", "M5", "M6", "M7", "M9", "M10"]);
+    expect(Object.keys(manifest.milestones)).toEqual(["M1", "M2", "M3", "M4", "M5", "M6", "M7", "M9", "M10", "M11"]);
   });
 
   it("is consistent, with no file owned by two packages that run at the same time", () => {
@@ -143,20 +143,21 @@ describe("requirement coverage", () => {
     expect(coverage(["FORM-01", "FORM-02"], titles)).toEqual({ "FORM-01": [titles[2]], "FORM-02": [] });
   });
 
-  it("gates each milestone's IDs, and every ID with --all (54 from Phase 1, then M9's REQ-01..07 and M10's 8)", () => {
+  it("gates each milestone's IDs, and every ID with --all (54 from Phase 1, then M9's REQ-01..07, M10's 8 and M11's 6)", () => {
     expect(requirementsFor(manifest, "M1")).toEqual(["TEAM-04", "TEAM-05"]);
     expect(requirementsFor(manifest, "M2")).toContain("FORM-18");
     expect(requirementsFor(manifest, "M9")).toEqual(["REQ-01", "REQ-02", "REQ-03", "REQ-04", "REQ-05", "REQ-06", "REQ-07"]);
     expect(requirementsFor(manifest, "M10")).toEqual(["BOOST-01", "BOOST-02", "BOOST-03", "BOOST-04", "BOOST-05", "FORM-12", "FORM-13", "REQ-08"]);
+    expect(requirementsFor(manifest, "M11")).toEqual(["DISP-13", "DISP-14", "FORM-15", "WALL-05", "SEO-04", "AN-01"]);
     const all = requirementsFor(manifest, "all");
-    expect(all).toHaveLength(69);
+    expect(all).toHaveLength(75);
     expect(new Set(all).size).toBe(all.length);
-    expect(() => requirementsFor(manifest, "M11")).toThrow(/Unknown milestone/);
+    expect(() => requirementsFor(manifest, "M12")).toThrow(/Unknown milestone/);
   });
 
   it("prints the table and passes with --report", () => {
     const run = spawnSync(process.execPath, ["scripts/req-coverage.mjs", "--all", "--report"], { cwd: ROOT, encoding: "utf8" });
     expect(run.status).toBe(0);
-    expect(run.stdout).toMatch(/All milestones: \d+ of 69 requirements covered/);
+    expect(run.stdout).toMatch(/All milestones: \d+ of 75 requirements covered/);
   });
 });

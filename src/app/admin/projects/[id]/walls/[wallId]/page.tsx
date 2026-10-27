@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import { ObjectAnalytics } from "@/components/analytics/ObjectAnalytics";
+import { analyticsUi } from "@/lib/analytics";
 import { env } from "@/lib/env";
 import { requireFeature } from "@/lib/features";
 import { listForms } from "@/lib/forms";
@@ -44,6 +46,11 @@ export default async function WallEditorPage({ params }: { params: Promise<{ id:
           forms={listForms(project.id).map((f) => ({ id: f.id, name: f.name }))}
           featured={featured}
         />
+        {analyticsUi() && (
+          <div className="panel panel-body">
+            <ObjectAnalytics type="wall" id={wall.id} />
+          </div>
+        )}
       </main>
     </>
   );

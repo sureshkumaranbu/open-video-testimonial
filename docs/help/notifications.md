@@ -12,6 +12,7 @@ Each person on the team sets their own, and they go to the address you sign in w
 - **Weekly reminder**: on Mondays, how many testimonials are waiting for review in each project.
 - **Import summary**: when an import from a review site or another tool finishes.
 - **Monthly report**: on the 1st, last month's numbers for each project: received, approved, with video, and the average rating.
+- **A widget stops showing on your site**: a widget that was live has had no views for 7 days, with the page it was last on. Shown only while analytics is on ([analytics](analytics.md)).
 - **Projects**: all of them, or only the ones you tick.
 
 Digests, the reminder and the report go out at `DIGEST_HOUR_UTC` (8:00 UTC unless the server says otherwise), once each, even if the server restarts. Emails only go to people who have signed in at least once and can still sign in: someone removed from the team stops getting them straight away.

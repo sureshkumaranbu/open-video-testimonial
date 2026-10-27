@@ -4,6 +4,7 @@ import "@/app/admin/seo.css";
 import { useState } from "react";
 import { api, errorMessage } from "@/app/admin/api";
 import { ConfirmDialog, CopyField, EmptyState, Segmented } from "@/components/admin";
+import { ObjectAnalytics } from "@/components/analytics/ObjectAnalytics";
 import { Icon } from "@/components/Icon";
 import { SCHEMA_TYPE_LABELS, SCOPE_MODES, SEO_SCHEMA_TYPES, type ScopeMode, type SeoSchemaType } from "@/lib/seo";
 import type { AdminSnippet } from "@/lib/seo-snippets";
@@ -15,6 +16,8 @@ type Props = {
   tags: string[];
   forms: { id: string; name: string }[];
   initial: AdminSnippet[];
+  /** SEO-04: renders of each dynamic snippet in the last 30 days; absent with analytics off. */
+  renders?: Record<string, number>;
 };
 
 type Draft = {
@@ -53,7 +56,7 @@ function bodyOf(d: Draft) {
 }
 
 /** SEO-01 and SEO-02: saved snippets, each with its two codes, guidance and a result preview. */
-export function SnippetsPanel({ projectId, projectName, origin, tags, forms, initial }: Props) {
+export function SnippetsPanel({ projectId, projectName, origin, tags, forms, initial, renders }: Props) {
   const [snippets, setSnippets] = useState(initial);
   const [creating, setCreating] = useState(initial.length === 0);
   const [editing, setEditing] = useState<string | null>(null);
@@ -126,7 +129,7 @@ export function SnippetsPanel({ projectId, projectName, origin, tags, forms, ini
             }}
           />
         ) : (
-          <SnippetCard key={s.id} s={s} origin={origin} forms={forms} onEdit={() => setEditing(s.id)} onDelete={() => setDeleting(s)} />
+          <SnippetCard key={s.id} s={s} origin={origin} forms={forms} renders={renders?.[s.id]} onEdit={() => setEditing(s.id)} onDelete={() => setDeleting(s)} />
         ),
       )}
 
@@ -285,16 +288,19 @@ function SnippetCard({
   s,
   origin,
   forms,
+  renders,
   onEdit,
   onDelete,
 }: {
   s: AdminSnippet;
   origin: string;
   forms: { id: string; name: string }[];
+  renders?: number;
   onEdit: () => void;
   onDelete: () => void;
 }) {
   const [mode, setMode] = useState<"dynamic" | "static">("dynamic");
+  const [stats, setStats] = useState(false);
   return (
     <section className="panel" data-testid="snippet" data-snippet-id={s.id} aria-labelledby={`snip-${s.id}`}>
       <div className="panel-body stack">
@@ -308,6 +314,14 @@ function SnippetCard({
               <span data-testid="snippet-count">
                 {s.stats.reviews} {s.stats.reviews === 1 ? "review" : "reviews"}
               </span>
+              {renders !== undefined && (
+                <>
+                  {" · "}
+                  <span data-testid="snippet-renders">
+                    {renders.toLocaleString("en-GB")} {renders === 1 ? "render" : "renders"} in 30 days
+                  </span>
+                </>
+              )}
             </p>
           </div>
           <div className="seo-actions">
@@ -358,6 +372,12 @@ function SnippetCard({
             testId="snippet-static"
             hint="The reviews as they are now. Paste it again after you approve new ones."
           />
+        )}
+        {renders !== undefined && (
+          <details className="an-details" onToggle={(e) => setStats((e.target as HTMLDetailsElement).open)} data-testid="snippet-stats">
+            <summary>Renders by day</summary>
+            {stats && <ObjectAnalytics type="snippet" id={s.id} heading="Renders" />}
+          </details>
         )}
       </div>
     </section>

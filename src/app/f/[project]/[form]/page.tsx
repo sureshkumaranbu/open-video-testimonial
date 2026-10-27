@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
+import { recordPageView } from "@/lib/analytics";
 import { FormRunner } from "@/components/collect/FormRunner";
 import { getFormBySlug } from "@/lib/forms";
 import { runnerProps } from "@/lib/forms/runner";
@@ -41,6 +42,10 @@ export default async function FormPage({ params, searchParams }: Props) {
   // Old project or form links move on to the current ones, ?r= and all (D17).
   if (!found.canonical || found.redirectedFrom) permanentRedirect(withQuery(`/f/${project.slug}/${form.slug}`, query));
   // The classic page shows (and sends to) the default form only; any other classic form runs step by step.
-  if (form.layout === "classic" && form.isDefault) return <ClassicCollect project={project} form={form} query={query} />;
+  if (form.layout === "classic" && form.isDefault) {
+    // FORM-15: counted on the server, so the classic markup stays as it was (the step-by-step runner sends its own beacon).
+    await recordPageView({ type: "form", id: form.id, projectId: project.id });
+    return <ClassicCollect project={project} form={form} query={query} />;
+  }
   return <FormRunner {...runnerProps(project, form, query)} />;
 }

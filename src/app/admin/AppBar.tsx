@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
+import { analyticsUi } from "@/lib/analytics";
 import { LogoutButton } from "./AdminForms";
 
 /**
@@ -23,6 +24,12 @@ export function AppBar({ trail }: { trail?: { href?: string; label: string }[] }
           ))}
         </nav>
         <div className="app-bar-actions">
+          {analyticsUi() && (
+            <Link href="/admin/analytics" className="button ghost small" aria-label="Analytics">
+              <Icon name="chart" />
+              <span className="hide-narrow">Analytics</span>
+            </Link>
+          )}
           <Link href="/admin/settings" className="button ghost small" aria-label="Settings">
             <Icon name="sliders" />
             <span className="hide-narrow">Settings</span>

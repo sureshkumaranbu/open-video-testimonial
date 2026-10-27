@@ -6,7 +6,27 @@ import { env } from "./env";
  */
 const buckets = new Map<string, { count: number; resetAt: number }>();
 
+/**
+ * Public endpoints (beacons, webhooks) key buckets by address, so expired
+ * ones are swept every so often and the map has a ceiling: requests from
+ * many addresses can't grow memory without end. Past the ceiling the oldest
+ * buckets go first, which only makes limiting more lenient for a moment.
+ */
+const SWEEP_EVERY = 1000;
+const MAX_BUCKETS = 100_000;
+let sinceSweep = 0;
+
+function sweep(now: number) {
+  sinceSweep = 0;
+  for (const [key, b] of buckets) if (b.resetAt <= now) buckets.delete(key);
+  for (const key of buckets.keys()) {
+    if (buckets.size <= MAX_BUCKETS) break;
+    buckets.delete(key);
+  }
+}
+
 export function rateLimit(key: string, limit: number, windowMs: number, now = Date.now()) {
+  if (++sinceSweep >= SWEEP_EVERY || buckets.size > MAX_BUCKETS) sweep(now);
   const bucket = buckets.get(key);
   if (!bucket || bucket.resetAt <= now) {
     buckets.set(key, { count: 1, resetAt: now + windowMs });
@@ -54,16 +74,21 @@ const PEER_HEADER = "x-plaudit-peer";
  * appended: N from the end. Anything to the left of it is client-supplied.
  */
 export function clientIp(req: Request): string | null {
+  return clientIpFrom(req.headers);
+}
+
+/** clientIp() for a server page, which has the request's headers (next/headers) rather than the Request. */
+export function clientIpFrom(headers: Pick<Headers, "get">): string | null {
   const peerTrusted = (globalThis as { __plauditPeerHeader?: boolean }).__plauditPeerHeader === true;
-  const peer = (peerTrusted && req.headers.get(PEER_HEADER)) || null;
+  const peer = (peerTrusted && headers.get(PEER_HEADER)) || null;
   const hops = env.trustProxyHops;
   if (hops > 0) {
-    const chain = (req.headers.get("x-forwarded-for") || "")
+    const chain = (headers.get("x-forwarded-for") || "")
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
     if (chain.length >= hops) return chain[chain.length - hops];
-    const realIp = req.headers.get("x-real-ip")?.trim();
+    const realIp = headers.get("x-real-ip")?.trim();
     if (realIp) return realIp;
   }
   return peer;
@@ -76,4 +101,8 @@ export function clientKey(req: Request) {
 
 export function resetRateLimits() {
   buckets.clear();
+  sinceSweep = 0;
 }
+
+/** How many buckets are held (for tests). */
+export const rateLimitBucketCount = () => buckets.size;

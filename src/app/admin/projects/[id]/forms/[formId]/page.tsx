@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import { ObjectAnalytics } from "@/components/analytics/ObjectAnalytics";
+import { analyticsUi } from "@/lib/analytics";
 import { env } from "@/lib/env";
 import { requireFeature } from "@/lib/features";
 import { getForm } from "@/lib/forms";
@@ -55,6 +57,11 @@ export default async function FormBuilderPage({
           limits={{ maxVideoBytes: env.maxVideoBytes, maxImageBytes: env.maxImageBytes }}
           initialTab={TABS.includes(tab as BuilderTab) ? (tab as BuilderTab) : "content"}
         />
+        {analyticsUi() && (
+          <div className="panel panel-body">
+            <ObjectAnalytics type="form" id={form.id} />
+          </div>
+        )}
       </main>
     </>
   );

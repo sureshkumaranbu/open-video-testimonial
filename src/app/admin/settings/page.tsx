@@ -1,4 +1,5 @@
 import { WEBHOOK_EVENTS } from "@/db/schema";
+import { analyticsUi } from "@/lib/analytics";
 import { env } from "@/lib/env";
 import { featureOn } from "@/lib/features";
 import { callbackUrl } from "@/lib/oidc";
@@ -103,7 +104,7 @@ export default async function SettingsPage() {
 
         <Team you={session} canInvite={signIn.email || signIn.google || signIn.apple} emailOn={signIn.email} />
 
-        {featureOn("notifications") && <Notifications email={session.email} projects={projects} />}
+        {featureOn("notifications") && <Notifications email={session.email} projects={projects} widgetAlerts={analyticsUi()} />}
 
         <Settings apiBase={`${env.publicUrl}/api/v1`} events={[...WEBHOOK_EVENTS]} projects={projects} forms={forms} />
       </main>

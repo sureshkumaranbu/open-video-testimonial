@@ -6,15 +6,15 @@ The one place that says what is built, what is left and what comes next. Update 
 - **How Phase 1 was built:** [v1-implementation-plan.md](v1-implementation-plan.md) (milestones M1–M7, decisions D1–D24).
 - **Is every requirement tested?** `node scripts/req-coverage.mjs --all` checks that every Phase 1 ID appears in a test title.
 
-Last updated: 2026-10-27 (after M10).
+Last updated: 2026-10-27 (after M11).
 
 ## Where things are
 
 | Item | State |
 |---|---|
-| `main` | Phase 1 (#14), M8 ([#15](https://github.com/sureshkumaranbu/open-video-testimonial/pull/15), b5648a6) and M9 ([#16](https://github.com/sureshkumaranbu/open-video-testimonial/pull/16), 68977c5), all merged on 2026-10-27 |
-| Open PRs | M10 (`plaudit/m10-booster`) |
-| Tests | 842 unit tests pass on the M10 branch (6 MinIO tests run only in CI). Locally: Chromium e2e green apart from 4 recorder tests that timed out under load and passed on a rerun, and WebKit e2e 143 passed. Requirement coverage: 69 of 69 (Phase 1, M9 and M10). CI runs Chromium and WebKit; four video tests skip in Linux WebKit, whose media stack differs from Safari's (they run in Chromium and in WebKit on macOS). |
+| `main` | Phase 1 (#14), M8 ([#15](https://github.com/sureshkumaranbu/open-video-testimonial/pull/15), b5648a6), M9 ([#16](https://github.com/sureshkumaranbu/open-video-testimonial/pull/16), 68977c5) and M10 ([#17](https://github.com/sureshkumaranbu/open-video-testimonial/pull/17), 1927357), all merged on 2026-10-27 |
+| Open PRs | M11 (`plaudit/m11-analytics`) |
+| Tests | 864 unit tests pass on the M11 branch (6 MinIO tests run only in CI). Locally: Chromium e2e green apart from 4 recorder tests that timed out under load and passed on a rerun, and WebKit e2e 143 passed. Requirement coverage: 75 of 75 (Phase 1 and M9–M11). CI runs Chromium and WebKit; four video tests skip in Linux WebKit, whose media stack differs from Safari's (they run in Chromium and in WebKit on macOS). |
 | Local demo | `plaudit-v1-demo` in `Development/.claude/launch.json`, http://127.0.0.1:3300 |
 
 ## Phase 1: "Parity core" (P0). Done.
@@ -51,6 +51,7 @@ These are either partly done or need something from Suresh.
 | L13 | The recorder e2e tests can time out when the whole suite runs on a busy machine | Flaky locally, passes alone | — |
 | L14 | Zip export/import doesn't include campaigns, boosters, booster clicks or reward codes yet (campaign recipients come across as ordinary requests) | Not built | — |
 | L15 | QR codes with a logo in the centre haven't been scanned with a real phone; Google Places search is tested only against a mock | Unverified | A phone scan; a Places API key if you want business search |
+| L16 | No `/api/v1` endpoint for reading analytics yet | Not built (fits M14's API work) | — |
 
 ## Phase 2: "Growth" (P1). In progress.
 
@@ -60,9 +61,9 @@ Proposed order. Each milestone is one branch, one agent, then one review, to kee
 |---|---|---|---|
 | M8 Phase 1 close-out | L4–L8 above, plus the real Senja export (L2) | INBOX-08, FORM-14 | **Merged** (#15) |
 | M9 Campaigns and auto-collect | Email campaigns with recipients from CSV or customers, preview and test send, per-recipient tracking, decline link, `POST /api/v1/invites` and an incoming webhook, invite webhooks | REQ-01..07 | **Merged** (#16). Decisions: native Stripe/Shopify triggers moved to M14; open tracking is opt-in per campaign; "No thanks" asks for one confirming click (mail scanners open every link); unsubscribe now covers the whole project; the webhook is capped at 120 a minute and 2,000 a day |
-| M10 Review booster, rewards, low-rating branch | Link page for Google and other review sites, Google review link helper, QR codes, link clicks; rewards and unique codes; opt-in private feedback for low ratings | BOOST-01..05, FORM-12, FORM-13, REQ-08 | Built and reviewed; PR open. Booster pages live at `/b/<project>/<booster>` as plain HTML with no scripts (under 50 KB); renamed boosters keep old links and QR codes working. Rewards never depend on the rating (a 1-star feedback gets the same reward, FTC/Google rules); booster links never carry a reward. Reward codes are claimed atomically, and the wheel is spun on the server. Rewards and the low-rating branch need a step-by-step form |
-| M11 Analytics | Install detection, widget and wall analytics, form analytics, snippet analytics, the `/admin/analytics` dashboard (cookieless) | DISP-13, DISP-14, FORM-15, WALL-05, SEO-04, AN | Next |
-| M12 Video and sharing | Trim, poster frame, replace and download video; single testimonial page; image studio and social share; custom CSS | VID-01..04, WALL-04, SHARE-01..03, DISP-08 | Planned |
+| M10 Review booster, rewards, low-rating branch | Link page for Google and other review sites, Google review link helper, QR codes, link clicks; rewards and unique codes; opt-in private feedback for low ratings | BOOST-01..05, FORM-12, FORM-13, REQ-08 | **Merged** (#17). Booster pages live at `/b/<project>/<booster>` as plain HTML with no scripts (under 50 KB); renamed boosters keep old links and QR codes working. Rewards never depend on the rating (a 1-star feedback gets the same reward, FTC/Google rules); booster links never carry a reward. Reward codes are claimed atomically, and the wheel is spun on the server. Rewards and the low-rating branch need a step-by-step form |
+| M11 Analytics | Install detection, widget and wall analytics, form analytics, snippet analytics, the `/admin/analytics` dashboard (cookieless) | DISP-13, DISP-14, FORM-15, WALL-05, SEO-04, AN-01 | Built and reviewed; PR open. No cookies: a visitor is a hash of IP + browser + project with a random salt that changes daily and is deleted after 2 days; paths never keep query strings; raw events kept 30 days, daily totals forever; `ANALYTICS=off` turns it all off. widget.js stays under budget (core 7,147 B gzipped). "Removed" alerts come from an hourly job, so they can be up to an hour late |
+| M12 Video and sharing | Trim, poster frame, replace and download video; single testimonial page; image studio and social share; custom CSS | VID-01..04, WALL-04, SHARE-01..03, DISP-08 | Next |
 | M13 Import and inbox growth | Auto-sync, XLSX and paste import, the remaining importers; duplicates and merge, customer records, translations, AI search (your own provider) | IMP-02, IMP-04, INBOX-11..14 | Planned |
 | M14 Team, API and integrations | Roles, audit log, generic OIDC; API CRUD for forms, widgets, walls and campaigns; Zapier, Make and n8n, MCP server, WordPress plugin, React package; native Stripe and Shopify triggers for campaigns | TEAM-01..03, API §19, INT-03..07 | Planned |
 | Cloud (separate repo) | Billing, badge, agency workspaces, custom domains, plan limits | CLOUD-01..03, WALL-06, IMP-06 | Not in this repo |

@@ -2,6 +2,7 @@
 
 import "./runner.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { beacon } from "@/components/analytics/beacon";
 import { fontFaceCss, formDesignStyle } from "@/lib/forms/design";
 import {
   emptyAnswers,
@@ -148,6 +149,27 @@ export function FormRunner(props: FormRunnerProps) {
   const shown: FormPage | undefined = preview && props.previewPage !== undefined ? form.pages[props.previewPage] : steps[Math.min(step, steps.length - 1)];
   const atStep = shown ? steps.indexOf(shown) : -1;
   const isLast = atStep === steps.length - 1;
+
+  // FORM-15: a view per page load, then each page the first time it's reached (by its index in
+  // form.pages; the low-rating step comes after them all), and a start on reaching the second.
+  // Cookieless (docs/help/analytics.md); the server counts the completion when the form is sent.
+  const reached = useRef<Set<number> | null>(null);
+  useEffect(() => {
+    if (preview || !shown || done || resume) return;
+    if (!reached.current) {
+      reached.current = new Set();
+      beacon({ t: "form", id: form.id, k: "view" });
+    }
+    const at = form.pages.indexOf(shown);
+    const index = at === -1 ? form.pages.length : at;
+    if (reached.current.has(index)) return;
+    reached.current.add(index);
+    beacon({ t: "form", id: form.id, k: "step", s: index });
+    if (atStep > 0 && !reached.current.has(-1)) {
+      reached.current.add(-1);
+      beacon({ t: "form", id: form.id, k: "start" });
+    }
+  }, [preview, shown, done, resume, atStep, form.id, form.pages]);
 
   const ctx: StepCtx = {
     state,

@@ -11,6 +11,7 @@ How to use each part of the Plaudit dashboard. Every section is on by default; `
 | [Walls and SEO](walls.md) | Wall of Love pages, the editor, the main wall, review snippets and search engines |
 | [Review booster](booster.md) | A page of review-site buttons with a QR code to print, the Google review link helper, and click counts |
 | [Campaigns](campaigns.md) | Email campaigns: wording and reminders, recipients, the preview and test send, tracking, "No thanks", and auto-collect from the API or a webhook |
+| [Analytics](analytics.md) | The dashboard, widget install alerts, form drop-off, wall and snippet numbers, and exactly what is (and isn't) collected |
 | [Notifications](notifications.md) | Your own emails, digests and reports, and Slack, Discord, Teams and Telegram channels |
 
 Elsewhere in `docs/`: [importing](../IMPORT.md), [embedding a form](../EMBED.md), [embedding widgets](../embeds/README.md), [email setup](../EMAIL.md), [sign-in and team](../AUTH.md) and the [REST API and webhooks](../API.md).

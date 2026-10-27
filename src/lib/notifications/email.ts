@@ -14,7 +14,7 @@ const { testimonials, projects } = schema;
  * testimonial deleted in between is simply left out.
  */
 
-export type MailKind = "instant" | "daily" | "weekly" | "monthly" | "import";
+export type MailKind = "instant" | "daily" | "weekly" | "monthly" | "import" | "widget-removed";
 
 const SETTINGS_LINE = () => `\n—\nYou get this because of your notification settings: ${env.publicUrl}/admin/settings#notifications`;
 
@@ -129,6 +129,21 @@ export function importMail(to: string, run: Pick<TaskRun, "id" | "projectId" | "
     to,
     subject: `Import finished for ${clip(name, 80)}: ${run.done} new`,
     text: `The import from ${run.subject ?? "a review site"} has finished: ${parts.join(", ")}.\n\n${env.publicUrl}/admin/projects/${run.projectId}\n${SETTINGS_LINE()}\n`,
+  };
+}
+
+/** DISP-13: a widget that was live hasn't been seen for 7 days. Null once it's back or deleted (the job may have waited). */
+export function widgetRemovedMail(to: string, widgetId: string) {
+  const w = getDb().select().from(schema.widgets).where(eq(schema.widgets.id, widgetId)).get();
+  if (!w || w.deletedAt || !w.removedAt) return null;
+  const page = w.lastSeenOrigin ? `${w.lastSeenOrigin}${w.lastSeenPath ?? ""}` : "your site";
+  const since = w.lastSeenAt ? w.lastSeenAt.toISOString().slice(0, 10) : "a while";
+  return {
+    to,
+    subject: `Your widget “${clip(w.name, 60)}” seems to be off your site`,
+    text:
+      `The widget “${w.name}” (${projectName(w.projectId)}) was last seen on ${page} on ${since}, and no page has shown it in the 7 days since.\n\n` +
+      `If you took it off on purpose, there's nothing to do. Otherwise check that the embed code is still on the page:\n${env.publicUrl}/admin/projects/${w.projectId}/widgets/${w.id}\n${SETTINGS_LINE()}\n`,
   };
 }
 
