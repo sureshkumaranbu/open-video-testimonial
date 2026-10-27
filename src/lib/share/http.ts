@@ -1,11 +1,12 @@
 import { jsonError } from "../http";
 import { UnsupportedMediaError, UploadError } from "../storage";
+import type { Project } from "@/db/schema";
 import { getProjectById } from "../testimonials";
 import { ShareError } from "./render";
 import { ShareStoreError } from "./store";
 
 /** The URL's project, or a 404 answer. */
-export function projectOr404(id: string) {
+export function projectOr404(id: string): { project: Project } | { response: Response } {
   const project = getProjectById(id);
   return project ? { project } : { response: jsonError(404, "Project not found") };
 }

@@ -3,6 +3,8 @@ import { z } from "zod";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import type { Project, Widget, WidgetLayout } from "@/db/schema";
+import { cssForWidget, sanitizeCss } from "./custom-css";
+import { env } from "./env";
 import { formUrl, getForm } from "./forms";
 import {
   LAYOUTS,
@@ -78,6 +80,7 @@ export function widgetConfig(w: Widget): WidgetConfig {
     labels: json(w.labels),
     cta,
     aggregate,
+    css: w.customCss,
   });
 }
 
@@ -91,6 +94,8 @@ function configColumns(cfg: WidgetConfig) {
     design: JSON.stringify(cfg.design),
     labels: JSON.stringify(cfg.labels),
     options: JSON.stringify({ ...cfg.options, cta: cfg.cta, aggregate: cfg.aggregate }),
+    // DISP-08: stored cleaned, so the studio shows exactly what applies.
+    customCss: sanitizeCss(cfg.css, { origin: env.publicUrl }),
     configVersion: cfg.v,
   };
 }
@@ -242,6 +247,8 @@ export function toPublicWidget(
     cta: cfg.cta.enabled && ctx.cta ? { mode: cfg.cta.mode, url: ctx.cta.url, embedUrl: ctx.cta.embedUrl } : null,
     aggregate: { show: cfg.aggregate.show },
     wallUrl: ctx.wallUrl,
+    // Cleaned again on the way out (the preview sends unsaved CSS), with its own-server url()s made absolute.
+    css: cfg.css ? cssForWidget(cfg.css, env.publicUrl) : "",
   };
 }
 

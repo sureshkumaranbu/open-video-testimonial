@@ -367,7 +367,7 @@
     while (root.firstChild) root.removeChild(root.firstChild);
     var b = cfg.base || base;
     var w = data.widget;
-    root.appendChild(el("style", null, CSS + XCSS));
+    root.appendChild(el("style", null, CSS + XCSS + ((w && w.css) || "")));
     var wrap = el("div", "w x " + ((w && w.design.theme) || "light"));
     root.appendChild(wrap);
     if (!w) {
