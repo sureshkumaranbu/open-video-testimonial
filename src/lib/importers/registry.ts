@@ -1,4 +1,5 @@
 import { env } from "../env";
+import { featureOn } from "../features";
 import { fetchPublicText } from "../net-guard";
 import { appstore } from "./sources/appstore";
 import { capterra } from "./sources/capterra";
@@ -12,6 +13,7 @@ import { testimonialTo } from "./sources/testimonial-to";
 import { trustpilot } from "./sources/trustpilot";
 import { website } from "./sources/website";
 import { x } from "./sources/x";
+import { M13_ADAPTERS } from "./sources/m13";
 import { ADAPTER_IDS, type AdapterId, type ImportCtx, type ImporterAdapter, type InputField } from "./types";
 
 /** Every importer, by id. A new source is one line here plus its file in sources/. */
@@ -28,6 +30,7 @@ const ADAPTERS: Record<AdapterId, ImporterAdapter> = {
   senja,
   shapo,
   website: { ...website, unlisted: true },
+  ...M13_ADAPTERS,
 };
 
 export function isAdapterId(id: unknown): id is AdapterId {
@@ -49,6 +52,10 @@ export type ImporterInfo = {
   fields: InputField[];
   /** Takes a saved copy of the page when the site blocks us. */
   acceptsHtml: boolean;
+  /** Only a saved copy of the page works (a login wall, or terms that forbid automated visits). */
+  savedPageOnly: boolean;
+  /** "Keep this in sync" is offered (IMP-02): a platform source identified by a URL or an ID. */
+  canSync: boolean;
   upload: ImporterAdapter["upload"] | null;
   available: boolean;
   missing?: string;
@@ -56,7 +63,7 @@ export type ImporterInfo = {
 
 export function listImporters(): ImporterInfo[] {
   return ADAPTER_IDS.map((id) => ADAPTERS[id])
-    .filter((a) => !a.unlisted)
+    .filter((a) => !a.unlisted && (!a.feature || featureOn(a.feature)))
     .map((a) => {
       const missing = a.unavailable?.() ?? null;
       return {
@@ -68,11 +75,18 @@ export function listImporters(): ImporterInfo[] {
         tosNotes: a.tosNotes,
         fields: a.fields,
         acceptsHtml: Boolean(a.parseHtml),
+        savedPageOnly: Boolean(a.savedPageOnly),
+        canSync: canSync(a),
         upload: a.upload ?? null,
         available: !missing,
         ...(missing ? { missing } : {}),
       };
     });
+}
+
+/** IMP-02: only review sites read by a URL or an ID can be kept in sync; files and saved pages can't be fetched again. */
+export function canSync(a: ImporterAdapter) {
+  return a.kind === "platform" && !a.savedPageOnly && !a.unlisted && a.fields.length > 0;
 }
 
 /**

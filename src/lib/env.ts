@@ -246,6 +246,14 @@ export const env = {
   get productHuntToken() {
     return process.env.PRODUCT_HUNT_TOKEN || "";
   },
+  /** Your own YouTube Data API v3 key, for importing a video's comments (M13); without it a video link imports as itself. */
+  get youtubeApiKey() {
+    return process.env.YOUTUBE_API_KEY || "";
+  },
+  /** Your own Etsy Open API v3 key (keystring), for importing your shop's reviews (M13). */
+  get etsyApiKey() {
+    return process.env.ETSY_API_KEY || "";
+  },
   /** Days a trashed testimonial is kept before it's deleted for good. */
   get trashRetentionDays() {
     const n = Number(process.env.TRASH_RETENTION_DAYS || 30);

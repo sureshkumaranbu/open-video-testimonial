@@ -22,6 +22,7 @@ const METHOD_LABEL: Record<ImporterInfo["method"], string> = {
   oembed: "Official embed",
   file: "Export file",
   "api-key": "Your API key",
+  "saved-page": "A page you save",
 };
 
 /**
@@ -122,7 +123,7 @@ export function ImportWizard({ projectId, importer, onClose, onImported }: { pro
       {importer.acceptsHtml && (
         <label className="button secondary small imp-file">
           <Icon name="upload" />
-          Upload the saved page instead
+          {importer.savedPageOnly ? "Upload the saved page" : "Upload the saved page instead"}
           <input
             type="file"
             accept=".html,.htm,text/html"
@@ -286,6 +287,11 @@ export function ImportWizard({ projectId, importer, onClose, onImported }: { pro
                 {importer.missing}. Add it to the server’s settings, then reload this page{importer.upload || importer.acceptsHtml ? ", or upload a file below" : ""}.
               </p>
             )}
+            {importer.savedPageOnly && (
+              <p className="small" data-testid="import-saved-only">
+                Plaudit doesn’t visit {importer.label} itself. Save the page with the reviews showing, then upload it below.
+              </p>
+            )}
             {importer.fields.map((f) => (
               <label key={f.key} className="imp-field">
                 <span>
@@ -345,11 +351,13 @@ export function ImportWizard({ projectId, importer, onClose, onImported }: { pro
                 {error.blocked && importer.acceptsHtml ? " Upload the saved page instead (below)." : ""}
               </p>
             )}
-            <div className="row">
-              <button type="submit" className="button small" disabled={busy || (!importer.available && importer.fields.length > 0)} data-testid="import-preview-button">
-                {busy ? "Fetching…" : "Preview"}
-              </button>
-            </div>
+            {!importer.savedPageOnly && (
+              <div className="row">
+                <button type="submit" className="button small" disabled={busy || (!importer.available && importer.fields.length > 0)} data-testid="import-preview-button">
+                  {busy ? "Fetching…" : "Preview"}
+                </button>
+              </div>
+            )}
             {uploadBox}
           </form>
         )}
