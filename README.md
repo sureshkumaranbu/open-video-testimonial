@@ -79,8 +79,10 @@ More: [settings (API keys and webhooks)](docs/screenshots/settings.png) · [impo
 
 **Connecting**
 
-- **REST API** with read-only or read-write keys, and an OpenAPI 3.1 description.
+- **REST API** with read-only or read-write keys, and an OpenAPI 3.1 description: testimonials, invites, and (flag `api2`) forms, widgets, walls, campaigns, tags, customers, feedback and analytics.
 - **Signed webhooks** for n8n, Zapier, Make and Activepieces, with retries and a delivery log.
+- **An MCP server** at `/mcp` (flag `mcp`), so Claude and other AI assistants can find quotes, give embed codes, summarize and send invites with an API key ([`docs/help/mcp.md`](docs/help/mcp.md)).
+- **Integrations** in [`integrations/`](integrations/README.md): a WordPress plugin (block, shortcodes, SEO mode, site-wide toast), a Zapier app, n8n and Make templates; and React components in [`packages/react/`](packages/react/README.md). Not in their marketplaces yet.
 - **Import and export.** One .zip holds everything (data, consent history and media) and can be imported on any Plaudit server. There's also CSV import with a column mapper, for spreadsheets and exports from other testimonial tools.
 
 **Running**
@@ -178,6 +180,10 @@ Every setting is an environment variable, read from `.env` (Node) or `docker-com
 | `PASSWORD_LOGIN` | `true` | `false` turns off password sign-in once another method works |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_HOSTED_DOMAIN` | unset | Sign in with Google ([setup](docs/AUTH.md#google)) |
 | `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` (or `APPLE_PRIVATE_KEY_FILE`) | unset | Sign in with Apple ([setup](docs/AUTH.md#apple)) |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | unset | Single sign-on with any OpenID Connect provider (Okta, Microsoft Entra ID, Authentik, Keycloak…), found through its discovery document ([setup](docs/AUTH.md#single-sign-on-oidc)) |
+| `OIDC_LABEL`, `OIDC_SCOPES` | `single sign-on`, `openid email profile` | The button's name ("Continue with …") and the scopes asked for |
+| `OIDC_EMAIL_DOMAINS` | unset | Only accept addresses at these domains from the OIDC provider (comma-separated). It lets no one in by itself |
+| `OIDC_TRUST_EMAIL` | `false` | `true` accepts addresses the provider doesn't mark `email_verified` (Entra ID leaves the claim out). Only for a provider whose addresses you control |
 | `SESSION_SECRET` | none (required) | Signs session cookies and personal links. At least 16 characters. Changing it signs everyone out and invalidates old request links |
 | `PUBLIC_URL` | `http://localhost:3000` | Used in links, emails, embed snippets and the API |
 | `DATA_DIR` | `./data` (`/data` in Docker) | The SQLite database, uploads and temporary files |
@@ -202,7 +208,7 @@ Every setting is an environment variable, read from `.env` (Node) or `docker-com
 | `S3_FORCE_PATH_STYLE` | `false` | `true` puts the bucket in the path (`https://host/bucket/…`) instead of the host name. MinIO usually needs it |
 | `S3_PREFIX` | none | A folder inside the bucket for Plaudit's files, such as `plaudit` |
 | `TRASH_RETENTION_DAYS` | `30` | Days a testimonial stays in the trash before it's deleted for good |
-| `PLAUDIT_FEATURES` | `all` | Which [sections](#turning-sections-off) the dashboard shows: `all`, `none`, or a comma-separated list of `forms`, `inbox2`, `widgets`, `walls`, `importers`, `notifications`, `onboarding`, `campaigns`, `booster`, `analytics` and `share` |
+| `PLAUDIT_FEATURES` | `all` | Which [sections](#turning-sections-off) the dashboard shows: `all`, `none`, or a comma-separated list of `forms`, `inbox2`, `widgets`, `walls`, `importers`, `notifications`, `onboarding`, `campaigns`, `booster`, `analytics`, `share`, `api2` and `mcp` |
 | `ANALYTICS` | on | `off` stops all analytics: nothing is collected or stored, and the analytics pages are hidden. Cookieless either way ([what's collected](docs/help/analytics.md)) |
 | `DIGEST_HOUR_UTC` | `8` | The hour (UTC, 0 to 23) when daily digests, the Monday reminder and the monthly report go out ([notifications](docs/help/notifications.md)) |
 | `GOOGLE_PLACES_API_KEY` | unset | Your own Google Cloud key with **Places API (New)** enabled, for the Google review importer (see [docs/IMPORT.md](docs/IMPORT.md)) and the review booster's business search ([docs/help/booster.md](docs/help/booster.md)); called from the server only |
@@ -219,6 +225,7 @@ The owner signs in with `ADMIN_EMAIL` and `ADMIN_PASSWORD`. **[Sign-in and your 
 - **Email links**: no password, just a link that works once. Needs [email](#email-requests-reminders-and-receipts).
 - **Sign in with Google**, including Google Workspace.
 - **Sign in with Apple**. This needs a paid Apple Developer membership and an HTTPS domain.
+- **Single sign-on** with your company's OpenID Connect provider: Okta, Microsoft Entra ID, Authentik, Keycloak and others.
 - **Teammates**: invite them in **Settings → Team**, or let in a list of addresses (`ADMIN_EMAILS`) or a whole domain (`ALLOWED_EMAIL_DOMAINS`).
 
 Only the methods you set up appear on the sign-in page. Once one works, `PASSWORD_LOGIN=false` turns off the password.
@@ -322,6 +329,8 @@ Create API keys and webhooks under **Settings**. [`docs/API.md`](docs/API.md) co
 - how to verify signatures, in Node.js and Python
 - connecting n8n
 
+AI assistants connect to the MCP server at `/mcp` with a key ([`docs/help/mcp.md`](docs/help/mcp.md)). The WordPress plugin, the Zapier app, the n8n and Make templates and `@plaudit/react` are described in [`docs/help/wordpress.md`](docs/help/wordpress.md) and [`docs/help/integrations.md`](docs/help/integrations.md).
+
 ### Turning sections off
 
 Forms, the new inbox, the widget studio, walls, importers, notifications, the setup guide, campaigns, the review booster, analytics and the image studio are all on. To hide some (while your team gets used to the rest, say), list only the ones you want in `PLAUDIT_FEATURES` and restart, or set it to `none`:
@@ -338,9 +347,11 @@ Forms, the new inbox, the widget studio, walls, importers, notifications, the se
 | `campaigns` | **Campaigns**: email campaigns with your own wording, sender, button and reminder days, recipients from a CSV or your customers, a live preview and test send, a funnel (sent, opened if you opt in, clicked, started, responded, declined), and auto-collect through `POST /api/v1/invites` or an incoming webhook ([`docs/help/campaigns.md`](docs/help/campaigns.md)) |
 | `booster` | **Review booster**: pages of “Leave us a review” buttons (Google, Trustpilot, Yelp, Facebook, G2, Capterra, Tripadvisor, App Store, Google Play, any link or one of your forms) at `/b/<project>/<page>`, with a live preview, a Google review link helper, QR codes with your logo and print sizes, and cookieless click counts per day. Every visitor sees every link ([`docs/help/booster.md`](docs/help/booster.md)) |
 | `share` | **Image studio**: images of 1, 3 or 6 testimonials in 14 templates of our own, with wording for the image only, colours, backgrounds, your logo and every social size (or your own), drawn on your server; PNG, JPEG, ZIP or copy; saved templates and the brand kit; “Share to X / LinkedIn” downloads the image and opens the site's own post page. Also **Create image** in the inbox drawer ([`docs/help/share.md`](docs/help/share.md)). Testimonials' own pages (`/t/<id>`) follow `walls`, and the video tools (trim, poster, replace, download; [`docs/help/video.md`](docs/help/video.md)) follow `inbox2` |
+| `api2` | **API, part 2**: the `/api/v1` paths for forms, widgets, walls, campaigns (and their recipients), tags, customers, private feedback and analytics. They make the same checks as the dashboard. Off, those paths answer 404 and `openapi.json` leaves them out ([`docs/API.md`](docs/API.md)) |
+| `mcp` | **MCP server** at `/mcp` for AI assistants, and its address under **Settings › API keys**. Off, `/mcp` answers 404 ([`docs/help/mcp.md`](docs/help/mcp.md)) |
 | `analytics` | **Analytics**: a dashboard at `/admin/analytics` (a period compared with the one before; new testimonials by source, the review backlog, average rating, widget views, visitors and clicks, form views and completions, wall views and CTA clicks, booster clicks, snippet renders and the invite funnel; sortable tables), panels on each widget, form and wall, and an alert when a widget stops showing on your site. Cookieless: a daily-salted hash instead of cookies, raw events kept 30 days, daily totals kept. `ANALYTICS=off` turns collection off too ([`docs/help/analytics.md`](docs/help/analytics.md)) |
 
-`PLAUDIT_FEATURES=all` (the default) turns on every one. A flag only shows or hides pages: your data, the API and the public pages behave the same either way.
+`PLAUDIT_FEATURES=all` (the default) turns on every one. A flag only shows or hides pages: your data, the API and the public pages behave the same either way. The exceptions are `api2` and `mcp`, which turn their endpoints on and off.
 
 ## Embedding
 
@@ -445,6 +456,7 @@ The Playwright run starts the server with these settings, so every feature is te
 | `e2e/seo.spec.ts` | Review snippets: static and dynamic code on another site, guidance below 5 reviews, changing the scope |
 | `e2e/security-walls.spec.ts` | Walls: headers and CSP on pages and images, drafts 404 everywhere, hostile text in cards and JSON-LD, no CSP violations in the editor |
 | `e2e/video-share.spec.ts` | Video tools (trim with the waveform, poster frame, replace, downloads), a testimonial's own page and its image, the image studio from the drawer to a share intent, custom widget CSS on a cross-origin page, wall favicon, analytics and verification with its CSP |
+| `e2e/team-api.spec.ts` | Single sign-on through a stand-in OpenID provider (allowed, refused, unverified), the API's new paths and the MCP server with a key made in Settings |
 | `e2e/analytics.spec.ts` | Analytics: widget beacons from another site (only the app's origin contacted, no query kept), "Live on" and the removed alert, form drop-off and the classic page, wall CTA clicks, snippet renders, the dashboard at 360 px and in the dark theme, empty states |
 
 To test a running instance instead, for example `docker compose up`, set `E2E_BASE_URL=http://127.0.0.1:3000`. Its `E2E_ADMIN_EMAIL` and `E2E_ADMIN_PASSWORD` must match that instance's admin credentials. Tests that need the outbox, the stand-in transcriber or a local webhook receiver skip themselves when those aren't available. `UPDATE_SCREENSHOTS=1` refreshes the images in `docs/screenshots/`.
@@ -458,10 +470,12 @@ To test a running instance instead, for example `docker compose up`, set `E2E_BA
 | `src/db/` | Drizzle schema. SQL migrations are in `drizzle/` |
 | `public/widget.js` | The embed script (plain JavaScript, no build step) |
 | `tests/` | Vitest. `e2e/` holds Playwright |
+| `packages/react/` | `@plaudit/react` (built with `tsc`; its tests run in `npm test`) |
+| `integrations/` | The WordPress plugin, the Zapier app, and n8n and Make templates |
 
 ## Project docs
 
-- [`docs/AUTH.md`](docs/AUTH.md): sign-in with Google, Apple or an email link, and your team.
+- [`docs/AUTH.md`](docs/AUTH.md): sign-in with Google, Apple, single sign-on (OIDC) or an email link, and your team.
 - [`docs/EMAIL.md`](docs/EMAIL.md): setting up email.
 - [`docs/API.md`](docs/API.md): REST API and webhooks.
 - [`docs/help/`](docs/help/README.md): the dashboard guides (getting started, forms, the inbox, widgets, walls and SEO, notifications); [`docs/EMBED.md`](docs/EMBED.md): embedding a form on your site; [`docs/IMPORT.md`](docs/IMPORT.md): importers.

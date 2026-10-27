@@ -9,6 +9,7 @@ Out of the box, the owner signs in with the email and password in `.env` (`ADMIN
 | [Email link](#email-link) | Email set up ([guide](EMAIL.md)) | Everyone. No passwords to remember |
 | [Google](#google) | A free Google Cloud project | Teams on Gmail or Google Workspace |
 | [Apple](#apple) | A **paid** Apple Developer Program membership and an HTTPS domain | People who prefer Apple, including Hide My Email |
+| [Single sign-on (OIDC)](#single-sign-on-oidc) | An OpenID Connect provider: Okta, Microsoft Entra ID, Authentik, Keycloak, Zitadel… | Teams that sign in to everything through one company account |
 
 The sign-in page shows only the methods that are set up. **Settings → This server** lists each one as On or Off, and says what's missing.
 
@@ -16,6 +17,7 @@ The sign-in page shows only the methods that are set up. **Settings → This ser
 - [Email link](#email-link)
 - [Google](#google)
 - [Apple](#apple)
+- [Single sign-on (OIDC)](#single-sign-on-oidc)
 - [Turning the password off](#turning-the-password-off)
 - [Trying it on your own computer](#trying-it-on-your-own-computer)
 - [Troubleshooting](#troubleshooting)
@@ -30,14 +32,14 @@ You can let people in three ways, and use any mix of them:
 2. **List them** in `.env`: `ADMIN_EMAILS=ada@example.com,grace@example.com`
 3. **Allow a whole domain** in `.env`: `ALLOWED_EMAIL_DOMAINS=yourcompany.com`. Anyone with a *verified* address there can sign in.
 
-Whichever way they were let in, people sign in with an email link, Google or Apple, using that address. The password is only for the owner.
+Whichever way they were let in, people sign in with an email link, Google, Apple or single sign-on, using that address. The password is only for the owner.
 
 To take someone out:
 
 - If they were invited, press the bin next to their name in **Settings → Team**. They are signed out straight away.
 - If they were let in by `ADMIN_EMAILS` or `ALLOWED_EMAIL_DOMAINS`, change `.env` and restart.
 
-Google and Apple accounts are matched by their verified email address. So if `ada@example.com` was invited, she can sign in with an email link, or with a Google or Apple account that uses that address.
+Google, Apple and single sign-on accounts are matched by their verified email address. So if `ada@example.com` was invited, she can sign in with an email link, or with a Google or Apple account that uses that address.
 
 ## Email link
 
@@ -131,6 +133,37 @@ In [developer.apple.com/account](https://developer.apple.com/account), open **Ce
 
 Apple sends a person's name only the first time they sign in. Plaudit keeps it from then on.
 
+## Single sign-on (OIDC)
+
+Any provider that speaks OpenID Connect and publishes a discovery document (`<issuer>/.well-known/openid-configuration`) works: Okta, Microsoft Entra ID (Azure AD), Authentik, Keycloak, Zitadel, Auth0, Google Workspace's own OIDC and others. The sign-in page then shows **Continue with** and the name you choose.
+
+1. **In your provider, create an application** (it may be called an app registration, a client or an OAuth2/OpenID provider):
+   - **Type:** a web application (confidential client) using the **authorization code** flow.
+   - **Redirect URI** (sign-in redirect, callback URL): `https://YOUR-DOMAIN/api/auth/callback/oidc`. It must match `PUBLIC_URL` exactly.
+   - **Scopes:** `openid`, `email` and `profile`.
+   - Copy the **client ID** and **client secret**, and find the **issuer URL**.
+2. **Set it in `.env`:**
+
+   ```bash
+   OIDC_ISSUER=https://acme.okta.com              # the issuer URL, as the provider shows it
+   OIDC_CLIENT_ID=0oa1b2c3d4…
+   OIDC_CLIENT_SECRET=…
+   OIDC_LABEL=Okta                                # "Continue with Okta"; default "single sign-on"
+   # Optional:
+   # OIDC_SCOPES=openid email profile             # openid is always included
+   # OIDC_EMAIL_DOMAINS=acme.com                  # only accept addresses at these domains from this provider
+   # OIDC_TRUST_EMAIL=true                        # see "Verified addresses" below
+   ```
+
+   Typical issuer URLs: Okta `https://<your-org>.okta.com` (or `…/oauth2/default` for its default authorization server); Entra ID `https://login.microsoftonline.com/<tenant-id>/v2.0`; Authentik `https://<host>/application/o/<app-slug>/`; Keycloak `https://<host>/realms/<realm>`. Plaudit reads the rest from the discovery document.
+3. **Restart Plaudit** and open **Settings → This server**: **Single sign-on (OIDC)** should say **On** with the redirect URI. Sign out and try the new button.
+
+How it works: the same flow as Google. Each sign-in has a random state, nonce and PKCE code, kept on the server for 10 minutes and tied to your browser by a cookie. Plaudit checks that the discovery document names the issuer you set, logs in to the token endpoint with HTTP Basic (or by posting the secret, if that's all the provider offers), and checks the id_token's signature with the provider's published keys (public-key algorithms only), its issuer, audience, expiry and nonce. After signing in you always land on the dashboard; there's no return address anyone could tamper with.
+
+**Who may sign in doesn't change.** The provider only says who someone is; [the rules above](#who-can-sign-in) still decide whether they get in: the owner, invited people, `ADMIN_EMAILS` and `ALLOWED_EMAIL_DOMAINS`. `OIDC_EMAIL_DOMAINS` is an extra check on top: addresses at other domains are refused from this provider even if they were invited.
+
+**Verified addresses.** Plaudit needs the id_token to say `email_verified: true`, so nobody can claim an address that isn't theirs. Microsoft Entra ID usually leaves that claim out; if every address in your directory is one your organisation controls, set `OIDC_TRUST_EMAIL=true` to accept tokens without it. A token that says `email_verified: false` is refused either way.
+
 ## Turning the password off
 
 Once another method works for the owner, you can turn off password sign-in:
@@ -148,6 +181,7 @@ As a safety net, this setting is ignored until at least one other method is on, 
 | Email link | Works. Use `MAIL_OUTBOX=true` or Mailpit ([email guide](EMAIL.md#try-it-out-locally)) |
 | Google | Works. Add `http://localhost:3000/api/auth/callback/google` as a redirect URI. Google allows `http://` only for localhost |
 | Apple | Needs a public HTTPS address. Use a tunnel (see below) |
+| Single sign-on | Works if your provider accepts `http://localhost:3000/api/auth/callback/oidc` as a redirect URI (Keycloak and Authentik do; some providers want HTTPS) |
 
 For Apple, run a tunnel such as [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/trycloudflare/) or [ngrok](https://ngrok.com/docs/getting-started/):
 
@@ -175,6 +209,10 @@ Each instance's session cookie name includes a short hash of `PUBLIC_URL`. So tw
 | "APPLE_PRIVATE_KEY isn't a valid .p8 key" | The key got mangled in `.env` | Use the `awk` command above, or `APPLE_PRIVATE_KEY_FILE` |
 | "… isn't allowed to sign in here" | The address isn't the owner, invited, in `ADMIN_EMAILS` or in an allowed domain | Invite it in **Settings → Team**, or add it to `.env` |
 | "… is a private Apple relay address" | They chose Hide My Email | Sign in again and choose **Share My Email**, or invite the relay address |
+| Single sign-on: "Sign-in didn't work" and the log says "discovery document names another issuer" | `OIDC_ISSUER` isn't the provider's issuer exactly | Open `<OIDC_ISSUER>/.well-known/openid-configuration` and copy its `issuer` value (a trailing `/` doesn't matter) |
+| Single sign-on: "That account's email address isn't verified yet" | The token has no `email_verified: true` (common with Entra ID) | Verify the address with the provider, or set `OIDC_TRUST_EMAIL=true` if you control every address there |
+| Single sign-on: "accepts only your organisation's addresses" | The address isn't at a domain in `OIDC_EMAIL_DOMAINS` | Use your work account, or change `OIDC_EMAIL_DOMAINS` |
+| Single sign-on: "Sign-in was refused: invalid_client" | Wrong client ID or secret, or the provider wants another way of sending it | Copy both again; check the application is a confidential (web) client |
 | "This link has expired" | Sign-in links last 15 minutes; invitations 72 hours | Ask for a new link on the sign-in page |
 | "Open this link in the same browser where you asked for it" | The link was opened on another device or browser | Open it where you asked for it, or ask for a new one on this device |
 | "This link has already been used" | Each link works once | Ask for a new one |

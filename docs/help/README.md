@@ -15,5 +15,8 @@ How to use each part of the Plaudit dashboard. Every section is on by default; `
 | [Campaigns](campaigns.md) | Email campaigns: wording and reminders, recipients, the preview and test send, tracking, "No thanks", and auto-collect from the API or a webhook |
 | [Analytics](analytics.md) | The dashboard, widget install alerts, form drop-off, wall and snippet numbers, and exactly what is (and isn't) collected |
 | [Notifications](notifications.md) | Your own emails, digests and reports, and Slack, Discord, Teams and Telegram channels |
+| [AI assistants (MCP)](mcp.md) | Plaudit's MCP server: the tools, what an assistant sees, and connecting Claude Desktop and other clients |
+| [WordPress](wordpress.md) | The plugin: the block, shortcodes, the site-wide toast, SEO mode and caching plugins |
+| [Zapier, Make, n8n and React](integrations.md) | The Zapier app, n8n and Make templates, and the `@plaudit/react` components |
 
 Elsewhere in `docs/`: [importing](../IMPORT.md), [embedding a form](../EMBED.md), [embedding widgets](../embeds/README.md), [email setup](../EMAIL.md), [sign-in and team](../AUTH.md) and the [REST API and webhooks](../API.md).

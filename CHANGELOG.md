@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **More of the REST API** (feature flag `api2`): forms, widgets, walls, campaigns (start, pause and add recipients), tags, customers, private feedback, and analytics for a project or one widget, form, wall, snippet or testimonial page over `?from=&to=`. Each path makes the dashboard's own checks and answers with the dashboard's shape, without secrets such as a campaign's incoming webhook. `openapi.json` lists them. See [`docs/API.md`](docs/API.md#forms-widgets-walls-campaigns-and-more).
+
+- **Single sign-on** with any OpenID Connect provider (Okta, Microsoft Entra ID, Authentik, Keycloak…), set up with `OIDC_ISSUER`, `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET` (and optionally `OIDC_LABEL`, `OIDC_SCOPES`, `OIDC_EMAIL_DOMAINS`, `OIDC_TRUST_EMAIL`). Who may sign in is decided as before. See [`docs/AUTH.md`](docs/AUTH.md#single-sign-on-oidc).
+
+- **An MCP server** at `/mcp` (feature flag `mcp`) for Claude and other AI assistants, with an API key: list, search and read testimonials, get embed codes, a summary Plaudit counts itself, and invites for read-and-write keys. Assistants never get anyone's email or phone. See [`docs/help/mcp.md`](docs/help/mcp.md).
+
+- **Integrations** (not in their marketplaces yet): a WordPress plugin with a block, `[plaudit]` shortcodes, SEO mode and a site-wide toast; a Zapier app; n8n and Make templates; and `@plaudit/react` with `PlauditWidget` and `PlauditForm`. See [`docs/help/wordpress.md`](docs/help/wordpress.md) and [`docs/help/integrations.md`](docs/help/integrations.md).
+
 - **Video tools** in the inbox drawer ([`docs/help/video.md`](docs/help/video.md)): trim with a waveform and a preview (the original is kept, so a trim can be changed or undone; captions follow the cut), pick the poster from a frame or upload one, replace the file (it's converted and transcribed again), and download the original or the MP4. Each change is in the history and sends `testimonial.updated`.
 
 - **A page for each testimonial** at `/t/<id>`: the quote or video, the person, a button to your site, plain share links, review data and a link preview image of the quote. Approved and public testimonials only. See [`docs/help/share.md`](docs/help/share.md).

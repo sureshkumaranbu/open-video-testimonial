@@ -3,6 +3,9 @@
 Plaudit has a small REST API and signed webhooks, so you can connect it to n8n, Zapier, Make, Activepieces or your own scripts. Both are free and have no plan limits.
 
 - [REST API](#rest-api)
+- [Forms, widgets, walls, campaigns and more](#forms-widgets-walls-campaigns-and-more) (flag `api2`)
+- [Analytics](#analytics)
+- [MCP server for AI assistants](#mcp-server-for-ai-assistants)
 - [Webhooks](#webhooks)
 - [Verifying webhook signatures](#verifying-webhook-signatures)
 - [Connecting n8n](#connecting-n8n)
@@ -43,7 +46,9 @@ All paths are relative to `https://<your-plaudit>/api/v1`.
 | `DELETE /testimonials/{id}` | write | Deletes a testimonial and its media for good. It doesn't go to the trash |
 | `POST /invites` | write | Adds a person to an active campaign and queues its invitation, optionally some days later ([below](#campaign-invites)) |
 
-Errors look like `{ "error": "…" }`, with status `400` (invalid input), `401` (missing or invalid key), `403` (read-only key), `404`, `409` (for example, re-publishing a testimonial whose author withdrew consent, or approving one whose author asked to keep it private) or `429`.
+With the `api2` flag on (the default), there are also paths for forms, widgets, walls, campaigns and their recipients, tags, customers, private feedback and analytics: see [below](#forms-widgets-walls-campaigns-and-more).
+
+Errors look like `{ "error": "…" }`, with status `400` (invalid input), `401` (missing or invalid key), `403` (read-only key), `404`, `409` (for example, re-publishing a testimonial whose author withdrew consent, or approving one whose author asked to keep it private), `413` (a body over the limit) or `429`.
 
 Paths use the project's current slug. When you [change a project's link](../README.md#turning-sections-off), its pages and widget keep answering the old one, but the API doesn't: use the new slug.
 
@@ -189,6 +194,67 @@ curl -X POST "https://plaudit.example.com/api/hooks/campaigns/cwh_…?delay=3" \
 
 The incoming webhook isn't part of `/api/v1` and isn't in the OpenAPI file, since it needs no key.
 
+## Forms, widgets, walls, campaigns and more
+
+_Behind the `api2` flag, on by default. With it off, these paths answer `404` and `openapi.json` leaves them out; everything above works exactly as before._
+
+Each path does what the same button in the dashboard does, with the same checks: a form's config is validated like the builder's save, a widget's or wall's connected form must be in the same project, starting a campaign needs email set up, the default form can't be deleted, and so on. A refusal answers with the dashboard's own message and status (`400`, `404` or `409`). Bodies are JSON, at most 256 KB for forms, widgets and walls (their configs), 1 MB for recipients and 16 KB for everything else. Ids from another project answer `404`, as if they didn't exist.
+
+| Method and path | Scope | What it does |
+|---|---|---|
+| `GET /projects/{slug}/forms` | read | The project's forms, default first, each with `stats` (submissions, invites, responded, responseRate) and `links` (the form's address and its inline, popup and iframe snippets) |
+| `POST /projects/{slug}/forms` | write | A new step-by-step form: `{ name, slug?, template? }` (`saas`, `course`, `coaching`, `agency`, `ecommerce`, `local`, `employee` or `event`) |
+| `GET /forms/{id}` | read | One form, with its whole `config` (`pages`, `design`, `labels`, `settings`) and `reward` |
+| `PATCH /forms/{id}` | write | `name`, `language`, `status` (`live` or `paused`), `slug` (the old link keeps working), `isDefault: true`, and whole config parts: `pages`, `design`, `labels`, `settings`, `reward`. Each part sent replaces that part whole. A classic form refuses what the classic page can't show (`409`) |
+| `DELETE /forms/{id}` | write | Deletes a form; its testimonials stay. The default form can't be deleted (`409`) |
+| `GET /projects/{slug}/widgets` | read | Saved widgets, each with `config` and `embed`: `script`, `iframe`, `hosted`, `react`, `html` (the [SEO include](EMBED.md#seo-html-include)) and `htmlWithJsonLd` |
+| `POST /projects/{slug}/widgets` | write | `{ name, layout?, placement?, connectedFormId?, config? }`; layouts `grid`, `list`, `carousel`, `slider`, `marquee`, `featured`, `badge`, `toast` |
+| `GET`, `PATCH`, `DELETE /widgets/{id}` | read, write, write | One widget. `PATCH` takes `name`, `placement`, `connectedFormId` and `config` (the whole config, as the studio saves it). `DELETE` is the dashboard's: pages that still embed it show nothing |
+| `GET /projects/{slug}/walls` | read | The project's walls, with `url` (its own address) and `publicUrl` (where visitors see it) |
+| `POST /projects/{slug}/walls` | write | A new wall, as a draft: `{ name, slug?, theme? }` (`paper`, `night`, `sunrise`, `meadow`, `studio`) |
+| `GET`, `PATCH`, `DELETE /walls/{id}` | read, write, write | One wall. `PATCH` takes `name`, `theme`, `published`, `main` (shown at `/wall/<project>`), `slug` (the old link keeps working), `featuredTestimonialId`, `connectedFormId` and `config` (whole) |
+| `GET /projects/{slug}/campaigns` | read | Campaigns, newest first, each with its `funnel` |
+| `POST /projects/{slug}/campaigns` | write | A new draft with the default wording: `{ name, formId? }` |
+| `GET /campaigns/{id}` | read | One campaign and its funnel. `webhook.on` says whether its incoming webhook URL is on; the URL itself is only ever shown in the dashboard |
+| `PATCH /campaigns/{id}` | write | `name`, `formId`, `senderName`, `replyTo`, `subject`, `body`, `buttonText`, `rtl`, `reminders` (up to three day offsets), `trackOpens`, `rewardCodes`, and `status`: `active` starts it, queuing an invitation for everyone not yet sent one (`409` when email isn't set up), `paused` stops sends and reminders |
+| `DELETE /campaigns/{id}` | write | Deletes it and its recipients (their links stop working); testimonials stay |
+| `GET /campaigns/{id}/recipients` | read | Recipients, newest first, as [invites](#campaign-invites). `limit` and `offset` as for testimonials; the answer has `pagination` |
+| `POST /campaigns/{id}/recipients` | write | Adds people, like the campaign's **Add people**: `{ "source": "paste", "text": "…" }` (lines or a CSV), `{ "source": "customers", "ids": […] }` or `{ "source": "manual", "person": { email, name?, company?, title? } }`. Answers `{ data: [invites], skipped: [{ line, email, text, reason, detail }], rows }`, `reason` being `invalid`, `duplicate`, `unsubscribed` or `responded`. Up to 5,000 rows at a time |
+| `GET /projects/{slug}/tags` | read | `[{ name, count }]` |
+| `PATCH /projects/{slug}/tags` | write | `{ "action": "rename", "from", "to" }` or `{ "action": "merge", "from": […], "into" }`, on every testimonial at once. Answers the tags as they now are |
+| `DELETE /projects/{slug}/tags?name=…` | write | Removes the tag from every testimonial and the project |
+| `GET /projects/{slug}/customers` | read | The people behind the testimonials, by name: `{ id, email, name, title, company, website, avatarUrl, socials, custom }`. `?email=` finds one. Paged |
+| `GET /customers/{id}` | read | One customer |
+| `GET /projects/{slug}/feedback` | read | Private feedback (answers to private questions, and low ratings sent to private feedback), newest first: `{ id, formId, customerId, testimonialId, source, rating, text, author: { name, email }, createdAt }`. It's never published. Paged |
+
+Lists of testimonials, recipients, customers and feedback take `limit` (1 to 100, default 50) and `offset`; the others return everything.
+
+**Keys and projects.** Today every API key reaches every project on the server, as before. Each of these paths already checks the key against the project an id belongs to, so per-project keys can narrow that without changing the API.
+
+## Analytics
+
+_Also `api2`, and `404` when analytics is off on the server (`ANALYTICS=off`, or the `analytics` flag)._
+
+| Method and path | Scope | What it does |
+|---|---|---|
+| `GET /projects/{slug}/analytics?from=&to=` | read | The analytics dashboard's numbers for one project: `range` and `previousRange`, `tiles` (new testimonials, the review backlog, average rating, widget, wall and form views and clicks, booster clicks, the invite funnel, each with the period before), `series` (views by day) and `tables` of widgets, forms and walls |
+| `GET /analytics/{type}/{id}?from=&to=` | read | One object's panel, `type` being `widget`, `form`, `wall`, `snippet` or `testimonial`: `current` and `previous` totals (views, visitors, clicks, starts, completions, completion rate, renders), daily `series`, `topPages` for widgets, the per-page `funnel` and ratings for forms, `sites` for snippets, and `install` for widgets |
+
+`from` and `to` are days (`2026-10-01`, UTC), both included. Without them it's the last 30 days; `to` never goes past today and a range is at most 731 days. Anything that isn't a date is a `400`. Visitors are counted per day, and nothing in these numbers identifies anyone ([what's collected](help/analytics.md)).
+
+```bash
+curl -H "Authorization: Bearer plk_…" "https://plaudit.example.com/api/v1/projects/acme/analytics?from=2026-10-01&to=2026-10-27"
+```
+
+## MCP server for AI assistants
+
+`/mcp` (flag `mcp`) is a [Model Context Protocol](https://modelcontextprotocol.io) server over Streamable HTTP, with an API key as the bearer token: JSON-RPC 2.0 `POST`s for `initialize`, `ping`, `tools/list` and `tools/call`, answered with JSON. Its tools are `list_testimonials`, `search_testimonials`, `get_testimonial`, `get_embed_codes`, `summarize` and, for read-and-write keys only, `create_invite`. Testimonials go to the assistant without the author's email, phone, consent details or private fields. Setup for Claude Desktop and other clients: [help/mcp.md](help/mcp.md).
+
+```bash
+curl -X POST https://plaudit.example.com/mcp -H "Authorization: Bearer plk_…" -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"summarize","arguments":{"project":"acme"}}}'
+```
+
 ## Webhooks
 
 Under **Settings → Webhooks**, add the URL of your endpoint. You can limit it to one project (or one form) and to the events you care about, and **Edit** changes the URL, events, project and form later without changing the secret or losing the delivery log. For Slack, Discord, Teams or Telegram messages, use **Settings → Notifications** instead ([docs/help/notifications.md](help/notifications.md)). Tick none to receive the **default set**: every event below except the ones marked *opt-in*, which go only to endpoints that tick them.
@@ -305,6 +371,8 @@ def verify_plaudit(secret: str, signature_header: str, raw_body: bytes, toleranc
 
 Zapier ("Webhooks by Zapier → Catch Hook"), Make ("Custom webhook") and Activepieces ("Webhook trigger") work the same way. These steps describe n8n's standard nodes and haven't been run against a live n8n instance as part of Plaudit's tests. The signature scheme itself is covered by the automated tests.
 
+Ready-made versions: two n8n workflows and a Make blueprint in [`integrations/`](../integrations/README.md) (approved testimonials to Slack with the signature checked; invites after a purchase), and a Zapier app whose triggers poll the API ([help/integrations.md](help/integrations.md)).
+
 ## Public widget feed
 
 What `widget.js` reads. No key is needed, responses are CORS-enabled (`Access-Control-Allow-Origin: *`) and cached for 60 seconds, and they carry public fields only: never an email address, phone number, consent record, custom or hidden field.
@@ -325,7 +393,7 @@ What `widget.js` reads. No key is needed, responses are CORS-enabled (`Access-Co
   `widget.css` is the widget's own cleaned CSS (DISP-08, `""` when there is none), which `widget.js` appends inside the shadow root ([`EMBED.md`](EMBED.md#custom-css)).
 - **`GET /api/widget/w_<id>/html`** (`?jsonld=1`): the same widget as escaped HTML for a server-side include ([`EMBED.md`](EMBED.md#seo-html-include)).
 
-Widgets are managed in the dashboard; there is no `/api/v1` endpoint for them yet.
+Widgets are managed in the dashboard, or through [`/api/v1/projects/{slug}/widgets`](#forms-widgets-walls-campaigns-and-more) (flag `api2`).
 
 ## Walls and review snippets
 
@@ -336,7 +404,7 @@ Public, no key needed (preview flag `walls` for the dashboard pages; these endpo
 - Wall pages send their own `Content-Security-Policy`: the public policy, plus exactly the script, connect and image hosts of the analytics provider the owner chose for that wall (WALL-07; Plausible or Google Analytics 4), if any.
 - **`GET /schema/s_<id>.js`**: a review snippet's script. It adds a `<script type="application/ld+json" data-plaudit-schema="s_…">` block to `document.head` once, with up to 10 reviews and the `AggregateRating`. `text/javascript`, CORS `*`, cached for 5 minutes. An unknown or deleted snippet answers 404 with a JavaScript comment, so the page carries on.
 
-Walls and snippets are managed in the dashboard; there is no `/api/v1` endpoint for them yet.
+Walls are managed in the dashboard or through [`/api/v1/projects/{slug}/walls`](#forms-widgets-walls-campaigns-and-more) (flag `api2`); snippets only in the dashboard so far.
 
 ## Testimonial pages
 
@@ -382,7 +450,7 @@ Public, no key, cookieless ([what's collected](help/analytics.md)). Each answers
 
 The server also counts, by itself, views of the classic `/c/<project>` page, every form submission, and each fetch of `/schema/s_<id>.js` (SEO-04, with the referring site's origin; crawlers included).
 
-The numbers are read in the dashboard (`/admin/analytics`); there's no `/api/v1` endpoint for them yet.
+The numbers are read in the dashboard (`/admin/analytics`) or through [the API](#analytics) (flag `api2`).
 
 ## Form submissions: rewards and low ratings
 

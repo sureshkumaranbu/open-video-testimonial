@@ -80,6 +80,12 @@
       "$comment": "WALL-07 is the safe version the product owner asked for: a favicon, Plausible or GA4, and verification codes as fixed fields; never raw head HTML.",
       "packages": [],
       "requirements": ["VID-01", "VID-02", "VID-03", "VID-04", "WALL-04", "SHARE-01", "SHARE-02", "SHARE-03", "DISP-08", "WALL-07"]
+    },
+    "M14": {
+      "name": "Team, API and integrations (Phase 2)",
+      "$comment": "API-01 is the /api/v1 CRUD of PRD §19 (forms, widgets, walls, campaigns, tags, customers, feedback) and API-02 its analytics read (L16); the PRD gives §19 no IDs of its own. REQ-07 (auto-collect, M9) gains native Stripe and Shopify triggers here. TEAM-01, TEAM-02 and the REQ-07 triggers are the milestone's second part, after M13.",
+      "packages": [],
+      "requirements": ["TEAM-01", "TEAM-02", "TEAM-03", "API-01", "API-02", "INT-03", "INT-04", "INT-05", "INT-06", "REQ-07"]
     }
   },
   "concurrent": [
