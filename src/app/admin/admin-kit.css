@@ -30,10 +30,12 @@
   background: var(--scrim);
 }
 
+/* Content height for a modal; the drawer stretches it to full height below. (A
+ * percentage height inside a modal <dialog> sized to its content resolves to 0 in
+ * Safari, which hid every dialog there.) */
 .ak-overlay-panel {
   display: flex;
   flex-direction: column;
-  height: 100%;
   max-height: inherit;
   /* Clips the header and footer to the rounded corners; the body scrolls itself. */
   overflow: hidden;
@@ -123,6 +125,7 @@
 }
 
 .ak-drawer .ak-overlay-panel {
+  height: 100%;
   border-start-start-radius: var(--radius-lg);
   border-end-start-radius: var(--radius-lg);
 }

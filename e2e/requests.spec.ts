@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
-import { adminApi, createProject, shot, signIn, useFreshIp } from "./helpers";
+import { adminApi, allowClipboard, createProject, shot, signIn, useFreshIp } from "./helpers";
 
 /**
  * Personal request links, invitation and reminder emails, unsubscribe and
@@ -48,8 +48,8 @@ test.beforeEach(async ({ page, baseURL }) => {
   test.skip(system.email.mode !== "outbox", "needs MAIL_OUTBOX=true to read emails");
 });
 
-test("invite, prefilled link, response, receipt and unsubscribe", async ({ page, context, baseURL }) => {
-  await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: baseURL! });
+test("invite, prefilled link, response, receipt and unsubscribe", async ({ page, context, baseURL, browserName }) => {
+  await allowClipboard(context, browserName, baseURL!);
   const api = await adminApi(baseURL!);
   const p = await createProject(api, "Request Co", `req-${RUN}`);
   const rae = `rae+${RUN}@example.com`;

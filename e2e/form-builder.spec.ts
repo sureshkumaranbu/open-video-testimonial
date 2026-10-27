@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
-import { adminApi, createProject, signIn, useFreshIp } from "./helpers";
+import { adminApi, allowClipboard, createProject, signIn, useFreshIp } from "./helpers";
 
 /**
  * The form builder (FORM-01, 02, 08, 10, 11, 18): a form from a template,
@@ -135,8 +135,8 @@ test("FORM-08 L5 a white button on a white page, and white text on it, get contr
   await expect(button.getByText(/Low contrast/)).toBeVisible();
 });
 
-test("FORM-11 share panel: copy the link, QR as PNG and SVG, the three embed snippets", async ({ page, baseURL, context }) => {
-  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+test("FORM-11 share panel: copy the link, QR as PNG and SVG, the three embed snippets", async ({ page, baseURL, context, browserName }) => {
+  await allowClipboard(context, browserName);
   const api = await adminApi(baseURL!);
   const project = await createProject(api, "Share Co", `share-${RUN}`);
   const form = (await (await api.post(`/api/admin/projects/${project.id}/forms`, { data: { name: "Stories", slug: "stories" } })).json()).form;

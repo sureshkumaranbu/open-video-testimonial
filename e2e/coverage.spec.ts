@@ -4,6 +4,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { E2E_ADMIN } from "../playwright.config";
 import {
   adminApi,
+  allowClipboard,
   createProject,
   FIXTURES,
   hostPage,
@@ -1044,8 +1045,8 @@ test.describe("share & embed", () => {
     projectId = (await createProject(await adminApi(baseURL!), "Copy Co", s)).id;
   });
 
-  test("copy buttons copy the exact snippet", async ({ page, context, baseURL }) => {
-    await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: baseURL! });
+  test("copy buttons copy the exact snippet", async ({ page, context, baseURL, browserName }) => {
+    await allowClipboard(context, browserName, baseURL!);
     await signIn(page);
     await page.goto(`/admin/projects/${projectId}`);
     const clipboard = () => page.evaluate(() => navigator.clipboard.readText());

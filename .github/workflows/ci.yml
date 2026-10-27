@@ -11,7 +11,8 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    # Chromium and WebKit each run the end-to-end suite against their own production build.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
@@ -74,12 +75,44 @@ jobs:
         run: npm run check:req -- --all
       - run: npm run typecheck
       - run: npm test
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+      # TEAM-05: npm test runs the S3 driver against an in-process fake; this runs
+      # it against a real S3 server too. The same images as docker-compose.s3.yml
+      # (a service container can't be given MinIO's "server" command, so it's
+      # started here). Loopback only, with throwaway credentials.
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio -p 127.0.0.1:9000:9000 \
+            -e MINIO_ROOT_USER=plaudit -e MINIO_ROOT_PASSWORD=plaudit-minio-secret \
+            chainguard/minio:latest server /data
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:9000/minio/health/live && break
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:9000/minio/health/live
+          docker run --rm --network host -e MC_HOST_local=http://plaudit:plaudit-minio-secret@127.0.0.1:9000 \
+            chainguard/minio-client:latest mb --ignore-existing local/plaudit
+      - name: S3 storage tests against MinIO
+        run: npx vitest run tests/storage-minio.test.ts
+        env:
+          S3_TEST_ENDPOINT: http://127.0.0.1:9000
+          S3_TEST_BUCKET: plaudit
+          S3_TEST_ACCESS_KEY_ID: plaudit
+          S3_TEST_SECRET_ACCESS_KEY: plaudit-minio-secret
+      - name: MinIO logs
+        if: failure()
+        run: docker logs minio
+      - name: Install Playwright Chromium and WebKit
+        run: npx playwright install --with-deps chromium webkit
       - name: End-to-end tests (production build)
         run: npm run test:e2e
         env:
           CI: "true"
+      # Safari's engine, for every spec that doesn't record video (playwright.config.ts CAMERA_SPECS, D24).
+      - name: End-to-end tests in WebKit
+        run: npx playwright test --project=webkit
+        env:
+          CI: "true"
+          E2E_WEBKIT: "1"
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
