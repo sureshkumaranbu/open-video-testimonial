@@ -195,3 +195,32 @@
   border-radius: var(--radius-sm);
   background: #ffffff;
 }
+
+/* FORM-13: wheel prizes and claimed codes. */
+.fb-prize {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(70px, 0.6fr) auto;
+  gap: var(--space-2);
+  align-items: end;
+}
+
+@media (max-width: 480px) {
+  .fb-prize {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.fb-claims {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  margin-top: var(--space-2);
+}
+
+.fb-claims th,
+.fb-claims td {
+  text-align: start;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}

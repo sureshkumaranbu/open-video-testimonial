@@ -3,6 +3,7 @@ import { and, asc, count, desc, eq, ne, or } from "drizzle-orm";
 import { z } from "zod";
 import { getDb, schema, type Db, type Tx } from "@/db";
 import { FORM_STATUSES, type Form, type FormStatus, type Project, type Testimonial } from "@/db/schema";
+import { rewardConfigSchema } from "@/lib/rewards-config";
 import { removeFiles } from "@/lib/storage";
 import { firstIssue, slugSchema } from "@/lib/validation";
 import {
@@ -373,6 +374,14 @@ export function updateForm(id: string, patch: FormPatch, o?: { by?: string }): F
   const name = patch.name === undefined ? row.name : cleanName(patch.name);
   const cfg: FormConfig = { v: 1, layout: row.layout, ...after };
   if (row.layout === "classic" && !classicCompatible(cfg, language)) throw new FormError(409, CLASSIC_ONLY);
+  let reward: string | undefined;
+  if (patch.reward !== undefined) {
+    const parsed = rewardConfigSchema.safeParse(patch.reward);
+    if (!parsed.success) throw new FormError(400, firstIssue(parsed.error));
+    // The classic page has no thank-you step to show a reward on.
+    if (row.layout === "classic" && parsed.data.mode !== "none") throw new FormError(409, CLASSIC_ONLY);
+    reward = JSON.stringify(parsed.data);
+  }
   return getDb().transaction((tx) => {
     const form = tx
       .update(forms)
@@ -380,6 +389,7 @@ export function updateForm(id: string, patch: FormPatch, o?: { by?: string }): F
         ...configColumns(after),
         name,
         ...(patch.logoKey !== undefined ? { logoKey: patch.logoKey } : {}),
+        ...(reward !== undefined ? { reward } : {}),
         language,
         configVersion: 1,
         updatedAt: new Date(),

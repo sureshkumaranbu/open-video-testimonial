@@ -1,13 +1,14 @@
 import crypto from "node:crypto";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { getDb, schema, type Tx } from "@/db";
-import type { Feedback } from "@/db/schema";
+import type { Feedback, FeedbackSource } from "@/db/schema";
 
 const { feedback } = schema;
 
 /**
- * Private feedback: answers to a form's private question. Stored apart from
- * the testimonial and never published (no public route reads this table).
+ * Private feedback: answers to a form's private question, and what people
+ * the low-rating branch (FORM-12) sent here wrote. Stored apart from the
+ * testimonial and never published (no public route reads this table).
  */
 
 export type NewFeedback = {
@@ -20,13 +21,13 @@ export type NewFeedback = {
   authorEmail: string | null;
 };
 
-/** Adds a submission's private answers inside its transaction. */
-export function insertFeedback(tx: Tx, projectId: string, rows: NewFeedback[]): Feedback[] {
+/** Adds a submission's private answers inside its transaction (`low-rating` for the FORM-12 branch). */
+export function insertFeedback(tx: Tx, projectId: string, rows: NewFeedback[], source: FeedbackSource = "private-question"): Feedback[] {
   if (!rows.length) return [];
   const now = new Date();
   return tx
     .insert(feedback)
-    .values(rows.map((r) => ({ ...r, id: crypto.randomUUID(), projectId, source: "private-question" as const, createdAt: now })))
+    .values(rows.map((r) => ({ ...r, id: crypto.randomUUID(), projectId, source, createdAt: now })))
     .returning()
     .all();
 }

@@ -364,8 +364,91 @@
   --btn-fg: var(--fr-star);
 }
 
+/* FORM-12: the low-rating step's optional contact fields. */
+.fr-root fieldset.fr-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+/* FORM-13: the reward on the thank-you page. */
+.fr-reward {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--fr-primary) 35%, var(--line));
+  border-radius: var(--fr-radius);
+  background: color-mix(in srgb, var(--fr-primary) 6%, transparent);
+}
+
+.fr-reward h2 {
+  font-size: var(--text-lg);
+  margin: 0;
+}
+
+.fr-code code {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+}
+
+.fr-wheel-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: center;
+}
+
+.fr-wheel {
+  position: relative;
+  width: min(200px, 60vw);
+  aspect-ratio: 1;
+  flex: none;
+}
+
+.fr-wheel svg {
+  width: 100%;
+  height: 100%;
+}
+
+.fr-wheel-pointer {
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 1;
+  width: 0;
+  height: 0;
+  border-inline: 9px solid transparent;
+  border-top: 16px solid var(--fr-text);
+}
+
+.fr-wheel-legend {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 4px;
+  font-size: var(--text-sm);
+  flex: 1 1 160px;
+}
+
+.fr-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-inline-end: 6px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fr-progress > span {
     transition: none;
+  }
+  .fr-wheel svg {
+    transition: none !important;
   }
 }

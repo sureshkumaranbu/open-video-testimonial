@@ -13,8 +13,11 @@ import {
   inviteToApi,
   parseReminderList,
   queueInvite,
+  rewardFormId,
+  SAMPLE_CODE,
   unsubscribedAmong,
 } from "./requests";
+import { poolStats } from "./rewards";
 
 const { campaigns, requests, customers, testimonials } = schema;
 
@@ -61,6 +64,8 @@ export const campaignFields = z.object({
   rtl: z.boolean(),
   reminders: reminderDays,
   trackOpens: z.boolean(),
+  /** REQ-08: each recipient gets their own code from the form's reward code pool. */
+  rewardCodes: z.boolean(),
 });
 export type CampaignFields = z.infer<typeof campaignFields>;
 
@@ -68,7 +73,7 @@ export const campaignPatch = campaignFields.partial().extend({ status: z.enum(["
 export const createCampaignBody = z.object({ name: campaignFields.shape.name, formId: z.string().max(64).nullish() });
 
 /** The wording a preview or test send uses: the saved campaign with the editor's unsaved changes. */
-export const draftContent = campaignFields.pick({ subject: true, body: true, buttonText: true, rtl: true, senderName: true, replyTo: true }).partial();
+export const draftContent = campaignFields.pick({ subject: true, body: true, buttonText: true, rtl: true, senderName: true, replyTo: true, rewardCodes: true }).partial();
 
 function formOfProject(project: Project, formId: string | null | undefined) {
   if (!formId) return null;
@@ -208,6 +213,14 @@ export function campaignToAdmin(c: Campaign, funnel?: Funnel) {
   };
 }
 export type AdminCampaign = ReturnType<typeof campaignToAdmin>;
+
+/** REQ-08: the pool a campaign's codes come from, and how many are left (the dashboard warns when it's low or empty). */
+export function campaignRewardPool(project: Project, c: Campaign) {
+  const formId = rewardFormId(project, c);
+  const form = getForm(formId);
+  return { formId, formName: form?.name ?? "", ...poolStats(formId) };
+}
+export type CampaignRewardPool = ReturnType<typeof campaignRewardPool>;
 
 /** A recipient row on the campaign page. */
 export function recipientToAdmin(project: Project, r: TestimonialRequest) {
@@ -515,7 +528,7 @@ export function previewCampaign(project: Project, c: Campaign, draft: z.infer<ty
         projectName: project.name,
         accentColor: project.accentColor,
         content: campaign,
-        recipient: { ...SAMPLE, email: o.to ?? "sam@example.com", custom: {} },
+        recipient: { ...SAMPLE, email: o.to ?? "sam@example.com", custom: {}, rewardCode: campaign.rewardCodes ? SAMPLE_CODE : undefined },
         links: {
           link: `${env.publicUrl}${(() => {
             const form = c.formId ? getForm(c.formId) : null;

@@ -8,7 +8,8 @@ import { INK, normalizeHex, textOn } from "./contrast";
  * person and the links.
  *
  * Templates take `{{name}}` (full name), `{{first_name}}`, `{{company}}`,
- * `{{title}}`, `{{project}}`, `{{link}}` and the person's own custom
+ * `{{title}}`, `{{project}}`, `{{link}}`, `{{reward_code}}` (when the
+ * campaign attaches reward codes, REQ-08) and the person's own custom
  * variables. The Requests tab's single-brace style (`{name}` is the first
  * name, as it always was) works too.
  */
@@ -28,6 +29,8 @@ export type CampaignRecipient = {
   company?: string | null;
   title?: string | null;
   custom?: Record<string, string>;
+  /** Their own reward code (REQ-08), for {{reward_code}}; only when the campaign attaches codes. */
+  rewardCode?: string | null;
 };
 
 export type CampaignLinks = {
@@ -72,8 +75,12 @@ export function templateValues(projectName: string, r: CampaignRecipient, link: 
     title: r.title?.trim() || "",
     project: projectName,
     link,
+    ...(r.rewardCode !== undefined && r.rewardCode !== null ? { reward_code: r.rewardCode } : {}),
   };
 }
+
+/** Whether the wording asks for the recipient's reward code. */
+export const usesRewardCode = (c: Pick<CampaignContent, "subject" | "body">) => /\{\{\s*reward_code\s*\}\}/.test(`${c.subject}\n${c.body}`);
 
 /**
  * Fills `{{key}}` and `{key}` in one pass, so a value that itself contains

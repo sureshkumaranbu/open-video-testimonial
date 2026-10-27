@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { campaignToAdmin, customersWithEmail, funnelOf, getCampaign, recipientToAdmin } from "@/lib/campaigns";
+import { campaignRewardPool, campaignToAdmin, customersWithEmail, funnelOf, getCampaign, recipientToAdmin } from "@/lib/campaigns";
 import { emailMode } from "@/lib/email";
 import { env } from "@/lib/env";
 import { requireFeature } from "@/lib/features";
@@ -46,6 +46,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
               campaign: campaignToAdmin(campaign, funnelOf(rows, campaign.trackOpens)),
               recipients: rows.map((r) => recipientToAdmin(project, r)),
               customers: customersWithEmail(project.id).slice(0, 2000),
+    rewardPool: campaignRewardPool(project, campaign),
             }),
           )}
         />

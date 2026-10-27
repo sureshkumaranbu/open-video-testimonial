@@ -26,7 +26,7 @@ export type SettingsProject = {
 /** An old link, as GET …/redirects sends it. */
 export type RedirectRow = {
   id: string;
-  kind: "project" | "form" | "wall";
+  kind: "project" | "form" | "wall" | "booster";
   oldSlug: string;
   oldPath: string;
   target: string;

@@ -1,6 +1,7 @@
 import {
   CampaignError,
   campaignPatch,
+  campaignRewardPool,
   campaignToAdmin,
   customersWithEmail,
   deleteCampaign,
@@ -27,6 +28,7 @@ export async function GET(req: Request, ctx: Ctx) {
     campaign: campaignToAdmin(campaign, funnelOf(rows, campaign.trackOpens)),
     recipients: rows.map((r) => recipientToAdmin(project, r)),
     customers: customersWithEmail(project.id).slice(0, 2000),
+    rewardPool: campaignRewardPool(project, campaign),
   });
 }
 

@@ -5,6 +5,7 @@ import { env } from "@/lib/env";
 import { deleteObject, removeFiles, saveUpload } from "@/lib/storage";
 import { FormError, formUrl, getForm, logoInUse, updateForm, type FormStats } from "./index";
 import { isLocale } from "./labels";
+import { parseReward } from "@/lib/rewards-config";
 import { parseFormRow, toPublicForm } from "./schema";
 import { TEMPLATE_IDS } from "./templates";
 
@@ -31,6 +32,7 @@ export const formPatchBody = z
       overrides: z.record(z.string().max(40), z.string().max(500)).refine((o) => Object.keys(o).length <= 200, "Too many label changes"),
     }),
     settings: z.record(z.string(), z.unknown()),
+    reward: z.record(z.string(), z.unknown()),
   })
   .partial();
 
@@ -69,6 +71,8 @@ export function formToAdmin(project: Project, form: Form, stats?: FormStats) {
     createdAt: form.createdAt,
     updatedAt: form.updatedAt,
     config,
+    /** FORM-13: kept beside the config (its own column). */
+    reward: parseReward(form.reward),
     links: shareLinks(project, form),
     ...(stats ? { stats } : {}),
   };

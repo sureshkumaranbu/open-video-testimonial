@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { api, errorMessage } from "@/app/admin/api";
 import { Segmented, Toggle } from "@/components/admin";
 import { Icon } from "@/components/Icon";
-import type { AdminCampaign, AdminRecipient } from "@/lib/campaigns";
+import type { AdminCampaign, AdminRecipient, CampaignRewardPool } from "@/lib/campaigns";
 import type { SenderAuth } from "@/lib/sender-auth";
 import type { EmailInfo, FormChoice } from "./CampaignView";
 
@@ -20,6 +20,7 @@ export type Draft = {
   rtl: boolean;
   reminders: number[];
   trackOpens: boolean;
+  rewardCodes: boolean;
 };
 
 type Preview = { from: string; replyTo: string | null; to: string; subject: string; text: string; html: string };
@@ -35,12 +36,13 @@ type Props = {
   forms: FormChoice[];
   email: EmailInfo;
   recipients: AdminRecipient[];
+  rewardPool: CampaignRewardPool;
 };
 
 const VARIABLES = ["{{name}}", "{{first_name}}", "{{company}}", "{{title}}", "{{project}}", "{{link}}"];
 
 /** REQ-01, REQ-03 and REQ-06: the wording and schedule, a live preview of the real email, and a test send with the sender check. */
-export function EmailPanel({ campaign: c, projectName, draft, setDraft, dirty, onSave, forms, email, recipients }: Props) {
+export function EmailPanel({ campaign: c, projectName, draft, setDraft, dirty, onSave, forms, email, recipients, rewardPool }: Props) {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [view, setView] = useState<"html" | "text">("html");
@@ -52,7 +54,15 @@ export function EmailPanel({ campaign: c, projectName, draft, setDraft, dirty, o
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft({ ...draft, [k]: v });
 
   // The preview comes from the server's own renderer, a moment after typing stops.
-  const content = { subject: draft.subject, body: draft.body, buttonText: draft.buttonText, rtl: draft.rtl, senderName: draft.senderName, replyTo: draft.replyTo };
+  const content = {
+    subject: draft.subject,
+    body: draft.body,
+    buttonText: draft.buttonText,
+    rtl: draft.rtl,
+    senderName: draft.senderName,
+    replyTo: draft.replyTo,
+    rewardCodes: draft.rewardCodes,
+  };
   const key = JSON.stringify([content, as]);
   useEffect(() => {
     const ctrl = new AbortController();
@@ -152,7 +162,7 @@ export function EmailPanel({ campaign: c, projectName, draft, setDraft, dirty, o
             <textarea value={draft.body} onChange={(e) => set("body", e.target.value)} rows={10} maxLength={10_000} dir={draft.rtl ? "rtl" : undefined} />
           </label>
           <p className="muted xsmall" data-testid="campaign-variables">
-            Filled in for each person: {VARIABLES.map((v, i) => (
+            Filled in for each person: {[...VARIABLES, ...(draft.rewardCodes ? ["{{reward_code}}"] : [])].map((v, i) => (
               <span key={v}>
                 {i ? ", " : ""}
                 <code>{v}</code>
@@ -208,6 +218,22 @@ export function EmailPanel({ campaign: c, projectName, draft, setDraft, dirty, o
             onChange={(v) => set("trackOpens", v)}
             testId="campaign-track-opens"
           />
+          <Toggle
+            label="Give each recipient their own reward code"
+            hint={`Codes come from the reward code pool of “${rewardPool.formName}”, the form the links open (Settings → Rewards in its builder). Each person who responds sees theirs on the thank-you page and in their receipt; put {{reward_code}} in the email to include it there too. The reward never depends on what they say or how they rate.`}
+            checked={draft.rewardCodes}
+            onChange={(v) => set("rewardCodes", v)}
+            testId="campaign-reward-codes"
+          />
+          {draft.rewardCodes && (
+            <p className={rewardPool.left ? "muted xsmall" : "notice small"} data-testid="campaign-reward-pool" role={rewardPool.left ? undefined : "status"}>
+              {rewardPool.left
+                ? `${rewardPool.left.toLocaleString("en")} of ${rewardPool.total.toLocaleString("en")} codes left.`
+                : rewardPool.total
+                  ? "Every code in the pool has been claimed. Add more in the form's Rewards settings, or people who respond see a “codes have run out” note."
+                  : "The pool is empty. Add codes in the form's Rewards settings before you start, or people who respond see a “codes have run out” note."}
+            </p>
+          )}
           <div className="row">
             <button type="submit" disabled={saving || !dirty}>
               {saving ? "Saving…" : "Save"}

@@ -8,6 +8,7 @@ import { AUTO_APPROVE_MODES, type AutoApproveRule, type FormSettings } from "@/l
 import type { FormRow } from "../types";
 import type { BuilderProject, Draft } from "./Builder";
 import { NotifySection } from "./NotifySection";
+import { LowRatingEditor, RewardsEditor } from "./RewardsEditor";
 
 const MODE_NAMES: Record<AutoApproveRule["mode"], string> = {
   off: "Off: everything waits for you",
@@ -271,6 +272,9 @@ export function SettingsEditor({
       </label>
       <Toggle label="Suggest turning the phone sideways before recording" checked={s.landscapePrompt} onChange={(landscapePrompt) => set({ landscapePrompt })} />
       <Toggle label="Hide this form from search engines" checked={s.noindex} onChange={(noindex) => set({ noindex })} />
+
+      <LowRatingEditor value={s.lowRating} onChange={(lowRating) => set({ lowRating })} pages={draft.pages} classic={form.layout === "classic"} />
+      <RewardsEditor formId={form.id} reward={draft.reward} onChange={(reward) => update((d) => ({ ...d, reward }))} classic={form.layout === "classic"} />
 
       <NotifySection projectId={project.id} formId={form.id} value={s.notify.channelIds} onChange={(channelIds) => set({ notify: { channelIds } })} />
       <FormWebhooks projectId={project.id} formId={form.id} />

@@ -115,6 +115,20 @@ export const en = {
   withdrawNote:
     "Changed your mind later? This private link lets you withdraw your testimonial at any time. Keep it somewhere safe; anyone with it can withdraw.",
   copyLink: "Copy link",
+  // The low-rating branch (FORM-12) and rewards (FORM-13)
+  lowRatingTitle: "We're sorry it wasn't better",
+  lowRatingSubtitle: "Tell {project} what went wrong. This goes only to them and is never published.",
+  lowRatingContact: "If you'd like a reply, leave your name and email (optional).",
+  lowRatingName: "Name",
+  lowRatingThanks: "Thank you for telling us. {project} will read every word.",
+  rewardTitle: "A thank-you from {project}",
+  rewardCode: "Your code",
+  rewardCopy: "Copy code",
+  rewardOpen: "Open your reward",
+  rewardSoldOut: "All the rewards have been claimed, but thank you all the same.",
+  wheelSpinning: "Spinning the wheel…",
+  wheelWon: "You won: {prize}",
+  wheelChance: "{chance}% chance",
   // A saved draft (FORM-14)
   draftFound: "You started this testimonial earlier on this device.",
   draftResume: "Continue where you left off",

@@ -14,7 +14,7 @@ import { brandSchema, firstIssue, slugSchema, tagNameSchema, type Brand } from "
  * and the tags manager.
  */
 
-const { projects, slugRedirects, tags, testimonialTags, uploads, forms, walls } = schema;
+const { projects, slugRedirects, tags, testimonialTags, uploads, forms, walls, boosters } = schema;
 
 /** A refused change; `status` is what an API route answers with. */
 export class ProjectError extends Error {
@@ -116,7 +116,7 @@ export function changeProjectSlug(id: string, slug: string): Project {
       .values({ id: crypto.randomUUID(), kind: "project", scope: "", projectId: id, oldSlug: project.slug, createdAt: new Date() })
       .onConflictDoUpdate({
         target: [slugRedirects.kind, slugRedirects.scope, slugRedirects.oldSlug],
-        set: { projectId: id, formId: null, wallId: null, createdAt: new Date() },
+        set: { projectId: id, formId: null, wallId: null, boosterId: null, createdAt: new Date() },
       })
       .run();
     return tx.update(projects).set({ slug: next }).where(eq(projects.id, id)).returning().get();
@@ -164,10 +164,12 @@ export function listRedirects(projectId: string): RedirectInfo[] {
       createdAt: slugRedirects.createdAt,
       formName: forms.name,
       wallName: walls.name,
+      boosterName: boosters.name,
     })
     .from(slugRedirects)
     .leftJoin(forms, eq(forms.id, slugRedirects.formId))
     .leftJoin(walls, eq(walls.id, slugRedirects.wallId))
+    .leftJoin(boosters, eq(boosters.id, slugRedirects.boosterId))
     .where(eq(slugRedirects.projectId, projectId))
     .orderBy(desc(slugRedirects.createdAt), asc(slugRedirects.oldSlug))
     .all();
@@ -184,8 +186,21 @@ export function listRedirects(projectId: string): RedirectInfo[] {
     oldSlug: r.oldSlug,
     createdAt: r.createdAt,
     oldPath:
-      r.kind === "form" ? `/f/${project.slug}/${r.oldSlug}` : r.kind === "wall" ? `/wall/${project.slug}/${r.oldSlug}` : `/c/${r.oldSlug}`,
-    target: r.kind === "form" ? `Form “${r.formName ?? ""}”` : r.kind === "wall" ? `Wall “${r.wallName ?? ""}”` : project.name,
+      r.kind === "form"
+        ? `/f/${project.slug}/${r.oldSlug}`
+        : r.kind === "wall"
+          ? `/wall/${project.slug}/${r.oldSlug}`
+          : r.kind === "booster"
+            ? `/b/${project.slug}/${r.oldSlug}`
+            : `/c/${r.oldSlug}`,
+    target:
+      r.kind === "form"
+        ? `Form “${r.formName ?? ""}”`
+        : r.kind === "wall"
+          ? `Wall “${r.wallName ?? ""}”`
+          : r.kind === "booster"
+            ? `Booster “${r.boosterName ?? ""}”`
+            : project.name,
   }));
 }
 

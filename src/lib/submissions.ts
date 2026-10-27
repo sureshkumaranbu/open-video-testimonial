@@ -9,7 +9,9 @@ import { insertFeedback } from "./feedback";
 import {
   buildSubmissionSchema,
   formSubmissionSchema,
+  inLowRatingBranch,
   isQuestion,
+  lowRatingSubmissionSchema,
   pickPrimary,
   tagsFromSubmission,
   thankYouFor,
@@ -25,6 +27,7 @@ import "./notifications";
 import { queueAnswerVideo, queueVideoProcessing } from "./media";
 import { clientIp, clientKey, rateLimit } from "./rate-limit";
 import { findRequestByToken, markResponded, queueThankYou } from "./requests";
+import { grantReward, releaseCodes, type GrantedReward } from "./rewards";
 import { deleteObject, saveUpload, UploadError } from "./storage";
 import { createTestimonial, getTestimonial, updateTestimonial } from "./testimonials";
 import { claimUpload, getUpload } from "./uploads";
@@ -54,7 +57,17 @@ export type SubmissionFiles = {
   video?: File | null;
 };
 
-export type SubmissionResult = { id: string; message: string; withdrawUrl: string; thankYou: ThankYou };
+export type SubmissionResult = {
+  id: string;
+  message: string;
+  /** null for private feedback from the low-rating branch: there's no testimonial to withdraw. */
+  withdrawUrl: string | null;
+  thankYou: ThankYou;
+  /** FORM-13: what the form gives for this submission, if anything. */
+  reward: GrantedReward | null;
+  /** FORM-12: it was stored as private feedback, not as a testimonial. */
+  feedbackOnly?: boolean;
+};
 
 const DAY = 24 * 60 * 60 * 1000;
 const EXPIRED_UPLOAD = "The video upload has expired. Please upload it again.";
@@ -113,6 +126,12 @@ export async function submitForm(a: {
   const labels = resolveLabels(form.language, cfg.labels.overrides);
   if (form.status === "paused") {
     throw new SubmissionError(409, cfg.settings.closedMessage.trim() || fillLabel(labels.closedMessage, { project: project.name }));
+  }
+
+  // FORM-12: the server makes the same call as the runner, from the rating alone.
+  const rawRating = (a.input as { rating?: unknown } | null)?.rating;
+  if (!a.legacy && typeof rawRating === "number" && inLowRatingBranch(cfg, rawRating)) {
+    return submitLowRating({ project, form, cfg, labels, input: a.input, req });
   }
 
   const parsed = a.legacy ? formSubmissionSchema.safeParse(a.input) : buildSubmissionSchema(cfg, labels).safeParse(a.input);
@@ -233,9 +252,13 @@ export async function submitForm(a: {
       ];
     });
     const feedbackPages = cfg.pages.filter((p) => p.type === "feedback");
-    const { answers: storedAnswers, notes } = getDb().transaction((tx) => ({
+    const { answers: storedAnswers, notes, reward } = getDb().transaction((tx) => ({
       answers: insertAnswers(tx, testimonial.id, answerRows),
       images: insertImages(tx, testimonial.id, images),
+      // Once per submission, never by rating or words (see rewards.ts). The classic page has no reward.
+      reward: a.legacy
+        ? null
+        : grantReward(tx, { form, hasVideo: videos.size > 0, privateFeedback: false, request: fromRequest, target: { testimonialId: testimonial.id } }),
       notes: insertFeedback(
         tx,
         project.id,
@@ -287,18 +310,80 @@ export async function submitForm(a: {
     else maybeAutoApprove(testimonial.id);
 
     const url = withdrawUrl(token);
-    queueThankYou(project, fromRequest, url, form);
+    queueThankYou(project, fromRequest, url, form, { reward });
     const thankYou = thankYouFor(cfg, input.rating);
     const message = a.legacy
       ? project.thankYouMessage
       : fillLabel(thankYou.message || labels.thankYouMessage, { project: project.name });
-    return { id: testimonial.id, message, withdrawUrl: url, thankYou };
+    return { id: testimonial.id, message, withdrawUrl: url, thankYou, reward };
   } catch (err) {
     if (stored) throw err;
-    // Nothing half-stored: the row (cascading to answers, images and feedback links) and every file go.
-    if (testimonialId) getDb().delete(schema.testimonials).where(eq(schema.testimonials.id, testimonialId)).run();
+    // Nothing half-stored: the row (cascading to answers, images and feedback links), its reward code and every file go.
+    if (testimonialId) {
+      releaseCodes(getDb(), { testimonialId });
+      getDb().delete(schema.testimonials).where(eq(schema.testimonials.id, testimonialId)).run();
+    }
     await Promise.all(saved.map((key) => deleteObject(key)));
     if (err instanceof UploadError) throw new SubmissionError(400, err.message);
     throw err;
   }
+}
+
+/**
+ * FORM-12: a rating at or below the form's threshold. What they wrote is
+ * stored as private feedback (source "low-rating"), never as a testimonial,
+ * so there's no consent and nothing to withdraw. They get the same reward as
+ * everyone else (rewards never depend on the rating), a request link counts
+ * as answered, and `feedback.created` fires.
+ */
+function submitLowRating(a: {
+  project: Project;
+  form: Form;
+  cfg: FormConfig;
+  labels: ReturnType<typeof resolveLabels>;
+  input: unknown;
+  req: Request;
+}): SubmissionResult {
+  const { project, form, cfg, labels, req } = a;
+  const parsed = lowRatingSubmissionSchema.safeParse(a.input);
+  if (!parsed.success) throw new SubmissionError(400, firstIssue(parsed.error));
+  const input = parsed.data;
+  const cap = cfg.settings.maxPerIpPerDay;
+  if (cap && !rateLimit(`form-ip:${form.id}:${clientKey(req)}`, cap, DAY)) {
+    throw new SubmissionError(429, "You've already sent the most testimonials this form takes from one place today. Thank you!");
+  }
+  const request = input.requestToken ? findRequestByToken(input.requestToken) : null;
+  const fromRequest = request?.projectId === project.id ? request : null;
+  const contact: { name?: string; email?: string } = cfg.settings.lowRating.askContact ? input.person : {};
+  const { note, reward } = getDb().transaction((tx) => {
+    const [note] = insertFeedback(
+      tx,
+      project.id,
+      [
+        {
+          formId: form.id,
+          customerId: null,
+          testimonialId: null,
+          rating: input.rating,
+          text: input.lowFeedback,
+          authorName: contact.name ?? fromRequest?.name ?? null,
+          authorEmail: contact.email ?? fromRequest?.email ?? null,
+        },
+      ],
+      "low-rating",
+    );
+    const reward = grantReward(tx, { form, hasVideo: false, privateFeedback: true, request: fromRequest, target: { feedbackId: note.id } });
+    return { note, reward };
+  });
+  if (fromRequest) markResponded(fromRequest, null);
+  emitEvent(
+    "feedback.created",
+    project,
+    { feedback: { id: note.id, formId: form.id, testimonialId: null, rating: note.rating, text: note.text, source: note.source, createdAt: note.createdAt.toISOString() } },
+    { formId: form.id },
+  );
+  queueThankYou(project, fromRequest, null, form, { reward, feedback: true });
+  const low = thankYouFor(cfg, input.rating);
+  const thankYou = { ...low, message: low.message || labels.lowRatingThanks, copyText: false, share: false };
+  return { id: note.id, message: fillLabel(thankYou.message, { project: project.name }), withdrawUrl: null, thankYou, reward, feedbackOnly: true };
 }

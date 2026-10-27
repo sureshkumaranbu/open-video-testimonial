@@ -274,8 +274,10 @@ export function legacyPatchToFormPatch(patch: LegacyFormPatch, cfg: FormConfig, 
 export function classicCompatible(cfg: FormConfig, language = "en"): boolean {
   if (language !== "en" || Object.keys(cfg.labels.overrides).length) return false;
   if (!sameValue(cfg.design, formDesignSchema.parse({ primary: cfg.design.primary }))) return false;
-  const { hiddenFields, lockPrefill, landscapePrompt } = cfg.settings;
+  const { hiddenFields, lockPrefill, landscapePrompt, lowRating } = cfg.settings;
   if (hiddenFields.length || lockPrefill.length || landscapePrompt) return false;
+  // FORM-12 swaps steps, which the one-page classic form doesn't have.
+  if (lowRating.enabled) return false;
   // CollectForm always shows the (optional) rating.
   if (!cfg.pages.some((p) => p.type === "rating" && p.enabled)) return false;
   return cfg.pages.every((p) => {
