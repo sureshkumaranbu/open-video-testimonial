@@ -327,6 +327,8 @@ export const requests = sqliteTable(
   (t) => [
     index("requests_project_idx").on(t.projectId),
     index("requests_reminder_idx").on(t.status, t.nextReminderAt),
+    // 0011: deleting a form sets this to null.
+    index("requests_form_idx").on(t.formId),
   ],
 );
 
@@ -365,20 +367,25 @@ export const WEBHOOK_EVENTS = [
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number] | "ping";
 
 /** Outgoing webhooks, signed with a per-endpoint secret. */
-export const webhooks = sqliteTable("webhooks", {
-  id: text("id").primaryKey(),
-  url: text("url").notNull(),
-  /** HMAC-SHA256 signing secret (needed in full to sign, so stored as-is). */
-  secret: text("secret").notNull(),
-  /** JSON array of event names; empty means every event. */
-  events: text("events").notNull().default("[]"),
-  /** Only this project's events, or every project when null. */
-  projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }),
-  active: integer("active", { mode: "boolean" }).notNull().default(true),
-  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
-  /** Only this form's events (FORM-10 override), or every form when null. Deleted with the form. */
-  formId: text("form_id").references(() => forms.id, { onDelete: "cascade" }),
-});
+export const webhooks = sqliteTable(
+  "webhooks",
+  {
+    id: text("id").primaryKey(),
+    url: text("url").notNull(),
+    /** HMAC-SHA256 signing secret (needed in full to sign, so stored as-is). */
+    secret: text("secret").notNull(),
+    /** JSON array of event names; empty means every event. */
+    events: text("events").notNull().default("[]"),
+    /** Only this project's events, or every project when null. */
+    projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
+    /** Only this form's events (FORM-10 override), or every form when null. Deleted with the form. */
+    formId: text("form_id").references(() => forms.id, { onDelete: "cascade" }),
+  },
+  // 0011: an index on each Phase 1 foreign key, so deleting the parent doesn't scan this table.
+  (t) => [index("webhooks_form_idx").on(t.formId)],
+);
 
 export const DELIVERY_STATUSES = ["pending", "success", "failed"] as const;
 
@@ -626,7 +633,12 @@ export const feedback = sqliteTable(
     trashedAt: integer("trashed_at", { mode: "timestamp_ms" }),
     createdAt: createdAt(),
   },
-  (t) => [index("feedback_project_created_idx").on(t.projectId, t.createdAt)],
+  (t) => [
+    index("feedback_project_created_idx").on(t.projectId, t.createdAt),
+    index("feedback_form_idx").on(t.formId),
+    index("feedback_customer_idx").on(t.customerId),
+    index("feedback_testimonial_idx").on(t.testimonialId),
+  ],
 );
 
 /** Images attached to an answer, or screenshots added by hand. */
@@ -665,7 +677,7 @@ export const highlights = sqliteTable(
     phrase: text("phrase").notNull(),
     createdAt: createdAt(),
   },
-  (t) => [index("highlights_testimonial_idx").on(t.testimonialId)],
+  (t) => [index("highlights_testimonial_idx").on(t.testimonialId), index("highlights_answer_idx").on(t.answerId)],
 );
 
 /** Edit history (INBOX-10). Rows are only ever inserted. */
@@ -721,7 +733,12 @@ export const slugRedirects = sqliteTable(
     oldSlug: text("old_slug").notNull(),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex("slug_redirects_kind_scope_slug_idx").on(t.kind, t.scope, t.oldSlug)],
+  (t) => [
+    uniqueIndex("slug_redirects_kind_scope_slug_idx").on(t.kind, t.scope, t.oldSlug),
+    index("slug_redirects_project_idx").on(t.projectId),
+    index("slug_redirects_form_idx").on(t.formId),
+    index("slug_redirects_wall_idx").on(t.wallId),
+  ],
 );
 
 /** A saved widget (DISP-01). Soft-deleted, so embeds of a deleted widget show nothing rather than break. */
@@ -753,7 +770,7 @@ export const widgets = sqliteTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [index("widgets_project_idx").on(t.projectId)],
+  (t) => [index("widgets_project_idx").on(t.projectId), index("widgets_connected_form_idx").on(t.connectedFormId)],
 );
 
 /** A wall of love page (WALL-01). */
@@ -786,25 +803,31 @@ export const walls = sqliteTable(
     uniqueIndex("walls_project_main_idx").on(t.projectId).where(sql`is_main = 1`),
     index("walls_logo_key_idx").on(t.logoKey),
     index("walls_cover_key_idx").on(t.coverKey),
+    index("walls_featured_testimonial_idx").on(t.featuredTestimonialId),
+    index("walls_connected_form_idx").on(t.connectedFormId),
   ],
 );
 
 /** A review rich-snippet script (SEO-02) that injects JSON-LD into the owner's own page. */
-export const seoSnippets = sqliteTable("seo_snippets", {
-  /** "s_" + 12 base36. */
-  id: text("id").primaryKey(),
-  projectId: text("project_id")
-    .notNull()
-    .references(() => projects.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  schemaType: text("schema_type", { enum: SEO_SCHEMA_TYPES }).notNull().default("Product"),
-  /** The same PublicFilters as widgets. */
-  scope: text("scope").notNull().default("{}"),
-  /** JSON {name, url} of the thing being reviewed. */
-  item: text("item").notNull().default("{}"),
-  createdAt: createdAt(),
-  updatedAt: updatedAt(),
-});
+export const seoSnippets = sqliteTable(
+  "seo_snippets",
+  {
+    /** "s_" + 12 base36. */
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    schemaType: text("schema_type", { enum: SEO_SCHEMA_TYPES }).notNull().default("Product"),
+    /** The same PublicFilters as widgets. */
+    scope: text("scope").notNull().default("{}"),
+    /** JSON {name, url} of the thing being reviewed. */
+    item: text("item").notNull().default("{}"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("seo_snippets_project_idx").on(t.projectId)],
+);
 
 /** One table for background tasks the UI polls: imports (with their preview), storage migration, onboarding discovery. */
 export const taskRuns = sqliteTable(
@@ -837,22 +860,26 @@ export const taskRuns = sqliteTable(
 );
 
 /** Slack, Discord, Teams and Telegram destinations for new-testimonial alerts (INT-02). */
-export const notificationChannels = sqliteTable("notification_channels", {
-  id: text("id").primaryKey(),
-  /** null = all projects. */
-  projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }),
-  type: text("type", { enum: CHANNEL_TYPES }).notNull(),
-  name: text("name").notNull(),
-  /** Webhook URL or JSON {botToken, chatId}. Needed in full to send; masked in every API response. */
-  target: text("target").notNull(),
-  events: text("events").notNull().default('["testimonial.created"]'),
-  /** JSON list; empty = every form. */
-  formIds: text("form_ids").notNull().default("[]"),
-  active: integer("active", { mode: "boolean" }).notNull().default(true),
-  lastSentAt: integer("last_sent_at", { mode: "timestamp_ms" }),
-  lastError: text("last_error"),
-  createdAt: createdAt(),
-});
+export const notificationChannels = sqliteTable(
+  "notification_channels",
+  {
+    id: text("id").primaryKey(),
+    /** null = all projects. */
+    projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    type: text("type", { enum: CHANNEL_TYPES }).notNull(),
+    name: text("name").notNull(),
+    /** Webhook URL or JSON {botToken, chatId}. Needed in full to send; masked in every API response. */
+    target: text("target").notNull(),
+    events: text("events").notNull().default('["testimonial.created"]'),
+    /** JSON list; empty = every form. */
+    formIds: text("form_ids").notNull().default("[]"),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    lastSentAt: integer("last_sent_at", { mode: "timestamp_ms" }),
+    lastError: text("last_error"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("notification_channels_project_idx").on(t.projectId)],
+);
 
 /** Per-person prefs keyed by lower-cased email (D14; the owner signs in before editing prefs, so a members row exists). */
 export const memberPrefs = sqliteTable("member_prefs", {
