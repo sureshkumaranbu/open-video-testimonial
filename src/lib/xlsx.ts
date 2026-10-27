@@ -26,6 +26,13 @@ export const XLSX_MAX_RATIO = 200;
 /** A header row plus the CSV import's 10,000 rows. */
 export const XLSX_MAX_ROWS = 10_001;
 export const XLSX_MAX_COLS = 100;
+/** Excel's own limit for one cell. */
+export const XLSX_MAX_CELL_CHARS = 32_767;
+/**
+ * All the text kept, together. Shared strings are stored once but may be
+ * used by every cell, so the inflate caps alone don't bound the output.
+ */
+export const XLSX_MAX_TEXT_CHARS = 32 * 1024 * 1024;
 
 export class XlsxError extends Error {}
 
@@ -253,6 +260,7 @@ export function readXlsx(input: Uint8Array): Sheet {
 
   const rows: string[][] = [];
   let truncated = false;
+  let chars = 0;
   let row: string[] | null = null;
   let col = 0;
   let cell: { col: number; type: string; style: number } | null = null;
@@ -294,6 +302,9 @@ export function readXlsx(input: Uint8Array): Sheet {
         else if (value === "") text = "";
         else if (dates.has(c.style)) text = serialToDate(Number(value), date1904) ?? numberText(value);
         else text = numberText(value);
+        if (text.length > XLSX_MAX_CELL_CHARS) text = text.slice(0, XLSX_MAX_CELL_CHARS);
+        chars += text.length;
+        if (chars > XLSX_MAX_TEXT_CHARS) throw new XlsxError("The spreadsheet is too large to read here. Save it as CSV, or split it.");
         while (row.length < c.col) row.push("");
         row[c.col] = text;
       } else if (n === "row" && row) {

@@ -132,6 +132,16 @@ describe("IMP-04 reading .xlsx", () => {
     expect(() => readXlsx(zip([{ name: "xl/other.xml", data: "<x/>" }]))).toThrow(/no worksheet/);
   });
 
+  it("IMP-04 a shared string used by every cell can't blow up the output", () => {
+    const big = "x".repeat(40_000);
+    const strings = `<?xml version="1.0"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><si><t>${big}</t></si></sst>`;
+    const one = readXlsx(zip([{ name: "xl/worksheets/sheet1.xml", data: sheet('<row><c t="s"><v>0</v></c></row>') }, { name: "xl/sharedStrings.xml", data: strings }]));
+    expect(one.rows[0][0]).toHaveLength(32_767);
+    const cells = Array.from({ length: 100 }, () => '<c t="s"><v>0</v></c>').join("");
+    const rows = Array.from({ length: 1_100 }, () => `<row>${cells}</row>`).join("");
+    expect(() => readXlsx(zip([{ name: "xl/worksheets/sheet1.xml", data: sheet(rows) }, { name: "xl/sharedStrings.xml", data: strings }]))).toThrow(/too large/);
+  });
+
   it("IMP-04 keeps at most 10,000 rows and 100 columns and says so", () => {
     const many = Array.from({ length: 10_005 }, (_, i) => `<row><c t="inlineStr"><is><t>p${i}</t></is></c></row>`).join("");
     const wide = `<row>${Array.from({ length: 105 }, (_, i) => `<c t="inlineStr"><is><t>c${i}</t></is></c>`).join("")}</row>`;
