@@ -78,7 +78,8 @@ describe("IMP-01 importer framework", () => {
   it("IMP-01 lists every source with its method and terms, and whether it's set up", async () => {
     const res = await importersRoute(new Request("http://localhost/api/admin/importers", { headers: adminHeaders() }));
     const { importers } = await res.json();
-    expect(importers.map((i: { id: string }) => i.id)).toEqual(["google", "trustpilot", "g2", "capterra", "producthunt", "appstore", "googleplay", "x", "testimonial-to", "senja", "shapo"]);
+    // The Phase 1 sources first, in their order; M13's follow while imports2 is on (tests/importers/m13-apis.test.ts).
+    expect(importers.map((i: { id: string }) => i.id).slice(0, 11)).toEqual(["google", "trustpilot", "g2", "capterra", "producthunt", "appstore", "googleplay", "x", "testimonial-to", "senja", "shapo"]);
     expect(listImporters().every((i) => i.method && typeof i.tosNotes === "string")).toBe(true);
     // The onboarding wizard's website source is never offered here.
     expect(importers.some((i: { id: string }) => i.id === "website")).toBe(false);

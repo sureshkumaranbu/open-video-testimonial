@@ -148,6 +148,8 @@ export const designSchema = z.object({
   readMore: z.number().int().min(0).max(2000).default(0),
   /** "Ada Lovelace" shows as "Ada" (done on the server, so the surname never leaves it). */
   firstNameOnly: z.boolean().default(false),
+  /** INBOX-13: "visitor" shows a testimonial's translation into the visitor's browser language when it has one. */
+  translations: z.enum(["off", "visitor"]).default("off"),
 });
 
 /** DISP-04. Each layout reads the ones it needs. */
@@ -259,7 +261,7 @@ export type PublicWidget = {
   sort: "random" | null;
   /** How many leading testimonials are pinned (a shuffle leaves them first). */
   pinned: number;
-  design: Omit<WidgetDesign, "font" | "firstNameOnly"> & {
+  design: Omit<WidgetDesign, "font" | "firstNameOnly" | "translations"> & {
     fontFamily: string;
     fontFile: string | null;
     /** The accent actually used (the design's, else the project's) and readable text on it (same formula as the app). */

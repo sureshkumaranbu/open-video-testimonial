@@ -3,6 +3,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import type { DatePrecision, Project, TaskRun } from "@/db/schema";
 import { logConsentEvent } from "../consent";
+import { upsertCustomer } from "../customers";
 import { FETCH_MEDIA_JOB, isAlreadyImported, isUniqueViolation, normalizePlatform } from "../csv-import";
 import { enqueue, PermanentJobError } from "../jobs";
 import { NetGuardError } from "../net-guard";
@@ -11,6 +12,7 @@ import { createTestimonial, getProjectById, updateTestimonial } from "../testimo
 import { emitEvent } from "../webhooks";
 import { cleanLine, cleanText, httpUrl } from "./html";
 import { getAdapter, importCtx } from "./registry";
+import { noteSyncResult } from "./sync";
 import {
   ImporterBlockedError,
   ImporterInputError,
@@ -338,6 +340,8 @@ function saveItem(project: Project, adapter: ImporterAdapter, run: TaskRun, item
   const now = new Date();
   let id: string;
   try {
+    // INBOX-12: every imported review gets its person (no email from a review site, so a record of their own).
+    const customer = upsertCustomer(project.id, { name: item.authorName, title: item.authorTitle, company: item.authorCompany });
     id = createTestimonial(
       project.id,
       {
@@ -354,6 +358,7 @@ function saveItem(project: Project, adapter: ImporterAdapter, run: TaskRun, item
         datePrecision: item.date?.precision ?? "day",
         importedAt: now,
         language: item.language,
+        customerId: customer?.id ?? null,
       },
       { source: `importer:${adapter.id}`, createdAt: now, by: run.createdBy ?? undefined },
     ).id;
@@ -444,8 +449,8 @@ function finish(runId: string, project: Project, adapter: ImporterAdapter) {
   const run = getRun(runId);
   if (!run) return;
   db.update(t).set({ input: redact(run.input), preview: "[]" }).where(eq(t.id, runId)).run();
-  // Exactly one per run: only the call that moved it to "done" announces it.
-  if (ended) {
+  // Exactly one per run: only the call that moved it to "done" announces it. A sync run that found nothing new says nothing (IMP-02).
+  if (ended && (!run.sourceId || run.done > 0)) {
     emitEvent("import.completed", project, {
       import: {
         id: run.id,
@@ -457,9 +462,11 @@ function finish(runId: string, project: Project, adapter: ImporterAdapter) {
         failed: run.failed,
         startedAt: run.createdAt.toISOString(),
         finishedAt: (run.finishedAt ?? new Date()).toISOString(),
+        ...(run.sourceId ? { syncId: run.sourceId } : {}),
       },
     });
   }
+  if (ended) noteSyncResult(run);
 }
 
 function fail(runId: string, message: string) {
@@ -472,6 +479,8 @@ function fail(runId: string, message: string) {
     .set({ status: "failed", finishedAt: new Date(), errors: JSON.stringify(errors), input: redact(run.input), preview: "[]" })
     .where(eq(t.id, runId))
     .run();
+  const failed = getRun(runId);
+  if (failed) noteSyncResult(failed);
 }
 
 function requeue(runId: string) {
@@ -530,6 +539,7 @@ export async function runImportJob(p: { runId: string }, o: { final?: boolean } 
   if (page.total && run.total === 0) {
     getDb().update(schema.taskRuns).set({ total: Math.min(page.total, MAX_IMPORT_ITEMS) }).where(eq(schema.taskRuns.id, run.id)).run();
   }
+  const before = getRun(run.id);
   for (let i = cursor.i; i < page.items.length; i++) {
     if (handled(run.id) >= MAX_IMPORT_ITEMS) break;
     const item = sanitizeItem(page.items[i], adapter);
@@ -540,7 +550,10 @@ export async function runImportJob(p: { runId: string }, o: { final?: boolean } 
     }
     processItem(project, adapter, run, item, options, next);
   }
-  if (page.next && handled(run.id) < MAX_IMPORT_ITEMS) {
+  // A sync run (IMP-02) stops at the first page with nothing new: the source lists newest first.
+  const after = getRun(run.id);
+  const nothingNew = Boolean(run.sourceId && before && after && after.done === before.done && after.duplicates > before.duplicates);
+  if (page.next && !nothingNew && handled(run.id) < MAX_IMPORT_ITEMS) {
     getDb().update(schema.taskRuns).set({ cursor: JSON.stringify({ c: page.next, i: 0 }) }).where(eq(schema.taskRuns.id, run.id)).run();
     requeue(run.id);
   } else {

@@ -265,6 +265,11 @@ export const formSettingsSchema = z.object({
    * gating, and booster pages never do it (BOOST-03).
    */
   lowRating: lowRatingSchema.prefault({}),
+  /** INBOX-13: languages new testimonials are machine-translated into on arrival (needs TRANSLATE_PROVIDER). */
+  autoTranslate: z
+    .array(z.string().trim().toLowerCase().regex(/^[a-z]{2,3}(-[a-z0-9]{2,8}){0,2}$/, "Use language codes such as fr or pt-br"))
+    .max(10)
+    .default([]),
 });
 export type FormSettings = z.infer<typeof formSettingsSchema>;
 

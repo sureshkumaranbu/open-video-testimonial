@@ -2,8 +2,12 @@ import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, sql, type SQL } fro
 import { getDb, schema } from "@/db";
 import type { Testimonial, TestimonialStatus } from "@/db/schema";
 import { ConsentWithdrawnError, deleteTestimonial, getTestimonial, NoPublicConsentError, updateTestimonial, type TestimonialWithTags } from "./testimonials";
+import { embeddingsEnabled, ProviderError, rankBySimilarity } from "./embeddings";
+import { withDuplicates } from "./merge";
 import { matchesSearch, toFtsQuery } from "./search";
 import { restoreTestimonial, trashTestimonial } from "./trash";
+import { translationEnabled } from "./translate";
+import { queueTranslations } from "./translations";
 import { DEFAULT_PREFS, inboxPrefsSchema, MAX_BULK, type InboxMethod, type InboxPrefs, type InboxQuery, type InboxSort, type InboxTab } from "./inbox-query";
 
 const { testimonials, testimonialTags, tags, answers, testimonialImages, feedback, forms, memberPrefs } = schema;
@@ -38,10 +42,15 @@ const hasImage = sql`EXISTS (SELECT 1 FROM testimonial_images i WHERE i.testimon
 const dayStart = (d: string) => new Date(`${d}T00:00:00.000Z`);
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Every condition of the view except the tab, so the tab counts can reuse them. */
-function filterConditions(projectId: string, q: InboxQuery): SQL[] {
+/**
+ * Every condition of the view except the tab, so the tab counts can reuse
+ * them. With `ranked` (smart search, INBOX-14) the keyword search is replaced
+ * by "one of these ids".
+ */
+function filterConditions(projectId: string, q: InboxQuery, ranked?: string[]): SQL[] {
   const c: SQL[] = [eq(testimonials.projectId, projectId)];
-  const fts = toFtsQuery(q.q);
+  const fts = ranked ? null : toFtsQuery(q.q);
+  if (ranked) c.push(inArray(testimonials.id, ranked));
   if (fts) c.push(matchesSearch(projectId, fts));
   if (q.rating.length) {
     const stars = q.rating.filter((r) => r > 0);
@@ -69,6 +78,7 @@ function filterConditions(projectId: string, q: InboxQuery): SQL[] {
   if (q.hasAvatar) c.push(isNotNull(testimonials.avatarKey));
   if (q.hasLogo) c.push(isNotNull(testimonials.companyLogoKey));
   if (q.hasImages) c.push(hasImage);
+  if (q.dupes) c.push(inArray(testimonials.id, withDuplicates(projectId)));
   if (q.scope) c.push(sql`EXISTS (SELECT 1 FROM json_each(${testimonials.consentScopes}) WHERE value = ${q.scope})`);
   if (q.wordsMin != null) c.push(sql`coalesce(${testimonials.wordCount}, 0) >= ${q.wordsMin}`);
   if (q.wordsMax != null) c.push(sql`coalesce(${testimonials.wordCount}, 0) <= ${q.wordsMax}`);
@@ -137,21 +147,31 @@ function counts(ids: string[]) {
   return { a, i };
 }
 
-/** One page of the view, and how many match in all. The Feedback tab has no testimonials (see listProjectFeedback). */
-export function queryTestimonials(projectId: string, q: InboxQuery): { items: InboxItem[]; total: number } {
+/**
+ * One page of the view, and how many match in all. The Feedback tab has no
+ * testimonials (see listProjectFeedback). With `ranked` (smart search) the
+ * rows are those ids, in that order, with every other filter applied.
+ */
+export function queryTestimonials(projectId: string, q: InboxQuery, ranked?: string[]): { items: InboxItem[]; total: number } {
   const tab = tabCondition(q.tab);
   if (!tab) return { items: [], total: 0 };
   const db = getDb();
-  const where = and(...filterConditions(projectId, q), tab);
+  const where = and(...filterConditions(projectId, q, ranked), tab);
   const total = db.select({ n: sql<number>`count(*)` }).from(testimonials).where(where).get()?.n ?? 0;
-  const rows = db
-    .select()
-    .from(testimonials)
-    .where(where)
-    .orderBy(...orderBy(q))
-    .limit(q.pageSize)
-    .offset((q.page - 1) * q.pageSize)
-    .all();
+  let rows: Testimonial[];
+  if (ranked) {
+    const rank = new Map(ranked.map((id, i) => [id, i]));
+    rows = db.select().from(testimonials).where(where).all().sort((a, b) => rank.get(a.id)! - rank.get(b.id)!).slice((q.page - 1) * q.pageSize, q.page * q.pageSize);
+  } else {
+    rows = db
+      .select()
+      .from(testimonials)
+      .where(where)
+      .orderBy(...orderBy(q))
+      .limit(q.pageSize)
+      .offset((q.page - 1) * q.pageSize)
+      .all();
+  }
   const { a, i } = counts(rows.map((r) => r.id));
   const items = withTags(rows).map((t) => ({
     ...t,
@@ -160,6 +180,29 @@ export function queryTestimonials(projectId: string, q: InboxQuery): { items: In
     imageCount: i.get(t.id) ?? 0,
   }));
   return { items, total };
+}
+
+/**
+ * Smart search (INBOX-14): the ids that rank for `q.q` by meaning, among the
+ * rows the other filters allow (any tab), best first. `fallback` says why it
+ * fell back to keyword search: not set up or turned off, or the provider failed.
+ */
+export async function smartRanking(projectId: string, q: InboxQuery): Promise<{ ranked: string[] } | { fallback: "off" | "failed" }> {
+  if (!embeddingsEnabled()) return { fallback: "off" };
+  const candidates = new Set(
+    getDb()
+      .select({ id: testimonials.id })
+      .from(testimonials)
+      .where(and(...filterConditions(projectId, { ...q, q: "" })))
+      .all()
+      .map((r) => r.id),
+  );
+  try {
+    return { ranked: (await rankBySimilarity(projectId, q.q, candidates)).map((r) => r.id) };
+  } catch (err) {
+    if (err instanceof ProviderError) return { fallback: "failed" };
+    throw err;
+  }
 }
 
 /** Every id the view matches (no paging), in its order, for exports. */
@@ -177,13 +220,13 @@ export function matchingIds(projectId: string, q: InboxQuery, limit = 100_000): 
 }
 
 /** How many each tab would show with the same search and filters. "All" leaves out the trash. */
-export function inboxCounts(projectId: string, q: InboxQuery): Record<InboxTab, number> {
+export function inboxCounts(projectId: string, q: InboxQuery, ranked?: string[]): Record<InboxTab, number> {
   const db = getDb();
   const out: Record<InboxTab, number> = { all: 0, pending: 0, approved: 0, hidden: 0, rejected: 0, feedback: 0, trash: 0 };
   const rows = db
     .select({ status: testimonials.status, n: sql<number>`count(*)` })
     .from(testimonials)
-    .where(and(...filterConditions(projectId, q)))
+    .where(and(...filterConditions(projectId, q, ranked)))
     .groupBy(testimonials.status)
     .all();
   for (const r of rows) {
@@ -266,7 +309,7 @@ export function deleteProjectFeedback(projectId: string, ids: string[]): number 
 
 // ----------------------------------------------------------------- bulk
 
-export const BULK_ACTIONS = ["approve", "hide", "reject", "pending", "tag", "untag", "trash", "restore", "delete"] as const;
+export const BULK_ACTIONS = ["approve", "hide", "reject", "pending", "tag", "untag", "trash", "restore", "delete", "translate"] as const;
 export type BulkAction = (typeof BULK_ACTIONS)[number];
 
 export class BulkError extends Error {}
@@ -299,13 +342,17 @@ export async function bulkUpdate(
   projectId: string,
   ids: string[],
   action: BulkAction,
-  o: { by?: string; tags?: string[] } = {},
+  o: { by?: string; tags?: string[]; langs?: string[] } = {},
 ): Promise<BulkResult> {
   const unique = [...new Set(ids)];
   if (!unique.length) throw new BulkError("Select at least one testimonial");
   if (unique.length > MAX_BULK) throw new BulkError(`Select at most ${MAX_BULK} testimonials at a time`);
   const names = [...new Set((o.tags ?? []).map((t) => t.trim().toLowerCase()).filter(Boolean))];
   if ((action === "tag" || action === "untag") && !names.length) throw new BulkError("Name at least one tag");
+  if (action === "translate") {
+    if (!translationEnabled()) throw new BulkError("Translation isn't set up on this server (TRANSLATE_PROVIDER)");
+    if (!o.langs?.length) throw new BulkError("Choose at least one language");
+  }
 
   const owned = new Map(
     getDb()
@@ -357,6 +404,11 @@ export async function bulkUpdate(
           restoreTestimonial(id, { by: o.by });
           result.updated.push(id);
         }
+      } else if (action === "translate") {
+        // INBOX-06/13: queued, one job per testimonial; each translation gets its own history entry.
+        if (row.status === "trashed") skip(id, "In the trash. Restore it first.");
+        else if (queueTranslations(id, o.langs ?? [], { by: o.by })) result.updated.push(id);
+        else skip(id, "Nothing to translate into");
       } else if (action === "delete") {
         // Deleting for good is offered only from the trash (D6).
         if (row.status !== "trashed") skip(id, "Only testimonials in the trash can be deleted for good");

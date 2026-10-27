@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- **Auto-sync** (feature flag `imports2`): **Keep this in sync** after an import from a review site's address or ID re-runs it every 12 or 24 hours with the same options, deduped as always. **Automatically synced** lists each source with its last and next run and what it added, with pause, run now and stop. After 3 failed runs in a row you get an email (with import emails on) and a dashboard notice, and it keeps trying. See [`docs/IMPORT.md`](docs/IMPORT.md#keeping-a-source-in-sync).
+
+- **22 more sources** (`imports2`): YouTube (each video as a testimonial, or its comments with your `YOUTUBE_API_KEY`), Reddit, WooCommerce's Store API, Etsy (your `ETSY_API_KEY`), WordPress.org, Apple Podcasts, Feefo, Shopify review apps, Clutch, AppSumo and Udemy; and from a page you save in your browser only: Yelp, Facebook, LinkedIn, Tripadvisor, Amazon, Fiverr, Airbnb, Zillow, Realtor.com, the Chrome Web Store and Trustindex.
+
+- **Spreadsheets** (`imports2`): Excel (.xlsx) files and tables pasted from a spreadsheet go through the CSV column mapper, preview and warnings. Read by Plaudit's own small reader, with limits that stop oversized or "zip bomb" files.
+
+- **Customer records** (feature flag `customers`): a Customers tab and a page per person with their testimonials, private feedback, invitations, campaign emails and rewards; edit, **Invite to a form**, **Ask for a video** and **Add testimonial**. Linked automatically as testimonials arrive, and older ones by an hourly job. See [`docs/help/customers.md`](docs/help/customers.md).
+
+- **Possible duplicates and Merge into…** (`customers`): the same customer or email, or the same name with similar words, flagged and filterable in the inbox. A merge keeps both answers (the other one becomes an extra answer), combines tags and images, copies the consent record, and trashes the merged one, which can be restored. Nothing becomes public that wasn't.
+
+- **Translations** (feature flag `translations`): per language in the drawer, by hand or with your own provider (`TRANSLATE_PROVIDER`: DeepL, LibreTranslate or OpenAI-compatible; server-side only, nothing without it); "translate new testimonials into" on forms; bulk Translate. Widgets can show the visitor's language (`widget.js` is 7,167 bytes gzipped), and testimonial pages take `?lang=`.
+
+- **Smart search** (feature flag `aisearch`): search by meaning with your own embeddings endpoint (`EMBEDDINGS_MODEL`). Falls back to keyword search, and says so, without a provider or when it fails. With it on, testimonial text is sent to your provider. See [`docs/help/inbox.md`](docs/help/inbox.md#smart-search).
+
+- The project export now carries campaigns and their recipients, review boosters and their clicks, reward codes, synced sources (no keys; they arrive paused, as do active campaigns), translations and merges. Older archives import as before.
+
+- Migration 0016 adds the synced sources, translations and search tables, a merged-into column and owner-only images, and indexes on five older foreign keys (`testimonial_tags.tag_id` among them); nothing existing changes.
+
 - **Video tools** in the inbox drawer ([`docs/help/video.md`](docs/help/video.md)): trim with a waveform and a preview (the original is kept, so a trim can be changed or undone; captions follow the cut), pick the poster from a frame or upload one, replace the file (it's converted and transcribed again), and download the original or the MP4. Each change is in the history and sends `testimonial.updated`.
 
 - **A page for each testimonial** at `/t/<id>`: the quote or video, the person, a button to your site, plain share links, review data and a link preview image of the quote. Approved and public testimonials only. See [`docs/help/share.md`](docs/help/share.md).

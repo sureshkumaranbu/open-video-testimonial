@@ -1,0 +1,26 @@
+{
+ "count": 2,
+ "results": [
+  {
+   "shop_id": 31415926,
+   "listing_id": 111,
+   "transaction_id": 9001,
+   "buyer_user_id": 5,
+   "rating": 5,
+   "review": "Arrived early and beautifully wrapped.",
+   "language": "en",
+   "image_url_fullxfull": "https://i.etsystatic.example/review.jpg",
+   "created_timestamp": 1790000000
+  },
+  {
+   "shop_id": 31415926,
+   "listing_id": 112,
+   "transaction_id": 9002,
+   "buyer_user_id": 6,
+   "rating": 4,
+   "review": "",
+   "language": "en",
+   "created_timestamp": 1789000000
+  }
+ ]
+}

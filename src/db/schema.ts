@@ -1,5 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
+  type AnySQLiteColumn,
+  blob,
   index,
   integer,
   primaryKey,
@@ -94,7 +96,9 @@ export const FEEDBACK_SOURCES = ["private-question", "low-rating"] as const;
 export type FeedbackSource = (typeof FEEDBACK_SOURCES)[number];
 export const HISTORY_ACTORS = ["owner", "api", "auto", "import", "customer", "system"] as const;
 export type HistoryActor = (typeof HISTORY_ACTORS)[number];
-export const HISTORY_ACTIONS = ["created", "edited", "status", "tags", "trashed", "restored", "answer_edited", "highlights", "bulk"] as const;
+// "merged" (M13, INBOX-11): another testimonial of the same person was merged into this one, or this one into another.
+// "translation" (M13, INBOX-13): a translation was added, changed or removed.
+export const HISTORY_ACTIONS = ["created", "edited", "status", "tags", "trashed", "restored", "answer_edited", "highlights", "bulk", "merged", "translation"] as const;
 export type HistoryAction = (typeof HISTORY_ACTIONS)[number];
 export const REDIRECT_KINDS = ["project", "form", "wall", "booster"] as const;
 export type RedirectKind = (typeof REDIRECT_KINDS)[number];
@@ -225,6 +229,11 @@ export const testimonials = sqliteTable(
     posterAtMs: integer("poster_at_ms"),
     /** VID-02: the poster is an uploaded image, so re-cutting the video keeps it. */
     posterCustom: integer("poster_custom", { mode: "boolean" }).notNull().default(false),
+    /**
+     * INBOX-11: this testimonial was merged into that one and sits in the trash.
+     * Its own content is untouched (the other one got copies), so restoring it is safe.
+     */
+    mergedIntoId: text("merged_into_id").references((): AnySQLiteColumn => testimonials.id, { onDelete: "set null" }),
   },
   (t) => [
     index("testimonials_project_status_idx").on(t.projectId, t.status),
@@ -238,6 +247,7 @@ export const testimonials = sqliteTable(
     index("testimonials_customer_idx").on(t.customerId),
     index("testimonials_company_logo_key_idx").on(t.companyLogoKey),
     index("testimonials_trashed_at_idx").on(t.trashedAt),
+    index("testimonials_merged_into_idx").on(t.mergedIntoId),
     // Import dedupe. NULLs count as distinct, so rows without a platform never clash.
     uniqueIndex("testimonials_platform_review_idx").on(t.projectId, t.platform, t.sourceReviewId),
   ],
@@ -265,7 +275,8 @@ export const testimonialTags = sqliteTable(
       .notNull()
       .references(() => tags.id, { onDelete: "cascade" }),
   },
-  (t) => [primaryKey({ columns: [t.testimonialId, t.tagId] })],
+  // 0016 (L12): the tag-rename trigger and tag deletes look rows up by tag.
+  (t) => [primaryKey({ columns: [t.testimonialId, t.tagId] }), index("testimonial_tags_tag_idx").on(t.tagId)],
 );
 
 /**
@@ -317,7 +328,7 @@ export const consentEvents = sqliteTable(
     detail: text("detail"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
   },
-  (t) => [index("consent_events_testimonial_idx").on(t.testimonialId)],
+  (t) => [index("consent_events_testimonial_idx").on(t.testimonialId), index("consent_events_version_idx").on(t.versionId)],
 );
 
 // "declined" (M9): the person pressed "No thanks" in a campaign email.
@@ -373,6 +384,8 @@ export const requests = sqliteTable(
     // 0011: deleting a form sets this to null.
     index("requests_form_idx").on(t.formId),
     index("requests_campaign_idx").on(t.campaignId),
+    // 0016 (L12): deleting a testimonial sets this to null.
+    index("requests_testimonial_idx").on(t.testimonialId),
   ],
 );
 
@@ -498,7 +511,7 @@ export const webhooks = sqliteTable(
     formId: text("form_id").references(() => forms.id, { onDelete: "cascade" }),
   },
   // 0011: an index on each Phase 1 foreign key, so deleting the parent doesn't scan this table.
-  (t) => [index("webhooks_form_idx").on(t.formId)],
+  (t) => [index("webhooks_form_idx").on(t.formId), index("webhooks_project_idx").on(t.projectId)],
 );
 
 export const DELIVERY_STATUSES = ["pending", "success", "failed"] as const;
@@ -565,7 +578,7 @@ export const uploads = sqliteTable("uploads", {
   maxBytes: integer("max_bytes").notNull(),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
   expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
-});
+}, (t) => [index("uploads_project_idx").on(t.projectId)]);
 
 export const MEMBER_ROLES = ["owner", "admin"] as const;
 export type MemberRole = (typeof MEMBER_ROLES)[number];
@@ -768,6 +781,11 @@ export const testimonialImages = sqliteTable(
     key: text("key").notNull(),
     alt: text("alt"),
     position: integer("position").notNull().default(0),
+    /**
+     * INBOX-11: an image merged in from another testimonial that wasn't public
+     * itself. Shown to the owner only, so a merge never publishes anything new.
+     */
+    ownerOnly: integer("owner_only", { mode: "boolean" }).notNull().default(false),
     createdAt: createdAt(),
   },
   (t) => [
@@ -982,8 +1000,10 @@ export const taskRuns = sqliteTable(
     createdBy: text("created_by"),
     createdAt: createdAt(),
     finishedAt: integer("finished_at", { mode: "timestamp_ms" }),
+    /** 0016 (M13, IMP-02): the auto-sync source this run is a scheduled run of; null for a one-off import. */
+    sourceId: text("source_id").references((): AnySQLiteColumn => importSources.id, { onDelete: "set null" }),
   },
-  (t) => [index("task_runs_project_idx").on(t.projectId, t.createdAt)],
+  (t) => [index("task_runs_project_idx").on(t.projectId, t.createdAt), index("task_runs_source_idx").on(t.sourceId)],
 );
 
 /** Slack, Discord, Teams and Telegram destinations for new-testimonial alerts (INT-02). */
@@ -1202,6 +1222,101 @@ export const shareTemplates = sqliteTable(
   (t) => [index("share_templates_project_idx").on(t.projectId)],
 );
 
+
+// 0016 (M13): auto-sync, translations, smart search.
+
+export const SYNC_INTERVALS = [12, 24] as const;
+export type SyncInterval = (typeof SYNC_INTERVALS)[number];
+export const SYNC_STATUSES = ["ok", "failed"] as const;
+export type SyncStatus = (typeof SYNC_STATUSES)[number];
+
+/**
+ * An import kept in sync (IMP-02): the same adapter, input and options as a
+ * one-off import, re-run every 12 or 24 hours by the scheduler. Runs are
+ * ordinary task_runs (source_id points here), deduped like every import.
+ */
+export const importSources = sqliteTable(
+  "import_sources",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    adapter: text("adapter").notNull(),
+    /** The adapter's parsed input (a URL or an ID). Never an API key: keys come from the server's settings. */
+    input: text("input").notNull().default("{}"),
+    /** JSON, importOptionsSchema: minimum rating, skip empty, tags, status on import. */
+    options: text("options").notNull().default("{}"),
+    /** A short label for the list, e.g. the page or app it reads. */
+    label: text("label").notNull().default(""),
+    intervalHours: integer("interval_hours").notNull().default(24),
+    paused: integer("paused", { mode: "boolean" }).notNull().default(false),
+    nextRunAt: integer("next_run_at", { mode: "timestamp_ms" }),
+    lastRunAt: integer("last_run_at", { mode: "timestamp_ms" }),
+    lastStatus: text("last_status", { enum: SYNC_STATUSES }),
+    lastError: text("last_error"),
+    /** Runs in a row that failed; the owner is told at 3 (and it keeps trying on schedule). */
+    failures: integer("failures").notNull().default(0),
+    /** When the owner was last told about failures; cleared by the next good run. */
+    alertedAt: integer("alerted_at", { mode: "timestamp_ms" }),
+    /** New testimonials all runs have added. */
+    itemsAdded: integer("items_added").notNull().default(0),
+    /** The run in progress or the last one (no foreign key: task_runs points here instead). */
+    lastRunId: text("last_run_id"),
+    createdBy: text("created_by"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("import_sources_project_idx").on(t.projectId), index("import_sources_next_run_idx").on(t.paused, t.nextRunAt)],
+);
+
+/**
+ * A testimonial's text in another language (INBOX-13), by hand or from the
+ * owner's translation provider (`machine`). Owner-only until the testimonial
+ * is public; widgets show it only to visitors whose browser asks for that language.
+ */
+export const translations = sqliteTable(
+  "translations",
+  {
+    id: text("id").primaryKey(),
+    testimonialId: text("testimonial_id")
+      .notNull()
+      .references(() => testimonials.id, { onDelete: "cascade" }),
+    /** Lower-case BCP 47, e.g. "fr" or "pt-br". */
+    lang: text("lang").notNull(),
+    headline: text("headline"),
+    text: text("text"),
+    machine: integer("machine", { mode: "boolean" }).notNull().default(false),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex("translations_testimonial_lang_idx").on(t.testimonialId, t.lang)],
+);
+
+/**
+ * Smart search (INBOX-14): one embedding per testimonial from the owner's own
+ * provider, as float32 bytes. Rebuilt from the text whenever its hash changes,
+ * so it's never exported.
+ */
+export const testimonialEmbeddings = sqliteTable(
+  "testimonial_embeddings",
+  {
+    testimonialId: text("testimonial_id")
+      .primaryKey()
+      .references(() => testimonials.id, { onDelete: "cascade" }),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    model: text("model").notNull(),
+    dims: integer("dims").notNull(),
+    vector: blob("vector", { mode: "buffer" }).notNull(),
+    /** SHA-256 of what was embedded (headline, text, transcript, answers), so unchanged rows aren't sent again. */
+    contentHash: text("content_hash").notNull(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("testimonial_embeddings_project_idx").on(t.projectId, t.model)],
+);
+
 export const memberPrefs = sqliteTable("member_prefs", {
   email: text("email").primaryKey(),
   /** {newTestimonial:'instant'|'daily'|'off', weeklyPending, importSummary, monthlyReport, widgetRemoved, projectIds:[]}: all off by default. */
@@ -1248,3 +1363,6 @@ export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
 export type AnalyticsDaily = typeof analyticsDaily.$inferSelect;
 export type ShareAsset = typeof shareAssets.$inferSelect;
 export type ShareTemplate = typeof shareTemplates.$inferSelect;
+export type ImportSource = typeof importSources.$inferSelect;
+export type Translation = typeof translations.$inferSelect;
+export type TestimonialEmbedding = typeof testimonialEmbeddings.$inferSelect;

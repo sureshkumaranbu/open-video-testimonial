@@ -35,6 +35,8 @@ type Props = {
   initialTab: StudioTab;
   /** Shown under the heading: where the widget is live (DISP-13). */
   banner?: ReactNode;
+  /** INBOX-13 (translations flag): offer "show translations in the visitor's language". */
+  translations?: boolean;
 };
 
 const draftOf = (w: AdminWidget): Draft => ({
@@ -49,7 +51,7 @@ const draftOf = (w: AdminWidget): Draft => ({
  * Labels · Share on the left, and on the right the live preview at desktop,
  * tablet or phone width over a light or dark page.
  */
-export function Studio({ project, initial, pickable, facets, origin, initialTab, banner }: Props) {
+export function Studio({ project, initial, pickable, facets, origin, initialTab, banner, translations = false }: Props) {
   const [widget, setWidget] = useState(initial);
   const [draft, setDraft] = useState<Draft>(() => draftOf(initial));
   const [saved, setSaved] = useState(() => JSON.stringify(draftOf(initial)));
@@ -124,7 +126,7 @@ export function Studio({ project, initial, pickable, facets, origin, initialTab,
             <div className="ws-panel" style={{ paddingTop: "var(--space-3)" }}>
               {tab === "layout" && <LayoutPanel draft={draft} update={update} />}
               {tab === "testimonials" && <TestimonialsPanel draft={draft} update={update} pickable={pickable} facets={facets} />}
-              {tab === "design" && <DesignPanel draft={draft} update={update} accent={project.accentColor} />}
+              {tab === "design" && <DesignPanel draft={draft} update={update} accent={project.accentColor} translations={translations} />}
               {tab === "settings" && <SettingsPanel draft={draft} update={update} forms={facets.forms} />}
               {tab === "labels" && <LabelsPanel draft={draft} update={update} />}
               {tab === "share" && <SharePanel widgetId={widget.id} name={draft.name} origin={origin} dirty={dirty} />}

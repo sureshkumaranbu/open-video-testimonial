@@ -6,6 +6,7 @@ import { getInboxPrefs, parseInboxParams } from "@/lib/inbox";
 import { checklistState } from "@/lib/onboarding";
 import { requireAdminPage } from "@/lib/server-session";
 import { systemStatus } from "@/lib/system";
+import { translationProviderName } from "@/lib/translate";
 import { getProjectById } from "@/lib/testimonials";
 import { AppBar } from "../../AppBar";
 import { Dashboard } from "./Dashboard";
@@ -69,6 +70,9 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           widgetStudio={featureOn("widgets") ? `/admin/projects/${project.id}/widgets` : undefined}
           shareStudio={featureOn("share") ? `/admin/projects/${project.id}/share` : undefined}
           publicPages={featureOn("walls")}
+          customers={featureOn("customers")}
+          smartSearch={featureOn("aisearch")}
+          translations={featureOn("translations") ? { provider: translationProviderName() } : undefined}
           initialOpenId={open}
         />
       </main>

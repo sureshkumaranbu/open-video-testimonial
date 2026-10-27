@@ -1,16 +1,21 @@
 import { CORS_HEADERS, jsonError } from "@/lib/http";
 import { findProjectBySlugOrAlias } from "@/lib/projects";
 import { getProjectById, listPublicTestimonials } from "@/lib/testimonials";
+import { visitorLang } from "@/lib/translations";
 import { EMPTY_WIDGET_PAYLOAD, getWidget, WIDGET_ID, widgetConfig, widgetPayload } from "@/lib/widgets";
 
 const CACHE = "public, max-age=60, stale-while-revalidate=300";
 
-/** Widget mode (DISP-01): a saved widget's payload. A deleted one answers with nothing to show. */
-function savedWidget(id: string) {
+/**
+ * Widget mode (DISP-01): a saved widget's payload. A deleted one answers with
+ * nothing to show. `?l=` is the visitor's browser language: a widget set to
+ * show translations (INBOX-13) answers with the stored one for it, if any.
+ */
+function savedWidget(id: string, lang: string | null) {
   const w = getWidget(id);
   const project = w && getProjectById(w.projectId);
   if (!w || !project) return jsonError(404, "Widget not found", CORS_HEADERS);
-  const body = w.deletedAt ? EMPTY_WIDGET_PAYLOAD : widgetPayload(project, w, widgetConfig(w));
+  const body = w.deletedAt ? EMPTY_WIDGET_PAYLOAD : widgetPayload(project, w, widgetConfig(w), { lang });
   return Response.json(body, { headers: { ...CORS_HEADERS, "Cache-Control": CACHE } });
 }
 
@@ -22,7 +27,7 @@ function savedWidget(id: string) {
  */
 export async function GET(req: Request, ctx: { params: Promise<{ slug: string }> }) {
   const { slug } = await ctx.params;
-  if (WIDGET_ID.test(slug)) return savedWidget(slug);
+  if (WIDGET_ID.test(slug)) return savedWidget(slug, visitorLang(new URL(req.url).searchParams.get("l")));
   // An old slug is answered directly, not redirected, so embeds stay a simple CORS GET (D17).
   const project = findProjectBySlugOrAlias(slug)?.project;
   if (!project) return jsonError(404, "Project not found", CORS_HEADERS);

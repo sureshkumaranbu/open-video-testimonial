@@ -1,0 +1,1602 @@
+[
+ {
+  "id": 1000,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Ana Costa",
+  "review": "<p>Beautiful stitching &amp; fast shipping.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/0.png"
+  }
+ },
+ {
+  "id": 999,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 1",
+  "review": "<p>Lovely apron number 1.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/1.png"
+  }
+ },
+ {
+  "id": 998,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 2",
+  "review": "<p>Lovely apron number 2.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/2.png"
+  }
+ },
+ {
+  "id": 997,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 3",
+  "review": "<p>Lovely apron number 3.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/3.png"
+  }
+ },
+ {
+  "id": 996,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 4",
+  "review": "<p>Lovely apron number 4.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/4.png"
+  }
+ },
+ {
+  "id": 995,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 5",
+  "review": "<p>Lovely apron number 5.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/5.png"
+  }
+ },
+ {
+  "id": 994,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 6",
+  "review": "<p>Lovely apron number 6.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/6.png"
+  }
+ },
+ {
+  "id": 993,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 7",
+  "review": "<p>Lovely apron number 7.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/7.png"
+  }
+ },
+ {
+  "id": 992,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 8",
+  "review": "<p>Lovely apron number 8.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/8.png"
+  }
+ },
+ {
+  "id": 991,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 9",
+  "review": "<p>Lovely apron number 9.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/9.png"
+  }
+ },
+ {
+  "id": 990,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 10",
+  "review": "<p>Lovely apron number 10.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/10.png"
+  }
+ },
+ {
+  "id": 989,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 11",
+  "review": "<p>Lovely apron number 11.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/11.png"
+  }
+ },
+ {
+  "id": 988,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 12",
+  "review": "<p>Lovely apron number 12.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/12.png"
+  }
+ },
+ {
+  "id": 987,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 13",
+  "review": "<p>Lovely apron number 13.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/13.png"
+  }
+ },
+ {
+  "id": 986,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 14",
+  "review": "<p>Lovely apron number 14.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/14.png"
+  }
+ },
+ {
+  "id": 985,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 15",
+  "review": "<p>Lovely apron number 15.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/15.png"
+  }
+ },
+ {
+  "id": 984,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 16",
+  "review": "<p>Lovely apron number 16.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/16.png"
+  }
+ },
+ {
+  "id": 983,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 17",
+  "review": "<p>Lovely apron number 17.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/17.png"
+  }
+ },
+ {
+  "id": 982,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 18",
+  "review": "<p>Lovely apron number 18.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/18.png"
+  }
+ },
+ {
+  "id": 981,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 19",
+  "review": "<p>Lovely apron number 19.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/19.png"
+  }
+ },
+ {
+  "id": 980,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 20",
+  "review": "<p>Lovely apron number 20.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/20.png"
+  }
+ },
+ {
+  "id": 979,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 21",
+  "review": "<p>Lovely apron number 21.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/21.png"
+  }
+ },
+ {
+  "id": 978,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 22",
+  "review": "<p>Lovely apron number 22.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/22.png"
+  }
+ },
+ {
+  "id": 977,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 23",
+  "review": "<p>Lovely apron number 23.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/23.png"
+  }
+ },
+ {
+  "id": 976,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 24",
+  "review": "<p>Lovely apron number 24.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/24.png"
+  }
+ },
+ {
+  "id": 975,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 25",
+  "review": "<p>Lovely apron number 25.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/25.png"
+  }
+ },
+ {
+  "id": 974,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 26",
+  "review": "<p>Lovely apron number 26.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/26.png"
+  }
+ },
+ {
+  "id": 973,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 27",
+  "review": "<p>Lovely apron number 27.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/27.png"
+  }
+ },
+ {
+  "id": 972,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 28",
+  "review": "<p>Lovely apron number 28.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/28.png"
+  }
+ },
+ {
+  "id": 971,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 29",
+  "review": "<p>Lovely apron number 29.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/29.png"
+  }
+ },
+ {
+  "id": 970,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 30",
+  "review": "<p>Lovely apron number 30.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/30.png"
+  }
+ },
+ {
+  "id": 969,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 31",
+  "review": "<p>Lovely apron number 31.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/31.png"
+  }
+ },
+ {
+  "id": 968,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 32",
+  "review": "<p>Lovely apron number 32.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/32.png"
+  }
+ },
+ {
+  "id": 967,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 33",
+  "review": "<p>Lovely apron number 33.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/33.png"
+  }
+ },
+ {
+  "id": 966,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 34",
+  "review": "<p>Lovely apron number 34.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/34.png"
+  }
+ },
+ {
+  "id": 965,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 35",
+  "review": "<p>Lovely apron number 35.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/35.png"
+  }
+ },
+ {
+  "id": 964,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 36",
+  "review": "<p>Lovely apron number 36.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/36.png"
+  }
+ },
+ {
+  "id": 963,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 37",
+  "review": "<p>Lovely apron number 37.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/37.png"
+  }
+ },
+ {
+  "id": 962,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 38",
+  "review": "<p>Lovely apron number 38.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/38.png"
+  }
+ },
+ {
+  "id": 961,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 39",
+  "review": "<p>Lovely apron number 39.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/39.png"
+  }
+ },
+ {
+  "id": 960,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 40",
+  "review": "<p>Lovely apron number 40.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/40.png"
+  }
+ },
+ {
+  "id": 959,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 41",
+  "review": "<p>Lovely apron number 41.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/41.png"
+  }
+ },
+ {
+  "id": 958,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 42",
+  "review": "<p>Lovely apron number 42.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/42.png"
+  }
+ },
+ {
+  "id": 957,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 43",
+  "review": "<p>Lovely apron number 43.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/43.png"
+  }
+ },
+ {
+  "id": 956,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 44",
+  "review": "<p>Lovely apron number 44.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/44.png"
+  }
+ },
+ {
+  "id": 955,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 45",
+  "review": "<p>Lovely apron number 45.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/45.png"
+  }
+ },
+ {
+  "id": 954,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 46",
+  "review": "<p>Lovely apron number 46.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/46.png"
+  }
+ },
+ {
+  "id": 953,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 47",
+  "review": "<p>Lovely apron number 47.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/47.png"
+  }
+ },
+ {
+  "id": 952,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 48",
+  "review": "<p>Lovely apron number 48.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/48.png"
+  }
+ },
+ {
+  "id": 951,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 49",
+  "review": "<p>Lovely apron number 49.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/49.png"
+  }
+ },
+ {
+  "id": 950,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 50",
+  "review": "<p>Lovely apron number 50.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/50.png"
+  }
+ },
+ {
+  "id": 949,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 51",
+  "review": "<p>Lovely apron number 51.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/51.png"
+  }
+ },
+ {
+  "id": 948,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 52",
+  "review": "<p>Lovely apron number 52.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/52.png"
+  }
+ },
+ {
+  "id": 947,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 53",
+  "review": "<p>Lovely apron number 53.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/53.png"
+  }
+ },
+ {
+  "id": 946,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 54",
+  "review": "<p>Lovely apron number 54.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/54.png"
+  }
+ },
+ {
+  "id": 945,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 55",
+  "review": "<p>Lovely apron number 55.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/55.png"
+  }
+ },
+ {
+  "id": 944,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 56",
+  "review": "<p>Lovely apron number 56.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/56.png"
+  }
+ },
+ {
+  "id": 943,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 57",
+  "review": "<p>Lovely apron number 57.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/57.png"
+  }
+ },
+ {
+  "id": 942,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 58",
+  "review": "<p>Lovely apron number 58.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/58.png"
+  }
+ },
+ {
+  "id": 941,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 59",
+  "review": "<p>Lovely apron number 59.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/59.png"
+  }
+ },
+ {
+  "id": 940,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 60",
+  "review": "<p>Lovely apron number 60.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/60.png"
+  }
+ },
+ {
+  "id": 939,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 61",
+  "review": "<p>Lovely apron number 61.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/61.png"
+  }
+ },
+ {
+  "id": 938,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 62",
+  "review": "<p>Lovely apron number 62.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/62.png"
+  }
+ },
+ {
+  "id": 937,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 63",
+  "review": "<p>Lovely apron number 63.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/63.png"
+  }
+ },
+ {
+  "id": 936,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 64",
+  "review": "<p>Lovely apron number 64.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/64.png"
+  }
+ },
+ {
+  "id": 935,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 65",
+  "review": "<p>Lovely apron number 65.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/65.png"
+  }
+ },
+ {
+  "id": 934,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 66",
+  "review": "<p>Lovely apron number 66.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/66.png"
+  }
+ },
+ {
+  "id": 933,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 67",
+  "review": "<p>Lovely apron number 67.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/67.png"
+  }
+ },
+ {
+  "id": 932,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 68",
+  "review": "<p>Lovely apron number 68.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/68.png"
+  }
+ },
+ {
+  "id": 931,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 69",
+  "review": "<p>Lovely apron number 69.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/69.png"
+  }
+ },
+ {
+  "id": 930,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 70",
+  "review": "<p>Lovely apron number 70.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/70.png"
+  }
+ },
+ {
+  "id": 929,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 71",
+  "review": "<p>Lovely apron number 71.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/71.png"
+  }
+ },
+ {
+  "id": 928,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 72",
+  "review": "<p>Lovely apron number 72.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/72.png"
+  }
+ },
+ {
+  "id": 927,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 73",
+  "review": "<p>Lovely apron number 73.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/73.png"
+  }
+ },
+ {
+  "id": 926,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 74",
+  "review": "<p>Lovely apron number 74.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/74.png"
+  }
+ },
+ {
+  "id": 925,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 75",
+  "review": "<p>Lovely apron number 75.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/75.png"
+  }
+ },
+ {
+  "id": 924,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 76",
+  "review": "<p>Lovely apron number 76.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/76.png"
+  }
+ },
+ {
+  "id": 923,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 77",
+  "review": "<p>Lovely apron number 77.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/77.png"
+  }
+ },
+ {
+  "id": 922,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 78",
+  "review": "<p>Lovely apron number 78.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/78.png"
+  }
+ },
+ {
+  "id": 921,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 79",
+  "review": "<p>Lovely apron number 79.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/79.png"
+  }
+ },
+ {
+  "id": 920,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 80",
+  "review": "<p>Lovely apron number 80.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/80.png"
+  }
+ },
+ {
+  "id": 919,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 81",
+  "review": "<p>Lovely apron number 81.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/81.png"
+  }
+ },
+ {
+  "id": 918,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 82",
+  "review": "<p>Lovely apron number 82.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/82.png"
+  }
+ },
+ {
+  "id": 917,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 83",
+  "review": "<p>Lovely apron number 83.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/83.png"
+  }
+ },
+ {
+  "id": 916,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 84",
+  "review": "<p>Lovely apron number 84.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/84.png"
+  }
+ },
+ {
+  "id": 915,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 85",
+  "review": "<p>Lovely apron number 85.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/85.png"
+  }
+ },
+ {
+  "id": 914,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 86",
+  "review": "<p>Lovely apron number 86.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/86.png"
+  }
+ },
+ {
+  "id": 913,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 87",
+  "review": "<p>Lovely apron number 87.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/87.png"
+  }
+ },
+ {
+  "id": 912,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 88",
+  "review": "<p>Lovely apron number 88.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/88.png"
+  }
+ },
+ {
+  "id": 911,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 89",
+  "review": "<p>Lovely apron number 89.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/89.png"
+  }
+ },
+ {
+  "id": 910,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 90",
+  "review": "<p>Lovely apron number 90.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/90.png"
+  }
+ },
+ {
+  "id": 909,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 91",
+  "review": "<p>Lovely apron number 91.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/91.png"
+  }
+ },
+ {
+  "id": 908,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 92",
+  "review": "<p>Lovely apron number 92.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/92.png"
+  }
+ },
+ {
+  "id": 907,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 93",
+  "review": "<p>Lovely apron number 93.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/93.png"
+  }
+ },
+ {
+  "id": 906,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 94",
+  "review": "<p>Lovely apron number 94.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/94.png"
+  }
+ },
+ {
+  "id": 905,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 95",
+  "review": "<p>Lovely apron number 95.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/95.png"
+  }
+ },
+ {
+  "id": 904,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 96",
+  "review": "<p>Lovely apron number 96.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/96.png"
+  }
+ },
+ {
+  "id": 903,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 97",
+  "review": "<p>Lovely apron number 97.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/97.png"
+  }
+ },
+ {
+  "id": 902,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 98",
+  "review": "<p>Lovely apron number 98.</p>",
+  "rating": 4,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/98.png"
+  }
+ },
+ {
+  "id": 901,
+  "date_created": "2026-09-01T10:00:00",
+  "date_created_gmt": "2026-09-01T09:00:00",
+  "product_id": 42,
+  "product_name": "Linen apron",
+  "product_permalink": "https://shop.example/product/linen-apron/",
+  "reviewer": "Buyer 99",
+  "review": "<p>Lovely apron number 99.</p>",
+  "rating": 5,
+  "verified": true,
+  "reviewer_avatar_urls": {
+   "24": "https://secure.gravatar.example/24.png",
+   "96": "https://secure.gravatar.example/99.png"
+  }
+ }
+]

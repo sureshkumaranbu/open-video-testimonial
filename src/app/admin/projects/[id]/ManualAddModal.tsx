@@ -66,10 +66,22 @@ const orUndefined = (s: string) => (s.trim() ? s.trim() : undefined);
  * through the usual processing) or a screenshot of a review. The button and
  * its dialog; `onAdded` reloads the inbox.
  */
-export function ManualAddModal({ projectId, onAdded }: { projectId: string; onAdded: () => void }) {
+export function ManualAddModal({
+  projectId,
+  onAdded,
+  prefill,
+  customerId,
+}: {
+  projectId: string;
+  onAdded: () => void;
+  /** INBOX-12: a customer's profile opens it with their details filled in, and links the new testimonial to them. */
+  prefill?: Partial<Pick<Fields, "name" | "title" | "company" | "email" | "authorWebsite">>;
+  customerId?: string;
+}) {
+  const start: Fields = { ...EMPTY, ...prefill };
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<Kind>("text");
-  const [f, setF] = useState<Fields>(EMPTY);
+  const [f, setF] = useState<Fields>(start);
   const [avatar, setAvatar] = useState<File | null>(null);
   const [logo, setLogo] = useState<File | null>(null);
   const [images, setImages] = useState<File[]>([]);
@@ -82,7 +94,7 @@ export function ManualAddModal({ projectId, onAdded }: { projectId: string; onAd
   const set = (k: keyof Fields) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setF((x) => ({ ...x, [k]: e.target.value }));
 
   function reset() {
-    setF(EMPTY);
+    setF(start);
     setKind("text");
     setAvatar(null);
     setLogo(null);
@@ -134,6 +146,7 @@ export function ManualAddModal({ projectId, onAdded }: { projectId: string; onAd
         tags: f.tags.split(",").map((s) => s.trim()).filter(Boolean),
         status: f.status,
         videoUpload,
+        customerId,
       };
       const body = new FormData();
       body.set("payload", JSON.stringify(payload));

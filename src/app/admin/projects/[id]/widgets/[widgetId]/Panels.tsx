@@ -130,7 +130,7 @@ const SHOW: { key: keyof WidgetDesign; label: string }[] = [
   { key: "firstNameOnly", label: "First name only" },
 ];
 
-export function DesignPanel({ draft, update, accent }: PanelProps & { accent: string }) {
+export function DesignPanel({ draft, update, accent, translations = false }: PanelProps & { accent: string; translations?: boolean }) {
   const d = draft.config.design;
   const set = (patch: Partial<WidgetDesign>) => setSection(update, "design", patch);
   const targets = contrastTargets(d, accent);
@@ -204,6 +204,18 @@ export function DesignPanel({ draft, update, accent }: PanelProps & { accent: st
           value={d.date}
           onChange={(date) => set({ date })}
         />
+        {translations && (
+          <Segmented
+            label="Translations"
+            options={[
+              { value: "off", label: "Off" },
+              { value: "visitor", label: "Visitor’s language" },
+            ]}
+            value={d.translations}
+            onChange={(v) => set({ translations: v as WidgetDesign["translations"] })}
+            testId="design-translations"
+          />
+        )}
         <NumberField
           label="“Read more” after (characters)"
           value={d.readMore}

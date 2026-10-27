@@ -135,3 +135,69 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* IMP-02: "Keep this in sync" and the Automatically synced list. */
+.imp-sync {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-2);
+}
+
+.imp-synced {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.imp-synced-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.6fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+
+.imp-synced-row:last-child {
+  border-bottom: 0;
+}
+
+.imp-synced-row[data-status="failing"] {
+  background: var(--danger-soft);
+}
+
+.imp-synced-name {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 0;
+}
+
+.imp-synced-label {
+  overflow-wrap: anywhere;
+}
+
+.imp-synced-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.imp-synced-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+@media (max-width: 720px) {
+  .imp-synced-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .imp-synced-actions {
+    justify-content: flex-start;
+  }
+}

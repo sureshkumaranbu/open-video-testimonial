@@ -64,3 +64,33 @@ Testimonials are deleted for good after 30 days in the trash (`TRASH_RETENTION_D
 ## Adding a testimonial by hand
 
 **Add testimonial** is for praise you received somewhere else: an email, a call, a post or a review. Choose **Text**, **Video** (the file is converted and transcribed like any other) or **Image** (a screenshot), then add the person's details, photo and company logo, up to 5 images, where and when it was posted, tags and the status. It's **approved** unless you choose otherwise, no webhooks are sent and auto-approve doesn't apply. The consent record notes that consent was collected outside Plaudit, so keep your own record of it.
+
+## Possible duplicates and merging
+
+With the `customers` section on, the inbox spots testimonials that are probably the same person saying something twice: the same customer or email address, or the same name with very similar words. (Imports never duplicate a review; this is for someone who sent two, or one you added by hand after they sent theirs.) Turn on **Possible duplicates** in Filters to see only those, and the drawer says **Possible duplicate of …** on each.
+
+**Merge into…** in the drawer moves this testimonial into another one of the same person (a likely duplicate, or any other you search for):
+
+- Both stay. This one's words and video become an extra answer on the other, like a form's question 2. Extra answers are for you only, so the other one's public words don't change.
+- Its other answers, highlights, tags and images join the other one. Images from a testimonial that wasn't public itself (not approved yet, or kept private, or with narrower consent) stay for you only, so a merge never publishes anything new.
+- Its consent record is copied onto the other one's (marked "From merged testimonial …"), and it keeps its own.
+- It goes to the trash, marked **Merged into …**, with a line in both histories. **Restore** brings it back to Pending with everything it had; the copy in the other one stays.
+
+Merging isn't offered for a testimonial whose author withdrew consent, or while its video is still processing, and only works within one project.
+
+## Translations
+
+With the `translations` section on, the drawer has a **Translations** section: the testimonial in other languages, each with a language code (`fr`, `de`, `pt-br`). **Add a translation** to write one yourself; with a translation provider on the server (`TRANSLATE_PROVIDER`: DeepL, LibreTranslate or any OpenAI-compatible endpoint, with your own key), **Translate with …** writes it for you (marked **Machine**), and you can edit it after. Each change is in the history.
+
+- **Bulk Translate** (in the bulk bar, with a provider) translates the selected testimonials into the languages you list, in the background. Translations you wrote yourself are kept.
+- A form can **translate new testimonials into** some languages as they arrive ([forms guide](forms.md#settings)).
+- What the author wrote never changes. A translation is shown only where you ask: a widget set to **Translations: Visitor's language** shows a public testimonial's translation to visitors whose browser asks for that language ([widgets guide](widgets.md#studio)), and a testimonial's own page takes `?lang=fr`. Public pages never call your provider; they only show translations already saved.
+- Text goes to your provider only when you translate: from the drawer, a form's setting or bulk Translate. Without a provider, nothing is sent anywhere.
+- Translations are in the JSON export and the project's zip export.
+
+## Smart search
+
+With the `aisearch` section on, the **Smart search** switch beside the search box finds testimonials by meaning: "quick delivery" finds "the parcel arrived fast". It needs your own OpenAI-compatible embeddings endpoint (`EMBEDDINGS_MODEL`, `EMBEDDINGS_API_URL`, `EMBEDDINGS_API_KEY`). The best 100 matches show, best first, with your other filters applied.
+
+- **What it sends.** To be searchable, every testimonial's headline, text, transcript and answers are sent to your embeddings provider (new and edited ones within a minute, older ones by an hourly backfill), and each search's words too. Only turn it on with a provider you trust with them. Unchanged text isn't sent twice.
+- **When it can't.** Without a provider, or when the provider doesn't answer, it's the usual keyword search, and the inbox says so under the search box.
