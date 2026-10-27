@@ -13,8 +13,8 @@ Last updated: 2026-10-27.
 | Item | State |
 |---|---|
 | `main` | Phase 1 merged through [#14](https://github.com/sureshkumaranbu/open-video-testimonial/pull/14) on 2026-10-27 (5a1758c) |
-| Current branch | `plaudit/m8-closeout` (M8), PR against `main` |
-| Tests | 780 unit tests pass (6 MinIO tests run only in CI). Locally: Chromium e2e green apart from 4 recorder tests that timed out under load and passed on a rerun, and WebKit e2e 143 passed. Requirement coverage: 54 of 54. |
+| Open PRs | M8 [#15](https://github.com/sureshkumaranbu/open-video-testimonial/pull/15) and M9 (`plaudit/m9-campaigns`, which includes M8) |
+| Tests | 802 unit tests pass on the M9 branch (6 MinIO tests run only in CI). Locally: Chromium e2e green apart from 4 recorder tests that timed out under load and passed on a rerun, and WebKit e2e 143 passed. Requirement coverage: 61 of 61 (Phase 1 plus REQ-01..07). |
 | Local demo | `plaudit-v1-demo` in `Development/.claude/launch.json`, http://127.0.0.1:3300 |
 
 ## Phase 1: "Parity core" (P0). Done.
@@ -49,6 +49,7 @@ These are either partly done or need something from Suresh.
 | L11 | Cloud billing and the "Powered by" badge (CLOUD-01, CLOUD-02) | Not in this repo | Belongs to the cloud edition |
 | L12 | Five foreign keys from before Phase 1 have no index (`testimonial_tags.tag_id` matters most: the tag-rename trigger scans it) | Allow-listed in the index test | — |
 | L13 | The recorder e2e tests can time out when the whole suite runs on a busy machine | Flaky locally, passes alone | — |
+| L14 | Zip export/import doesn't include campaigns yet (their recipients come across as ordinary requests) | Not built | — |
 
 ## Phase 2: "Growth" (P1). In progress.
 
@@ -56,13 +57,13 @@ Proposed order. Each milestone is one branch, one agent, then one review, to kee
 
 | Milestone | Scope | PRD IDs | Status |
 |---|---|---|---|
-| M8 Phase 1 close-out | L4–L8 above, plus the real Senja export (L2) | INBOX-08, FORM-14 | Built and reviewed; PR open |
-| M9 Campaigns and auto-collect | Email campaigns with recipients from CSV or customers, preview and test send, per-recipient tracking, decline link, `POST /api/v1/invites` and an incoming webhook, invite webhooks | REQ-01..07 | Next |
-| M10 Review booster, rewards, low-rating branch | Link page for Google and other review sites, Google review link helper, QR codes, link clicks; rewards and unique codes; opt-in private feedback for low ratings | BOOST-01..05, FORM-12, FORM-13, REQ-08 | Planned |
+| M8 Phase 1 close-out | L4–L8 above, plus the real Senja export (L2) | INBOX-08, FORM-14 | Built and reviewed; PR #15 |
+| M9 Campaigns and auto-collect | Email campaigns with recipients from CSV or customers, preview and test send, per-recipient tracking, decline link, `POST /api/v1/invites` and an incoming webhook, invite webhooks | REQ-01..07 | Built and reviewed; PR open. Decisions: native Stripe/Shopify triggers moved to M14; open tracking is opt-in per campaign; "No thanks" asks for one confirming click (mail scanners open every link); unsubscribe now covers the whole project; the webhook is capped at 120 a minute and 2,000 a day |
+| M10 Review booster, rewards, low-rating branch | Link page for Google and other review sites, Google review link helper, QR codes, link clicks; rewards and unique codes; opt-in private feedback for low ratings | BOOST-01..05, FORM-12, FORM-13, REQ-08 | Next |
 | M11 Analytics | Install detection, widget and wall analytics, form analytics, snippet analytics, the `/admin/analytics` dashboard (cookieless) | DISP-13, DISP-14, FORM-15, WALL-05, SEO-04, AN | Planned |
 | M12 Video and sharing | Trim, poster frame, replace and download video; single testimonial page; image studio and social share; custom CSS | VID-01..04, WALL-04, SHARE-01..03, DISP-08 | Planned |
 | M13 Import and inbox growth | Auto-sync, XLSX and paste import, the remaining importers; duplicates and merge, customer records, translations, AI search (your own provider) | IMP-02, IMP-04, INBOX-11..14 | Planned |
-| M14 Team, API and integrations | Roles, audit log, generic OIDC; API CRUD for forms, widgets, walls and campaigns; Zapier, Make and n8n, MCP server, WordPress plugin, React package | TEAM-01..03, API §19, INT-03..06 | Planned |
+| M14 Team, API and integrations | Roles, audit log, generic OIDC; API CRUD for forms, widgets, walls and campaigns; Zapier, Make and n8n, MCP server, WordPress plugin, React package; native Stripe and Shopify triggers for campaigns | TEAM-01..03, API §19, INT-03..07 | Planned |
 | Cloud (separate repo) | Billing, badge, agency workspaces, custom domains, plan limits | CLOUD-01..03, WALL-06, IMP-06 | Not in this repo |
 
 ## Phase 3: "Beyond" (P2). Not started.
