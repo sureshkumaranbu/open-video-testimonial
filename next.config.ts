@@ -19,10 +19,13 @@ const nextConfig: NextConfig = {
         // Everything but the dashboard (whose nonce-based policy comes from
         // src/proxy.ts) and the embeddable widget page must never be framed.
         source: "/:path((?!admin(?:/|$)|embed/).*)",
-        headers: [
-          { key: "Content-Security-Policy", value: publicCsp() },
-          { key: "X-Frame-Options", value: "DENY" },
-        ],
+        headers: [{ key: "X-Frame-Options", value: "DENY" }],
+      },
+      {
+        // Walls get theirs from src/proxy.ts too: the same policy, plus the
+        // hosts of the analytics provider the owner chose for that wall (WALL-07).
+        source: "/:path((?!admin(?:/|$)|embed/|wall/).*)",
+        headers: [{ key: "Content-Security-Policy", value: publicCsp() }],
       },
       {
         // The iframe embed is meant to be shown on the owner's own sites.

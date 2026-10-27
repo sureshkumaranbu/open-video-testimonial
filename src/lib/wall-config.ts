@@ -170,6 +170,52 @@ export const wallSeoSchema = z.object({
   itemName: z.string().trim().max(120).default(""),
 });
 
+/** WALL-07: analytics providers a wall may load. Nothing else, and never raw HTML or scripts. */
+export const WALL_ANALYTICS = ["none", "plausible", "ga4"] as const;
+export type WallAnalytics = (typeof WALL_ANALYTICS)[number];
+
+const DOMAIN = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+/** Site-verification values: token characters only (letters, digits, "-" and "_"). */
+const token = z.union([z.literal(""), z.string().trim().regex(/^[A-Za-z0-9_-]{1,120}$/, "Use the code only: letters, digits, - and _")]).default("");
+
+/**
+ * WALL-07: fixed, validated head options that Plaudit renders itself. A
+ * provider's script (and only its hosts in the wall's CSP) load only when
+ * one is chosen; the verification values become <meta> tags.
+ */
+export const wallHeadSchema = z.object({
+  analytics: z.enum(WALL_ANALYTICS).default("none"),
+  /** Plausible's data-domain, e.g. example.com. */
+  plausibleDomain: z.union([z.literal(""), z.string().trim().toLowerCase().regex(DOMAIN, "Use a domain such as example.com")]).default(""),
+  /** A Google Analytics 4 measurement ID, G-XXXXXXX. */
+  ga4Id: z.union([z.literal(""), z.string().trim().toUpperCase().regex(/^G-[A-Z0-9]{4,12}$/, "Use a measurement ID such as G-ABC123DEF4")]).default(""),
+  googleVerification: token,
+  bingVerification: token,
+  facebookVerification: token,
+});
+export type WallHead = z.output<typeof wallHeadSchema>;
+
+/** The provider that actually loads: chosen, and with its value filled in. */
+export function activeAnalytics(h: WallHead): { provider: "plausible"; domain: string } | { provider: "ga4"; id: string } | null {
+  if (h.analytics === "plausible" && h.plausibleDomain) return { provider: "plausible", domain: h.plausibleDomain };
+  if (h.analytics === "ga4" && h.ga4Id) return { provider: "ga4", id: h.ga4Id };
+  return null;
+}
+
+/** The extra CSP hosts a wall's provider needs, from each provider's own documentation. */
+export function analyticsCspHosts(h: WallHead): { script: string[]; connect: string[]; img: string[] } {
+  const a = activeAnalytics(h);
+  if (a?.provider === "plausible") return { script: ["https://plausible.io"], connect: ["https://plausible.io"], img: [] };
+  if (a?.provider === "ga4") {
+    return {
+      script: ["https://*.googletagmanager.com"],
+      connect: ["https://*.google-analytics.com", "https://*.analytics.google.com", "https://*.googletagmanager.com"],
+      img: ["https://*.google-analytics.com", "https://*.googletagmanager.com"],
+    };
+  }
+  return { script: [], connect: [], img: [] };
+}
+
 export const wallConfigSchema = z.object({
   v: z.literal(1).default(1),
   hero: heroSchema.default(heroSchema.parse({})),
@@ -185,6 +231,7 @@ export const wallConfigSchema = z.object({
   inlineCta: inlineCtaSchema.default(inlineCtaSchema.parse({})),
   filters: wallFiltersSchema.default(wallFiltersSchema.parse({})),
   seo: wallSeoSchema.default(wallSeoSchema.parse({})),
+  head: wallHeadSchema.default(wallHeadSchema.parse({})),
 });
 export type WallConfig = z.output<typeof wallConfigSchema>;
 export type WallConfigInput = z.input<typeof wallConfigSchema>;
@@ -215,6 +262,7 @@ export function parseWallConfigLenient(raw: unknown): WallConfig {
     inlineCta: part(inlineCtaSchema, r.inlineCta),
     filters: part(wallFiltersSchema, r.filters),
     seo: part(wallSeoSchema, r.seo),
+    head: part(wallHeadSchema, r.head),
   };
 }
 

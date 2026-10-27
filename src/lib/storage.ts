@@ -34,8 +34,23 @@ const VIDEO_TYPES: Record<string, string> = {
 };
 
 export const MIME_BY_EXT: Record<string, string> = Object.fromEntries(
-  [...Object.entries(IMAGE_TYPES), ...Object.entries(VIDEO_TYPES)].map(([m, e]) => [e, m]),
+  [...Object.entries(IMAGE_TYPES), ...Object.entries(VIDEO_TYPES), ["image/x-icon", "ico"]].map(([m, e]) => [e, m]),
 );
+
+/** WALL-07 favicons: the largest file kept. Real ones are a few KB. */
+export const MAX_FAVICON_BYTES = 512 * 1024;
+
+/** Stores a wall favicon: PNG or ICO only (sniffed; never SVG), at most MAX_FAVICON_BYTES. */
+export async function saveFavicon(file: File): Promise<StoredObject & { mime: string }> {
+  if (file.size === 0) throw new UploadError("The image file is empty");
+  if (file.size > MAX_FAVICON_BYTES) throw new UploadError("A favicon must be under 512 KB");
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const mime = sniffMime(bytes.subarray(0, 16));
+  if (mime !== "image/png" && mime !== "image/x-icon") throw new UnsupportedMediaError("Choose a PNG or ICO file for the favicon.");
+  const key = newKey("image", mime === "image/png" ? "png" : "ico");
+  await storage().put(key, { bytes }, mime);
+  return { key, size: bytes.byteLength, mime };
+}
 
 export { isVideoMime, sniffMime, UNSUPPORTED_VIDEO } from "./sniff";
 export { isMediaKey } from "./storage/local";

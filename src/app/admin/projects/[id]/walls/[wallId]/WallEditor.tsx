@@ -550,6 +550,7 @@ export function WallEditor({ project, initial, origin, tags, forms, featured }: 
                     Canonical address: <code>{`${origin}${wall.publicUrl}`}</code>. The page includes review data (JSON-LD) for search engines, and
                     its link preview image is made from your title, rating and quotes.
                   </p>
+                  <HeadSettings head={cfg.head} onChange={(patch) => sec("head", patch)} wall={wall} onWall={setWall} onError={setError} />
                 </>
               )}
 
@@ -599,6 +600,85 @@ export function WallEditor({ project, initial, origin, tags, forms, featured }: 
   );
 }
 
+/**
+ * WALL-07: favicon, an analytics provider and site-verification codes. Fixed
+ * fields only; Plaudit writes the tags itself. Nothing loads from another
+ * site until a provider is chosen, and then only that provider.
+ */
+function HeadSettings({
+  head,
+  onChange,
+  wall,
+  onWall,
+  onError,
+}: {
+  head: WallConfig["head"];
+  onChange: (patch: Partial<WallConfig["head"]>) => void;
+  wall: AdminWall;
+  onWall: (w: AdminWall) => void;
+  onError: (e: string | null) => void;
+}) {
+  return (
+    <>
+      <fieldset data-testid="wall-head">
+        <legend>Favicon</legend>
+        <ImageField label="Favicon" kind="favicon" wall={wall} onWall={onWall} onError={onError} />
+        <p className="muted xsmall">A PNG or ICO, under 512 KB. Without one, the project&rsquo;s logo is used.</p>
+      </fieldset>
+      <fieldset>
+        <legend>Analytics</legend>
+        <Segmented
+          label="Provider"
+          options={[
+            { value: "none", label: "None" },
+            { value: "plausible", label: "Plausible" },
+            { value: "ga4", label: "Google Analytics 4" },
+          ]}
+          value={head.analytics}
+          onChange={(analytics) => onChange({ analytics })}
+          testId="wall-analytics-provider"
+        />
+        {head.analytics === "plausible" && (
+          <label>
+            Plausible site domain
+            <input type="text" value={head.plausibleDomain} maxLength={253} placeholder="example.com" onChange={(e) => onChange({ plausibleDomain: e.target.value.trim().toLowerCase() })} data-testid="wall-plausible-domain" />
+          </label>
+        )}
+        {head.analytics === "ga4" && (
+          <label>
+            Measurement ID
+            <input type="text" value={head.ga4Id} maxLength={14} placeholder="G-ABC123DEF4" onChange={(e) => onChange({ ga4Id: e.target.value.trim().toUpperCase() })} data-testid="wall-ga4-id" />
+          </label>
+        )}
+        {head.analytics !== "none" && (
+          <p className="notice warn small" role="note" data-testid="wall-analytics-note">
+            {head.analytics === "plausible" ? "Plausible" : "Google"} will see this wall&rsquo;s visitors: their address, browser and the pages they view. Only
+            this wall loads its script; your other walls, forms and widgets don&rsquo;t. Mention it in your privacy notice
+            {head.analytics === "ga4" ? ", and ask for consent where the law needs it (Google Analytics sets cookies)" : ""}. Plaudit&rsquo;s own counts are
+            cookieless and need none of this.
+          </p>
+        )}
+      </fieldset>
+      <fieldset>
+        <legend>Site verification</legend>
+        <p className="muted xsmall">Paste only the code from the meta tag the service gives you (the content=&ldquo;…&rdquo; part).</p>
+        <label>
+          Google Search Console
+          <input type="text" value={head.googleVerification} maxLength={120} onChange={(e) => onChange({ googleVerification: e.target.value.trim() })} data-testid="wall-verify-google" />
+        </label>
+        <label>
+          Bing Webmaster Tools
+          <input type="text" value={head.bingVerification} maxLength={120} onChange={(e) => onChange({ bingVerification: e.target.value.trim() })} />
+        </label>
+        <label>
+          Facebook domain verification
+          <input type="text" value={head.facebookVerification} maxLength={120} onChange={(e) => onChange({ facebookVerification: e.target.value.trim() })} />
+        </label>
+      </fieldset>
+    </>
+  );
+}
+
 function ImageField({
   label,
   kind,
@@ -607,13 +687,13 @@ function ImageField({
   onError,
 }: {
   label: string;
-  kind: "logo" | "cover";
+  kind: "logo" | "cover" | "favicon";
   wall: AdminWall;
   onWall: (w: AdminWall) => void;
   onError: (e: string | null) => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const url = kind === "logo" ? wall.logoUrl : wall.coverUrl;
+  const url = kind === "logo" ? wall.logoUrl : kind === "favicon" ? wall.faviconUrl : wall.coverUrl;
   async function upload(file: File) {
     setBusy(true);
     onError(null);
@@ -646,7 +726,7 @@ function ImageField({
         {busy ? "Uploading…" : url ? `Replace ${label.toLowerCase()}` : `Upload ${label.toLowerCase()}`}
         <input
           type="file"
-          accept="image/png,image/jpeg,image/webp,image/gif"
+          accept={kind === "favicon" ? "image/png,image/x-icon,image/vnd.microsoft.icon,.ico" : "image/png,image/jpeg,image/webp,image/gif"}
           className="visually-hidden"
           aria-label={`${label} image`}
           disabled={busy}

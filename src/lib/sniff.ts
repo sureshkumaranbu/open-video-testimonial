@@ -18,6 +18,8 @@ export function sniffMime(head: Uint8Array): string | null {
     return ascii(8, 2) === "qt" ? "video/quicktime" : "video/mp4";
   }
   if (ascii(0, 4) === "OggS") return "video/ogg";
+  // An icon directory (type 1) with at least one image: favicons only (WALL-07); no other upload accepts it.
+  if (b[0] === 0 && b[1] === 0 && b[2] === 1 && b[3] === 0 && (b[4] > 0 || b[5] > 0)) return "image/x-icon";
   return null;
 }
 
