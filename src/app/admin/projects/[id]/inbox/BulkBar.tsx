@@ -17,15 +17,21 @@ export function InboxBulkBar({
   onAction,
   onExport,
   tags,
+  translateWith = null,
 }: {
   count: number;
   tab: InboxTab;
   onClear: () => void;
-  onAction: (action: string, tags?: string[]) => void;
+  onAction: (action: string, tags?: string[], langs?: string[]) => void;
   onExport: (format: "csv" | "json") => void;
   tags: string[];
+  /** INBOX-06/13: the translation provider's name, when one is set up; bulk "Translate" needs it. */
+  translateWith?: string | null;
 }) {
   const [tagging, setTagging] = useState(false);
+  const [translating, setTranslating] = useState(false);
+  const [langText, setLangText] = useState("");
+  const langs = [...new Set(langText.split(/[\s,]+/).map((l) => l.trim().toLowerCase()).filter((l) => /^[a-z]{2,3}(-[a-z0-9]{2,8}){0,2}$/.test(l)))].slice(0, 10);
   const [text, setText] = useState("");
   const names = text
     .split(",")
@@ -67,6 +73,12 @@ export function InboxBulkBar({
             <button type="button" className="secondary small" onClick={() => setTagging(true)}>
               Tags…
             </button>
+            {translateWith && (
+              <button type="button" className="secondary small" onClick={() => setTranslating(true)} data-testid="bulk-translate">
+                <Icon name="translate" />
+                Translate…
+              </button>
+            )}
             <button type="button" className="secondary small" onClick={() => onExport("csv")}>
               <Icon name="download" />
               Export CSV
@@ -78,6 +90,37 @@ export function InboxBulkBar({
           </>
         )}
       </BulkBar>
+      <Modal
+        open={translating}
+        onClose={() => setTranslating(false)}
+        title={`Translate ${count} ${count === 1 ? "testimonial" : "testimonials"}`}
+        size="sm"
+        testId="bulk-translate-dialog"
+        footer={
+          <>
+            <button type="button" className="ghost" onClick={() => setTranslating(false)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={!langs.length}
+              onClick={() => {
+                onAction("translate", undefined, langs);
+                setTranslating(false);
+                setLangText("");
+              }}
+            >
+              Translate
+            </button>
+          </>
+        }
+      >
+        <label>
+          Into these languages (codes, comma separated)
+          <input type="text" value={langText} onChange={(e) => setLangText(e.target.value)} placeholder="fr, de, pt-br" data-autofocus />
+        </label>
+        <p className="muted xsmall">{translateWith} translates them in the background. Translations you wrote yourself are kept.</p>
+      </Modal>
       <Modal
         open={tagging}
         onClose={() => setTagging(false)}

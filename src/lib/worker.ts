@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { registerAnalyticsJobs } from "./analytics";
 import { registerCustomerJobs } from "./customer-records";
+import { registerTranslationJobs } from "./translations";
 import { maybeAutoApprove } from "./auto-approve";
 import { fetchImportedMedia, FETCH_MEDIA_JOB } from "./csv-import";
 import { env } from "./env";
@@ -68,6 +69,7 @@ export function registerJobs() {
   registerOnboardingJobs();
   registerAnalyticsJobs();
   registerCustomerJobs();
+  registerTranslationJobs();
 }
 
 export function startBackgroundWorker() {

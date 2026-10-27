@@ -10,6 +10,7 @@ import { ConsentPanel, timeAgo, type AdminTestimonial } from "../Dashboard";
 import { EditForm, type EditableTestimonial } from "./EditForm";
 import { HighlightEditor, type HighlightJson } from "./HighlightEditor";
 import { MergeDialog, type MergeCandidate } from "./MergeDialog";
+import { TranslationsPanel, type TranslationJson } from "./TranslationsPanel";
 import { sourceLabel, type InboxRow } from "./types";
 import { VideoTools, type VideoToolsTestimonial } from "./VideoTools";
 
@@ -38,6 +39,8 @@ type Detail = {
   customer: { id: string; name: string } | null;
   duplicates: MergeCandidate[];
   mergedInto: { id: string; authorName: string; status: string } | null;
+  translations: TranslationJson[];
+  translationProvider: string | null;
 };
 
 const STATUS_TEXT: Record<string, string> = { pending: "Pending", approved: "Approved", hidden: "Hidden", rejected: "Rejected", trashed: "In the trash" };
@@ -138,6 +141,7 @@ export function DetailDrawer({
   shareStudio,
   publicPages = false,
   customers = false,
+  translations = false,
   projectId,
 }: {
   id: string | null;
@@ -151,6 +155,8 @@ export function DetailDrawer({
   publicPages?: boolean;
   /** INBOX-11, INBOX-12 (customers flag): the customer link, likely duplicates and "Merge into…". */
   customers?: boolean;
+  /** INBOX-13 (translations flag): the Translations section. */
+  translations?: boolean;
   projectId?: string;
 }) {
   const [detail, setDetail] = useState<Detail | null>(null);
@@ -507,6 +513,19 @@ export function DetailDrawer({
                 {t.tags.length > 0 && <p className="muted xsmall">Tags: {t.tags.join(", ")}</p>}
               </section>
             </>
+          )}
+
+          {translations && !editing && (
+            <TranslationsPanel
+              key={t.id}
+              testimonialId={t.id}
+              translations={detail.translations}
+              provider={detail.translationProvider}
+              onChanged={() => {
+                void load();
+                onChanged();
+              }}
+            />
           )}
 
           <ConsentPanel t={t as AdminTestimonial} />

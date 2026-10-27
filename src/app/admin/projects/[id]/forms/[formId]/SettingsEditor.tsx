@@ -103,6 +103,28 @@ function FormWebhooks({ projectId, formId }: { projectId: string; formId: string
   );
 }
 
+/** INBOX-13: languages to machine-translate new testimonials into, typed as codes ("fr, de"). */
+function AutoTranslateField({ value, provider, onChange }: { value: string[]; provider: string | null; onChange: (langs: string[]) => void }) {
+  const [text, setText] = useState(value.join(", "));
+  useEffect(() => setText(value.join(", ")), [value]);
+  const commit = () => {
+    const langs = [...new Set(text.split(/[\s,]+/).map((l) => l.trim().toLowerCase()).filter((l) => /^[a-z]{2,3}(-[a-z0-9]{2,8}){0,2}$/.test(l)))].slice(0, 10);
+    setText(langs.join(", "));
+    if (langs.join() !== value.join()) onChange(langs);
+  };
+  return (
+    <label>
+      Translate new testimonials into
+      <input type="text" value={text} placeholder="fr, de, pt-br" onChange={(e) => setText(e.target.value)} onBlur={commit} data-testid="form-auto-translate" />
+      <span className="hint xsmall">
+        {provider
+          ? `Language codes, up to 10. ${provider} translates each one as it arrives; you can edit the result in the inbox.`
+          : "Needs a translation provider on this server (TRANSLATE_PROVIDER). Until then nothing is translated."}
+      </span>
+    </label>
+  );
+}
+
 /** FORM-10: link, status, rules and messages for this form. */
 export function SettingsEditor({
   project,
@@ -272,6 +294,7 @@ export function SettingsEditor({
       </label>
       <Toggle label="Suggest turning the phone sideways before recording" checked={s.landscapePrompt} onChange={(landscapePrompt) => set({ landscapePrompt })} />
       <Toggle label="Hide this form from search engines" checked={s.noindex} onChange={(noindex) => set({ noindex })} />
+      {project.translations && <AutoTranslateField value={s.autoTranslate} provider={project.translations.provider} onChange={(autoTranslate) => set({ autoTranslate })} />}
 
       <LowRatingEditor value={s.lowRating} onChange={(lowRating) => set({ lowRating })} pages={draft.pages} classic={form.layout === "classic"} />
       <RewardsEditor formId={form.id} reward={draft.reward} onChange={(reward) => update((d) => ({ ...d, reward }))} classic={form.layout === "classic"} />

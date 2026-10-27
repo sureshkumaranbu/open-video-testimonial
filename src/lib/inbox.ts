@@ -5,6 +5,8 @@ import { ConsentWithdrawnError, deleteTestimonial, getTestimonial, NoPublicConse
 import { withDuplicates } from "./merge";
 import { matchesSearch, toFtsQuery } from "./search";
 import { restoreTestimonial, trashTestimonial } from "./trash";
+import { translationEnabled } from "./translate";
+import { queueTranslations } from "./translations";
 import { DEFAULT_PREFS, inboxPrefsSchema, MAX_BULK, type InboxMethod, type InboxPrefs, type InboxQuery, type InboxSort, type InboxTab } from "./inbox-query";
 
 const { testimonials, testimonialTags, tags, answers, testimonialImages, feedback, forms, memberPrefs } = schema;
@@ -268,7 +270,7 @@ export function deleteProjectFeedback(projectId: string, ids: string[]): number 
 
 // ----------------------------------------------------------------- bulk
 
-export const BULK_ACTIONS = ["approve", "hide", "reject", "pending", "tag", "untag", "trash", "restore", "delete"] as const;
+export const BULK_ACTIONS = ["approve", "hide", "reject", "pending", "tag", "untag", "trash", "restore", "delete", "translate"] as const;
 export type BulkAction = (typeof BULK_ACTIONS)[number];
 
 export class BulkError extends Error {}
@@ -301,13 +303,17 @@ export async function bulkUpdate(
   projectId: string,
   ids: string[],
   action: BulkAction,
-  o: { by?: string; tags?: string[] } = {},
+  o: { by?: string; tags?: string[]; langs?: string[] } = {},
 ): Promise<BulkResult> {
   const unique = [...new Set(ids)];
   if (!unique.length) throw new BulkError("Select at least one testimonial");
   if (unique.length > MAX_BULK) throw new BulkError(`Select at most ${MAX_BULK} testimonials at a time`);
   const names = [...new Set((o.tags ?? []).map((t) => t.trim().toLowerCase()).filter(Boolean))];
   if ((action === "tag" || action === "untag") && !names.length) throw new BulkError("Name at least one tag");
+  if (action === "translate") {
+    if (!translationEnabled()) throw new BulkError("Translation isn't set up on this server (TRANSLATE_PROVIDER)");
+    if (!o.langs?.length) throw new BulkError("Choose at least one language");
+  }
 
   const owned = new Map(
     getDb()
@@ -359,6 +365,11 @@ export async function bulkUpdate(
           restoreTestimonial(id, { by: o.by });
           result.updated.push(id);
         }
+      } else if (action === "translate") {
+        // INBOX-06/13: queued, one job per testimonial; each translation gets its own history entry.
+        if (row.status === "trashed") skip(id, "In the trash. Restore it first.");
+        else if (queueTranslations(id, o.langs ?? [], { by: o.by })) result.updated.push(id);
+        else skip(id, "Nothing to translate into");
       } else if (action === "delete") {
         // Deleting for good is offered only from the trash (D6).
         if (row.status !== "trashed") skip(id, "Only testimonials in the trash can be deleted for good");

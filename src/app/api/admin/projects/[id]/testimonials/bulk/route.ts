@@ -3,6 +3,7 @@ import { getRequestSession } from "@/lib/auth";
 import { jsonError, requireAdmin } from "@/lib/http";
 import { BULK_ACTIONS, BulkError, bulkUpdate, MAX_BULK } from "@/lib/inbox";
 import { getProjectById } from "@/lib/testimonials";
+import { langSchema } from "@/lib/translations";
 import { firstIssue, tagNameSchema } from "@/lib/validation";
 // Registers the notifications listener in this route's bundle (approvals post to chat channels).
 import "@/lib/notifications";
@@ -13,6 +14,8 @@ const bodySchema = z.object({
   action: z.enum(BULK_ACTIONS),
   ids: z.array(z.string().min(1).max(64)).min(1, "Select at least one testimonial").max(MAX_BULK, `Select at most ${MAX_BULK} testimonials at a time`),
   tags: z.array(tagNameSchema).max(20).optional(),
+  /** For "translate" (INBOX-13): the languages, up to 10. */
+  langs: z.array(langSchema).max(10).optional(),
 });
 
 /**
@@ -31,6 +34,7 @@ export async function POST(req: Request, ctx: Ctx) {
     const result = await bulkUpdate(project.id, parsed.data.ids, parsed.data.action, {
       by: getRequestSession(req)?.email,
       tags: parsed.data.tags,
+      langs: parsed.data.langs,
     });
     return Response.json(result);
   } catch (err) {

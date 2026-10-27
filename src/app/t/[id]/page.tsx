@@ -9,19 +9,22 @@ import { jsonLdText } from "@/lib/seo";
 import { mediaUrl } from "@/lib/storage";
 import { quoteOf, shareLinks, testimonialJsonLd, testimonialMetadata, testimonialPage } from "@/lib/testimonial-page";
 import { accentStyle } from "@/lib/theme";
+import { visitorLang } from "@/lib/translations";
 import { CopyLink, TestimonialBeacon } from "../TestimonialPageClient";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ id: string }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-/** Walls on (D20) and the testimonial public; anything else is a plain 404. */
-function load(id: string) {
-  return featureOn("walls") ? testimonialPage(id) : null;
+/** Walls on (D20) and the testimonial public; anything else is a plain 404. `?lang=` shows a stored translation (INBOX-13). */
+async function load(p: Props) {
+  const sp = await p.searchParams;
+  const lang = featureOn("translations") ? visitorLang(typeof sp.lang === "string" ? sp.lang : null) : null;
+  return featureOn("walls") ? testimonialPage((await p.params).id, { lang }) : null;
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const d = load((await params).id);
+export async function generateMetadata(props: Props): Promise<Metadata> {
+  const d = await load(props);
   if (!d) return { metadataBase: new URL(env.publicUrl), title: "Not found", robots: { index: false } };
   return testimonialMetadata(d);
 }
@@ -53,8 +56,8 @@ function Highlighted({ text, marks }: { text: string; marks: { start: number; en
  * a call to action and plain share links (SHARE-03). Approved, not withdrawn
  * and public consent only; anything else is a 404 (lib/testimonial-page.ts).
  */
-export default async function TestimonialPage({ params }: Props) {
-  const d = load((await params).id);
+export default async function TestimonialPage(props: Props) {
+  const d = await load(props);
   if (!d) notFound();
   const { item, project } = d;
   const quote = quoteOf(item);

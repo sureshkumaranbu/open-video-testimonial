@@ -147,6 +147,41 @@ export const env = {
   get transcribeCommand() {
     return process.env.TRANSCRIBE_COMMAND || "";
   },
+  /**
+   * INBOX-13 machine translation with your own provider: "off" (default),
+   * "deepl", "libretranslate" or "openai" (any OpenAI-compatible
+   * /chat/completions endpoint). Nothing is sent anywhere until it's set.
+   */
+  get translateProvider(): "off" | "deepl" | "libretranslate" | "openai" {
+    const p = (process.env.TRANSLATE_PROVIDER || "off").trim().toLowerCase();
+    return p === "deepl" || p === "libretranslate" || p === "openai" ? p : "off";
+  },
+  /** The provider's base address; DeepL's free API and OpenAI's are the defaults, LibreTranslate needs one. */
+  get translateApiUrl() {
+    const fallback = this.translateProvider === "deepl" ? "https://api-free.deepl.com" : this.translateProvider === "openai" ? "https://api.openai.com/v1" : "";
+    return (process.env.TRANSLATE_API_URL || fallback).trim().replace(/\/+$/, "");
+  },
+  get translateApiKey() {
+    return process.env.TRANSLATE_API_KEY || "";
+  },
+  /** The model, for "openai" only (required there). */
+  get translateModel() {
+    return (process.env.TRANSLATE_MODEL || "").trim();
+  },
+  /**
+   * INBOX-14 smart search with your own OpenAI-compatible /embeddings endpoint
+   * (EMBEDDINGS_API_URL, EMBEDDINGS_API_KEY, EMBEDDINGS_MODEL). Off until a
+   * model is set; testimonial text is then sent to that provider.
+   */
+  get embeddingsApiUrl() {
+    return (process.env.EMBEDDINGS_API_URL || "https://api.openai.com/v1").trim().replace(/\/+$/, "");
+  },
+  get embeddingsApiKey() {
+    return process.env.EMBEDDINGS_API_KEY || "";
+  },
+  get embeddingsModel() {
+    return (process.env.EMBEDDINGS_MODEL || "").trim();
+  },
   /** Store a keyed hash of the submitter's IP with each consent record. Off by default. */
   get consentIpHash() {
     return process.env.CONSENT_IP_HASH === "true";

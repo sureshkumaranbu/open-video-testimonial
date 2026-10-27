@@ -52,6 +52,7 @@ const VERB: Record<string, string> = {
   trash: "moved to the trash",
   restore: "restored",
   delete: "deleted for good",
+  translate: "queued for translation",
 };
 
 /**
@@ -70,6 +71,7 @@ export function Inbox({
   shareStudio,
   publicPages = false,
   customers = false,
+  translations,
   initialOpenId,
 }: {
   project: Project;
@@ -84,6 +86,8 @@ export function Inbox({
   publicPages?: boolean;
   /** INBOX-11, INBOX-12: customer links, "Possible duplicates" and "Merge into…" (customers flag). */
   customers?: boolean;
+  /** INBOX-13 (translations flag): the drawer's Translations and, with a provider, bulk "Translate". */
+  translations?: { provider: string | null };
   /** Opens this testimonial in the drawer at once (the "Review and approve" link in notifications). */
   initialOpenId?: string;
 }) {
@@ -184,12 +188,12 @@ export function Inbox({
     void act(() => api(`/api/admin/testimonials/${id}`, { method: "DELETE" }));
   };
 
-  async function bulk(action: string, tags?: string[]) {
+  async function bulk(action: string, tags?: string[], langs?: string[]) {
     const chosen = selection.selectedIds;
     if (!chosen.length) return;
     if (action === "delete" && !confirm(`Delete ${chosen.length === 1 ? "this testimonial" : `these ${chosen.length} testimonials`} and their files for good? This can't be undone.`)) return;
     try {
-      const result = await api<BulkResult>(`/api/admin/projects/${project.id}/testimonials/bulk`, { method: "POST", json: { action, ids: chosen, tags } });
+      const result = await api<BulkResult>(`/api/admin/projects/${project.id}/testimonials/bulk`, { method: "POST", json: { action, ids: chosen, tags, langs } });
       selection.clear();
       setBulkResult({ action, result });
       await load(true);
@@ -387,9 +391,10 @@ export function Inbox({
                 count={selection.count}
                 tab={tab}
                 onClear={selection.clear}
-                onAction={(a, tags) => void bulk(a, tags)}
+                onAction={(a, tags, langs) => void bulk(a, tags, langs)}
                 onExport={(f) => void exportSelection(f)}
                 tags={facets?.tags ?? []}
+                translateWith={translations?.provider ?? null}
               />
             </>
           )}
@@ -416,6 +421,7 @@ export function Inbox({
         shareStudio={shareStudio}
         publicPages={publicPages}
         customers={customers}
+        translations={Boolean(translations)}
         projectId={project.id}
       />
       <Toast message={toast?.message ?? null} tone={toast?.tone} onDismiss={() => setToast(null)} testId="inbox-toast" />

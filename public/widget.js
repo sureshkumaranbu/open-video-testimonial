@@ -452,7 +452,7 @@
   host.setAttribute("data-plaudit-widget", id || slug);
 
   if (id) {
-    fetch(base + "/api/widget/" + encodeURIComponent(id))
+    fetch(base + "/api/widget/" + encodeURIComponent(id) + "?l=" + navigator.language)
       .then(function (r) {
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.json();
@@ -462,7 +462,7 @@
         if (data.widget) ping(base, id, "view");
       })
       .catch(function (err) {
-        console.warn("[plaudit] could not load the widget:", err);
+        console.warn("[plaudit] could not load testimonials:", err);
         host.setAttribute("data-plaudit-error", "1");
       });
     return;

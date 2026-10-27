@@ -3,6 +3,7 @@ import type { Project } from "@/db/schema";
 import { env } from "./env";
 import { formUrl, getDefaultForm } from "./forms";
 import { toFeedItems } from "./public-feed";
+import { applyTranslations } from "./translations";
 import { reviewJsonLd } from "./seo";
 import { getProjectById, getTestimonial, type TestimonialWithTags } from "./testimonials";
 import type { FeedItem } from "./widget-config";
@@ -35,7 +36,7 @@ export type TestimonialPageData = {
 };
 
 /** The page's data, or null (so a 404) for a missing, private, unapproved or withdrawn testimonial. */
-export function testimonialPage(id: string): TestimonialPageData | null {
+export function testimonialPage(id: string, o: { lang?: string | null } = {}): TestimonialPageData | null {
   if (!UUID.test(id)) return null;
   const t = getTestimonial(id);
   if (!t || !hasPublicPage(t)) return null;
@@ -43,7 +44,8 @@ export function testimonialPage(id: string): TestimonialPageData | null {
   if (!project) return null;
   const main = getMainWall(project.id);
   return {
-    item: toFeedItems([t])[0],
+    // INBOX-13: a stored translation into `lang`, when there is one (never made on the fly).
+    item: applyTranslations(toFeedItems([t]), o.lang ?? null, new Map([[t.id, t.language]]))[0],
     project: { id: project.id, name: project.name, slug: project.slug, accentColor: project.accentColor, website: project.website, logoKey: project.logoKey },
     url: `${env.publicUrl}/t/${t.id}`,
     wallUrl: main ? wallPath(project, main) : `/wall/${project.slug}`,
