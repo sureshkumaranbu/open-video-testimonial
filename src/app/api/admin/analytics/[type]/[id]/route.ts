@@ -4,10 +4,10 @@ import { ANALYTICS_OBJECTS, type AnalyticsObject } from "@/db/schema";
 import { analyticsUi, objectReport, parseRange } from "@/lib/analytics";
 import { jsonError, requireAdmin } from "@/lib/http";
 
-const TABLES = { widget: schema.widgets, form: schema.forms, wall: schema.walls, snippet: schema.seoSnippets } as const;
+const TABLES = { widget: schema.widgets, form: schema.forms, wall: schema.walls, snippet: schema.seoSnippets, testimonial: schema.testimonials } as const;
 
 /**
- * DISP-14, FORM-15, WALL-05, SEO-04: one widget, form, wall or snippet over
+ * DISP-14, FORM-15, WALL-05, SEO-04, WALL-04: one widget, form, wall, snippet or testimonial page over
  * `?from=&to=` (default the last 30 days), with the previous period.
  */
 export async function GET(req: Request, ctx: { params: Promise<{ type: string; id: string }> }) {

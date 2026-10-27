@@ -10,6 +10,7 @@ import { ConsentPanel, timeAgo, type AdminTestimonial } from "../Dashboard";
 import { EditForm, type EditableTestimonial } from "./EditForm";
 import { HighlightEditor, type HighlightJson } from "./HighlightEditor";
 import { sourceLabel, type InboxRow } from "./types";
+import { VideoTools, type VideoToolsTestimonial } from "./VideoTools";
 
 type DetailAnswer = {
   id: string;
@@ -26,7 +27,7 @@ type DetailAnswer = {
 };
 type HistoryJson = { id: string; actor: string; actorEmail: string | null; action: string; diff: Record<string, [unknown, unknown]>; createdAt: string };
 type Detail = {
-  testimonial: InboxRow & EditableTestimonial;
+  testimonial: InboxRow & EditableTestimonial & VideoToolsTestimonial;
   answers: DetailAnswer[];
   images: { id: string; key: string; questionKey: string | null }[];
   highlights: HighlightJson[];
@@ -63,7 +64,14 @@ const FIELD_TEXT: Record<string, string> = {
   captionsVtt: "captions",
   avatarKey: "photo",
   companyLogoKey: "company logo",
+  trimStartMs: "trim start",
+  trimEndMs: "trim end",
+  posterKey: "poster",
+  videoKey: "video file",
 };
+
+/** History fields that are only bookkeeping for a change already named (a new file's original, a poster's frame). */
+const QUIET_FIELDS = new Set(["videoOriginalKey", "posterAtMs", "posterCustom"]);
 
 function describe(h: HistoryJson) {
   if (h.action === "status" || h.action === "trashed" || h.action === "restored") {
@@ -75,7 +83,12 @@ function describe(h: HistoryJson) {
     return Array.isArray(to) ? (to.length ? to.join(", ") : "no tags") : "";
   }
   if (h.action === "answer_edited") return Object.keys(h.diff).map((k) => k.replace(/^answer:/, "answer ")).join(", ");
-  if (h.action === "edited") return Object.keys(h.diff).map((k) => FIELD_TEXT[k] ?? k).join(", ");
+  if (h.action === "edited") {
+    return Object.keys(h.diff)
+      .filter((k) => !QUIET_FIELDS.has(k))
+      .map((k) => FIELD_TEXT[k] ?? k)
+      .join(", ");
+  }
   return "";
 }
 
@@ -170,6 +183,14 @@ export function DetailDrawer({
 
   const t = detail?.testimonial;
   const ready = Boolean(t && t.id === id);
+
+  // While the video converts (after a trim or a new file), refresh so the result shows up by itself.
+  const converting = Boolean(t && ready && ["queued", "processing"].some((s) => s === t.mediaStatus || s === t.transcriptStatus));
+  useEffect(() => {
+    if (!converting) return;
+    const timer = setInterval(() => void load(), 3000);
+    return () => clearInterval(timer);
+  }, [converting, load]);
 
   useEffect(() => {
     if (!id) return;
@@ -316,9 +337,20 @@ export function DetailDrawer({
               {t.videoKey && (
                 <video controls preload="metadata" playsInline poster={t.posterKey ? `/api/media/${t.posterKey}` : undefined} key={t.videoKey}>
                   <source src={`/api/media/${t.videoKey}`} type={t.mediaStatus === "ready" ? "video/mp4" : (t.videoMime ?? undefined)} />
-                  {t.videoOriginalKey && t.videoOriginalKey !== t.videoKey && <source src={`/api/media/${t.videoOriginalKey}`} />}
+                  {t.trimStartMs === null && t.trimEndMs === null && t.videoOriginalKey && t.videoOriginalKey !== t.videoKey && (
+                    <source src={`/api/media/${t.videoOriginalKey}`} />
+                  )}
                   {t.captionsVtt && <track kind="captions" src={`/api/captions/${t.id}`} default label="Captions" />}
                 </video>
+              )}
+              {t.videoKey && (
+                <VideoTools
+                  t={t}
+                  onChanged={() => {
+                    void load();
+                    onChanged();
+                  }}
+                />
               )}
               <HighlightEditor
                 key={t.id}

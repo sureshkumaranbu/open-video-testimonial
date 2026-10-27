@@ -77,3 +77,27 @@ export function normaliseCaptions(input: string): string {
   }
   return toVtt(cues);
 }
+
+/**
+ * VID-01: captions for a trimmed video. Stored captions stay in the
+ * original's timeline (so trimming again, or undoing it, loses nothing);
+ * players get the cues inside [startMs, endMs), clipped to it and moved so
+ * the cut starts at 0. endMs null = to the end.
+ */
+export function trimCues(cues: Cue[], startMs: number, endMs: number | null): Cue[] {
+  const from = startMs / 1000;
+  const to = endMs === null ? Infinity : endMs / 1000;
+  return cues
+    .filter((c) => c.end > from && c.start < to)
+    .map((c) => ({ start: Math.max(c.start, from) - from, end: Math.min(c.end, to) - from, text: c.text }));
+}
+
+/** The served captions for a trim (WebVTT in, WebVTT out); unchanged when there's no trim. */
+export function trimVtt(vtt: string, trim: { startMs: number; endMs: number | null } | null): string {
+  return trim ? toVtt(trimCues(parseVtt(vtt), trim.startMs, trim.endMs)) : vtt;
+}
+
+/** The transcript of what a trim keeps: the text of its captions. */
+export function trimmedTranscript(vtt: string, trim: { startMs: number; endMs: number | null } | null): string {
+  return vttToText(trimVtt(vtt, trim));
+}

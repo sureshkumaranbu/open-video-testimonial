@@ -247,8 +247,9 @@ export function fileInUse(key: string): boolean {
       UNION ALL SELECT 1 FROM customers WHERE avatar_key = ${key}
       UNION ALL SELECT 1 FROM projects WHERE logo_key = ${key}
       UNION ALL SELECT 1 FROM forms WHERE logo_key = ${key}
-      UNION ALL SELECT 1 FROM walls WHERE logo_key = ${key} OR cover_key = ${key}
+      UNION ALL SELECT 1 FROM walls WHERE logo_key = ${key} OR cover_key = ${key} OR favicon_key = ${key}
       UNION ALL SELECT 1 FROM boosters WHERE logo_key = ${key}
+      UNION ALL SELECT 1 FROM share_assets WHERE key = ${key}
       LIMIT 1`),
   );
 }

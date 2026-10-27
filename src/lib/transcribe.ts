@@ -4,10 +4,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
-import { normaliseCaptions, vttToText } from "./captions";
+import { normaliseCaptions, trimmedTranscript, vttToText } from "./captions";
 import { env } from "./env";
 import { enqueue, PermanentJobError } from "./jobs";
-import { extractAudio, ffmpegAvailable, probe } from "./media";
+import { extractAudio, ffmpegAvailable, probe, trimOf } from "./media";
 import { storage } from "./storage";
 import { getTestimonial } from "./testimonials";
 import { emitTestimonialEvent } from "./webhooks";
@@ -135,9 +135,14 @@ export async function transcribeTestimonial(testimonialId: string, opts: { willR
       await extractAudio(input, wav);
     });
     const result = await transcribeFile(wav);
-    if (!getDb().select({ id: testimonials.id }).from(testimonials).where(eq(testimonials.id, row.id)).get()) return;
+    const latest = getDb().select().from(testimonials).where(eq(testimonials.id, row.id)).get();
+    // Gone, or its video replaced meanwhile (VID-03): the new file has its own job.
+    if (!latest || (latest.videoOriginalKey ?? latest.videoKey) !== key) return;
+    // The original is transcribed whole; a trimmed video's transcript is only what it keeps (VID-01).
+    const trim = trimOf(latest);
+    const transcript = trim && result.vtt ? trimmedTranscript(result.vtt, trim) : result.transcript;
     setStatus(row.id, {
-      transcript: result.transcript || null,
+      transcript: transcript || null,
       captionsVtt: result.vtt,
       transcriptStatus: "ready",
       transcriptError: null,
