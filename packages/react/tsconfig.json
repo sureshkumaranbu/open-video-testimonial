@@ -1,0 +1,17 @@
+{
+  "$comment": "Builds dist/ with tsc only. The app's own typecheck also covers src/ (the root tsconfig includes every .ts and .tsx file).",
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["dom", "es2020"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "jsx": "react-jsx",
+    "strict": true,
+    "declaration": true,
+    "outDir": "dist",
+    "rootDir": "src",
+    "skipLibCheck": true,
+    "isolatedModules": true
+  },
+  "include": ["src"]
+}
