@@ -29,7 +29,7 @@ export type FeedOptions = {
   offset?: number;
 };
 
-const hasImage = sql`EXISTS (SELECT 1 FROM testimonial_images i WHERE i.testimonial_id = ${testimonials.id})`;
+const hasImage = sql`EXISTS (SELECT 1 FROM testimonial_images i WHERE i.testimonial_id = ${testimonials.id} AND i.owner_only = 0)`;
 const shownDate = sql`coalesce(${testimonials.sourceDate}, ${testimonials.createdAt})`;
 
 /** A LIKE pattern that matches `s` literally (with ESCAPE '\'). */
@@ -201,7 +201,8 @@ export function toFeedItems(rows: TestimonialWithTags[], o: { firstNameOnly?: bo
   for (const i of db
     .select({ id: testimonialImages.testimonialId, key: testimonialImages.key, alt: testimonialImages.alt })
     .from(testimonialImages)
-    .where(inArray(testimonialImages.testimonialId, ids))
+    // Images a merge brought in as owner-only (INBOX-11) never leave the server.
+    .where(and(inArray(testimonialImages.testimonialId, ids), eq(testimonialImages.ownerOnly, false)))
     .orderBy(asc(testimonialImages.position), asc(testimonialImages.createdAt))
     .all())
     imgs.set(i.id, [...(imgs.get(i.id) ?? []), { key: i.key, alt: i.alt }]);
