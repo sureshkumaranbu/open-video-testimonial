@@ -146,7 +146,14 @@ export function CampaignView({ project, email, apiBase, forms, initial }: Props)
 
       <FunnelView funnel={c.funnel!} trackOpens={c.trackOpens} />
 
-      <Tabs label="Campaign sections" tabs={TABS.map((t) => (t.id === "recipients" ? { ...t, count: data.recipients.length } : t))} value={tab} onChange={(id) => setTab(id as TabId)} testId="campaign-tabs">
+      <Tabs label="Campaign sections" tabs={TABS.map((t) => (t.id === "recipients" ? { ...t, count: data.recipients.length } : t))} value={tab}
+        onChange={(id) => {
+          setTab(id as TabId);
+          // People may have come in through the API or the webhook meanwhile.
+          void load();
+        }}
+        testId="campaign-tabs"
+      >
         {tab === "recipients" && (
           <RecipientsPanel campaign={c} recipients={data.recipients} customers={data.customers} emailOn={email.mode !== "off"} onChange={load} onError={setError} />
         )}

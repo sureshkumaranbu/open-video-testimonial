@@ -251,8 +251,15 @@ export function RecipientsPanel({ campaign: c, recipients, customers, emailOn, o
             testId="recipients-empty"
             level={3}
             action={
-              <button type="button" onClick={() => document.getElementById("campaign-people")?.focus()}>
-                Add people
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  setSource("paste");
+                  setTimeout(() => document.getElementById("campaign-people")?.focus());
+                }}
+              >
+                Paste a list
               </button>
             }
           >

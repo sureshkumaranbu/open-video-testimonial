@@ -105,7 +105,7 @@
   display: flex;
   gap: var(--space-2);
   justify-content: flex-end;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 /* The funnel: one row of steps, each with a bar against the number of people. */
@@ -181,6 +181,19 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--space-3);
+}
+
+/* The "how to add people" switch fills the panel, so its three choices fit a phone. */
+.cp-add .segmented {
+  display: flex;
+  width: 100%;
+}
+
+.cp-add .segmented button {
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: normal;
+  padding-inline: var(--space-2);
 }
 
 .cp-pick {
@@ -321,6 +334,7 @@
   }
   .cp-row-actions {
     justify-content: flex-start;
+    flex-wrap: wrap;
   }
   .cp-frame {
     height: 440px;

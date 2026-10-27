@@ -1,6 +1,6 @@
 # Set up email
 
-Plaudit sends three kinds of plain-text email: **invitations** from Requests, **reminders**, and **receipts** with a private withdrawal link. It sends them through an SMTP server you choose. That can be your mailbox provider (Gmail, Microsoft 365, Zoho, Hostinger…) or a transactional email service (Resend, Postmark, SendGrid, Mailgun, Amazon SES, Brevo).
+Plaudit sends three kinds of email: **invitations** from Requests and Campaigns, **reminders**, and **receipts** with a private withdrawal link. Requests and receipts are plain text; campaign emails also have a simple HTML version with a button (see [Campaign emails](#campaign-emails)). It sends them through an SMTP server you choose. That can be your mailbox provider (Gmail, Microsoft 365, Zoho, Hostinger…) or a transactional email service (Resend, Postmark, SendGrid, Mailgun, Amazon SES, Brevo).
 
 Email is optional. Without it, Requests still makes personal links that you can send yourself.
 
@@ -9,6 +9,7 @@ Email is optional. Without it, Requests still makes personal links that you can 
 - [3. Check it works](#3-check-it-works)
 - [Provider recipes](#provider-recipes)
 - [Make sure mail lands in the inbox](#make-sure-mail-lands-in-the-inbox)
+- [Campaign emails](#campaign-emails)
 - [Troubleshooting](#troubleshooting)
 - [Try it out locally](#try-it-out-locally)
 
@@ -225,6 +226,18 @@ Also:
 
 - `SMTP_FROM` must be a verified sender.
 - Set `PUBLIC_URL` to your real address, so links in emails don't point to localhost.
+
+## Campaign emails
+
+Campaigns (**Campaigns** tab, [docs/help/campaigns.md](help/campaigns.md)) go through the same SMTP settings. What's different:
+
+- **Sender name and reply-to.** A campaign can set the name people see; the address is always the one in `SMTP_FROM`, because providers only let you send from addresses you've verified. Replies go to the campaign's reply-to address when it has one.
+- **Text and HTML.** Each email has a plain-text part and an HTML part with your button. Nothing in it loads from anywhere but your Plaudit server.
+- **Opens are opt-in.** Only a campaign with **Track opens** on carries a 1×1 image from `/api/open/…`. Plaudit records the time of the first open, never an IP address or a user agent. Many mail apps block images, so the open count includes anyone who clicked.
+- **Clicks, starts and responses** are always tracked, through the personal link: it goes to `/r/…`, which records the time of the first click and redirects to that person's own form link (nowhere else).
+- **No thanks and unsubscribe.** Every campaign email has a "No thanks" link (it stops the reminders for that campaign) and an unsubscribe link. Unsubscribing applies to the **whole project**, by email address: every request and campaign stops, and later imports skip the address. Mail apps that support one-click unsubscribe (RFC 8058) get the `List-Unsubscribe` and `List-Unsubscribe-Post` headers.
+- **Bounces.** When the mail server refuses an address for good while sending (a 5xx answer such as "no such user"), the person shows as **Bounced**. Plaudit doesn't read bounce emails that arrive later.
+- **Sender check.** **Send a test to me** on a campaign's Email tab also looks up the SPF record of your `SMTP_FROM` domain and its DMARC record at `_dmarc.<domain>`, and shows what it finds. It never blocks sending, and it skips reserved test names such as `localhost` or `example.com`. DKIM depends on your provider's selector, so check it in their dashboard. See [Make sure mail lands in the inbox](#make-sure-mail-lands-in-the-inbox) for what to add.
 
 ## Troubleshooting
 

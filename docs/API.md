@@ -39,6 +39,7 @@ All paths are relative to `https://<your-plaudit>/api/v1`.
 | `GET /testimonials/{id}` | read | Gets one testimonial |
 | `PATCH /testimonials/{id}` | write | Changes `status` (`pending`, `approved`, `rejected` or `hidden`), `tags`, `authorName`, `authorTitle`, `authorCompany`, `text`, `rating`, `transcript` or `captionsVtt`, and the fields listed [below](#editing-a-testimonial) |
 | `DELETE /testimonials/{id}` | write | Deletes a testimonial and its media for good. It doesn't go to the trash |
+| `POST /invites` | write | Adds a person to an active campaign and queues its invitation, optionally some days later ([below](#campaign-invites)) |
 
 Errors look like `{ "error": "…" }`, with status `400` (invalid input), `401` (missing or invalid key), `403` (read-only key), `404`, `409` (for example, re-publishing a testimonial whose author withdrew consent, or approving one whose author asked to keep it private) or `429`.
 
@@ -146,6 +147,46 @@ Besides the fields in the table above, `PATCH /testimonials/{id}` accepts `headl
 
 The dashboard's own endpoints (signed-in session, same-origin requests only) are not part of the versioned API and may change, but for reference: `POST /api/admin/testimonials/{id}/trash` moves one to the trash, remembering its status, and `POST /api/admin/testimonials/{id}/restore` puts it back (a withdrawn one as `rejected`). Both answer `{ "testimonial": … }` and send `testimonial.trashed` or `testimonial.restored`. The inbox also uses `GET /api/admin/projects/{id}/testimonials` (the view's query, as in the dashboard's address bar), `POST /api/admin/projects/{id}/testimonials/bulk` (`{ "action", "ids", "tags"? }`, up to 500 ids, answering `{ "updated", "skipped": [{ "id", "reason" }] }`), `GET /api/admin/projects/{id}/export?format=csv|json&<view>` and `POST /api/admin/projects/{id}/testimonials/manual`.
 
+### Campaign invites
+
+`POST /invites` sends someone a campaign's invitation, for example after a purchase. The campaign id is on the campaign's **Auto-collect** tab.
+
+```bash
+curl -X POST https://plaudit.example.com/api/v1/invites \
+  -H "Authorization: Bearer plk_…" -H "Content-Type: application/json" \
+  -d '{"campaignId":"1d85…","email":"ada@example.com","name":"Ada Lovelace","company":"Engines Ltd","variables":{"plan":"Pro"},"delayDays":3}'
+```
+
+| Field | |
+|---|---|
+| `campaignId`, `email` | Required |
+| `name`, `company`, `title` | Optional, up to 120 characters |
+| `variables` | Optional template variables for `{{key}}` in the campaign's wording: up to 20 keys (letters, digits and `_`), values up to 500 characters |
+| `delayDays` | Optional, 0 to 365 (fractions allowed). The invitation is queued now and sent that much later; absent or 0 sends it straight away |
+
+Answers:
+
+- `201` with `{ "data": invite }` when the person is added. `data.stage` is `queued` and `data.scheduledFor` says when a delayed one goes out.
+- `200` with `{ "data": invite | null, "skipped": "duplicate" | "unsubscribed" | "responded" }` when no new email is sent: the person is already in the campaign (the existing invite is returned), unsubscribed from the project, or already sent a testimonial. Retrying a call is therefore safe.
+- `409` when the campaign is a draft or paused, or email isn't set up on the server; `404` for an unknown campaign.
+
+An invite has `id`, `campaignId`, `email`, `name`, `company`, `title`, `variables`, `stage` (`not_sent`, `queued`, `sent`, `failed`, `bounced`, `opened`, `clicked`, `started`, `submitted`, `declined` or `unsubscribed`), `status`, `emailStatus`, `scheduledFor`, `sentAt`, `remindersSent`, `openedAt`, `clickedAt`, `startedAt`, `respondedAt`, `declinedAt`, `unsubscribedAt`, `testimonialId`, `link` (the personal form link) and `createdAt`.
+
+### A campaign's incoming webhook
+
+Tools that can only send a webhook (a shop, a CRM, n8n, Zapier or Make) can use the campaign's own URL instead of an API key. Create it on the campaign's **Auto-collect** tab. It looks like `https://plaudit.example.com/api/hooks/campaigns/cwh_…` and is shown **once**: Plaudit stores only a SHA-256 of its token. **Regenerate URL** makes a new one and the old one stops working at once; **Turn off** removes it.
+
+```bash
+curl -X POST "https://plaudit.example.com/api/hooks/campaigns/cwh_…?delay=3" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"ada@example.com","name":"Ada Lovelace","company":"Engines Ltd","plan":"Pro"}'
+```
+
+- The body is a JSON object with `email` (required), `name`, `company`, `title` and `delayDays`. Any other top-level field (string, number or true/false) becomes a template variable, as does a `variables` object. `?delay=<days>` works too when you can't change the body.
+- It answers `202` with `{ "ok": true, "inviteId", "scheduledFor" }`, or `200` with `skipped` as above. `400` for invalid input, `404` for an unknown URL, `409` while the campaign isn't sending, `413` for a body over 16 KB, `415` unless it's `Content-Type: application/json`, and `429` beyond 120 requests a minute (per URL, and per sending address).
+
+The incoming webhook isn't part of `/api/v1` and isn't in the OpenAPI file, since it needs no key.
+
 ## Webhooks
 
 Under **Settings → Webhooks**, add the URL of your endpoint. You can limit it to one project (or one form) and to the events you care about, and **Edit** changes the URL, events, project and form later without changing the secret or losing the delivery log. For Slack, Discord, Teams or Telegram messages, use **Settings → Notifications** instead ([docs/help/notifications.md](help/notifications.md)). Tick none to receive the **default set**: every event below except the ones marked *opt-in*, which go only to endpoints that tick them.
@@ -165,6 +206,10 @@ Under **Settings → Webhooks**, add the URL of your endpoint. You can limit it 
 | `form.submitted` | *Opt-in.* Someone sent a form (any form, including the classic page). `data` is `{ form: { id, slug, name }, testimonialId, hiddenFields }`; the testimonial itself comes with `testimonial.created` |
 | `feedback.created` | *Opt-in.* Someone answered a form's private question. `data.feedback` is `{ id, formId, testimonialId, rating, text, createdAt }`. Private feedback is never published |
 | `import.completed` | *Opt-in.* An import from a review site or another tool finished (once per run). `data.import` is `{ id, source, platform, imported, duplicates, skipped, failed, startedAt, finishedAt }`. See [IMPORT.md](IMPORT.md) |
+| `invite.sent` | *Opt-in.* A campaign or Requests-tab invitation or reminder was handed to the mail server. `data` is `{ invite, kind }`, `kind` being `invite` or `reminder`; `invite` is the shape [above](#campaign-invites) |
+| `invite.opened` | *Opt-in.* The first open of a campaign email, for campaigns that track opens |
+| `invite.clicked` | *Opt-in.* The first click on the personal link in a campaign email |
+| `invite.declined` | *Opt-in.* The person pressed "No thanks" in a campaign email. Reminders stop |
 | `ping` | You pressed **Send test event** |
 
 Every way a testimonial leaves your site (rejected, hidden, trashed, deleted or withdrawn) is in the default set, so an endpoint that mirrors your testimonials elsewhere can always take them down. Hiding sends `testimonial.hidden`, never `testimonial.rejected`. The one exception is deleting a whole project: that sends no per-testimonial events, and the project's own webhooks are deleted with it, so treat a project missing from `GET /projects` as taking down all of its testimonials.

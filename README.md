@@ -202,7 +202,7 @@ Every setting is an environment variable, read from `.env` (Node) or `docker-com
 | `S3_FORCE_PATH_STYLE` | `false` | `true` puts the bucket in the path (`https://host/bucket/…`) instead of the host name. MinIO usually needs it |
 | `S3_PREFIX` | none | A folder inside the bucket for Plaudit's files, such as `plaudit` |
 | `TRASH_RETENTION_DAYS` | `30` | Days a testimonial stays in the trash before it's deleted for good |
-| `PLAUDIT_FEATURES` | `all` | Which [sections](#turning-sections-off) the dashboard shows: `all`, `none`, or a comma-separated list of `forms`, `inbox2`, `widgets`, `walls`, `importers`, `notifications` and `onboarding` |
+| `PLAUDIT_FEATURES` | `all` | Which [sections](#turning-sections-off) the dashboard shows: `all`, `none`, or a comma-separated list of `forms`, `inbox2`, `widgets`, `walls`, `importers`, `notifications`, `onboarding` and `campaigns` |
 | `DIGEST_HOUR_UTC` | `8` | The hour (UTC, 0 to 23) when daily digests, the Monday reminder and the monthly report go out ([notifications](docs/help/notifications.md)) |
 | `GOOGLE_PLACES_API_KEY` | unset | Your own Google Cloud key with **Places API (New)** enabled, for the Google review importer (see [docs/IMPORT.md](docs/IMPORT.md)) |
 | `PRODUCT_HUNT_TOKEN` | unset | Your own Product Hunt API (v2) developer token, for reading a launch's comments; without it the Product Hunt importer reads the public page |
@@ -323,7 +323,7 @@ Create API keys and webhooks under **Settings**. [`docs/API.md`](docs/API.md) co
 
 ### Turning sections off
 
-Forms, the new inbox, the widget studio, walls, importers, notifications and the setup guide are all on. To hide some (while your team gets used to the rest, say), list only the ones you want in `PLAUDIT_FEATURES` and restart, or set it to `none`:
+Forms, the new inbox, the widget studio, walls, importers, notifications, the setup guide and campaigns are all on. To hide some (while your team gets used to the rest, say), list only the ones you want in `PLAUDIT_FEATURES` and restart, or set it to `none`:
 
 | Flag | What it shows |
 |---|---|
@@ -334,6 +334,7 @@ Forms, the new inbox, the widget studio, walls, importers, notifications and the
 | `importers` | **Import & export → Import from a review site** ([`docs/IMPORT.md`](docs/IMPORT.md)) |
 | `notifications` | **Settings → Notifications**: email and chat notifications ([`docs/help/notifications.md`](docs/help/notifications.md)) |
 | `onboarding` | The setup guide at `/admin/welcome`, the **Get started** card and checklist ([`docs/help/getting-started.md`](docs/help/getting-started.md)) |
+| `campaigns` | **Campaigns**: email campaigns with your own wording, sender, button and reminder days, recipients from a CSV or your customers, a live preview and test send, a funnel (sent, opened if you opt in, clicked, started, responded, declined), and auto-collect through `POST /api/v1/invites` or an incoming webhook ([`docs/help/campaigns.md`](docs/help/campaigns.md)) |
 
 `PLAUDIT_FEATURES=all` (the default) turns on every one. A flag only shows or hides pages: your data, the API and the public pages behave the same either way.
 
