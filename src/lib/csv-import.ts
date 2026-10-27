@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getDb, schema } from "@/db";
 import type { Project } from "@/db/schema";
 import { logConsentEvent } from "./consent";
+import { upsertCustomer } from "./customers";
 import { parseCsvRecords } from "./csv";
 import { env } from "./env";
 import { enqueue, PermanentJobError } from "./jobs";
@@ -305,6 +306,8 @@ export function importCsv(
     }
     let t;
     try {
+      // INBOX-12: one customer per email; a row without one gets a record of its own.
+      const customer = upsertCustomer(project.id, { email: row.email ?? undefined, name: row.name, title: row.title ?? undefined, company: row.company ?? undefined });
       t = createTestimonial(
         project.id,
         {
@@ -319,6 +322,7 @@ export function importCsv(
           sourceReviewId: platform ? (row.sourceReviewId ?? undefined) : undefined,
           sourceDate: platform && row.date ? row.date : undefined,
           importedAt: new Date(),
+          customerId: customer?.id ?? null,
         },
         { source: `import:${origin}`, createdAt: row.date ?? undefined },
       );

@@ -3,6 +3,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import type { DatePrecision, Project, TaskRun } from "@/db/schema";
 import { logConsentEvent } from "../consent";
+import { upsertCustomer } from "../customers";
 import { FETCH_MEDIA_JOB, isAlreadyImported, isUniqueViolation, normalizePlatform } from "../csv-import";
 import { enqueue, PermanentJobError } from "../jobs";
 import { NetGuardError } from "../net-guard";
@@ -338,6 +339,8 @@ function saveItem(project: Project, adapter: ImporterAdapter, run: TaskRun, item
   const now = new Date();
   let id: string;
   try {
+    // INBOX-12: every imported review gets its person (no email from a review site, so a record of their own).
+    const customer = upsertCustomer(project.id, { name: item.authorName, title: item.authorTitle, company: item.authorCompany });
     id = createTestimonial(
       project.id,
       {
@@ -354,6 +357,7 @@ function saveItem(project: Project, adapter: ImporterAdapter, run: TaskRun, item
         datePrecision: item.date?.precision ?? "day",
         importedAt: now,
         language: item.language,
+        customerId: customer?.id ?? null,
       },
       { source: `importer:${adapter.id}`, createdAt: now, by: run.createdBy ?? undefined },
     ).id;
