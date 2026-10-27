@@ -5,11 +5,13 @@ import { useEffect, useState } from "react";
 import { api, errorMessage } from "@/app/admin/api";
 import { ColorField, DevicePreview, Segmented, Tabs, Toast, Toggle, UnsavedGuard, type Device } from "@/components/admin";
 import { Icon } from "@/components/Icon";
-import { WallView } from "@/components/WallView";
+import { inkFor, WallView } from "@/components/WallView";
 import { SCHEMA_TYPE_LABELS, SEO_SCHEMA_TYPES } from "@/lib/seo";
+import { accentStyle } from "@/lib/theme";
 import {
   PAGINATION,
   THEME_LABELS,
+  THEME_COLOURS,
   THEME_SWATCHES,
   WALL_THEMES,
   type WallConfig,
@@ -21,7 +23,7 @@ import type { AdminWall, WallViewData } from "@/lib/walls";
 type Choice = { id: string; name: string };
 
 type Props = {
-  project: { id: string; slug: string; name: string };
+  project: { id: string; slug: string; name: string; accentColor: string };
   initial: AdminWall;
   origin: string;
   tags: string[];
@@ -68,6 +70,11 @@ export function WallEditor({ project, initial, origin, tags, forms, featured }: 
   const [previewTab, setPreviewTab] = useState(0);
   const dirty = JSON.stringify(draft) !== saved;
   const cfg = draft.config;
+  // The colours as the page shows them (WallView's vars): yours, else the theme's; for the defaults and the contrast warnings.
+  const theme = THEME_COLOURS[draft.theme];
+  const heroBg = cfg.hero.background || theme.heroBg;
+  const ctaBg = cfg.heroCta.background || theme.ctaBg || project.accentColor;
+  const cardBg = cfg.card.background || theme.card;
 
   function sec<K extends keyof WallConfig>(key: K, patch: Partial<WallConfig[K]>) {
     setDraft((d) => ({ ...d, config: { ...d.config, [key]: { ...(d.config[key] as object), ...patch } } }));
@@ -230,12 +237,13 @@ export function WallEditor({ project, initial, origin, tags, forms, featured }: 
                       </select>
                     </label>
                     <div className="wl-pair">
-                      <ColorField label="Hero background" value={cfg.hero.background} allowEmpty onChange={(background) => sec("hero", { background })} />
+                      <ColorField label="Hero background" value={cfg.hero.background} allowEmpty placeholder={theme.heroBg} onChange={(background) => sec("hero", { background })} />
                       <ColorField
                         label="Hero text"
                         value={cfg.hero.text}
                         allowEmpty
-                        contrastWith={cfg.hero.background || undefined}
+                        placeholder={inkFor("", cfg.hero.background) || theme.heroInk}
+                        contrastWith={heroBg}
                         onChange={(text) => sec("hero", { text })}
                       />
                     </div>
@@ -263,12 +271,19 @@ export function WallEditor({ project, initial, origin, tags, forms, featured }: 
                       </select>
                     </label>
                     <div className="wl-pair">
-                      <ColorField label="Button colour" value={cfg.heroCta.background} allowEmpty onChange={(background) => sec("heroCta", { background })} />
+                      <ColorField
+                        label="Button colour"
+                        value={cfg.heroCta.background}
+                        allowEmpty
+                        placeholder={theme.ctaBg ?? project.accentColor}
+                        onChange={(background) => sec("heroCta", { background })}
+                      />
                       <ColorField
                         label="Button text colour"
                         value={cfg.heroCta.color}
                         allowEmpty
-                        contrastWith={cfg.heroCta.background || undefined}
+                        placeholder={inkFor("", cfg.heroCta.background) || theme.ctaInk || accentStyle(ctaBg)["--on-accent"]}
+                        contrastWith={ctaBg}
                         onChange={(color) => sec("heroCta", { color })}
                       />
                     </div>
@@ -327,12 +342,13 @@ export function WallEditor({ project, initial, origin, tags, forms, featured }: 
                   <fieldset>
                     <legend>Cards</legend>
                     <div className="wl-pair">
-                      <ColorField label="Card colour" value={cfg.card.background} allowEmpty onChange={(background) => sec("card", { background })} />
+                      <ColorField label="Card colour" value={cfg.card.background} allowEmpty placeholder={theme.card} onChange={(background) => sec("card", { background })} />
                       <ColorField
                         label="Card text"
                         value={cfg.card.text}
                         allowEmpty
-                        contrastWith={cfg.card.background || undefined}
+                        placeholder={inkFor("", cfg.card.background) || theme.cardInk}
+                        contrastWith={cardBg}
                         onChange={(text) => sec("card", { text })}
                       />
                       <ColorField label="Card border" value={cfg.card.border} allowEmpty onChange={(border) => sec("card", { border })} />

@@ -41,7 +41,8 @@
   --wl-card-ink: #3b1f14;
   --wl-card-line: #f3d9c7;
   --wl-hero-bg: linear-gradient(165deg, #ffdcc4 0%, #fff4ea 85%);
-  --wl-cta-bg: #e8603c;
+  /* Deep enough for white button text at 4.5:1. */
+  --wl-cta-bg: #c4471f;
   --wl-cta-ink: #ffffff;
 }
 

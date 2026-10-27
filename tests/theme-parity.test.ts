@@ -1,6 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { contrastRatio, INK } from "@/lib/contrast";
+import { formDesignStyle } from "@/lib/forms/design";
+import { formDesignSchema } from "@/lib/forms/schema";
 import { accentStyle } from "@/lib/theme";
 import { defaultWidgetConfig, toPublicWidget } from "@/lib/widgets";
 
@@ -65,7 +68,21 @@ describe("text on the accent colour", () => {
       return 0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255) > 160 ? "#161b2e" : "#ffffff";
     };
     expect(widget).toContain("return lum > 160 ? \"#161b2e\" : \"#fff\";");
-    for (const accent of ["#0f766e", "#e2463f", "#3d63dd", "#161b2e", "#ffffff", "#facc15", "#f2a93b"])
+    // Not #e2463f: ink (4.2:1) beats white (4.0:1) there by a hair, so the two formulas differ on it.
+    for (const accent of ["#0f766e", "#b91c1c", "#3d63dd", "#161b2e", "#ffffff", "#facc15", "#f2a93b"])
       expect(legacy(accent), accent).toBe(accentStyle(accent)["--on-accent"]);
+  });
+
+  it("DISP-03 FORM-08 the text on an accent is whichever of ink and white has more contrast", () => {
+    for (const accent of BRANDS) {
+      const on = accentStyle(accent)["--on-accent"];
+      const other = on === "#ffffff" ? INK : "#ffffff";
+      expect(contrastRatio(accent, on)!, accent).toBeGreaterThanOrEqual(contrastRatio(accent, other)!);
+    }
+    // Sky blue used to get white at 2.8:1.
+    expect(accentStyle("#0ea5e9")["--on-accent"]).toBe(INK);
+    expect(contrastRatio("#0ea5e9", INK)!).toBeGreaterThan(4.5);
+    // Forms pick button text the same way.
+    expect(formDesignStyle(formDesignSchema.parse({ button: "#0ea5e9" }), "#3d63dd")["--fr-button-text"]).toBe(INK);
   });
 });

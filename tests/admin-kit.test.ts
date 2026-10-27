@@ -40,12 +40,14 @@ import {
   selectState,
   Tabs,
   Toast,
+  textOn,
   Toggle,
   toggleAll,
   toggleId,
   toggleValue,
   Toolbar,
   UnsavedGuard,
+  worstPair,
   type ColorFieldProps,
   type CopyFieldProps,
   type DevicePreviewProps,
@@ -232,6 +234,16 @@ describe("colours", () => {
   it("rounds a ratio down, so a near miss never reads as a pass", () => {
     expect(formatRatio(4.499)).toBe("4.4:1");
     expect(formatRatio(21)).toBe("21.0:1");
+  });
+
+  it("L5 picks ink or white by contrast, and finds the worst of several pairs", () => {
+    expect(textOn("#ffffff")).toBe("#161b2e");
+    expect(textOn("#3d63dd")).toBe("#ffffff");
+    expect(textOn("#0ea5e9")).toBe("#161b2e");
+    expect(textOn("#000000", "#222222")).toBe("#ffffff");
+    expect(textOn("nope")).toBe("#ffffff");
+    expect(worstPair([["#161b2e", "#ffffff"], ["#161b2e", "#171b2b"]])).toEqual(["#161b2e", "#171b2b"]);
+    expect(worstPair([])).toBeUndefined();
   });
 
   it("picks black or white text for a background", () => {
@@ -633,6 +645,13 @@ describe("fields", () => {
     expect(attr(empty, 'input type="color"', "data-empty")).toBe("true");
     expect(empty).toContain('placeholder="Default (#3d63dd)"');
     expect(html(h(ColorField, { label: "Accent", value: "#ff0000", onChange: noop, allowEmpty: true }))).toContain("Use default");
+
+    // L5: an empty value is checked as the default it falls back to; 3:1 for buttons and shapes.
+    const fallback = html(h(ColorField, { label: "Text", value: "", onChange: noop, allowEmpty: true, placeholder: "#161b2e", contrastWith: "#000000" }));
+    expect(fallback).toContain("Low contrast (1.2:1)");
+    const button = html(h(ColorField, { label: "Button", value: "#ffffff", onChange: noop, contrastWith: "#ffffff", minContrast: 3 }));
+    expect(button).toContain("Low contrast (1.0:1). Text may be hard to read; aim for at least 3:1.");
+    expect(html(h(ColorField, { label: "Button", value: "#3d63dd", onChange: noop, contrastWith: "#ffffff", minContrast: 3 }))).not.toContain("Low contrast");
   });
 
   it("FontField is a radio group that previews each font", () => {

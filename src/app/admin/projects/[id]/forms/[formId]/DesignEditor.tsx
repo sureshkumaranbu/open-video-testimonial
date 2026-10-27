@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ColorField, FontField, Segmented, Toggle } from "@/components/admin";
-import { FONT_CHOICES } from "@/lib/forms/design";
+import { designWithBrand, FONT_CHOICES, formDesignStyle } from "@/lib/forms/design";
 import { LABEL_KEYS, LOCALES, resolveLabels, type LabelKey } from "@/lib/forms/labels";
 import type { FormDesign } from "@/lib/forms/schema";
 import type { Brand } from "@/lib/validation";
@@ -10,14 +10,23 @@ import type { Draft } from "./Builder";
 
 const FONTS = FONT_CHOICES.map((f) => ({ id: f.id, label: f.label, family: f.family, fallback: f.fallback }));
 
-const COLORS: { key: keyof FormDesign & ("primary" | "background" | "text" | "button" | "buttonText" | "star"); label: string }[] = [
-  { key: "primary", label: "Primary colour" },
-  { key: "background", label: "Background" },
-  { key: "text", label: "Text" },
-  { key: "button", label: "Button" },
-  { key: "buttonText", label: "Button text" },
-  { key: "star", label: "Stars" },
+type ColorKey = keyof FormDesign & ("primary" | "background" | "text" | "button" | "buttonText" | "star");
+
+/**
+ * Each colour, the custom property that shows what it ends up as, and what
+ * it's checked against: text needs 4.5:1, the primary colour, buttons and
+ * stars (shapes, not text) 3:1. "Button" against the background is what
+ * catches a white button on a white page.
+ */
+const COLORS: { key: ColorKey; label: string; shows: string; on?: { key: ColorKey; min: number } }[] = [
+  { key: "primary", label: "Primary colour", shows: "--fr-primary", on: { key: "background", min: 3 } },
+  { key: "background", label: "Background", shows: "--fr-bg" },
+  { key: "text", label: "Text", shows: "--fr-text", on: { key: "background", min: 4.5 } },
+  { key: "button", label: "Button", shows: "--fr-button", on: { key: "background", min: 3 } },
+  { key: "buttonText", label: "Button text", shows: "--fr-button-text", on: { key: "button", min: 4.5 } },
+  { key: "star", label: "Stars", shows: "--fr-star", on: { key: "background", min: 3 } },
 ];
+const SHOWS = Object.fromEntries(COLORS.map((c) => [c.key, c.shows])) as Record<ColorKey, string>;
 
 /** FORM-08 and FORM-09: logo, colours, fonts, shape and theme; the form's language and its wording. */
 export function DesignEditor({
@@ -37,6 +46,9 @@ export function DesignEditor({
 }) {
   const d = draft.design;
   const set = (patch: Partial<FormDesign>) => update((x) => ({ ...x, design: { ...x.design, ...patch } }));
+  // The colours exactly as the public page will show them (FORM-08), defaults and brand kit included.
+  const looks = formDesignStyle(designWithBrand(d, brand), accent);
+  const isSet = (k: ColorKey) => Boolean(d[k] ?? brand.colors[k]);
   const [labelQuery, setLabelQuery] = useState("");
   const defaults = resolveLabels(draft.language);
   const overrides = draft.labels.overrides;
@@ -88,13 +100,16 @@ export function DesignEditor({
       <h2 className="section-title">Colours</h2>
       <p className="muted xsmall">Empty colours follow your brand kit, then the project colour.</p>
       <div className="fb-grid2">
-        {COLORS.map(({ key, label }) => (
+        {COLORS.map(({ key, label, on }) => (
           <ColorField
             key={key}
             label={label}
             value={d[key] ?? ""}
             allowEmpty
-            placeholder={brand.colors[key] ?? (key === "primary" || key === "button" ? accent : undefined)}
+            placeholder={looks[SHOWS[key]]}
+            // Our default star colour is a soft gold; only warn once the stars or the background are your own.
+            contrastWith={on && (key !== "star" || isSet("star") || isSet("background")) ? looks[SHOWS[on.key]] : undefined}
+            minContrast={on?.min}
             onChange={(hex) => set({ [key]: hex || undefined })}
             testId={`color-${key}`}
           />

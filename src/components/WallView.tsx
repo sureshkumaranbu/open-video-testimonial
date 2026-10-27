@@ -2,6 +2,8 @@ import "./wall-view.css";
 import type { CSSProperties, ReactNode } from "react";
 import { LoadMore } from "@/app/wall/LoadMore";
 import { jsonLdText } from "@/lib/seo";
+import { textOn } from "@/lib/contrast";
+import { accentStyle } from "@/lib/theme";
 import type { WallViewData } from "@/lib/walls";
 import { WIDGET_FONTS } from "@/lib/widget-config";
 import { Stars, TestimonialCard } from "./TestimonialCard";
@@ -32,19 +34,30 @@ function Link({ href, className, children, preview }: { href: string; className?
   );
 }
 
+/**
+ * The text colour on a background the owner chose: theirs, else ink or
+ * white, whichever reads better (the theme's own ink was picked for the
+ * theme's background). "" leaves the theme's.
+ */
+export function inkFor(text: string, background: string): string {
+  if (text) return text;
+  return /^#[0-9a-f]{6}$/i.test(background) ? textOn(background) : "";
+}
+
 /** Config colours as CSS variables; "" leaves the theme's own. */
 function vars(data: WallViewData): CSSProperties {
   const { config } = data.wall;
-  const v: Record<string, string> = { "--accent": data.project.accentColor };
+  // The project colour with a readable text colour on it, for the paper theme's call to action.
+  const v: Record<string, string> = { ...accentStyle(data.project.accentColor) };
   const put = (k: string, c: string) => {
     if (/^#[0-9a-f]{6}$/i.test(c)) v[k] = c;
   };
   put("--wl-hero-bg", config.hero.background);
-  put("--wl-hero-ink", config.hero.text);
+  put("--wl-hero-ink", inkFor(config.hero.text, config.hero.background));
   put("--wl-cta-bg", config.heroCta.background);
-  put("--wl-cta-ink", config.heroCta.color);
+  put("--wl-cta-ink", inkFor(config.heroCta.color, config.heroCta.background));
   put("--wl-card", config.card.background);
-  put("--wl-card-ink", config.card.text);
+  put("--wl-card-ink", inkFor(config.card.text, config.card.background));
   put("--wl-card-line", config.card.border);
   v["--wl-radius"] = `${config.card.radius}px`;
   const font = WIDGET_FONTS.find((f) => f.id === config.font);

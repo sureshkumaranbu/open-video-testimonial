@@ -1,3 +1,4 @@
+import { textOn } from "../contrast";
 import type { FormDesign } from "./schema";
 
 /**
@@ -49,22 +50,8 @@ export function fontFaceCss(d: Pick<FormDesign, "headingFont" | "bodyFont">, ori
     .join("");
 }
 
-/** Relative luminance of a #rrggbb colour (WCAG formula). */
-function luminance(hex: string) {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m) return 0;
-  const n = parseInt(m[1], 16);
-  const channel = (c: number) => {
-    const s = c / 255;
-    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-  };
-  return 0.2126 * channel((n >> 16) & 255) + 0.7152 * channel((n >> 8) & 255) + 0.0722 * channel(n & 255);
-}
-
-/** Ink on light colours, white on dark ones. */
-export function readableOn(hex: string) {
-  return luminance(hex) > 0.4 ? "#161b2e" : "#ffffff";
-}
+/** Ink or white, whichever has more contrast on `hex` (lib/contrast.ts). */
+export const readableOn = (hex: string) => textOn(hex);
 
 const THEMES = {
   light: { background: "#ffffff", text: "#161b2e" },
