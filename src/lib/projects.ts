@@ -230,6 +230,8 @@ export function projectMediaKeys(projectId: string): string[] {
     UNION SELECT logo_key FROM forms WHERE project_id = ${projectId}
     UNION SELECT logo_key FROM walls WHERE project_id = ${projectId}
     UNION SELECT cover_key FROM walls WHERE project_id = ${projectId}
+    UNION SELECT favicon_key FROM walls WHERE project_id = ${projectId}
+    UNION SELECT key FROM share_assets WHERE project_id = ${projectId}
     UNION SELECT logo_key FROM boosters WHERE project_id = ${projectId}
     UNION SELECT logo_key FROM projects WHERE id = ${projectId}
     UNION SELECT avatar_key FROM customers WHERE project_id = ${projectId}`);

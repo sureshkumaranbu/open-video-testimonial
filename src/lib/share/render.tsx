@@ -272,7 +272,7 @@ export async function renderPng(spec: RenderSpec, ctx: RenderContext, o: { opaqu
 
   const res = new ImageResponse(
     (
-      <div style={{ width, height, display: "flex", position: "relative", background: fill, fontFamily: family, color: p.ink }}>
+      <div style={{ width, height, display: "flex", position: "relative", ...(fill ? { background: fill } : {}), fontFamily: family, color: p.ink }}>
         {layer}
         <Template cards={cards} p={p} f={f} d={d} />
         {logo}
