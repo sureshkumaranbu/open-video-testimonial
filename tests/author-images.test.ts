@@ -99,6 +99,9 @@ describe("INBOX-08 photo and company logo", () => {
     delete process.env.MAX_IMAGE_MB;
     expect((await call("POST", t.id, "avatar")).status).toBe(400);
     expect((await call("POST", t.id, "banner", png())).status).toBe(404);
+    // Built-in object names aren't image kinds.
+    expect((await call("POST", t.id, "constructor", png())).status).toBe(404);
+    expect((await call("DELETE", t.id, "toString")).status).toBe(404);
     expect((await call("POST", "missing", "avatar", png())).status).toBe(404);
     expect(getTestimonial(t.id)!.avatarKey).toBeNull();
     // Nothing stored for the refused uploads: the only image is the logo.

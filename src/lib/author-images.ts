@@ -13,7 +13,8 @@ export const AUTHOR_IMAGES = { avatar: "avatarKey", logo: "companyLogoKey" } as 
 export type AuthorImage = keyof typeof AUTHOR_IMAGES;
 
 export function isAuthorImage(v: string): v is AuthorImage {
-  return v in AUTHOR_IMAGES;
+  // Own keys only: `in` would also accept "constructor" or "toString".
+  return Object.hasOwn(AUTHOR_IMAGES, v);
 }
 
 /**
