@@ -23,6 +23,7 @@ export function reviewsFromCsv(text: string, o: { senjaDates?: boolean } = {}): 
         sourceReviewId: r.sourceReviewId ?? stableId(r.name, raw ?? "", r.text ?? r.videoUrl ?? ""),
         authorName: r.name,
         authorTitle: r.title ?? undefined,
+        headline: r.headline ?? undefined,
         authorCompany: r.company ?? undefined,
         avatarUrl: r.avatarUrl ?? undefined,
         rating: r.rating ?? undefined,

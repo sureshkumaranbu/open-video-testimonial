@@ -17,14 +17,16 @@ import { createTestimonial, updateTestimonial } from "./testimonials";
 /**
  * CSV import with a column mapper. Headers are matched against common
  * names, which covers Plaudit's own CSV and the column names other tools
- * document for their CSV imports (Senja, Testimonial.to and similar). We
- * couldn't check those tools' real export files, so the owner reviews and
- * can change the mapping before anything is imported.
+ * document for their CSV imports (Senja, Testimonial.to and similar).
+ * Senja's headers were checked against a real export (2026-10-27); the
+ * others weren't, so the owner reviews and can change the mapping before
+ * anything is imported.
  */
 export const IMPORT_FIELDS = [
   "name",
   "email",
   "title",
+  "headline",
   "company",
   "text",
   "rating",
@@ -44,7 +46,9 @@ const norm = (h: string) => h.toLowerCase().replace(/[^a-z0-9]/g, "");
 const ALIASES: Record<ImportField, string[]> = {
   name: ["name", "fullname", "customername", "authorname", "reviewername", "clientname", "displayname", "username", "user"],
   email: ["email", "emailaddress", "useremail", "customeremail", "authoremail", "revieweremail"],
-  title: ["jobtitle", "usertitle", "authortitle", "customertitle", "role", "position", "title"],
+  // Senja keeps the person's title in customer_tagline; its plain "title" is the headline (see detectMapping).
+  title: ["jobtitle", "usertitle", "authortitle", "customertitle", "customertagline", "tagline", "role", "position", "title"],
+  headline: ["headline", "testimonialtitle", "reviewtitle"],
   company: ["company", "customercompany", "companyname", "usercompany", "organisation", "organization", "business"],
   text: ["text", "testimonial", "testimonialtext", "reviewbody", "review", "body", "content", "message", "quote", "feedback", "comment"],
   rating: ["rating", "stars", "score", "reviewrating", "starrating"],
@@ -55,7 +59,8 @@ const ALIASES: Record<ImportField, string[]> = {
   // Senja calls the review site "integration"; Shapo calls it "source".
   platform: ["platform", "integration", "sourceplatform", "reviewsource", "reviewplatform", "source"],
   // The original's id: re-importing the same file then skips what's already there.
-  sourceReviewId: ["sourcereviewid", "reviewid", "testimonialid", "originalid", "id"],
+  // Senja's platform_id is the review's id on the site it came from.
+  sourceReviewId: ["sourcereviewid", "reviewid", "platformid", "testimonialid", "originalid", "id"],
 };
 
 /** Other tools' names for review sites, mapped to Plaudit's platform ids. */
@@ -101,6 +106,8 @@ export function detectMapping(headers: string[]): Mapping {
       }
     }
   }
+  const title = byNorm.get("title");
+  if (title && !used.has(title) && !mapping.headline && guessOrigin(headers) === "senja") mapping.headline = title;
   return mapping;
 }
 
@@ -148,6 +155,7 @@ export interface MappedRow {
   name: string;
   email: string | null;
   title: string | null;
+  headline: string | null;
   company: string | null;
   text: string | null;
   rating: number | null;
@@ -194,6 +202,7 @@ export function mapRows(records: Record<string, string>[], mapping: Mapping): Ma
       name: get(r, "name").slice(0, 120),
       email: validEmail ? email : null,
       title: get(r, "title").slice(0, 120) || null,
+      headline: get(r, "headline").slice(0, 200) || null,
       company: get(r, "company").slice(0, 120) || null,
       text: get(r, "text").slice(0, 5000) || null,
       rating,
@@ -302,6 +311,7 @@ export function importCsv(
           name: row.name,
           email: row.email ?? undefined,
           title: row.title ?? undefined,
+          headline: row.headline ?? undefined,
           company: row.company ?? undefined,
           text: row.text ?? undefined,
           rating: row.rating ?? undefined,

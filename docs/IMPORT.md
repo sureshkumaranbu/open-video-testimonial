@@ -28,8 +28,8 @@ When a site won't let Plaudit read the page, you'll see **Upload the saved page 
 | Google Play | Reads the public page, or the Play Console CSV | Store link or package name, or the reviews report | Google Play has no public review API. The store page shows only a few reviews and its markup changes; for all of them, download **Download reports → Reviews** in the Play Console and upload it (UTF-16 is fine). The report has no reviewer names, so they arrive as "Google Play user". |
 | X | Official embed (oEmbed) | Up to 50 post links, one per line | `publish.twitter.com/oembed` for each link; public posts only. Deleted or protected posts are left out. |
 | Testimonial.to | Reads the public Wall of Love, or the CSV export | Wall of Love link, or the export file | The wall has only what's on it; the CSV export also has the rest. Videos come across. |
-| Senja | Your API key, or the CSV export | API key, or the export file | `GET https://api.senja.io/v1/testimonials` (Bearer key), 50 a page, up to 20 pages. Keeps each one's original review site as its platform (Senja's `integration`). Videos come across. |
-| Shapo | Your API key, or a CSV export | API key, or the export file | `GET https://api.shapo.io/testimonials` (Bearer key), 50 a page. Shapo's free plan shares only the first 15. Video links come across when the API or file has them. |
+| Senja | Your API key, or the CSV export | API key, or the export file (in Senja: **Proof → ⋮ → Export all to CSV**) | `GET https://api.senja.io/v1/testimonials` (Bearer key), 50 a page, up to 20 pages. Keeps each one's original review site as its platform (Senja's `integration`) and its id there (`platform_id`). Videos come across. The CSV puts every answer of a multi-question form into one `text` cell, separated by commas, so they arrive as one text. |
+| Shapo | Your API key | API key (in Shapo: **Settings → General → API Key**) | `GET https://api.shapo.io/testimonials` (Bearer key), 50 a page. Shapo has no export button, so the API is the only full route; its free plan shares only the 15 newest. A CSV you made yourself can still be uploaded. Video links come across when the API has them. |
 
 API keys you type for Senja or Shapo are used for that import only: they're dropped from the run's record when it finishes or fails, and never shown back.
 
@@ -37,7 +37,8 @@ API keys you type for Senja or Shapo are used for that import only: they're drop
 
 These were written from the services' public documentation as we understood it, and are read defensively (unknown fields are ignored, odd values left out). If one stops working, the saved-page or file upload still does.
 
-- **Senja and Shapo response shapes.** We accept a bare list or a list under `testimonials`, `data`, `items`, `results` or `reviews`, and look each field up under the names these tools use (`customer_name` or `name`, `text` or `message`, `video_url`, `profileImage`…). A bare `title` is the testimonial's headline for Senja and the person's job title for Shapo and Testimonial.to.
+- **Senja's CSV export** was checked against a real export on 2026-10-27: the person's title is `customer_tagline`, the plain `title` is the headline, and dates look like `2026-10-25 09:48:01.359+00`.
+- **Senja and Shapo API response shapes.** We accept a bare list or a list under `testimonials`, `data`, `items`, `results` or `reviews`, and look each field up under the names these tools use (`customer_name` or `name`, `text` or `message`, `video_url`, `profileImage`…). A bare `title` is the testimonial's headline for Senja and the person's job title for Shapo and Testimonial.to.
 - **Shapo page numbers.** It isn't documented whether pages count from 0 or 1, so we start at 0 and skip a page that repeats the one before.
 - **Senja dates.** Senja stores a review whose source gave only a month as the 22nd at midnight UTC. We can't tell that from a real 22nd, so a Senja date exactly then is kept as the month only.
 - **Testimonial.to walls.** We read the testimonial-shaped objects in the page's embedded data (`__NEXT_DATA__`), then JSON-LD reviews.

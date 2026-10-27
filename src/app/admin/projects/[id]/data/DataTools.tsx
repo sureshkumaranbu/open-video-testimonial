@@ -48,6 +48,7 @@ const FIELD_LABEL: Record<string, string> = {
   name: "Name (required)",
   email: "Email",
   title: "Job title",
+  headline: "Headline",
   company: "Company",
   text: "Testimonial text",
   rating: "Rating",

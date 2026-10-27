@@ -34,9 +34,23 @@ describe("IMP-01 Senja migration", () => {
 
   it("IMP-01 a refused key says to check it; the CSV export works without one", async () => {
     await expect(senja.fetchPage({ apiKey: "senja-key-123" }, null, fakeCtx({ "/v1/": { status: 401, text: "{}" } }).ctx)).rejects.toBeInstanceOf(ImporterInputError);
+    // The header row and value formats are copied from a real Senja export (2026-10-27).
     const items = senja.parseFile!(fixture("senja/export.csv"));
-    expect(items.map((i) => i.sourceReviewId)).toEqual(["sj_001", "sj_002"]);
-    expect(items[0]).toMatchObject({ videoUrl: "https://cdn.senja-fixture.example/grace.mp4", authorTitle: "Head of Growth" });
-    expect(items[1]).toMatchObject({ platform: "google", date: { precision: "month" } });
+    expect(items[0]).toMatchObject({
+      authorName: "Grace Ito",
+      // customer_tagline is the person's title; Senja's plain "title" column is the headline.
+      authorTitle: "Head of Growth",
+      authorCompany: "Ito Labs",
+      headline: "Changed how we onboard",
+      videoUrl: "https://cdn.senja-fixture.example/grace.mp4",
+      avatarUrl: "https://cdn.senja-fixture.example/grace.png",
+      rating: 5,
+      date: { value: new Date("2026-10-12T14:00:00.512Z"), precision: "day" },
+    });
+    // No id column: a stable hash, so the same file imported twice dedupes.
+    expect(items[0].sourceReviewId).toMatch(/^h_/);
+    // A review Senja imported from Google keeps Google's id, and the 22nd-at-midnight stand-in becomes the month.
+    expect(items[1]).toMatchObject({ authorName: "Leo Marsh", authorTitle: undefined, platform: "google", sourceReviewId: "ChZDSUhNMG9nS0VJQ0FnSUNmeE5uMEZBEAE", date: { precision: "month" } });
+    expect(senja.parseFile!(fixture("senja/export.csv")).map((i) => i.sourceReviewId)).toEqual(items.map((i) => i.sourceReviewId));
   });
 });
