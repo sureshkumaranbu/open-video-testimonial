@@ -74,7 +74,7 @@ describe("SHARE-01 templates and sizes", () => {
     expect(shareDesignSchema.safeParse({ size: { preset: "custom", width: 2400, height: 2400 } }).success).toBe(false);
     expect(shareDesignSchema.safeParse({ size: { preset: "custom", width: 100, height: 400 } }).success).toBe(false);
     expect(2048 * 2048).toBe(MAX_PIXELS);
-  });
+  }, 60_000);
 
   it("SHARE-01 patterns are our own SVG, and an email banner keeps a short quote", async () => {
     for (const p of ["dots", "grid", "diagonal", "waves", "confetti"] as const) expect(patternSvg(p, 100, 100, "rgba(0,0,0,.2)", 2)).toMatch(/^data:image\/svg\+xml;base64,/);

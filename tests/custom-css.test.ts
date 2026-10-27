@@ -47,6 +47,15 @@ describe("DISP-08 custom CSS is cleaned", () => {
     expect(clean(".c{background:url(https://evil.example/a.png")).toBe(".c{background:blocked-url(https://evil.example/a.png");
   });
 
+  it("DISP-08 removing one part never rebuilds a fetch out of the pieces around it", () => {
+    expect(clean("@im@import x;port 'https://evil.example/x.css';.c{}")).toBe(".c{}");
+    expect(clean("@im@im@import a;port b;port 'https://evil.example/x.css';.c{}")).toBe(".c{}");
+    expect(clean(".c{background:url/<**</(https://evil.example/t.gif)}")).toBe(".c{background:none}");
+    expect(clean("@imp/<**</ort 'https://evil.example/x.css';.c{}")).toBe(".c{}");
+    expect(clean(".c{background:image('https://evil.example/a.png')}")).toBe(".c{background:blocked-image('https://evil.example/a.png')}");
+    expect(clean(".c{background:-webkit-image-set(url(/a.png) 1x)}")).toBe('.c{background:blocked-image-set(url("/a.png") 1x)}');
+  });
+
   it("DISP-08 keeps this server's own files, as paths, and makes them absolute for the widget", () => {
     expect(clean(".c{background:url(/api/media/images/a.png)}")).toBe('.c{background:url("/api/media/images/a.png")}');
     expect(clean(`.c{background:url('${ORIGIN}/fonts/x.woff2')}`)).toBe('.c{background:url("/fonts/x.woff2")}');

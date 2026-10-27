@@ -3,12 +3,13 @@
  * shadow root only (widget.js appends it after its own styles, as text). It
  * is cleaned so it can never leave its <style> element or make a widget ask
  * anyone but this server for anything:
- *   - comments, "<!--", "-->" and every "<" go (so no "</style");
+ *   - "<!--", "-->", every "<" and then comments go (so no "</style", and
+ *     nothing removed later can open a comment);
  *   - backslash escapes outside strings go (so "@\69mport" or "u\72l(" can't spell a fetch);
- *   - @import goes;
+ *   - @import goes, again until none is left (so "@im@import x;port" can't rebuild one);
  *   - url() stays only for this server's own files ("/…" or its own address,
  *     kept as "/…" so a new address still works); anything else becomes `none`;
- *   - image-set() and src() (which fetch without url()) are made invalid.
+ *   - image-set(), image() and src() (which fetch without url()) are made invalid.
  * No Node APIs: the studio shows the cleaned CSS with the same function.
  */
 
@@ -62,11 +63,15 @@ const URL_CALL = /url\(\s*(?:"([^"\n]*)"|'([^'\n]*)'|([^"'()\s]*))\s*\)/gi;
  */
 export function sanitizeCss(input: string, o: { origin?: string } = {}): string {
   let css = String(input ?? "").slice(0, MAX_CUSTOM_CSS * 2).replace(/\u0000/g, "");
-  css = css.replace(/\/\*[\s\S]*?(?:\*\/|$)/g, "");
   css = css.replace(/<!--|-->/g, "").replace(/</g, "");
+  css = css.replace(/\/\*[\s\S]*?(?:\*\/|$)/g, "");
   css = dropEscapes(css);
-  css = css.replace(/@import\b[^;{}]*;?/gi, "");
+  for (let prev = ""; prev !== css; ) {
+    prev = css;
+    css = css.replace(/@import\b[^;{}]*;?/gi, "");
+  }
   css = css.replace(/(-webkit-)?image-set\s*\(/gi, "blocked-image-set(");
+  css = css.replace(/(^|[^\w-])image\s*\(/gi, "$1blocked-image(");
   css = css.replace(/(^|[^\w-])src\s*\(/gi, "$1blocked-src(");
   const kept: string[] = [];
   css = css.replace(URL_CALL, (_m, a: string | undefined, b: string | undefined, c: string | undefined) => {
