@@ -7,6 +7,7 @@ import type { RunProgress } from "@/lib/runs";
 import "../../../import.css";
 import { importSummary } from "./ImportProgress";
 import { ImportWizard } from "./ImportWizard";
+import { SyncedSources } from "./SyncedSources";
 
 const WHEN = new Intl.DateTimeFormat("en", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
@@ -15,8 +16,9 @@ const WHEN = new Intl.DateTimeFormat("en", { day: "numeric", month: "short", hou
  * picker, the import flow for the chosen one, and the recent imports.
  * Shown only with the `importers` feature on.
  */
-export function ImportSources({ projectId, importers }: { projectId: string; importers: ImporterInfo[] }) {
+export function ImportSources({ projectId, importers, sync = false }: { projectId: string; importers: ImporterInfo[]; sync?: boolean }) {
   const [open, setOpen] = useState<ImporterInfo | null>(null);
+  const [syncVersion, setSyncVersion] = useState(0);
   const [runs, setRuns] = useState<RunProgress[]>([]);
   const load = useCallback(async () => {
     try {
@@ -67,7 +69,18 @@ export function ImportSources({ projectId, importers }: { projectId: string; imp
       <div className="panel-body stack-lg">
         {group("platform", "Review sites", "Bring in reviews of your own business, app or product. Re-running an import never adds the same review twice.")}
         {group("migration", "Move from another testimonial tool", "Text, ratings and videos come across; videos are downloaded in the background.")}
-        {open && <ImportWizard key={open.id} projectId={projectId} importer={open} onClose={() => setOpen(null)} onImported={() => void load()} />}
+        {open && (
+          <ImportWizard
+            key={open.id}
+            projectId={projectId}
+            importer={open}
+            onClose={() => setOpen(null)}
+            onImported={() => void load()}
+            sync={sync}
+            onSynced={() => setSyncVersion((v) => v + 1)}
+          />
+        )}
+        {sync && <SyncedSources projectId={projectId} importers={importers} version={syncVersion} />}
         {runs.length > 0 && (
           <div className="stack">
             <h3>Recent imports</h3>

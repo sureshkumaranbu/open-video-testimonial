@@ -3,6 +3,7 @@ import { getDb, schema } from "@/db";
 import type { Project, TaskRun } from "@/db/schema";
 import { emailEnabled, sendMail } from "../email";
 import { env } from "../env";
+import { getAdapter } from "../importers/registry";
 import { getTestimonial, type TestimonialWithTags } from "../testimonials";
 import { reviewUrl, stars } from "./format";
 
@@ -14,7 +15,7 @@ const { testimonials, projects } = schema;
  * testimonial deleted in between is simply left out.
  */
 
-export type MailKind = "instant" | "daily" | "weekly" | "monthly" | "import" | "widget-removed";
+export type MailKind = "instant" | "daily" | "weekly" | "monthly" | "import" | "widget-removed" | "sync-failed";
 
 const SETTINGS_LINE = () => `\n—\nYou get this because of your notification settings: ${env.publicUrl}/admin/settings#notifications`;
 
@@ -144,6 +145,23 @@ export function widgetRemovedMail(to: string, widgetId: string) {
     text:
       `The widget “${w.name}” (${projectName(w.projectId)}) was last seen on ${page} on ${since}, and no page has shown it in the 7 days since.\n\n` +
       `If you took it off on purpose, there's nothing to do. Otherwise check that the embed code is still on the page:\n${env.publicUrl}/admin/projects/${w.projectId}/widgets/${w.id}\n${SETTINGS_LINE()}\n`,
+  };
+}
+
+/** IMP-02: a synced import has failed 3 times in a row. Null once it's working again or gone (the job may have waited). */
+export function syncFailedMail(to: string, sourceId: string) {
+  const s = getDb().select().from(schema.importSources).where(eq(schema.importSources.id, sourceId)).get();
+  if (!s || s.failures < 3) return null;
+  const name = projectName(s.projectId);
+  const source = getAdapter(s.adapter)?.label ?? s.adapter;
+  const what = s.label ? `${source} (${s.label})` : source;
+  return {
+    to,
+    subject: `Automatic import from ${clip(what, 80)} keeps failing`,
+    text:
+      `The automatic import from ${what} for ${name} has failed ${s.failures} times in a row.` +
+      `${s.lastError ? `\n\nThe last error: ${clip(s.lastError, 300)}` : ""}\n\n` +
+      `Plaudit keeps trying on schedule. Check the source, run it now or pause it under Import & export:\n${env.publicUrl}/admin/projects/${s.projectId}/data\n${SETTINGS_LINE()}\n`,
   };
 }
 

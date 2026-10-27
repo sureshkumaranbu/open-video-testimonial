@@ -30,7 +30,22 @@ const METHOD_LABEL: Record<ImporterInfo["method"], string> = {
  * latest 50 → pick some or all → background import with progress → summary.
  * The ownership box is also checked on the server (IMP-03).
  */
-export function ImportWizard({ projectId, importer, onClose, onImported }: { projectId: string; importer: ImporterInfo; onClose: () => void; onImported?: (run: RunProgress) => void }) {
+export function ImportWizard({
+  projectId,
+  importer,
+  onClose,
+  onImported,
+  sync = false,
+  onSynced,
+}: {
+  projectId: string;
+  importer: ImporterInfo;
+  onClose: () => void;
+  onImported?: (run: RunProgress) => void;
+  /** IMP-02 (imports2 flag): offer "Keep this in sync" once an import from a URL or ID is done. */
+  sync?: boolean;
+  onSynced?: () => void;
+}) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [minRating, setMinRating] = useState("");
   const [skipEmpty, setSkipEmpty] = useState(false);
@@ -43,6 +58,9 @@ export function ImportWizard({ projectId, importer, onClose, onImported }: { pro
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [runId, setRunId] = useState<string | null>(null);
   const [finished, setFinished] = useState<RunProgress | null>(null);
+  const [fromUpload, setFromUpload] = useState(false);
+  const [interval, setIntervalHours] = useState<12 | 24>(24);
+  const [synced, setSynced] = useState<string | null>(null);
 
   const options = () => ({
     minRating: minRating ? Number(minRating) : null,
@@ -68,6 +86,7 @@ export function ImportWizard({ projectId, importer, onClose, onImported }: { pro
     try {
       const input = Object.fromEntries(Object.entries(values).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v));
       showPreview(await api<Preview>(`/api/admin/projects/${projectId}/imports/preview`, { method: "POST", json: { adapter: importer.id, input, options: options(), confirmOwnership: owner } }));
+      setFromUpload(false);
     } catch (err) {
       handle(err);
     } finally {
@@ -85,6 +104,22 @@ export function ImportWizard({ projectId, importer, onClose, onImported }: { pro
       form.set("confirmOwnership", String(owner));
       form.set(kind, file);
       showPreview(await api<Preview>(`/api/admin/projects/${projectId}/imports/preview`, { method: "POST", body: form }));
+      setFromUpload(true);
+    } catch (err) {
+      handle(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function keepInSync() {
+    if (!runId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/api/admin/projects/${projectId}/import-sources`, { method: "POST", json: { runId, intervalHours: interval } });
+      setSynced(`Kept in sync: Plaudit checks ${importer.label} every ${interval} hours and adds new reviews with these options.`);
+      onSynced?.();
     } catch (err) {
       handle(err);
     } finally {
@@ -196,6 +231,37 @@ export function ImportWizard({ projectId, importer, onClose, onImported }: { pro
                 {status === "pending" ? ", waiting in Pending" : ""}.
               </p>
             )}
+            {finished?.status === "done" && sync && importer.canSync && !fromUpload && (
+              <div className="imp-sync stack" data-testid="import-keep-sync">
+                {synced ? (
+                  <p className="small" role="status" data-testid="import-synced">
+                    {synced}
+                  </p>
+                ) : (
+                  <>
+                    <strong className="small">Keep this in sync</strong>
+                    <p className="hint">Plaudit checks for new reviews on a schedule and adds them with the same options. Re-runs never add the same review twice.</p>
+                    <div className="row">
+                      <label className="imp-field">
+                        <span>Check every</span>
+                        <select value={interval} onChange={(e) => setIntervalHours(Number(e.target.value) === 12 ? 12 : 24)} data-testid="import-sync-interval">
+                          <option value={24}>24 hours</option>
+                          <option value={12}>12 hours</option>
+                        </select>
+                      </label>
+                      <button type="button" className="button small" disabled={busy} onClick={() => void keepInSync()} data-testid="import-sync">
+                        Keep in sync
+                      </button>
+                    </div>
+                    {error && (
+                      <p className="error" role="alert">
+                        {error.message}
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
             {finished && (
               <div className="row">
                 <button
@@ -205,6 +271,7 @@ export function ImportWizard({ projectId, importer, onClose, onImported }: { pro
                     setRunId(null);
                     setFinished(null);
                     setPreview(null);
+                    setSynced(null);
                   }}
                 >
                   Import more

@@ -34,7 +34,7 @@ export default async function DataPage({ params }: { params: Promise<{ id: strin
             <p className="muted">Your data is yours: take all of it with you, or bring testimonials in from elsewhere.</p>
           </div>
         </div>
-        {featureOn("importers") && <ImportSources projectId={project.id} importers={listImporters()} />}
+        {featureOn("importers") && <ImportSources projectId={project.id} importers={listImporters()} sync={featureOn("imports2")} />}
         <DataTools
           projectId={project.id}
           total={Object.values(counts).reduce((sum, n) => sum + n, 0)}
