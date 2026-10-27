@@ -10,6 +10,7 @@ import {
   hostPage,
   seed,
   SHOTS,
+  skipLinuxWebkitMedia,
   signIn,
   startHostServer,
   useFreshIp,
@@ -103,7 +104,8 @@ test.describe("home page", () => {
       .toBeGreaterThan(0);
   });
 
-  test("hero demo advances on its own, pauses, resumes and jumps", async ({ page }) => {
+  test("hero demo advances on its own, pauses, resumes and jumps", async ({ page, browserName }) => {
+    skipLinuxWebkitMedia(browserName);
     await page.goto("/");
     const demo = page.getByTestId("hero-demo");
     await expect(demo).toHaveAttribute("data-step", "record");
@@ -149,7 +151,8 @@ test.describe("home page", () => {
     await expect(demo.locator(".demo-badge-swap .pending")).toHaveCSS("opacity", "0");
   });
 
-  test("the hero clip plays muted and looped, only while in view", async ({ page }) => {
+  test("the hero clip plays muted and looped, only while in view", async ({ page, browserName }) => {
+    skipLinuxWebkitMedia(browserName);
     const { loaded, bad } = trackSamples(page);
     const demo = page.getByTestId("hero-demo");
     const clip = page.getByTestId("hero-clip");
@@ -423,7 +426,8 @@ test.describe("home page", () => {
     await expect(page.getByRole("link", { name: "Open dashboard" }).first()).toBeVisible();
   });
 
-  test("reduced motion shows everything and stops movement", async ({ page }) => {
+  test("reduced motion shows everything and stops movement", async ({ page, browserName }) => {
+    skipLinuxWebkitMedia(browserName);
     const { loaded } = trackSamples(page);
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/");

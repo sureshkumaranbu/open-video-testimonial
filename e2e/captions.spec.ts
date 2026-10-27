@@ -1,6 +1,6 @@
 import path from "node:path";
 import { expect, test } from "@playwright/test";
-import { adminApi, createProject, FIXTURES, hostPage, signIn, startHostServer, useFreshIp } from "./helpers";
+import { adminApi, createProject, FIXTURES, hostPage, signIn, skipLinuxWebkitMedia, startHostServer, useFreshIp } from "./helpers";
 
 /**
  * Transcripts and captions end to end. The test server runs a stand-in for
@@ -14,7 +14,8 @@ test.beforeEach(async ({ page }) => {
   await useFreshIp(page);
 });
 
-test("a video gets a transcript and captions that the owner can edit and publish", async ({ page, baseURL }) => {
+test("a video gets a transcript and captions that the owner can edit and publish", async ({ page, baseURL, browserName }) => {
+  skipLinuxWebkitMedia(browserName);
   const api = await adminApi(baseURL!);
   const system = await (await api.get("/api/admin/system")).json();
   test.skip(!system.transcription.enabled || !system.ffmpeg, "transcription isn't configured on this server");
