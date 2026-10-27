@@ -1,3 +1,4 @@
+import { originOf, recordServerEvent } from "@/lib/analytics";
 import { CORS_HEADERS } from "@/lib/http";
 import { getSnippet, SNIPPET_ID, snippetScript } from "@/lib/seo-snippets";
 import { getProjectById } from "@/lib/testimonials";
@@ -13,12 +14,14 @@ const JS_HEADERS = {
  * review data to the owner's page. An unknown or deleted snippet is a
  * harmless comment, so a stale tag never breaks the page.
  */
-export async function GET(_req: Request, ctx: { params: Promise<{ file: string }> }) {
+export async function GET(req: Request, ctx: { params: Promise<{ file: string }> }) {
   const { file } = await ctx.params;
   const id = file.endsWith(".js") ? file.slice(0, -3) : "";
   const s = SNIPPET_ID.test(id) ? getSnippet(id) : null;
   const project = s && getProjectById(s.projectId);
   if (!s || !project) return new Response("/* Plaudit: review data not found */\n", { status: 404, headers: JS_HEADERS });
+  // SEO-04: a render, and the site it's on (the Referer is only an origin across sites). Crawlers count: they're who it's for.
+  recordServerEvent(req.headers, { type: "snippet", id: s.id, projectId: project.id, metric: "render", dim: originOf(req.headers.get("referer")), bots: true });
   return new Response(snippetScript(s, project), { headers: JS_HEADERS });
 }
 

@@ -1,4 +1,5 @@
 import { clientKey, rateLimit } from "@/lib/rate-limit";
+import { recordServerEvent } from "@/lib/analytics";
 import { getDefaultForm } from "@/lib/forms";
 import { findProjectBySlugOrAlias } from "@/lib/projects";
 import { legacySubmission, SubmissionError, submitForm } from "@/lib/submissions";
@@ -90,6 +91,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ slug: string }
       req,
       legacy: true,
     });
+    // FORM-15: the classic page counts views and completions.
+    recordServerEvent(req.headers, { type: "form", id: defaultForm.id, projectId: project.id, metric: "complete", bots: true });
     return Response.json(
       { ok: true, id: result.id, message: result.message, withdrawUrl: result.withdrawUrl, thankYou: result.thankYou },
       { status: 201 },

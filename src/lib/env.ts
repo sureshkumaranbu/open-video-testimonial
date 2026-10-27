@@ -251,6 +251,13 @@ export const env = {
     const n = Number(process.env.TRASH_RETENTION_DAYS || 30);
     return Number.isInteger(n) && n > 0 ? n : 30;
   },
+  /**
+   * Cookieless analytics (M11): "off" stops all collection (nothing is stored)
+   * and hides the analytics pages. On by default.
+   */
+  get analytics() {
+    return !["off", "false", "0"].includes((process.env.ANALYTICS || "").trim().toLowerCase());
+  },
   /** Hour of the day (UTC, 0–23) when daily and weekly digest emails go out. */
   get digestHourUtc() {
     const n = Number(process.env.DIGEST_HOUR_UTC || 8);

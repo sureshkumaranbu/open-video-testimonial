@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { registerAnalyticsJobs } from "./analytics";
 import { maybeAutoApprove } from "./auto-approve";
 import { fetchImportedMedia, FETCH_MEDIA_JOB } from "./csv-import";
 import { env } from "./env";
@@ -64,6 +65,7 @@ export function registerJobs() {
   registerImportJobs();
   registerNotificationJobs();
   registerOnboardingJobs();
+  registerAnalyticsJobs();
 }
 
 export function startBackgroundWorker() {

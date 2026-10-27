@@ -13,7 +13,7 @@ import "@/app/admin/notifications.css";
  */
 
 type Frequency = "instant" | "daily" | "off";
-type Prefs = { newTestimonial: Frequency; weeklyPending: boolean; importSummary: boolean; monthlyReport: boolean; projectIds: string[] };
+type Prefs = { newTestimonial: Frequency; weeklyPending: boolean; importSummary: boolean; monthlyReport: boolean; widgetRemoved: boolean; projectIds: string[] };
 type ChannelType = "slack" | "discord" | "teams" | "telegram";
 type Channel = {
   id: string;
@@ -116,6 +116,12 @@ function EmailPrefs({ email, projects }: { email: string; projects: ProjectOptio
       <Toggle label="Weekly reminder of testimonials waiting for review (Mondays)" checked={prefs.weeklyPending} onChange={(weeklyPending) => set({ weeklyPending })} />
       <Toggle label="A summary when an import finishes" checked={prefs.importSummary} onChange={(importSummary) => set({ importSummary })} />
       <Toggle label="A monthly report (on the 1st)" checked={prefs.monthlyReport} onChange={(monthlyReport) => set({ monthlyReport })} />
+      <Toggle
+        label="When a widget stops showing on your site (no views for 7 days)"
+        checked={prefs.widgetRemoved}
+        onChange={(widgetRemoved) => set({ widgetRemoved })}
+        testId="notify-widget-removed"
+      />
       {projects.length > 1 && (
         <fieldset className="nt-projects">
           <legend className="small">Projects</legend>

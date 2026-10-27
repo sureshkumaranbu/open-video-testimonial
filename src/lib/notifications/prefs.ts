@@ -20,6 +20,8 @@ export const prefsSchema = z.object({
   importSummary: z.boolean().default(false),
   /** The 1st of the month: last month's numbers. */
   monthlyReport: z.boolean().default(false),
+  /** A widget that was live hasn't been seen on any page for 7 days (DISP-13). */
+  widgetRemoved: z.boolean().default(false),
   /** Only these projects; empty means every project. */
   projectIds: z.array(z.string().min(1).max(64)).max(200).default([]),
 });
@@ -30,6 +32,7 @@ export const prefsPatchSchema = z.object({
   weeklyPending: z.boolean(),
   importSummary: z.boolean(),
   monthlyReport: z.boolean(),
+  widgetRemoved: z.boolean(),
   projectIds: z.array(z.string().min(1).max(64)).max(200),
 }).partial();
 export type PrefsPatch = z.infer<typeof prefsPatchSchema>;

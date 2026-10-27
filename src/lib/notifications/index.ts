@@ -8,7 +8,7 @@ import { enqueue, PermanentJobError } from "../jobs";
 import { getProjectById, getTestimonial } from "../testimonials";
 import { type EventContext, registerEventListener } from "../webhooks";
 import { CHANNEL_EVENTS, type ChannelEvent, channelEvents, channelFormIds, ChannelGoneError, getChannel, listChannels, noteResult, sendToChannel } from "./channels";
-import { digestMail, importMail, instantMail, type MailKind, monthlyMail, sendNotificationMail, weeklyMail } from "./email";
+import { digestMail, importMail, instantMail, type MailKind, monthlyMail, sendNotificationMail, weeklyMail, widgetRemovedMail } from "./email";
 import { buildMessage } from "./format";
 import { canEmail, getPrefs, type Prefs, recipients, wantsProject } from "./prefs";
 
@@ -83,6 +83,17 @@ export function notifyEvent(event: WebhookEvent, ctx: EventContext): void {
 
 registerEventListener(notifyEvent);
 
+/** DISP-13: the analytics job found a widget gone for 7 days; email whoever asked for it. Never throws. */
+export function notifyWidgetRemoved(projectId: string, widgetId: string): void {
+  try {
+    for (const r of recipients((p) => p.widgetRemoved && wantsProject(p, projectId))) {
+      enqueue(NOTIFY_EMAIL_JOB, { email: r.email, kind: "widget-removed", widgetId }, { maxAttempts: ATTEMPTS });
+    }
+  } catch (err) {
+    console.error("[notifications] couldn't queue widget.removed:", err);
+  }
+}
+
 // ------------------------------------------------------------------- jobs
 
 type ChannelJob = { channelId: string; testimonialId: string; event: string };
@@ -106,7 +117,7 @@ export async function deliverChannelJob(p: ChannelJob, o: { final?: boolean } = 
   }
 }
 
-type EmailJob = { email: string; kind: MailKind; ids?: string[]; projectIds?: string[]; runId?: string; now?: number };
+type EmailJob = { email: string; kind: MailKind; ids?: string[]; projectIds?: string[]; runId?: string; widgetId?: string; now?: number };
 
 /** Still allowed and still wanted when it's time to send (prefs can change while a job waits). */
 function stillWanted(kind: MailKind, prefs: Prefs) {
@@ -121,6 +132,8 @@ function stillWanted(kind: MailKind, prefs: Prefs) {
       return prefs.monthlyReport;
     case "import":
       return prefs.importSummary;
+    case "widget-removed":
+      return prefs.widgetRemoved;
   }
 }
 
@@ -145,6 +158,9 @@ export async function deliverEmailJob(p: EmailJob) {
   } else if (p.kind === "import" && p.runId) {
     const run = getDb().select().from(taskRuns).where(eq(taskRuns.id, p.runId)).get();
     if (run && wantsProject(prefs, run.projectId)) mail = importMail(p.email, run);
+  } else if (p.kind === "widget-removed" && p.widgetId) {
+    const w = getDb().select({ projectId: schema.widgets.projectId }).from(schema.widgets).where(eq(schema.widgets.id, p.widgetId)).get();
+    if (w && wantsProject(prefs, w.projectId)) mail = widgetRemovedMail(p.email, p.widgetId);
   }
   await sendNotificationMail(mail);
 }

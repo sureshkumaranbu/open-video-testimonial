@@ -54,16 +54,21 @@ const PEER_HEADER = "x-plaudit-peer";
  * appended: N from the end. Anything to the left of it is client-supplied.
  */
 export function clientIp(req: Request): string | null {
+  return clientIpFrom(req.headers);
+}
+
+/** clientIp() for a server page, which has the request's headers (next/headers) rather than the Request. */
+export function clientIpFrom(headers: Pick<Headers, "get">): string | null {
   const peerTrusted = (globalThis as { __plauditPeerHeader?: boolean }).__plauditPeerHeader === true;
-  const peer = (peerTrusted && req.headers.get(PEER_HEADER)) || null;
+  const peer = (peerTrusted && headers.get(PEER_HEADER)) || null;
   const hops = env.trustProxyHops;
   if (hops > 0) {
-    const chain = (req.headers.get("x-forwarded-for") || "")
+    const chain = (headers.get("x-forwarded-for") || "")
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
     if (chain.length >= hops) return chain[chain.length - hops];
-    const realIp = req.headers.get("x-real-ip")?.trim();
+    const realIp = headers.get("x-real-ip")?.trim();
     if (realIp) return realIp;
   }
   return peer;

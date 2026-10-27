@@ -1,3 +1,4 @@
+import { recordServerEvent } from "@/lib/analytics";
 import { getFormBySlug } from "@/lib/forms";
 import { jsonError } from "@/lib/http";
 import { findProjectBySlugOrAlias } from "@/lib/projects";
@@ -60,6 +61,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ slug: string; 
 
   try {
     const result = await submitForm({ project, form: found.form, input, files, req });
+    // FORM-15: a completion (a private low-rating feedback counts too).
+    recordServerEvent(req.headers, { type: "form", id: found.form.id, projectId: project.id, metric: "complete", bots: true });
     return Response.json({ ok: true, ...result }, { status: 201 });
   } catch (err) {
     if (err instanceof SubmissionError) return jsonError(err.status, err.message);
