@@ -204,7 +204,7 @@ Under **Settings → Webhooks**, add the URL of your endpoint. You can limit it 
 | `consent.withdrawn` | The author withdrew consent through their private link |
 | `testimonial.updated` | *Opt-in.* Someone changed its content in the dashboard or through the API: the text, an answer, the author's details, the rating, the transcript or captions, or another field the [API can edit](#editing-a-testimonial). Status and tag changes don't send it |
 | `form.submitted` | *Opt-in.* Someone sent a form (any form, including the classic page). `data` is `{ form: { id, slug, name }, testimonialId, hiddenFields }`; the testimonial itself comes with `testimonial.created` |
-| `feedback.created` | *Opt-in.* Someone answered a form's private question. `data.feedback` is `{ id, formId, testimonialId, rating, text, createdAt }`. Private feedback is never published |
+| `feedback.created` | *Opt-in.* Someone answered a form's private question, or a low rating sent them to private feedback (FORM-12). `data.feedback` is `{ id, formId, testimonialId, rating, text, createdAt }`, plus `source: "low-rating"` and `testimonialId: null` for the low-rating branch. Private feedback is never published |
 | `import.completed` | *Opt-in.* An import from a review site or another tool finished (once per run). `data.import` is `{ id, source, platform, imported, duplicates, skipped, failed, startedAt, finishedAt }`. See [IMPORT.md](IMPORT.md) |
 | `invite.sent` | *Opt-in.* A campaign or Requests-tab invitation or reminder was handed to the mail server. `data` is `{ invite, kind }`, `kind` being `invite` or `reminder`; `invite` is the shape [above](#campaign-invites) |
 | `invite.opened` | *Opt-in.* The first open of a campaign email, for campaigns that track opens |
@@ -331,3 +331,21 @@ Public, no key needed (preview flag `walls` for the dashboard pages; these endpo
 - **`GET /schema/s_<id>.js`**: a review snippet's script. It adds a `<script type="application/ld+json" data-plaudit-schema="s_…">` block to `document.head` once, with up to 10 reviews and the `AggregateRating`. `text/javascript`, CORS `*`, cached for 5 minutes. An unknown or deleted snippet answers 404 with a JavaScript comment, so the page carries on.
 
 Walls and snippets are managed in the dashboard; there is no `/api/v1` endpoint for them yet.
+
+## Review booster pages
+
+Public, no key needed (feature flag `booster` for the dashboard pages; these are always on). See [the guide](help/booster.md).
+
+- **`GET /b/<project>/<page>`**: a public booster page, as plain HTML (no scripts). A draft or unknown page answers 404. Old project and page addresses answer 308 to the current one, with the query kept.
+- **`GET /b/<project>/<page>/go/<link-id>`**: counts one click for that link today (UTC) and answers 302 to the link's stored address. The address always comes from the saved page, never from the request, so it can't redirect anywhere else; an unknown link is a 404. Only a daily count per link is stored. 60 clicks per visitor address per 10 minutes, then 429.
+
+Booster pages are managed in the dashboard; there is no `/api/v1` endpoint for them yet.
+
+## Form submissions: rewards and low ratings
+
+The public form endpoint (`POST /api/projects/<project>/forms/<form>/submissions`, used by the form and its embeds) answers with two extra keys when they apply:
+
+- **`reward`** (FORM-13), when the form gives one: `{ status: "given", title, message, code, url, wheel? }` or `{ status: "sold_out", title, message }` once a unique-code list has run out. `wheel` is `{ labels, chances, won }`: the server spins it, and only the prize won carries a code. The reward never depends on the rating or the words.
+- **`feedbackOnly: true`** (FORM-12), when the form's low-rating branch stored the submission as private feedback; `withdrawUrl` is then `null`. Such a submission sends `{ rating, lowFeedback, person: { name?, email? }, requestToken?, hiddenFields?, language? }` instead of answers and consent.
+
+A form with neither answers exactly as before.

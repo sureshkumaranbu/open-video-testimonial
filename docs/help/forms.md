@@ -49,10 +49,37 @@ Logo (PNG, JPEG, WebP or GIF; shown unless you hide it), colours (primary, backg
 - **Receipt email** with its own subject and message, sent only for personal request links (so the form can't be used to email strangers). It always includes the private withdraw link.
 - **Most testimonials from one place per day**, a hint to turn the phone sideways before recording, and hiding the form from search engines.
 - **Form webhooks** receive this form's testimonials only.
+- **Low ratings** and **Rewards**: see below.
+
+### Low ratings
+
+Off by default. Turn on **Ask for private feedback after a low rating** and choose a number of stars (1 to 4). Someone who rates at or below it doesn't see the questions: they get a private page instead (“We're sorry it wasn't better”), with optional name and email fields so you can reply. What they write is stored as **feedback** (the inbox's Feedback tab, marked “Low rating”), never as a testimonial, so it's never published and has nothing to withdraw. A personal request link counts as answered, and `feedback.created` webhooks fire.
+
+> Don't use this to gate reviews for Google, Trustpilot or other review sites: their policies forbid it. It's fine for private testimonials. Your [review booster](booster.md) pages never gate.
+
+It needs the rating page turned on, and works on step-by-step forms (the classic page has no steps to swap). You can change the heading, message and placeholder.
+
+### Rewards
+
+A thank-you for the people who send the form, shown on the thank-you page and in the receipt email (receipts go to personal request links only). Choose:
+
+- **No reward** (the default);
+- **The same for everyone**: one coupon code, a link (a download, a booking page), or **a unique code each** from your own list;
+- **Spin the wheel**: up to 12 prizes, each with a label, an optional code and a chance in percent (they add up to 100%). The wheel shows the real chances, and it's spun on your server, so nobody can pick their prize.
+
+Optionally add a heading and a message, and **Only for testimonials with a video**.
+
+**Unique codes.** Paste codes one per line, or upload a CSV (the first column is read; a “code” header row is skipped). Each code goes to exactly one person, even when two people send at the same moment. The settings show how many are left and who got which code. When the codes run out, people see a short note that the rewards have all been claimed, and the settings tell you to add more. **Remove unused codes** deletes the ones nobody has had yet; claimed ones stay for the record.
+
+**The rules.** A reward thanks people for their time, so it never depends on the rating or on what they say: rules such as the FTC's and the review sites' own policies forbid rewards for positive reviews. Everyone who sends the form gets it, including people sent to private feedback by a low rating (they get it even with “only for video” on, since they can't record one). Your review booster pages never mention a reward.
+
+[Campaigns](campaigns.md#reward-codes) can also give each recipient their own code from this list.
+
+Rewards work on step-by-step forms; the classic page has no thank-you step to show one.
 
 ### Share
 
-The hosted link, a QR code (download as PNG or SVG, in any colour), and three ways to embed the form on your site: inline, a popup button, or an iframe. See [`docs/EMBED.md`](../EMBED.md).
+The hosted link, a QR code (PNG or SVG, any colour, your logo in the centre, and print sizes from a 3 cm sticker to a 20 cm poster), and three ways to embed the form on your site: inline, a popup button, or an iframe. See [`docs/EMBED.md`](../EMBED.md).
 
 ## Drafts
 
