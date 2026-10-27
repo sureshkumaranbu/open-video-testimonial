@@ -8,6 +8,8 @@ A widget shows your approved testimonials on your own site. Make as many as you 
 
 Each widget has a name, a layout and, if you said, the page it's for. **Edit** opens the studio, **Embed** opens its Share tab, **Duplicate** makes a copy, and **Delete** removes it: pages that still embed it then show nothing rather than an error.
 
+Under each name: where it's live ("Live on example.com/pricing") and its views in the last 30 days. The studio has the full numbers at the bottom: views, visitors, clicks by kind, top pages and the period before ([analytics](analytics.md)).
+
 When you make a widget, say where it goes and Plaudit suggests a layout: a rating badge or carousel for a pricing page, a toast or badge at checkout, a marquee or grid on the home page.
 
 ## Layouts
@@ -39,4 +41,4 @@ The left side has six tabs; the right side is a live preview that runs the real 
 
 ## Privacy
 
-Widgets show approved testimonials only, and a withdrawn one disappears at once. The feed never includes email addresses, phone numbers, consent records, custom or hidden fields, and with **first name only** the surname never leaves your server. Plaudit doesn't look up avatars on outside services.
+Widgets show approved testimonials only, and a withdrawn one disappears at once. The feed never includes email addresses, phone numbers, consent records, custom or hidden fields, and with **first name only** the surname never leaves your server. Plaudit doesn't look up avatars on outside services. Counting views and clicks uses no cookies and keeps no IP addresses ([what's collected](analytics.md)).

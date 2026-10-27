@@ -68,6 +68,12 @@
       "name": "Review booster, rewards, low-rating branch (Phase 2)",
       "packages": [],
       "requirements": ["BOOST-01", "BOOST-02", "BOOST-03", "BOOST-04", "BOOST-05", "FORM-12", "FORM-13", "REQ-08"]
+    },
+    "M11": {
+      "name": "Analytics (Phase 2)",
+      "$comment": "AN-01 is the /admin/analytics dashboard (PRD §15), which has no ID of its own in the PRD.",
+      "packages": [],
+      "requirements": ["DISP-13", "DISP-14", "FORM-15", "WALL-05", "SEO-04", "AN-01"]
     }
   },
   "concurrent": [

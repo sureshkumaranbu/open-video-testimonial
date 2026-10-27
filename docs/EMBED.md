@@ -63,7 +63,7 @@ A saved widget has an id like `w_abc123def456`. Change its layout, look or testi
 <script src="https://plaudit.example/widget.js" data-widget="w_abc123def456" async></script>
 ```
 
-It renders right after the script tag, or into the element `data-target` names. The widget draws in its own shadow root, so your site's CSS can't change it. Grid and list are built into `widget.js` (under 7 KB gzipped); the other layouts load a small file from `/widget/<layout>.js` the first time they're used.
+It renders right after the script tag, or into the element `data-target` names. The widget draws in its own shadow root, so your site's CSS can't change it. Grid and list are built into `widget.js` (under 7 KB gzipped); the other layouts load a small file from `/widget/<layout>.js` the first time they're used. A saved widget also sends a tiny cookieless count to the same server: one view per page load, and clicks on read more, the original review link, the call to action and video plays (a `text/plain` POST to `/api/widget/<id>/seen`, so no CORS preflight; see [analytics](help/analytics.md)). `data-project` embeds send nothing.
 
 Carousels and sliders pause while the pointer is over them or keyboard focus is inside them, move with the arrow keys and have a pause button. Visitors who ask their system for reduced motion get no autoplay and a still marquee. Videos load only when played and keep their captions.
 
