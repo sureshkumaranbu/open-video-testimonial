@@ -11,6 +11,18 @@ type Key = {
   createdAt: string;
   lastUsedAt: string | null;
   revokedAt: string | null;
+  /** TEAM-01: null for every project. */
+  projectIds?: string[] | null;
+};
+
+type Grant = {
+  id: string;
+  clientName: string;
+  memberEmail: string;
+  scope: "read" | "write";
+  projectIds: string[] | null;
+  createdAt: string;
+  lastUsedAt: string | null;
 };
 
 type Hook = {
@@ -69,6 +81,7 @@ function Copy({ text, label = "Copy" }: { text: string; label?: string }) {
 export function Settings({
   apiBase,
   mcpUrl = null,
+  perProject = false,
   events,
   projects,
   forms = [],
@@ -76,6 +89,8 @@ export function Settings({
   apiBase: string;
   /** INT-04: the MCP server's address, or null while the `mcp` flag is off. */
   mcpUrl?: string | null;
+  /** TEAM-01 (flag team2): keys can be made for one project. */
+  perProject?: boolean;
   events: string[];
   projects: { id: string; name: string }[];
   /** For the webhook editor's "only this form" choice (FORM-10). */
@@ -83,20 +98,33 @@ export function Settings({
 }) {
   return (
     <>
-      <ApiKeys apiBase={apiBase} mcpUrl={mcpUrl} />
+      <ApiKeys apiBase={apiBase} mcpUrl={mcpUrl} projects={projects} perProject={perProject} />
       <Webhooks events={events} projects={projects} forms={forms} />
     </>
   );
 }
 
-function ApiKeys({ apiBase, mcpUrl }: { apiBase: string; mcpUrl: string | null }) {
+function ApiKeys({
+  apiBase,
+  mcpUrl,
+  projects,
+  perProject,
+}: {
+  apiBase: string;
+  mcpUrl: string | null;
+  projects: { id: string; name: string }[];
+  perProject: boolean;
+}) {
   const [keys, setKeys] = useState<Key[]>([]);
+  const [grants, setGrants] = useState<Grant[]>([]);
+  const projectName = (id: string) => projects.find((p) => p.id === id)?.name ?? "a deleted project";
   const [created, setCreated] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setKeys((await api<{ keys: Key[] }>("/api/admin/api-keys")).keys);
-  }, []);
+    if (mcpUrl) setGrants((await api<{ grants: Grant[] }>("/api/admin/oauth-grants")).grants);
+  }, [mcpUrl]);
   useEffect(() => {
     void load().catch((err) => setError(err.message));
   }, [load]);
@@ -110,13 +138,13 @@ function ApiKeys({ apiBase, mcpUrl }: { apiBase: string; mcpUrl: string | null }
       </div>
       <div className="panel-body stack">
         <p className="muted small">
-          For scripts and tools such as n8n. Send <code>Authorization: Bearer plk_…</code> to <code>{apiBase}</code>.
-          The full reference is at <a href="/api/v1/openapi.json">/api/v1/openapi.json</a> (OpenAPI 3.1).
+          For scripts and tools such as n8n. Send <code>Authorization: Bearer plk_…</code> to <code>{apiBase}</code>. The full reference is at{" "}
+          <a href="/api/v1/openapi.json">/api/v1/openapi.json</a> (OpenAPI 3.1).
         </p>
         {mcpUrl && (
           <p className="muted small" data-testid="mcp-url">
-            AI assistants (Claude, Cursor and other MCP clients) connect to <code>{mcpUrl}</code> with a key as the bearer token. A read-only key
-            can look things up but not send invitations. Setup: docs/help/mcp.md.
+            AI assistants (Claude, Cursor and other MCP clients) connect to <code>{mcpUrl}</code> with a key as the bearer token. A read-only key can look
+            things up but not send invitations. Setup: docs/help/mcp.md.
           </p>
         )}
         <form
@@ -128,7 +156,7 @@ function ApiKeys({ apiBase, mcpUrl }: { apiBase: string; mcpUrl: string | null }
             try {
               const res = await api<{ key: string }>("/api/admin/api-keys", {
                 method: "POST",
-                body: JSON.stringify({ name: form.get("name"), scope: form.get("scope") }),
+                body: JSON.stringify({ name: form.get("name"), scope: form.get("scope"), projectIds: form.get("project") ? [form.get("project")] : null }),
               });
               setCreated(res.key);
               (e.target as HTMLFormElement).reset();
@@ -149,6 +177,19 @@ function ApiKeys({ apiBase, mcpUrl }: { apiBase: string; mcpUrl: string | null }
               <option value="write">Read and write</option>
             </select>
           </label>
+          {perProject && projects.length > 1 && (
+            <label>
+              Projects
+              <select name="project" defaultValue="" data-testid="api-key-project">
+                <option value="">Every project</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    Only {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <button type="submit" style={{ alignSelf: "flex-end" }}>
             Create key
           </button>
@@ -192,7 +233,14 @@ function ApiKeys({ apiBase, mcpUrl }: { apiBase: string; mcpUrl: string | null }
                     <td>
                       <code>{k.prefix}…</code>
                     </td>
-                    <td>{k.scope === "write" ? "Read and write" : "Read only"}</td>
+                    <td>
+                      {k.scope === "write" ? "Read and write" : "Read only"}
+                      {k.projectIds && (
+                        <span className="muted small" style={{ display: "block" }}>
+                          {k.projectIds.map(projectName).join(", ") || "No projects"}
+                        </span>
+                      )}
+                    </td>
                     <td className="muted">{k.revokedAt ? `Revoked ${when(k.revokedAt)}` : when(k.lastUsedAt)}</td>
                     <td>
                       {!k.revokedAt && (
@@ -213,6 +261,60 @@ function ApiKeys({ apiBase, mcpUrl }: { apiBase: string; mcpUrl: string | null }
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {mcpUrl && (
+          <div className="stack" data-testid="oauth-grants">
+            <h3 className="small">Connected assistants</h3>
+            {grants.length === 0 ? (
+              <p className="muted small">
+                None yet. Claude, ChatGPT and other connectors can also connect with OAuth: give them {mcpUrl} and sign in when they ask.
+              </p>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>App</th>
+                      <th>Connected by</th>
+                      <th>Access</th>
+                      <th>Last used</th>
+                      <th>
+                        <span className="visually-hidden">Actions</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {grants.map((g) => (
+                      <tr key={g.id} data-testid="oauth-grant">
+                        <td>{g.clientName}</td>
+                        <td className="small">{g.memberEmail}</td>
+                        <td className="small">
+                          {g.scope === "write" ? "Read and send invitations" : "Read only"}
+                          <span className="muted" style={{ display: "block" }}>
+                            {g.projectIds ? g.projectIds.map(projectName).join(", ") || "No projects" : "Every project"}
+                          </span>
+                        </td>
+                        <td className="muted small">{when(g.lastUsedAt)}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="ghost small"
+                            onClick={async () => {
+                              if (!confirm(`Disconnect ${g.clientName}? It stops working at once.`)) return;
+                              await api(`/api/admin/oauth-grants/${g.id}`, { method: "DELETE" });
+                              await load();
+                            }}
+                          >
+                            Disconnect
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -240,9 +342,8 @@ function Webhooks({ events, projects, forms }: { events: string[]; projects: { i
       </div>
       <div className="panel-body stack">
         <p className="muted small">
-          Plaudit POSTs JSON to your URL when something happens. Each request is signed with the endpoint&apos;s secret
-          (<code>Plaudit-Signature</code> header) and failed deliveries are retried for about 3 hours. See docs/API.md
-          for checking the signature.
+          Plaudit POSTs JSON to your URL when something happens. Each request is signed with the endpoint&apos;s secret (<code>Plaudit-Signature</code> header)
+          and failed deliveries are retried for about 3 hours. See docs/API.md for checking the signature.
         </p>
         <form
           className="stack"

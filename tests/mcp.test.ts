@@ -131,7 +131,7 @@ describe("INT-04 MCP tools", () => {
     const tools = (await rpc("tools/list")).result.tools as { name: string; inputSchema: { type: string; properties: object } }[];
     expect(tools.find((t) => t.name === "search_testimonials")!.inputSchema).toMatchObject({ type: "object", properties: { query: { type: "string" } } });
     const refused = await call("create_invite", { campaignId: "x", email: "a@example.com" });
-    expect(refused).toMatchObject({ isError: true, content: [{ type: "text", text: "create_invite needs a read-write API key" }] });
+    expect(refused).toMatchObject({ isError: true, content: [{ type: "text", text: expect.stringMatching(/^create_invite needs write access/) }] });
   });
 
   it("INT-04 list, search and get testimonials, approved by default and without anyone's contact details", async () => {

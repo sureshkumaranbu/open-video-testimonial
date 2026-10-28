@@ -1,9 +1,12 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { RemovedAlerts } from "@/components/analytics/RemovedAlerts";
 import { SyncAlerts } from "@/components/SyncAlerts";
 import { analyticsUi, removedAlerts } from "@/lib/analytics";
 import { featureOn } from "@/lib/features";
+import { RESUME_COOKIE, verifyRequest } from "@/lib/oauth";
 import { failingSyncs } from "@/lib/importers/sync";
 import { getWelcome } from "@/lib/onboarding";
 import { onlyOpen, roleAtLeast } from "@/lib/access";
@@ -19,6 +22,9 @@ export const metadata = { title: "Dashboard" };
 
 export default async function AdminHome() {
   const { session, access } = await pageAccess();
+  // INT-04: someone who signed in to approve an MCP connection goes back to it (a signed request, to our own page only).
+  const resume = featureOn("mcp") ? (await cookies()).get(RESUME_COOKIE)?.value : undefined;
+  if (resume && verifyRequest(decodeURIComponent(resume))) redirect(`/admin/oauth?req=${encodeURIComponent(decodeURIComponent(resume))}`);
   const isAdmin = roleAtLeast(session.role, "admin");
   // D10: onboarding is offered here as a card, never as a redirect.
   const welcome = isAdmin && featureOn("onboarding") && !getWelcome(session.email);

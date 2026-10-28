@@ -132,6 +132,7 @@ export default async function SettingsPage() {
           <Settings
             apiBase={`${env.publicUrl}/api/v1`}
             mcpUrl={featureOn("mcp") ? `${env.publicUrl}/mcp` : null}
+          perProject={teamOn()}
             events={[...WEBHOOK_EVENTS]}
             projects={projects}
             forms={forms}
