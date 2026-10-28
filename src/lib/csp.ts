@@ -52,11 +52,13 @@ export function publicCsp({ frameable = false, extra }: { frameable?: boolean; e
 /**
  * The dashboard: scripts run only with this response's nonce (Next.js adds
  * it to its own scripts, and 'strict-dynamic' lets those load the rest), so
- * markup injected into a page can't execute.
+ * markup injected into a page can't execute. `connect` adds origins the
+ * page may fetch from: the bucket, while direct uploads are on (L9).
  */
-export function adminCsp(nonce: string) {
+export function adminCsp(nonce: string, connect: string[] = []) {
   return join({
     ...common,
+    "connect-src": `${common["connect-src"]}${connect.length ? ` ${connect.join(" ")}` : ""}`,
     "script-src": `'self' 'nonce-${nonce}' 'strict-dynamic'${devScript}`,
     "base-uri": "'none'",
     "frame-ancestors": "'none'",

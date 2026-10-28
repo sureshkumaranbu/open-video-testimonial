@@ -137,7 +137,7 @@ The other fields:
 | `consent.public` | `false` when the author asked to keep it private. It's never published |
 | `trashedAt` | When it went to the trash, or `null` |
 
-**Media URLs** (`avatarUrl`, `companyLogoUrl`, `video.url`, `originalUrl`, `posterUrl` and `images[].url`) work for anyone only while the testimonial is approved and not withdrawn. Before that, and after a rejection or withdrawal, they return `404` unless the request carries your API key (`Authorization: Bearer plk_…`) or comes from the signed-in dashboard.
+**Media URLs** (`avatarUrl`, `companyLogoUrl`, `video.url`, `originalUrl`, `posterUrl` and `images[].url`) work for anyone only while the testimonial is approved and not withdrawn. Before that, and after a rejection or withdrawal, they return `404` unless the request carries your API key (`Authorization: Bearer plk_…`) or comes from the signed-in dashboard. A key made for one project, or a team member limited to some projects, gets only the files of those projects; the rest answer `404` as well.
 
 ### Adding a testimonial
 
@@ -455,6 +455,15 @@ Public, no key (they follow the `walls` flag). See [Sharing](help/share.md).
 - **`GET /t/<id>`**: one testimonial's own page (WALL-04), server-rendered with JSON-LD (`Review`) and Open Graph tags. `<id>` is the testimonial's id (a random UUID). Only for testimonials that are approved, not withdrawn and whose author didn't keep them private; anything else answers 404, exactly like an id that doesn't exist.
 - `?lang=<language>` on `/t/<id>` (with the `translations` flag) shows its stored translation into that language, if any.
 - **`GET /t/<id>/opengraph-image`**: its 1200×630 PNG link preview, revalidated on every fetch (`Cache-Control: public, no-cache`), so a takedown removes it at once. 404 under the same rule.
+
+## Video uploads
+
+The recorder and the dashboard upload videos in pieces, so a dropped connection or a reverse proxy's body limit doesn't lose a recording. These are the app's own endpoints, not part of the versioned API, and may change.
+
+- **`POST /api/projects/{slug}/uploads`** (a collection page; `?form=&question=` for a form's answer) or **`POST /api/admin/uploads`** `{ "kind": "video", "projectId" }` (the dashboard) starts a session: `{ id, token, offset, chunkSize }`. Send `{ "size" }` when it's known, so a file over `MAX_VIDEO_MB` is refused (`413`) before a byte is sent. Every call below needs the `X-Upload-Token: <token>` header.
+- **Relayed** (the default): **`PUT /api/uploads/{id}?offset=N`** with the next bytes answers `{ offset }`, or `409 { offset }` when `N` is stale; **`GET /api/uploads/{id}`** says where to resume; **`DELETE`** abandons it. A first chunk that isn't a video answers `415`.
+- **Direct to the bucket** (`STORAGE_DRIVER=s3` with `S3_DIRECT_UPLOADS=true`): also send `{ "direct": true, "contentType" }` when starting, and the answer has `direct: { partSize }`. For each part, **`POST /api/uploads/{id}/parts`** `{ "partNumber", "size" }` answers `{ url, headers, expiresIn }`: PUT exactly `size` bytes there with exactly those headers within ten minutes. Every part but the last must be `partSize` bytes. Then **`POST /api/uploads/{id}/complete`** answers `{ offset }` (the size) once the server has checked the file, or `413`/`415` and the upload is gone. If a PUT to the bucket fails, carry on with relayed `PUT`s on the same session from offset 0. Without the setting, `direct` is ignored.
+- A finished upload is used by naming `{ id, token }` in the submission (`videoUpload` and `videoUploadToken` on the classic page) or in a dashboard call. Unfinished sessions expire after 24 hours.
 
 ## Dashboard endpoints: video tools and the image studio
 

@@ -3,7 +3,8 @@ import { getDb, schema } from "@/db";
 import type { MemberRole } from "@/db/schema";
 import { featureOn } from "./features";
 
-const { members, memberProjects, forms, widgets, walls, campaigns, testimonials, boosters, seoSnippets, requests, taskRuns, slugRedirects, answers } = schema;
+const { members, memberProjects, forms, widgets, walls, campaigns, testimonials, boosters, seoSnippets, requests, taskRuns, slugRedirects, answers, importSources } =
+  schema;
 
 /**
  * TEAM-01: roles and per-project access (flag `team2`). Owner and admins
@@ -109,4 +110,39 @@ export function projectOfPath(pathname: string): string | null {
   const look = SEGMENTS[segment];
   if (!look || ["preview", "google-places"].includes(id)) return null;
   return look(id) ?? null;
+}
+
+// ------------------------------------------------------------------ which project a background job is about
+
+/** Payload fields that name an object, most specific first, and how to find its project. */
+const JOB_OBJECTS: [field: string, look: Lookup][] = [
+  ["projectId", (id) => getDb().select({ id: schema.projects.id }).from(schema.projects).where(eq(schema.projects.id, id)).get()?.id],
+  ["testimonialId", byTable(testimonials)],
+  ["answerId", SEGMENTS.answers],
+  ["requestId", byTable(requests)],
+  ["widgetId", byTable(widgets)],
+  ["runId", SEGMENTS.runs],
+  ["sourceId", (id) => getDb().select({ projectId: importSources.projectId }).from(importSources).where(eq(importSources.id, id)).get()?.projectId],
+];
+
+/**
+ * L19: the project a background job works on, from its payload (a
+ * `projectId`, or the testimonial, answer, request, widget, run or import
+ * source it names). Null when it names none (storage clean-up, digests,
+ * webhook deliveries) or the payload isn't readable: such jobs are for
+ * admins only.
+ */
+export function projectOfJob(job: { payload: string }): string | null {
+  let payload: unknown;
+  try {
+    payload = JSON.parse(job.payload);
+  } catch {
+    return null;
+  }
+  if (!payload || typeof payload !== "object") return null;
+  for (const [field, look] of JOB_OBJECTS) {
+    const id = (payload as Record<string, unknown>)[field];
+    if (typeof id === "string" && id) return look(id) ?? null;
+  }
+  return null;
 }

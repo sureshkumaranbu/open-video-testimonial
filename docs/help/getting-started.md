@@ -16,14 +16,19 @@ The dashboard shows a **Get started** card until you finish or skip the setup gu
 
 ### What we look for on your site
 
-With a website, Plaudit reads your home page once:
+With a website, Plaudit makes your project straight away and reads your home page once in the background. A progress bar shows how far it's got (at most 30 seconds). You can wait, or press **Continue without waiting**: what it finds still lands on your project, and the last step offers the testimonials when they're ready. It looks for:
 
-- your **logo** (the app icon, a logo image in the header, or the link preview image; never SVG) and **brand colour** (the page's theme colour), and
+- your **logo** (the app icon, a logo image in the header, or the link preview image; never SVG) and **brand colour** (the page's theme colour). They go on your project's brand kit, and your new form, wall and widgets switch to the colour unless you've already chosen one;
+- your **site name**, shown with what was found; and
 - **testimonials already on it**: schema.org reviews, and quote blocks (a `blockquote`, a `figure`, or something with “testimonial”, “review” or “quote” in its class) with a name next to them.
 
 You see what was found, choose with **Select all** and **Clear**, and **Import** brings the chosen ones in as approved, marked as from your website. Nothing found is fine: carry on and collect new ones.
 
-Plaudit respects your `robots.txt`, reads at most 5 MB for 10 seconds, and never reaches private network addresses. If the site can't be read, the project is still made with the default look.
+Plaudit respects your `robots.txt`, reads at most 5 MB for 10 seconds per request and 30 seconds in all, and never reaches private network addresses. If the site can't be read, the project keeps the default look and the guide says why.
+
+#### With your own AI provider (optional)
+
+If the server sets `BRAND_AI_MODEL` (and `BRAND_AI_API_URL` and `BRAND_AI_API_KEY` for any OpenAI-compatible provider), the scan also sends the page's title, description, the colours in its styles and its visible text (up to 12,000 characters) to that provider. Its suggestions only fill gaps: the page's own name and theme colour win, a suggested colour must be one the page uses, and a suggested testimonial is kept only when its words and the person's name are on the page. If the provider is slow, fails or answers oddly, the scan carries on without it. Nothing is sent anywhere when it isn't set up.
 
 ### What it makes
 

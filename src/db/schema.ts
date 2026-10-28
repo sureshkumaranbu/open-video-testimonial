@@ -571,6 +571,8 @@ export type UploadKind = (typeof UPLOAD_KINDS)[number];
 /**
  * Resumable upload sessions. Bytes are appended in order to a part file
  * under DATA_DIR/tmp until the upload is claimed by a submission or import.
+ * A direct session (L9, 0018) sends them to the bucket's `tmp/<id>` instead,
+ * in parts through URLs the server presigns, and falls back to the part file.
  */
 export const uploads = sqliteTable("uploads", {
   id: text("id").primaryKey(),
@@ -582,6 +584,12 @@ export const uploads = sqliteTable("uploads", {
   maxBytes: integer("max_bytes").notNull(),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(now),
   expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+  /** L9: the bytes go straight to the bucket (S3_DIRECT_UPLOADS). */
+  direct: integer("direct", { mode: "boolean" }).notNull().default(false),
+  /** The bucket's multipart upload id while parts are arriving; null once completed. */
+  s3UploadId: text("s3_upload_id"),
+  /** The type every presigned part is pinned to (the file's real type is sniffed on completion). */
+  contentType: text("content_type"),
 }, (t) => [index("uploads_project_idx").on(t.projectId)]);
 
 /** TEAM-01 (0017, flag team2) adds editor (content, no team or settings) and viewer (read and share). */
@@ -745,7 +753,8 @@ export const customers = sqliteTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [uniqueIndex("customers_project_email_idx").on(t.projectId, t.email)],
+  // 0018: avatar_key is indexed for L18 (which project a private file belongs to).
+  (t) => [uniqueIndex("customers_project_email_idx").on(t.projectId, t.email), index("customers_avatar_key_idx").on(t.avatarKey)],
 );
 
 /** Private feedback (a private question's answer), never published. */

@@ -209,6 +209,7 @@ Every setting is an environment variable, read from `.env` (Node) or `docker-com
 | `S3_ENDPOINT`, `S3_REGION` | AWS, `us-east-1` | For `s3`: the service's address, such as `https://<account>.r2.cloudflarestorage.com` or `http://localhost:9000`. Leave the endpoint empty for AWS in `S3_REGION`. Cloudflare R2 uses the region `auto` |
 | `S3_FORCE_PATH_STYLE` | `false` | `true` puts the bucket in the path (`https://host/bucket/…`) instead of the host name. MinIO usually needs it |
 | `S3_PREFIX` | none | A folder inside the bucket for Plaudit's files, such as `plaudit` |
+| `S3_DIRECT_UPLOADS` | `false` | For `s3`: `true` lets browsers send videos straight to the bucket through short-lived presigned URLs instead of through Plaudit. Needs the bucket's CORS set up ([direct uploads](#direct-uploads-to-the-bucket)) |
 | `TRASH_RETENTION_DAYS` | `30` | Days a testimonial stays in the trash before it's deleted for good |
 | `PLAUDIT_FEATURES` | `all` | Which [sections](#turning-sections-off) the dashboard shows: `all`, `none`, or a comma-separated list of `forms`, `inbox2`, `widgets`, `walls`, `importers`, `notifications`, `onboarding`, `campaigns`, `booster`, `analytics`, `share`, `imports2`, `customers`, `translations`, `aisearch`, `api2`, `mcp` and `team2` |
 | `AUDIT_RETENTION_DAYS` | `365` | Days the audit log keeps an entry ([team and audit log](docs/help/team.md)) |
@@ -221,6 +222,7 @@ Every setting is an environment variable, read from `.env` (Node) or `docker-com
 | `TRANSLATE_PROVIDER` | `off` | Machine translation with your own provider: `deepl`, `libretranslate` or `openai` (any OpenAI-compatible `/chat/completions` endpoint). Testimonial text is sent to it only when you ask for a translation, a form translates on arrival, or you use bulk Translate ([docs/help/inbox.md](docs/help/inbox.md#translations)) |
 | `TRANSLATE_API_URL`, `TRANSLATE_API_KEY`, `TRANSLATE_MODEL` | DeepL Free / OpenAI addresses | The provider's address (required for LibreTranslate), your key (required for DeepL), and the model (required for `openai`) |
 | `EMBEDDINGS_MODEL`, `EMBEDDINGS_API_URL`, `EMBEDDINGS_API_KEY` | unset, OpenAI's address | Smart search with your own OpenAI-compatible `/embeddings` endpoint; off until a model is set. **When it's on, every testimonial's headline, text, transcript and answers are sent to that provider** ([docs/help/inbox.md](docs/help/inbox.md#smart-search)) |
+| `BRAND_AI_MODEL`, `BRAND_AI_API_URL`, `BRAND_AI_API_KEY` | unset, OpenAI's address | An optional AI step for the setup guide's brand scan, with your own OpenAI-compatible `/chat/completions` endpoint; off until a model is set. **When it's on, the text of the home page being scanned is sent to that provider**, which may suggest the site name, brand colour and testimonials; only what's really on the page is kept ([docs/help/getting-started.md](docs/help/getting-started.md#what-we-look-for-on-your-site)) |
 
 ## Optional features
 
@@ -263,13 +265,37 @@ S3_ACCESS_KEY_ID=…
 S3_SECRET_ACCESS_KEY=…
 ```
 
-- The bucket can, and should, stay **private**. Uploads are still received and checked on your server, then stored in the bucket, and every file is streamed back through Plaudit, so who may see what is decided exactly as before.
+- The bucket can, and should, stay **private**. Uploads are still received and checked on your server (unless you turn on [direct uploads](#direct-uploads-to-the-bucket)), then stored in the bucket, and every file is streamed back through Plaudit, so who may see what is decided exactly as before.
 - The key needs to read, write and delete objects in that bucket, and to check the bucket exists. On AWS that's `s3:GetObject`, `s3:PutObject`, `s3:DeleteObject`, `s3:AbortMultipartUpload` and `s3:ListBucket`. Deleting a testimonial or a project removes its files from the bucket.
 - Restart Plaudit after changing these. **Settings → Media storage** shows where media is kept and whether the bucket works.
 - **Moving an existing server:** after the restart, files already on local disk are still served from there. The owner can press **Copy local media to S3** in **Settings → Media storage** to copy them into the bucket. It runs in the background, skips files that are already there (so it's safe to run again), and keeps the local copies unless you tick **Delete each file from local disk once it's in the bucket**.
 - **Going back to local disk:** copy the objects back into `DATA_DIR/uploads` first, keeping their paths (`videos/…` and `images/…`, without `S3_PREFIX`), for example with `aws s3 sync s3://<bucket>/<prefix> ./data/uploads` or `mc mirror`. Then set `STORAGE_DRIVER=local` and restart.
 
 To try it locally, [`docker-compose.s3.yml`](docker-compose.s3.yml) runs MinIO next to Plaudit; the file explains how.
+
+#### Direct uploads to the bucket
+
+By default every upload passes through your server on its way to the bucket. With `S3_DIRECT_UPLOADS=true` (and `STORAGE_DRIVER=s3`), videos go from the visitor's browser straight to the bucket instead, which saves your server's bandwidth on large recordings. Photos and imports still go through the server. Plaudit stays in charge:
+
+- The browser can only write the one object Plaudit chose for that upload (`tmp/<id>` under `S3_PREFIX`), one 8 MB part at a time, each through a URL that's valid for ten minutes and only for that part's exact size and type, up to `MAX_VIDEO_MB`.
+- When the last part is in, Plaudit checks the file's real size and first bytes. Anything that isn't a video is deleted; a video is copied to its usual `videos/…` key and goes through conversion and transcripts as before. Abandoned uploads are removed from the bucket after 24 hours.
+- Your collection pages (and the dashboard) are then allowed to connect to the bucket's address, and only to that one. That's your own storage, so visitors still talk to no one but you; with the setting off, nothing about the pages changes.
+- If the bucket refuses the browser, usually because its CORS isn't set up, the upload carries on through your server automatically.
+
+The bucket must allow `PUT` from your `PUBLIC_URL`. For example, on AWS S3 (Permissions → Cross-origin resource sharing) or Cloudflare R2 (Settings → CORS policy):
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://testimonials.example.com"],
+    "AllowedMethods": ["PUT"],
+    "AllowedHeaders": ["content-type"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Use your own `PUBLIC_URL` as the origin, without a trailing slash. On AWS the key also needs `s3:ListMultipartUploadParts`. Optionally, a lifecycle rule that aborts incomplete multipart uploads and expires `tmp/` after a day or two cleans up after a server that was stopped mid-upload.
 
 ### Email (requests, reminders and receipts)
 

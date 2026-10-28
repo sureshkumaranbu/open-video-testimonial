@@ -13,6 +13,8 @@ import { EMPTY_SHA256, presignUrl, sha256Hex, signRequest, UNSIGNED_PAYLOAD, uri
  * spoken to over plain HTTPS with hand-written SigV4, so there's no SDK.
  * The server relays every byte (D16): uploads are put here once they've been
  * received and sniffed on disk, and /api/media streams objects back out.
+ * With S3_DIRECT_UPLOADS (L9) browsers PUT video parts to `tmp/<id>`
+ * through URLs presigned here; see src/lib/direct-upload.ts.
  */
 export type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
@@ -62,9 +64,38 @@ export interface S3Driver extends StorageDriver {
   check(): Promise<void>;
   /** A link that downloads the object directly for `expiresSec` seconds (P1; Phase 1 relays media). */
   presignGet(key: string, expiresSec: number): string;
+  /** L9: starts a multipart upload of a staging key (`tmp/<id>`) and returns its id. */
+  startMultipart(key: string, mime: string): Promise<string>;
+  /** L9: a URL that PUTs part `partNumber` of exactly `size` bytes of type `mime`, for `expiresSec` seconds. */
+  presignPart(key: string, uploadId: string, partNumber: number, size: number, mime: string, expiresSec: number): string;
+  /** L9: the parts the bucket holds for an upload, in order. */
+  listParts(key: string, uploadId: string): Promise<{ partNumber: number; size: number; etag: string }[]>;
+  completeMultipart(key: string, uploadId: string, parts: { partNumber: number; etag: string }[]): Promise<void>;
+  /** Parts left behind are billed until aborted. An upload that's already gone is fine. */
+  abortMultipart(key: string, uploadId: string): Promise<void>;
+  /** Copies an object inside the bucket to a media key, with `mime` as its type (CopyObject: up to 5 GB). */
+  copy(from: string, to: string, mime: string): Promise<void>;
+}
+
+/** Where a direct upload's bytes wait to be checked (L9). Never a media key, so /api/media can't serve them. */
+const STAGING_RE = /^tmp\/[0-9a-f-]{36}$/;
+export const isStagingKey = (key: string) => STAGING_RE.test(key);
+
+/** The bucket's base URL: virtual-hosted (`bucket.host`) unless path style is forced. */
+export function bucketRootOf(cfg: Pick<S3Config, "endpoint" | "bucket" | "forcePathStyle">) {
+  const base = new URL(cfg.endpoint);
+  const basePath = base.pathname.replace(/\/+$/, "");
+  return cfg.forcePathStyle
+    ? `${base.protocol}//${base.host}${basePath}/${uriEncode(cfg.bucket)}`
+    : `${base.protocol}//${cfg.bucket}.${base.host}${basePath}`;
 }
 
 const xmlTag = (xml: string, name: string) => new RegExp(`<${name}>([^<]*)</${name}>`).exec(xml)?.[1] ?? null;
+/** XML character references back to text: named ones, and numeric ones such as the `&#34;` MinIO (Go's encoding/xml) writes for a quote. */
+const xmlUnescape = (s: string) =>
+  s.replace(/&(?:#(\d+)|#x([0-9a-f]+)|(quot|apos|lt|gt|amp));/gi, (_m, dec: string | undefined, hex: string | undefined, name: string | undefined) =>
+    dec ? String.fromCodePoint(Number(dec)) : hex ? String.fromCodePoint(parseInt(hex, 16)) : ({ quot: '"', apos: "'", lt: "<", gt: ">", amp: "&" } as Record<string, string>)[name!.toLowerCase()],
+  );
 const xmlEscape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** What a bare status means, for HEAD requests (they have no error body). */
@@ -113,13 +144,17 @@ export function createS3Driver(cfg: S3Config): S3Driver {
   const scope = { region: cfg.region, service: "s3" };
   const multipartThreshold = cfg.multipartThreshold ?? MULTIPART_THRESHOLD;
   const partSize = Math.max(cfg.partSize ?? PART_SIZE, 1);
-  const basePath = base.pathname.replace(/\/+$/, "");
-  const bucketRoot = cfg.forcePathStyle
-    ? `${base.protocol}//${base.host}${basePath}/${uriEncode(cfg.bucket)}`
-    : `${base.protocol}//${cfg.bucket}.${base.host}${basePath}`;
+  const bucketRoot = bucketRootOf(cfg);
 
   const checkKey = (key: string) => {
     if (!isMediaKey(key)) throw new Error("Invalid media key");
+  };
+  /** Reads and deletes also take staging keys (L9). */
+  const checkAnyKey = (key: string) => {
+    if (!isMediaKey(key) && !isStagingKey(key)) throw new Error("Invalid media key");
+  };
+  const checkStaging = (key: string) => {
+    if (!isStagingKey(key)) throw new Error("Invalid staging key");
   };
   /** The object's URL, already in the strict encoding SigV4 signs, so both sides agree on it. */
   const objectUrl = (key: string, query = "") => new URL(`${bucketRoot}/${uriEncode(cfg.prefix + key, true)}${query ? `?${query}` : ""}`);
@@ -162,12 +197,33 @@ export function createS3Driver(cfg: S3Config): S3Driver {
     await res.body?.cancel().catch(() => undefined);
   };
 
-  async function multipartUpload(key: string, file: string, size: number, mime: string) {
+  async function initiate(key: string, mime: string) {
     const start = await send("POST", objectUrl(key, "uploads"), { headers: { "content-type": mime }, timeoutMs: SHORT_MS });
     if (!start.ok) throw await failure(start, "upload");
     const uploadId = xmlTag(await start.text(), "UploadId");
     if (!uploadId) throw new S3Error(502, null, "S3 upload failed: no UploadId in the reply");
-    const id = uriEncode(uploadId);
+    return uploadId;
+  }
+
+  async function complete(key: string, id: string, parts: { n: number; etag: string }[]) {
+    const xml = `<CompleteMultipartUpload>${parts
+      .map((p) => `<Part><PartNumber>${p.n}</PartNumber><ETag>${xmlEscape(p.etag)}</ETag></Part>`)
+      .join("")}</CompleteMultipartUpload>`;
+    const done = await send("POST", objectUrl(key, `uploadId=${id}`), {
+      headers: { "content-type": "application/xml" },
+      body: xml,
+      payloadHash: sha256Hex(xml),
+      timeoutMs: UPLOAD_MS,
+    });
+    const reply = await done.text();
+    // S3 can answer 200 and still report an error in the body.
+    if (!done.ok || /<Error>/.test(reply)) {
+      throw new S3Error(done.ok ? 500 : done.status, xmlTag(reply, "Code"), `S3 upload failed: ${xmlTag(reply, "Message") ?? done.status}`);
+    }
+  }
+
+  async function multipartUpload(key: string, file: string, size: number, mime: string) {
+    const id = uriEncode(await initiate(key, mime));
     const blob = await fs.openAsBlob(file);
     const parts: { n: number; etag: string }[] = [];
     try {
@@ -183,20 +239,7 @@ export function createS3Driver(cfg: S3Config): S3Driver {
         if (!etag) throw new S3Error(502, null, `S3 upload failed: no ETag for part ${n}`);
         parts.push({ n, etag });
       }
-      const xml = `<CompleteMultipartUpload>${parts
-        .map((p) => `<Part><PartNumber>${p.n}</PartNumber><ETag>${xmlEscape(p.etag)}</ETag></Part>`)
-        .join("")}</CompleteMultipartUpload>`;
-      const done = await send("POST", objectUrl(key, `uploadId=${id}`), {
-        headers: { "content-type": "application/xml" },
-        body: xml,
-        payloadHash: sha256Hex(xml),
-        timeoutMs: UPLOAD_MS,
-      });
-      const reply = await done.text();
-      // S3 can answer 200 and still report an error in the body.
-      if (!done.ok || /<Error>/.test(reply)) {
-        throw new S3Error(done.ok ? 500 : done.status, xmlTag(reply, "Code"), `S3 upload failed: ${xmlTag(reply, "Message") ?? done.status}`);
-      }
+      await complete(key, id, parts);
     } catch (err) {
       // Parts left behind are billed until aborted.
       await send("DELETE", objectUrl(key, `uploadId=${id}`), { timeoutMs: SHORT_MS }).then(drain, () => undefined);
@@ -241,7 +284,7 @@ export function createS3Driver(cfg: S3Config): S3Driver {
     },
 
     async stat(key) {
-      checkKey(key);
+      checkAnyKey(key);
       const res = await send("HEAD", objectUrl(key), { timeoutMs: SHORT_MS });
       if (res.status === 404) {
         await drain(res);
@@ -258,7 +301,7 @@ export function createS3Driver(cfg: S3Config): S3Driver {
     },
 
     async read(key, range) {
-      checkKey(key);
+      checkAnyKey(key);
       const res = await send("GET", objectUrl(key), {
         headers: range ? { range: `bytes=${range.start}-${range.end}` } : undefined,
         headersTimeoutMs: SHORT_MS,
@@ -273,7 +316,7 @@ export function createS3Driver(cfg: S3Config): S3Driver {
     },
 
     async remove(key) {
-      checkKey(key);
+      checkAnyKey(key);
       const res = await send("DELETE", objectUrl(key), { timeoutMs: SHORT_MS });
       if (!res.ok && res.status !== 404) throw await failure(res, "delete");
       await drain(res);
@@ -305,6 +348,65 @@ export function createS3Driver(cfg: S3Config): S3Driver {
     presignGet(key, expiresSec) {
       checkKey(key);
       return presignUrl({ method: "GET", url: objectUrl(key), expiresSec }, credentials, scope);
+    },
+
+    async startMultipart(key, mime) {
+      checkStaging(key);
+      return initiate(key, mime);
+    },
+
+    presignPart(key, uploadId, partNumber, size, mime, expiresSec) {
+      checkStaging(key);
+      const url = objectUrl(key, `partNumber=${partNumber}&uploadId=${uriEncode(uploadId)}`);
+      return presignUrl({ method: "PUT", url, expiresSec, headers: { "content-length": String(size), "content-type": mime } }, credentials, scope);
+    },
+
+    async listParts(key, uploadId) {
+      checkStaging(key);
+      const parts: { partNumber: number; size: number; etag: string }[] = [];
+      for (let marker = "0"; ; ) {
+        const res = await send("GET", objectUrl(key, `part-number-marker=${marker}&uploadId=${uriEncode(uploadId)}`), { timeoutMs: SHORT_MS });
+        if (!res.ok) throw await failure(res, "upload check");
+        const xml = await res.text();
+        for (const m of xml.matchAll(/<Part>([\s\S]*?)<\/Part>/g)) {
+          const etag = xmlUnescape(xmlTag(m[1], "ETag") ?? "");
+          parts.push({ partNumber: Number(xmlTag(m[1], "PartNumber")), size: Number(xmlTag(m[1], "Size")), etag });
+        }
+        const next = xmlTag(xml, "NextPartNumberMarker");
+        if (xmlTag(xml, "IsTruncated") !== "true" || !next || next === marker) break;
+        marker = next;
+      }
+      return parts.sort((a, b) => a.partNumber - b.partNumber);
+    },
+
+    async completeMultipart(key, uploadId, parts) {
+      checkStaging(key);
+      await complete(key, uriEncode(uploadId), parts.map((p) => ({ n: p.partNumber, etag: p.etag })));
+    },
+
+    async abortMultipart(key, uploadId) {
+      checkStaging(key);
+      const res = await send("DELETE", objectUrl(key, `uploadId=${uriEncode(uploadId)}`), { timeoutMs: SHORT_MS });
+      if (!res.ok && res.status !== 404) throw await failure(res, "upload abort");
+      await drain(res);
+    },
+
+    async copy(from, to, mime) {
+      checkAnyKey(from);
+      checkKey(to);
+      const res = await send("PUT", objectUrl(to), {
+        headers: {
+          "content-type": mime,
+          "x-amz-copy-source": `/${uriEncode(cfg.bucket)}/${uriEncode(cfg.prefix + from, true)}`,
+          "x-amz-metadata-directive": "REPLACE",
+        },
+        timeoutMs: UPLOAD_MS,
+      });
+      const reply = await res.text();
+      // Like CompleteMultipartUpload, a copy can answer 200 with an error in the body.
+      if (!res.ok || /<Error>/.test(reply)) {
+        throw new S3Error(res.ok ? 500 : res.status, xmlTag(reply, "Code"), `S3 copy failed: ${xmlTag(reply, "Message") ?? res.status}`);
+      }
     },
   };
 }

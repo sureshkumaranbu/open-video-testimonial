@@ -25,7 +25,7 @@ describe("IMP-01 Google Play importer", () => {
       expect.objectContaining({ sourceReviewId: "gp:AOqpTOFsynthetic0001", authorName: "Hana Sato", rating: 5, text: "Clean, fast and the widgets are lovely. Syncs with my tablet too.", avatarUrl: "https://play-lh.example/avatar1.png" }),
       expect.objectContaining({ sourceReviewId: "gp:AOqpTOFsynthetic0002", authorName: "Tom Reyes", rating: 3, text: "Good app but the backup is slow." }),
     ]);
-    expect(page.items[0].date).toEqual({ value: new Date("October 12, 2026"), precision: "day" });
+    expect(page.items[0].date).toEqual({ value: new Date(Date.UTC(2026, 9, 12)), precision: "day" });
     await expect(googleplay.fetchPage({ pkg: "com.example.acmenotes" }, null, fakeCtx({ "/store/": { text: "<html><body>No reviews here</body></html>" } }).ctx)).rejects.toBeInstanceOf(ImporterBlockedError);
   });
 

@@ -34,6 +34,16 @@
 .ob-stars {
   color: var(--star);
 }
+/* The colour the brand scan found, next to its hex code. */
+.ob-swatch {
+  display: inline-block;
+  width: 1.1em;
+  height: 1.1em;
+  margin-right: var(--space-1);
+  vertical-align: -0.2em;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+}
 .ob-made {
   list-style: none;
   margin: 0;

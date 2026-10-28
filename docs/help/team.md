@@ -15,13 +15,13 @@ New people are admins unless you choose otherwise when you invite them. Editors 
 
 ## Projects
 
-An editor or viewer can open **every project** (including new ones) or only those you tick. Everywhere else, the other projects simply don't exist for them: not in the project list, analytics, search or emails. Change it any time with **Change access** next to their name; it applies to their next click.
+An editor or viewer can open **every project** (including new ones) or only those you tick. Everywhere else, the other projects simply don't exist for them: not in the project list, analytics, search or emails. The same goes for those projects' unpublished videos and photos, even with the file's address, and for the progress of their imports; published ones stay public as always. Progress of work that belongs to no project (copying media to S3, say) is for admins. Change it any time with **Change access** next to their name; it applies to their next click.
 
 People let in by `ADMIN_EMAILS` or an allowed domain are admins until you change their access here. Someone from an allowed domain appears in the list once they've signed in.
 
 ## API keys and assistants
 
-Admins can make an API key for a single project (**Settings › API keys › Reaches**). AI assistants connected by signing in act as the person who connected them, with that person's role and projects ([mcp.md](mcp.md)).
+Admins can make an API key for a single project (**Settings › API keys › Reaches**); it can fetch only that project's unpublished files too. AI assistants connected by signing in act as the person who connected them, with that person's role and projects ([mcp.md](mcp.md)).
 
 ## The audit log
 

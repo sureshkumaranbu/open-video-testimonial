@@ -6,15 +6,15 @@ The one place that says what is built, what is left and what comes next. Update 
 - **How Phase 1 was built:** [v1-implementation-plan.md](v1-implementation-plan.md) (milestones M1–M7, decisions D1–D24).
 - **Is every requirement tested?** `node scripts/req-coverage.mjs --all` checks that every Phase 1 ID appears in a test title.
 
-Last updated: 2026-10-28 (after M14).
+Last updated: 2026-10-28 (after M15).
 
 ## Where things are
 
 | Item | State |
 |---|---|
 | `main` | Phase 1 (#14), M8 ([#15](https://github.com/sureshkumaranbu/open-video-testimonial/pull/15), b5648a6), M9 ([#16](https://github.com/sureshkumaranbu/open-video-testimonial/pull/16), 68977c5), M10 ([#17](https://github.com/sureshkumaranbu/open-video-testimonial/pull/17), 1927357) M11 ([#18](https://github.com/sureshkumaranbu/open-video-testimonial/pull/18), 2f846b5) M12 ([#19](https://github.com/sureshkumaranbu/open-video-testimonial/pull/19), 7c8d12d) M13 ([#20](https://github.com/sureshkumaranbu/open-video-testimonial/pull/20), 6b449b6) and M14 ([#21](https://github.com/sureshkumaranbu/open-video-testimonial/pull/21)), merged on 2026-10-27 and 2026-10-28 |
-| Open PRs | None |
-| Tests | 1,049 unit tests pass on the M14 branch (6 MinIO tests run only in CI). Chromium e2e in the cloud session: 213 of 215 passed, then the audit-log test passed again once it stopped matching another spec's row; the other failure is L17. Requirement coverage: 100 of 100 (Phase 1 and M9–M14). Chromium e2e runs in the cloud session use a newer Chromium than Playwright pins, so one recorder check fails there (L17); CI runs the pinned Chromium and WebKit. |
+| Open PRs | M15 (`plaudit/m15-leftovers`) |
+| Tests | 1,074 unit tests pass on the M15 branch (8 skipped: the MinIO tests, which run in CI). Requirement coverage: 100 of 100 (Phase 1 and M9–M14). The recorder e2e spec is now deterministic (L13, L17): 45 of 45 with `--repeat-each=3`, also under load, on a Chromium newer than the pinned one. CI runs the pinned Chromium and WebKit. |
 | Local demo | `plaudit-v1-demo` in `Development/.claude/launch.json`, http://127.0.0.1:3300 |
 
 ## Phase 1: "Parity core" (P0). Done.
@@ -44,17 +44,17 @@ These are either partly done or need something from Suresh.
 | L6 | Draft autosave on step-by-step forms (FORM-14): kept in the visitor's browser for 7 days; videos and consent are never saved | **Done** in M8 | — |
 | L7 | Indexes on the foreign keys Phase 1 added (migration 0011), plus a test that fails when a new foreign key has no index | **Done** in M8 | — |
 | L8 | WebKit (Safari) e2e and MinIO S3 tests in CI | **Done** in M8. It found that every admin dialog was invisible in Safari, which is fixed | — |
-| L9 | Direct-to-S3 uploads (decision D16 relays uploads through the server for now) | Deferred to Phase 2 | — |
-| L10 | Brand scrape (ONB-02): colour and logo from the site work by heuristics; the background job and any AI step are open | Partly done | Decision on an AI provider (PRD Q2) |
+| L9 | Direct-to-S3 uploads | **Done** in M15: opt-in `S3_DIRECT_UPLOADS=true` (with `STORAGE_DRIVER=s3`). Videos go from the browser to the bucket as a presigned multipart upload of fixed 8 MB parts under `tmp/<id>`, with each part's size and type signed; on completion the server checks the parts and real size and sniffs the first bytes before copying to `videos/<uuid>.<ext>`. Public pages' `connect-src` gains the bucket's origin only while it's on. A failed presigned PUT (usually CORS) falls back to the relay; local disk always relays. Migration 0018 | Set the bucket's CORS (see README) |
+| L10 | Brand scrape (ONB-02) | **Done** in M15: a background job (30 s in all, robots.txt, 5 MB and 10 s per read, no private addresses) that puts the colour and logo on the brand kit and recolours only the starter assets with no colour set; the wizard can move on before it finishes. Optional AI step with your own OpenAI-compatible provider (`BRAND_AI_MODEL`, `BRAND_AI_API_URL`, `BRAND_AI_API_KEY`): it gets the title, description, colours and up to 12,000 characters of visible text (never the HTML), only fills gaps, and its colours and testimonials must be on the page. Without a model, or on any error, it falls back to the heuristics | — |
 | L11 | Cloud billing and the "Powered by" badge (CLOUD-01, CLOUD-02) | Not in this repo | Belongs to the cloud edition |
 | L12 | Five foreign keys from before Phase 1 had no index (`testimonial_tags.tag_id` mattered most: the tag-rename trigger scans it) | **Done** in M13 (migration 0016); the index test's allow-list is empty | — |
-| L13 | The recorder e2e tests can time out when the whole suite runs on a busy machine | Flaky locally, passes alone | — |
+| L13 | The recorder e2e tests could time out on a busy machine | **Done** in M15: the countdown and time limit are read from the page's own events, every wait has an explicit limit, and recording tests have their own timeouts | — |
 | L14 | Zip export/import didn't include campaigns, boosters, booster clicks or reward codes (campaign recipients came across as ordinary requests) | **Done** in M13, with the M13 tables too. Imported synced sources and active campaigns arrive paused, campaign webhook tokens aren't exported, and smart-search vectors are rebuilt rather than exported | — |
 | L15 | QR codes with a logo in the centre haven't been scanned with a real phone; Google Places search is tested only against a mock | Unverified | A phone scan; a Places API key if you want business search |
-| L16 | No `/api/v1` endpoint for reading analytics yet | Not built (fits M14's API work) | — |
-| L17 | One recorder e2e check (`the dashboard shows conversion progress, then the poster`) expects the browser to skip the H.264 MP4 and play the WebM. Newer Chromium builds play H.264, so it fails with them; it passes with the Chromium that Playwright pins (CI) | Environment-dependent | — |
-| L18 | Private media addresses (`/api/media/…` for files that aren't public) aren't checked against a limited member's or key's projects. The addresses are random and only handed out inside projects the person can open, but it isn't enforced | Open (TEAM-01 follow-up) | — |
-| L19 | `GET /api/admin/jobs/<id>` (an import's progress) isn't checked against the job's project; it shows only the job's type, status and error | Open (TEAM-01 follow-up) | — |
+| L16 | No `/api/v1` endpoint for reading analytics | **Done** in M14 (API-02: per project and per widget, form, wall, snippet or testimonial page over `?from=&to=`) | — |
+| L17 | A recorder e2e check depended on whether the browser plays H.264 | **Done** in M15: it checks that the MP4 (with its codecs string) comes first, the original second, and that the browser plays one of them | — |
+| L18 | Private media for members and keys limited to some projects | **Done** in M15: `/api/media` serves a non-public file only to someone (or a key) that may open one of the projects using it, found with one indexed query; everyone else is unchanged | — |
+| L19 | Job progress (`GET /api/admin/jobs/<id>`) | **Done** in M15: checked against the job's project; a job naming no project is for admins only; anything else is the same 404 as an unknown id | — |
 | L20 | The WordPress plugin, the Zapier app, the n8n and Make templates and `@plaudit/react` are built and tested here but not published, and OAuth for MCP hasn't been tried with the real Claude.ai or ChatGPT connectors | Needs accounts | Your WordPress.org, Zapier, Make, n8n and npm accounts (and the `@plaudit` npm scope) |
 
 ## Phase 2: "Growth" (P1). Done in this repo (M8–M14); the cloud items stay in the cloud repo.
@@ -72,16 +72,26 @@ Proposed order. Each milestone is one branch, one agent, then one review, to kee
 | M14 Team, API and integrations | Roles, audit log, generic OIDC; API CRUD for forms, widgets, walls, campaigns, tags, customers and feedback, and analytics read (L16); Zapier, Make and n8n, MCP server, WordPress plugin, React package; native Stripe and Shopify triggers for campaigns | TEAM-01..03, API-01, API-02, INT-03..06, REQ-07 | **Merged** (#21). Flags `team2`, `api2`, `mcp`. API-01 and API-02 are our IDs for PRD §19's CRUD and analytics read (the PRD gives §19 none). Roles are owner, admin, editor and viewer; editors and viewers can be limited to some projects, and admins always reach every project. Every dashboard route checks the role and the project it names (a guard-rails test fails any route without a guard). Editors may start and send campaigns; webhooks, API keys, MCP connections, notification channels, the team, new projects and the audit log stay admin-only. With `team2` off, everyone but the owner is an admin, as before. API keys can be made for one project; existing keys reach all. The audit log has filters and CSV export, no secrets or IPs, and is kept `AUDIT_RETENTION_DAYS` (365). Generic OIDC through discovery (`OIDC_*`): PKCE, public-key signatures only, `email_verified` required unless `OIDC_TRUST_EMAIL`. MCP at `/mcp` with an API key or OAuth 2.1 (dynamic registration, PKCE S256, rotating refresh tokens, revocable in Settings) so Claude.ai and ChatGPT connectors can connect. `POST/DELETE /api/v1/webhooks` for instant Zapier triggers (public addresses only, checked again on delivery). Stripe (`checkout.session.completed`, `invoice.paid`) and Shopify (`orders/fulfilled`) triggers check the provider's signature over the raw body, handle each delivery once, and invite after N days; the signing secret is never returned. Integrations live in `integrations/` and `packages/react` (L20) |
 | Cloud (separate repo) | Billing, badge, agency workspaces, custom domains, plan limits | CLOUD-01..03, WALL-06, IMP-06 | Not in this repo |
 
-## Phase 3: "Beyond" (P2). Not started.
+## Phase 3: "Beyond" (P2). In progress.
 
-Multiclip, HLS, social clips and highlight reels (VID-05..08). AI case studies (SHARE-04). Voice of Customer reports, NPS and AI surveys. Stripe sales popup and thank-you gifts (INT-07). Browser extension. Screenshot OCR import. Owner welcome videos (FORM-17). Postgres (TEAM-06).
+Split into milestones by the lead. IDs in *italics* are ours: the PRD lists these features without IDs.
 
-## Open decisions for Suresh
+| Milestone | Scope | IDs | Status |
+|---|---|---|---|
+| M15 Leftovers | L9, L10, L13, L16, L17, L18, L19 | TEAM-05, ONB-02 (follow-ups) | Built and reviewed; PR open |
+| M16 Video, part 2 | Multiclip, HLS, social clips, highlight reels; owner welcome and thank-you videos | VID-05..08, FORM-17 | Planned |
+| M17 Insights and AI | AI case studies (also usable without AI), Voice of Customer reports, NPS and AI surveys, screenshot OCR import | SHARE-04, *VOC-01*, *NPS-01*, *IMP-07* | Planned |
+| M18 Commerce and reach | Stripe sales popup and thank-you gifts, social drafts on approve, browser extension | INT-07, INT-08, *EXT-01* | Planned |
+| M19 Postgres | `DATABASE_URL` alongside SQLite (still the default), same migrations, CI runs the suite against both | TEAM-06 | Planned |
 
-1. Cloud pricing tiers and free cap (PRD Q1).
-2. Which AI provider, if any, for the brand scrape and discovery (PRD Q2).
+Every AI feature is bring-your-own and OpenAI-compatible, set through env, off without a key, and tested against a stub provider.
+
+## Decisions and open questions for Suresh
+
+1. Cloud pricing tiers and free cap (PRD Q1): not this repo; skipped.
+2. AI provider (PRD Q2): **default taken:** bring your own OpenAI-compatible provider through env; no vendor is built in.
 3. Google Places key: bring your own on self-host is assumed (PRD Q3).
-4. Which locales get native review first (PRD Q5).
-5. Whether the classic `/c` form retires in Phase 2 (plan §10.5).
-6. Not a decision, a to-do: add the new settings to `.env.example` (agents never touch it). M13: `YOUTUBE_API_KEY`, `ETSY_API_KEY`, `TRANSLATE_PROVIDER`, `TRANSLATE_API_URL`, `TRANSLATE_API_KEY`, `TRANSLATE_MODEL`, `EMBEDDINGS_API_URL`, `EMBEDDINGS_API_KEY`, `EMBEDDINGS_MODEL`. M14: `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_LABEL`, `OIDC_SCOPES`, `OIDC_EMAIL_DOMAINS`, `OIDC_TRUST_EMAIL`, `AUDIT_RETENTION_DAYS`.
-7. Decisions made in M14 that you may want to revisit: OAuth for MCP connectors was built (bigger, but needed for Claude.ai and ChatGPT); editors may send campaigns; viewers may make share images and see analytics but need editor to download a video original; exports need editor.
+4. Locales for native review (PRD Q5): **default taken:** Tamil and Hindi first.
+5. Classic `/c` form: **default taken:** keep it; it isn't retired.
+6. Not a decision, a to-do: add the new settings to `.env.example` (agents never touch it). M13: `YOUTUBE_API_KEY`, `ETSY_API_KEY`, `TRANSLATE_PROVIDER`, `TRANSLATE_API_URL`, `TRANSLATE_API_KEY`, `TRANSLATE_MODEL`, `EMBEDDINGS_API_URL`, `EMBEDDINGS_API_KEY`, `EMBEDDINGS_MODEL`. M14: `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_LABEL`, `OIDC_SCOPES`, `OIDC_EMAIL_DOMAINS`, `OIDC_TRUST_EMAIL`, `AUDIT_RETENTION_DAYS`. M15: `S3_DIRECT_UPLOADS`, `BRAND_AI_MODEL`, `BRAND_AI_API_URL`, `BRAND_AI_API_KEY`.
+7. M14's role and MCP choices are kept as they are: OAuth for MCP connectors; editors may send campaigns; viewers may make share images and see analytics but need editor to download a video original; exports need editor.

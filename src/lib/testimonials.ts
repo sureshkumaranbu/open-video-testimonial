@@ -338,6 +338,34 @@ export function publicMediaQuery(key: string) {
     LIMIT 1`;
 }
 
+/**
+ * L18: the projects whose rows use a stored file (testimonial files, answer
+ * videos, attached images, customer photos, image studio uploads, and
+ * project, form, wall and booster logos), so a private file goes only to
+ * someone who may open one of them. Usually one; a file nothing uses has none.
+ */
+export function mediaProjectIds(key: string): string[] {
+  return getDb()
+    .all<{ projectId: string }>(mediaProjectsQuery(key))
+    .map((r) => r.projectId);
+}
+
+/** The query behind mediaProjectIds (exported so a test can check every branch uses an index). */
+export function mediaProjectsQuery(key: string) {
+  return sql`
+    SELECT project_id AS projectId FROM testimonials
+      WHERE avatar_key = ${key} OR video_key = ${key} OR video_original_key = ${key} OR poster_key = ${key} OR company_logo_key = ${key}
+    UNION SELECT t.project_id FROM answers a JOIN testimonials t ON t.id = a.testimonial_id
+      WHERE a.video_key = ${key} OR a.video_original_key = ${key} OR a.poster_key = ${key}
+    UNION SELECT t.project_id FROM testimonial_images i JOIN testimonials t ON t.id = i.testimonial_id WHERE i.key = ${key}
+    UNION SELECT project_id FROM customers WHERE avatar_key = ${key}
+    UNION SELECT project_id FROM share_assets WHERE key = ${key}
+    UNION SELECT id FROM projects WHERE logo_key = ${key}
+    UNION SELECT project_id FROM forms WHERE logo_key = ${key}
+    UNION SELECT project_id FROM walls WHERE logo_key = ${key} OR cover_key = ${key} OR favicon_key = ${key}
+    UNION SELECT project_id FROM boosters WHERE logo_key = ${key}`;
+}
+
 export function countByStatus(projectId: string) {
   const counts: Record<TestimonialStatus, number> = { pending: 0, approved: 0, rejected: 0, hidden: 0, trashed: 0 };
   const rows = getDb()

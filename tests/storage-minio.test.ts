@@ -3,7 +3,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { GET as media } from "@/app/api/media/[...key]/route";
+import { POST as startUpload } from "@/app/api/projects/[slug]/uploads/route";
 import { POST as submit } from "@/app/api/projects/[slug]/testimonials/route";
+import { POST as completeRoute } from "@/app/api/uploads/[id]/complete/route";
+import { POST as partsRoute } from "@/app/api/uploads/[id]/parts/route";
 import { env } from "@/lib/env";
 import { newKey, resetStorage, saveFile, storage, storageStatus } from "@/lib/storage";
 import { createS3Driver, S3Error, type S3Config } from "@/lib/storage/s3";
@@ -16,7 +19,8 @@ import { params, PNG_BYTES, submissionForm, submitRequest, useTempDataDir, WEBM_
  * .github/workflows/ci.yml and docker-compose.s3.yml). tests/storage-s3.test.ts
  * covers the same driver against an in-process fake, which can also inject
  * failures; this file checks that real S3 agrees with it: signing, multipart,
- * ranges, deletes, presigned URLs and the app's media route. Skipped unless
+ * ranges, deletes, presigned URLs, direct uploads (L9) and the app's media
+ * route. Skipped unless
  * S3_TEST_ENDPOINT is set, e.g.
  *
  *   S3_TEST_ENDPOINT=http://127.0.0.1:9000 S3_TEST_BUCKET=plaudit \
@@ -188,5 +192,73 @@ describe.skipIf(!ENDPOINT)("TEAM-05 STORAGE_DRIVER=s3 against a real S3 server (
     expect(Buffer.from(await part.arrayBuffer()).equals(data.subarray(100, 200))).toBe(true);
     await deleteTestimonial(t.id);
     expect(await storage().stat(key)).toBeNull();
+  });
+});
+
+describe.skipIf(!ENDPOINT)("TEAM-05 L9 direct uploads against a real S3 server (MinIO)", () => {
+  let ctx: ReturnType<typeof useTempDataDir>;
+  const ENV = {
+    STORAGE_DRIVER: "s3",
+    S3_ENDPOINT: ENDPOINT,
+    S3_REGION: REAL.region,
+    S3_BUCKET: REAL.bucket,
+    S3_ACCESS_KEY_ID: REAL.accessKeyId,
+    S3_SECRET_ACCESS_KEY: REAL.secretAccessKey,
+    S3_FORCE_PATH_STYLE: "true",
+    S3_PREFIX: `direct-${crypto.randomUUID()}`,
+    S3_DIRECT_UPLOADS: "true",
+  };
+  const IP = { "x-forwarded-for": "198.51.100.40" };
+
+  beforeEach(() => {
+    ctx = useTempDataDir();
+    Object.assign(process.env, ENV);
+    resetStorage();
+    registerJobs();
+    createProject({ name: "Acme", slug: "acme" });
+  });
+  afterEach(() => {
+    for (const k of Object.keys(ENV)) delete process.env[k];
+    resetStorage();
+    ctx.cleanup();
+  });
+
+  const driver = () => createS3Driver({ ...REAL, prefix: `${ENV.S3_PREFIX}/`, tmpDir: () => env.tmpDir });
+  const start = async () => {
+    const res = await startUpload(
+      new Request("http://localhost/api/projects/acme/uploads", { method: "POST", body: JSON.stringify({ direct: true, contentType: "video/webm" }), headers: { ...IP, "content-type": "application/json" } }),
+      params({ slug: "acme" }),
+    );
+    return (await res.json()) as { id: string; token: string; direct?: { partSize: number } };
+  };
+  const call = (route: typeof partsRoute, id: string, token: string, body?: unknown) =>
+    route(new Request(`http://localhost/api/uploads/${id}/x`, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body), headers: { ...IP, "x-upload-token": token } }), params({ id }));
+  /** PUTs bytes to a presigned part URL with Node's fetch, which sends Content-Length as a browser does. */
+  const putPart = async (id: string, token: string, bytes: Uint8Array, size = bytes.byteLength) => {
+    const { url, headers } = await (await call(partsRoute, id, token, { partNumber: 1, size })).json();
+    return fetch(url, { method: "PUT", headers, body: new Uint8Array(bytes) });
+  };
+
+  it("TEAM-05 L9 the bucket takes a presigned part only at its signed size, and the server sniffs and stores it", async () => {
+    const { id, token, direct } = await start();
+    expect(direct?.partSize).toBeGreaterThan(0);
+    const data = Buffer.concat([Buffer.from(WEBM_BYTES), crypto.randomBytes(2000)]);
+    expect((await putPart(id, token, data, data.length + 1)).status).toBe(403);
+    expect((await putPart(id, token, data)).status).toBe(200);
+    expect(await (await call(completeRoute, id, token)).json()).toEqual({ offset: data.length });
+    const res = await submit(submitRequest("acme", submissionForm({ name: "Ada", consent: "on", videoUpload: id, videoUploadToken: token })), params({ slug: "acme" }));
+    expect(res.status).toBe(201);
+    const t = getTestimonial((await res.json()).id)!;
+    expect((await readAll(await storage().read(t.videoKey!))).equals(data)).toBe(true);
+    expect(await driver().stat(`tmp/${id}`)).toBeNull();
+    await deleteTestimonial(t.id);
+  });
+
+  it("TEAM-05 L9 a finished upload that isn't a video is refused and deleted from the bucket", async () => {
+    const { id, token } = await start();
+    const svg = new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"/>');
+    expect((await putPart(id, token, svg)).status).toBe(200);
+    expect((await call(completeRoute, id, token)).status).toBe(415);
+    expect(await driver().stat(`tmp/${id}`)).toBeNull();
   });
 });

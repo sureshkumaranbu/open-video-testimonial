@@ -3,11 +3,14 @@ import crypto from "node:crypto";
 /**
  * An in-process stand-in for an S3-compatible bucket, reached through an
  * injected fetch rather than a port, so the tests run inside the sandbox.
- * It speaks just enough S3 for Plaudit's driver: PUT, multipart uploads, GET
- * with Range, HEAD, DELETE and HeadBucket, path-style or virtual-hosted. Every
- * request's SigV4 Authorization header is checked against the secret, with
- * its own implementation of the signing rules, so a header the driver sends
- * without signing (or signs but doesn't send) fails the way it would on S3.
+ * It speaks just enough S3 for Plaudit's driver: PUT, multipart uploads
+ * (with ListParts), CopyObject, GET with Range, HEAD, DELETE and HeadBucket,
+ * path-style or virtual-hosted. Every request's SigV4 Authorization header,
+ * or a presigned URL's query-string signature (L9's direct uploads), is
+ * checked against the secret with its own implementation of the signing
+ * rules, so a header the driver sends without signing (or signs but doesn't
+ * send), a part of another size or type than was signed, or an expired URL
+ * fails the way it would on S3.
  */
 export type FakeObject = { body: Buffer; contentType: string; etag: string; lastModified: Date };
 export type FakeRequest = { method: string; host: string; path: string; query: string; headers: Record<string, string>; bodyBytes: number };
@@ -85,6 +88,53 @@ export function createFakeS3(o: FakeS3Options) {
     return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature)) ? null : "signature doesn't match";
   }
 
+  /** The same check for a presigned URL: the signature and its parameters travel in the query string. */
+  function verifyPresigned(method: string, url: URL, headers: Record<string, string>): { status: number; code: string; problem: string } | null {
+    const q = url.searchParams;
+    const bad = (problem: string, code = "SignatureDoesNotMatch", status = 403) => ({ status, code, problem });
+    if (q.get("X-Amz-Algorithm") !== "AWS4-HMAC-SHA256") return bad("unsupported X-Amz-Algorithm");
+    const cred = /^([^/]+)\/(\d{8})\/([^/]+)\/s3\/aws4_request$/.exec(q.get("X-Amz-Credential") ?? "");
+    if (!cred) return bad("malformed X-Amz-Credential");
+    const [, keyId, day, region] = cred;
+    if (keyId !== o.accessKeyId) return bad("unknown access key", "InvalidAccessKeyId");
+    if (region !== o.region) return bad(`wrong region ${region}`);
+    const date = q.get("X-Amz-Date") ?? "";
+    const at = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/.exec(date);
+    if (!at || !date.startsWith(day)) return bad("X-Amz-Date doesn't match the credential scope");
+    const signedAt = Date.UTC(+at[1], +at[2] - 1, +at[3], +at[4], +at[5], +at[6]);
+    const expires = Number(q.get("X-Amz-Expires"));
+    if (!Number.isInteger(expires) || expires < 1 || expires > 604800) return bad("invalid X-Amz-Expires", "AuthorizationQueryParametersError", 400);
+    if (Date.now() > signedAt + expires * 1000) return bad("Request has expired", "AccessDenied");
+    const signedHeaders = q.get("X-Amz-SignedHeaders") ?? "";
+    const names = signedHeaders.split(";");
+    if (!names.includes("host")) return bad("host isn't signed");
+    if ([...names].sort().join(";") !== signedHeaders) return bad("SignedHeaders aren't sorted");
+    const values: Record<string, string> = { ...headers, host: url.host };
+    for (const n of names) if (values[n] === undefined) return bad(`signed header ${n} wasn't sent`);
+    const path = url.pathname
+      .split("/")
+      .map((s) => strict(decodeURIComponent(s)))
+      .join("/");
+    const query = url.search
+      .slice(1)
+      .split("&")
+      .filter((p) => p && !p.startsWith("X-Amz-Signature="))
+      .map((p) => {
+        const i = p.indexOf("=");
+        const [k, v] = i < 0 ? [p, ""] : [p.slice(0, i), p.slice(i + 1)];
+        return `${strict(decodeURIComponent(k))}=${strict(decodeURIComponent(v))}`;
+      })
+      .sort()
+      .join("&");
+    const canonical = [method, path, query, names.map((n) => `${n}:${values[n].trim().replace(/\s+/g, " ")}\n`).join(""), signedHeaders, "UNSIGNED-PAYLOAD"].join("\n");
+    const toSign = ["AWS4-HMAC-SHA256", date, `${day}/${region}/s3/aws4_request`, sha256(canonical)].join("\n");
+    let k = hmac(`AWS4${o.secretAccessKey}`, day);
+    for (const part of [region, "s3", "aws4_request"]) k = hmac(k, part);
+    const expected = hmac(k, toSign).toString("hex");
+    const signature = q.get("X-Amz-Signature") ?? "";
+    return signature.length === expected.length && crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature)) ? null : bad("signature doesn't match");
+  }
+
   function getObject(key: string, method: string, range: string | undefined) {
     const obj = objects.get(key);
     if (!obj) return method === "HEAD" ? new Response(null, { status: 404 }) : s3Error(404, "NoSuchKey", "The specified key does not exist.");
@@ -121,8 +171,15 @@ export function createFakeS3(o: FakeS3Options) {
       const [f] = failures.splice(failure, 1);
       return s3Error(f.status, "InternalError", "We encountered an internal error. Please try again.");
     }
-    const problem = verify(req.method, url, headers, body);
-    if (problem) return s3Error(403, "SignatureDoesNotMatch", problem);
+    if (url.searchParams.has("X-Amz-Signature")) {
+      // Over HTTP a browser always sends the body's length.
+      if (body.length || req.method === "PUT") headers["content-length"] ??= String(body.length);
+      const refused = verifyPresigned(req.method, url, headers);
+      if (refused) return s3Error(refused.status, refused.code, refused.problem);
+    } else {
+      const problem = verify(req.method, url, headers, body);
+      if (problem) return s3Error(403, "SignatureDoesNotMatch", problem);
+    }
 
     // Virtual-hosted (bucket.host/key) or path-style (host/bucket/key).
     const segments = url.pathname.split("/").slice(1).map(decodeURIComponent);
@@ -154,6 +211,15 @@ export function createFakeS3(o: FakeS3Options) {
         uploads.delete(uploadId);
         return new Response(null, { status: 204 });
       }
+      if (req.method === "GET") {
+        const parts = [...upload.parts].sort(([a], [b]) => a - b);
+        return xml(
+          200,
+          `<ListPartsResult><Bucket>${o.bucket}</Bucket><Key>${key}</Key><UploadId>${uploadId}</UploadId><IsTruncated>false</IsTruncated>${parts
+            .map(([n, p]) => `<Part><PartNumber>${n}</PartNumber><ETag>${p.etag.replace(/"/g, "&#34;")}</ETag><Size>${p.body.length}</Size></Part>`)
+            .join("")}</ListPartsResult>`,
+        );
+      }
       if (req.method === "POST") {
         const listed = [...body.toString("utf8").matchAll(/<Part><PartNumber>(\d+)<\/PartNumber><ETag>([^<]+)<\/ETag><\/Part>/g)].map((m) => ({
           n: Number(m[1]),
@@ -176,6 +242,16 @@ export function createFakeS3(o: FakeS3Options) {
     }
     switch (req.method) {
       case "PUT": {
+        const source = headers["x-amz-copy-source"];
+        if (source) {
+          const [srcBucket, ...rest] = decodeURIComponent(source).replace(/^\//, "").split("/");
+          const from = srcBucket === o.bucket ? objects.get(rest.join("/")) : undefined;
+          if (!from) return s3Error(404, "NoSuchKey", "The specified key does not exist.");
+          const replace = headers["x-amz-metadata-directive"] === "REPLACE";
+          const copy = { body: Buffer.from(from.body), contentType: replace ? (headers["content-type"] ?? from.contentType) : from.contentType, etag: from.etag, lastModified: new Date() };
+          objects.set(key, copy);
+          return xml(200, `<CopyObjectResult><ETag>${copy.etag.replace(/"/g, "&quot;")}</ETag></CopyObjectResult>`);
+        }
         const etag = `"${md5(body).toString("hex")}"`;
         objects.set(key, { body, contentType: headers["content-type"] ?? "binary/octet-stream", etag, lastModified: new Date() });
         return new Response(null, { status: 200, headers: { etag } });

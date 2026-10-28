@@ -182,6 +182,21 @@ export const env = {
   get embeddingsModel() {
     return (process.env.EMBEDDINGS_MODEL || "").trim();
   },
+  /**
+   * ONB-02 (L10): the onboarding brand scan's optional AI step, with your own
+   * OpenAI-compatible /chat/completions endpoint (BRAND_AI_API_URL,
+   * BRAND_AI_API_KEY, BRAND_AI_MODEL). Off until a model is set; the text of
+   * the home page being scanned is then sent to that provider.
+   */
+  get brandAiApiUrl() {
+    return (process.env.BRAND_AI_API_URL || "https://api.openai.com/v1").trim().replace(/\/+$/, "");
+  },
+  get brandAiApiKey() {
+    return process.env.BRAND_AI_API_KEY || "";
+  },
+  get brandAiModel() {
+    return (process.env.BRAND_AI_MODEL || "").trim();
+  },
   /** Store a keyed hash of the submitter's IP with each consent record. Off by default. */
   get consentIpHash() {
     return process.env.CONSENT_IP_HASH === "true";
@@ -272,6 +287,10 @@ export const env = {
   get s3Prefix() {
     const p = (process.env.S3_PREFIX || "").trim().replace(/^\/+|\/+$/g, "");
     return p ? `${p}/` : "";
+  },
+  /** L9: with STORAGE_DRIVER=s3, browsers upload videos straight to the bucket through presigned URLs (needs the bucket's CORS to allow PUT from PUBLIC_URL). */
+  get s3DirectUploads() {
+    return process.env.S3_DIRECT_UPLOADS === "true";
   },
   /** Your own key for the Google review importer (Places API). */
   get googlePlacesApiKey() {

@@ -3,27 +3,60 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api } from "@/app/admin/api";
+import { ProgressBar } from "@/components/admin/ProgressBar";
+import { useRunProgress } from "@/components/admin/RunProgress";
 import { Icon } from "@/components/Icon";
 import "@/app/admin/onboarding.css";
 
 type Item = { id: string; authorName: string; authorTitle: string | null; authorCompany: string | null; rating: number | null; text: string | null };
-type Discovery = { runId: string | null; items: Item[]; error: string | null };
-type Created = { project: { id: string; slug: string; name: string }; discovery: Discovery | null };
+type Discovery = { runId: string | null; items: Item[]; brand: { name?: string; color?: string } | null; error: string | null };
+type Created = { project: { id: string; slug: string; name: string }; scan: { id: string } | null };
 type Run = { status: string; done: number; total: number; duplicates: number; failed: number };
 
+/** What the brand scan is doing, by how many of its three steps are done. */
+const SCAN_STEPS = ["Reading your site…", "Looking at your logo and colours…", "Saving what we found…"];
+
 /**
- * ONB-01, ONB-03: name, website and business type; then what we found on the
- * site to choose from; then done. Every step can be skipped.
+ * ONB-01..03: name, website and business type; then the brand scan's
+ * progress (it runs in the background, so the owner can move on and the
+ * brand still lands on the project); then what we found on the site to
+ * choose from; then done. Every step can be skipped.
  */
 export function Wizard({ businessTypes, emailOn }: { businessTypes: { id: string; label: string }[]; emailOn: boolean }) {
   const router = useRouter();
-  const [step, setStep] = useState<"about" | "found" | "importing" | "done">("about");
+  const [step, setStep] = useState<"about" | "scanning" | "found" | "importing" | "done">("about");
   const [created, setCreated] = useState<Created | null>(null);
+  const [discovery, setDiscovery] = useState<Discovery | null>(null);
   const [chosen, setChosen] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [imported, setImported] = useState(0);
   const [runId, setRunId] = useState<string | null>(null);
+  /** The owner went on before the scan finished: what it finds is offered on the last step. */
+  const [movedOn, setMovedOn] = useState(false);
+  const scanId = created?.scan?.id ?? null;
+  const { run: scan } = useRunProgress(scanId, { intervalMs: 700 });
+
+  // Once the scan ends, fetch what it found: straight to the list while the
+  // wizard waits for it, or as an offer on the last step if the owner moved on.
+  const scanFinished = Boolean(scan?.finished);
+  useEffect(() => {
+    if (!scanFinished || !scanId || !created) return;
+    let stop = false;
+    void api<{ discovery: Discovery | null }>(`/api/admin/onboarding/discover?projectId=${encodeURIComponent(created.project.id)}&runId=${encodeURIComponent(scanId)}`)
+      .then(({ discovery: d }) => {
+        if (stop || !d) return;
+        setDiscovery(d);
+        setChosen(d.items.map((i) => i.id));
+        setStep((s) => (s === "scanning" ? "found" : s));
+      })
+      .catch(() => {
+        if (!stop) setStep((s) => (s === "scanning" ? "done" : s));
+      });
+    return () => {
+      stop = true;
+    };
+  }, [scanFinished, scanId, created]);
 
   // Follow the import until it ends (it runs in the background worker).
   useEffect(() => {
@@ -70,12 +103,7 @@ export function Wizard({ businessTypes, emailOn }: { businessTypes: { id: string
               },
             });
             setCreated(res);
-            if (res.discovery) {
-              setChosen(res.discovery.items.map((i) => i.id));
-              setStep("found");
-            } else {
-              setStep("done");
-            }
+            setStep(res.scan ? "scanning" : "done");
           } catch (err) {
             setError((err as Error).message);
           } finally {
@@ -135,8 +163,43 @@ export function Wizard({ businessTypes, emailOn }: { businessTypes: { id: string
   const project = created!.project;
   const goToProject = () => router.push(`/admin/projects/${project.id}`);
 
-  if (step === "found") {
-    const d = created!.discovery!;
+  if (step === "scanning") {
+    return (
+      <section className="panel ob-wizard" data-testid="welcome-scanning" aria-labelledby="scan-h" aria-busy="true">
+        <div className="panel-head">
+          <h2 id="scan-h" style={{ fontSize: "var(--text-base)" }}>
+            Looking at your site
+          </h2>
+        </div>
+        <div className="panel-body stack">
+          <div role="status" aria-live="polite">
+            <ProgressBar
+              label="Brand and testimonials"
+              value={scan?.percent ?? null}
+              detail={scan?.status === "queued" || !scan ? "Starting…" : SCAN_STEPS[Math.min(scan.done, SCAN_STEPS.length - 1)]}
+              testId="welcome-scan-progress"
+            />
+          </div>
+          <p className="muted small">This takes up to 30 seconds. Your project is ready: you can carry on, and your logo and colour are added when it&apos;s done.</p>
+          <div className="row">
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => {
+                setMovedOn(true);
+                setStep("done");
+              }}
+            >
+              Continue without waiting
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (step === "found" && discovery) {
+    const d = discovery;
     const all = d.items.length > 0 && chosen.length === d.items.length;
     return (
       <section className="panel ob-wizard" data-testid="welcome-found" aria-labelledby="found-h">
@@ -147,6 +210,12 @@ export function Wizard({ businessTypes, emailOn }: { businessTypes: { id: string
         </div>
         <div className="panel-body stack">
           {d.error && <p className="notice warn small">{d.error}</p>}
+          {d.brand?.color && (
+            <p className="small" data-testid="welcome-brand">
+              <span className="ob-swatch" style={{ background: d.brand.color }} aria-hidden="true" />
+              Your form, wall and widgets now use your colour, {d.brand.color}.
+            </p>
+          )}
           {d.items.length === 0 ? (
             <p className="muted small">
               That&apos;s fine: you can import reviews from Google, Trustpilot and others, or send your form link to customers. Your
@@ -248,6 +317,28 @@ export function Wizard({ businessTypes, emailOn }: { businessTypes: { id: string
           {imported ? `${imported} ${imported === 1 ? "testimonial" : "testimonials"} imported. ` : ""}We made a step-by-step collection form, a Wall of
           Love and two widgets (a grid and a carousel) in your colours.
         </p>
+        {movedOn && !scan?.finished && (
+          <p className="muted small" role="status" data-testid="welcome-scan-pending">
+            We&apos;re still looking at your site. Your logo and colour are added when that&apos;s done, even if you leave this page.
+          </p>
+        )}
+        {movedOn && discovery && discovery.items.length > 0 && !runId && (
+          <div className="notice small row" data-testid="welcome-found-later">
+            <span>
+              We found {discovery.items.length} {discovery.items.length === 1 ? "testimonial" : "testimonials"} on your site.
+            </span>
+            <button
+              type="button"
+              className="ghost small"
+              onClick={() => {
+                setMovedOn(false);
+                setStep("found");
+              }}
+            >
+              Review them
+            </button>
+          </div>
+        )}
         <ul className="ob-made small">
           <li>
             <Icon name="link" /> <a href={`/admin/projects/${project.id}/forms`}>Your collection form</a>

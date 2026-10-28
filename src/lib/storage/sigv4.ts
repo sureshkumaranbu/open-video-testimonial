@@ -125,12 +125,14 @@ export function signRequest(
 }
 
 /**
- * A presigned URL (query-string auth) that works for `expiresSec` seconds
- * without any headers. Phase 1 serves media through the app (D16); this is
- * here for direct downloads later (P1).
+ * A presigned URL (query-string auth) that works for `expiresSec` seconds.
+ * Media is still served through the app (D16); direct uploads (L9) presign
+ * each part's PUT with `headers` signed too (`content-length`,
+ * `content-type`), so S3 refuses a body of another size or type. The
+ * request must then send exactly those headers.
  */
 export function presignUrl(
-  req: { method: string; url: URL; expiresSec: number },
+  req: { method: string; url: URL; expiresSec: number; headers?: Record<string, string> },
   credentials: SigV4Credentials,
   scope: SigV4Scope,
   now = new Date(),
@@ -139,12 +141,15 @@ export function presignUrl(
   const dateStamp = date.slice(0, 8);
   const credentialScope = `${dateStamp}/${scope.region}/${scope.service}/aws4_request`;
   const url = new URL(req.url);
+  const signed: Record<string, string> = { host: url.host };
+  for (const [k, v] of Object.entries(req.headers ?? {})) signed[k.toLowerCase()] = v;
+  const names = Object.keys(signed).sort();
   const params: [string, string][] = [
     ["X-Amz-Algorithm", ALGORITHM],
     ["X-Amz-Credential", `${credentials.accessKeyId}/${credentialScope}`],
     ["X-Amz-Date", date],
     ["X-Amz-Expires", String(Math.max(1, Math.min(Math.floor(req.expiresSec), 604800)))],
-    ["X-Amz-SignedHeaders", "host"],
+    ["X-Amz-SignedHeaders", names.join(";")],
   ];
   if (credentials.sessionToken) params.push(["X-Amz-Security-Token", credentials.sessionToken]);
   const extra = params.map(([k, v]) => `${uriEncode(k)}=${uriEncode(v)}`).join("&");
@@ -153,8 +158,8 @@ export function presignUrl(
     req.method.toUpperCase(),
     canonicalUri(url),
     canonicalQuery(url.search),
-    `host:${url.host}\n`,
-    "host",
+    names.map((n) => `${n}:${String(signed[n]).trim().replace(/\s+/g, " ")}\n`).join(""),
+    names.join(";"),
     UNSIGNED_PAYLOAD,
   ].join("\n");
   const stringToSign = [ALGORITHM, date, credentialScope, sha256Hex(canonicalRequest)].join("\n");
