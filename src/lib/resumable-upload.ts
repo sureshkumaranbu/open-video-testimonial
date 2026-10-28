@@ -247,6 +247,8 @@ export class ResumableUpload {
       try {
         const { id, token } = await this.start();
         if (this.partSize !== null) {
+          // The session may only now have said it's direct: a part must be whole, so wait for more.
+          if (!this.ready()) break;
           await this.directStep(id, token, this.partSize);
           failures = 0;
           this.emit();

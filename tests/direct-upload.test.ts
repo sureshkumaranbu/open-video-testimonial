@@ -162,6 +162,24 @@ describe("TEAM-05 L9 direct-to-S3 uploads", () => {
     expect(fake.requests.some((r) => r.method === "PUT" && r.headers["x-amz-copy-source"] === `/${BUCKET}/media/tmp/${id}`)).toBe(true);
   });
 
+  it("TEAM-05 L9 while recording, it waits for a whole part before sending one", async () => {
+    const log: string[] = [];
+    const upload = new ResumableUpload({ createUrl: "/api/projects/acme/uploads", fetch: browserFetch(log), retryDelayMs: 1 });
+    const data = webm(DIRECT_PART_BYTES + 300_000);
+    // The first second of a recording starts the session; the rest arrives later.
+    upload.append(new Blob([data.subarray(0, 300_000)], { type: "video/webm" }));
+    await expect.poll(() => log.length).toBe(1);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(log).toEqual(["POST /api/projects/acme/uploads"]);
+    upload.append(new Blob([data.subarray(300_000, DIRECT_PART_BYTES + 10)]));
+    await expect.poll(() => log.filter((l) => l === "PUT bucket part").length).toBe(1);
+    upload.append(new Blob([data.subarray(DIRECT_PART_BYTES + 10)]));
+    const { id, token } = await upload.finish();
+    expect(log.filter((l) => l === "PUT bucket part")).toHaveLength(2);
+    const t = await submitWith(id, token);
+    expect(fake.objects.get(`media/${t.videoKey}`)!.body.equals(data)).toBe(true);
+  });
+
   it("TEAM-05 L9 falls back to the relayed path on the same session when the bucket refuses the browser (CORS)", async () => {
     const log: string[] = [];
     const cors = async () => {
