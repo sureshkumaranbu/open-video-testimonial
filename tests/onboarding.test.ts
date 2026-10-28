@@ -2,26 +2,48 @@ import fs from "node:fs";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST as wizardRoute } from "@/app/api/admin/onboarding/route";
+import { GET as scanRoute, POST as rescanRoute } from "@/app/api/admin/onboarding/discover/route";
 import { POST as importRoute } from "@/app/api/admin/onboarding/import/route";
 import { PATCH as checklistRoute } from "@/app/api/admin/projects/[id]/checklist/route";
+import { eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { getDefaultForm } from "@/lib/forms";
 import { parseFormRow } from "@/lib/forms/schema";
 import { brandFromHtml, discoverFromHtml, robotsAllows } from "@/lib/importers/sources/website";
 import { runDueJobs } from "@/lib/jobs";
 import { getPrefs } from "@/lib/notifications/prefs";
-import { checklistState, createStarterAssets, discover, getWelcome, parseOnboarding } from "@/lib/onboarding";
+import { BRAND_SCAN_JOB, checklistState, createStarterAssets, type Discovery, getDiscovery, getWelcome, parseOnboarding, setOnboardingFetch, startDiscovery } from "@/lib/onboarding";
+import { fetchPublicText } from "@/lib/net-guard";
 import { parseBrand } from "@/lib/projects";
 import { createProject, createTestimonial, getProjectById, listTestimonials } from "@/lib/testimonials";
-import { getWall } from "@/lib/walls";
+import { getWall, wallConfig } from "@/lib/walls";
 import { listWidgets, updateWidget, widgetConfig } from "@/lib/widgets";
 import { registerJobs } from "@/lib/worker";
 import { ADMIN_EMAIL, adminHeaders, params, useTempDataDir } from "./helpers";
 
 const SITE = path.resolve(__dirname, "fixtures/onboarding/site");
 const html = fs.readFileSync(path.join(SITE, "index.html"), "utf8");
+/** A page the heuristics get little from: no site name tag, no theme colour, a testimonial in plain paragraphs. */
+const PLAIN = `<!doctype html><html><head><title>Home</title><style>.btn{background:#E0457B;color:#fff}body{color:#222222}</style></head><body>
+<h1>Tamarind Tours</h1><p>Small-group food walks through the old town.</p>
+<p>Sam Patel told us the evening walk was the best thing he did on his whole trip to the city.</p>
+<a class="btn" href="/book">Book a walk</a></body></html>`;
+
+/** Runs a brand scan of `url` through the job queue, as the dashboard would. */
+async function scan(projectId: string, url: string): Promise<Discovery> {
+  const run = startDiscovery(projectId, url);
+  await runDueJobs();
+  return getDiscovery(projectId, run.id)!.discovery!;
+}
+
+/** A stand-in OpenAI-compatible provider: answers what `answer` says and records what it was sent. */
+let provider: http.Server;
+let providerOrigin = "";
+let answer: (body: { messages: { role: string; content: string }[] }) => { status?: number; body: unknown; delayMs?: number } = () => ({ body: {} });
+const sent: { auth: string | undefined; body: { model: string; messages: { role: string; content: string }[] } }[] = [];
+const chat = (content: unknown) => ({ body: { choices: [{ message: { role: "assistant", content: typeof content === "string" ? content : JSON.stringify(content) } }] } });
 
 /** A stand-in for the owner's site: the fixture, plus a site whose robots.txt says no and an oversized page. */
 let server: http.Server;
@@ -37,12 +59,31 @@ beforeAll(async () => {
     }
     if (url.pathname === "/site/" || url.pathname === "/site/index.html") return res.writeHead(200, { "content-type": "text/html; charset=utf-8" }).end(html);
     if (url.pathname === "/site/logo.png") return res.writeHead(200, { "content-type": "image/png" }).end(fs.readFileSync(path.join(SITE, "logo.png")));
+    if (url.pathname === "/plain/") return res.writeHead(200, { "content-type": "text/html" }).end(PLAIN);
     res.writeHead(404).end("not found");
   });
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
   origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  provider = http.createServer((req, res) => {
+    let raw = "";
+    req.on("data", (c) => (raw += c));
+    req.on("end", () => {
+      const body = JSON.parse(raw || "{}");
+      sent.push({ auth: req.headers.authorization, body });
+      const a = answer(body);
+      setTimeout(() => {
+        if (!res.destroyed) res.writeHead(a.status ?? 200, { "content-type": "application/json" }).end(typeof a.body === "string" ? a.body : JSON.stringify(a.body));
+      }, a.delayMs ?? 0);
+    });
+  });
+  await new Promise<void>((r) => provider.listen(0, "127.0.0.1", r));
+  providerOrigin = `http://127.0.0.1:${(provider.address() as AddressInfo).port}`;
 });
-afterAll(() => new Promise<void>((r) => server.close(() => r())));
+afterAll(async () => {
+  await new Promise<void>((r) => server.close(() => r()));
+  provider.closeAllConnections();
+  await new Promise<void>((r) => provider.close(() => r()));
+});
 
 let ctx: ReturnType<typeof useTempDataDir>;
 beforeEach(() => {
@@ -53,6 +94,13 @@ beforeEach(() => {
 });
 afterEach(() => {
   delete process.env.NET_GUARD_ALLOW;
+  delete process.env.BRAND_AI_API_URL;
+  delete process.env.BRAND_AI_API_KEY;
+  delete process.env.BRAND_AI_MODEL;
+  sent.length = 0;
+  answer = () => ({ body: {} });
+  setOnboardingFetch(null);
+  vi.useRealTimers();
   ctx.cleanup();
 });
 
@@ -113,18 +161,230 @@ describe("finding testimonials on the owner's site", () => {
     expect(robotsAllows("", "/")).toBe(true);
     robots = "User-agent: *\nDisallow: /\n";
     const p = createProject({ name: "Bakery", slug: "bakery" });
-    const d = await discover(p.id, `${origin}/site/`);
+    const d = await scan(p.id, `${origin}/site/`);
     expect(d.error).toMatch(/robots\.txt/);
     expect(d.runId).toBeNull();
   });
 
   it("ONB-03 refuses pages over 5 MB and private addresses", async () => {
     const p = createProject({ name: "Bakery", slug: "bakery" });
-    expect((await discover(p.id, `${origin}/huge/`)).error).toMatch(/larger than 5 MB/);
+    expect((await scan(p.id, `${origin}/huge/`)).error).toMatch(/larger than 5 MB/);
     delete process.env.NET_GUARD_ALLOW;
-    expect((await discover(p.id, `${origin}/site/`)).error).toMatch(/private address/);
-    expect((await discover(p.id, "http://169.254.169.254/latest/meta-data/")).error).toMatch(/private address/);
-    expect((await discover(p.id, "ftp://example.com/")).error).toBeTruthy();
+    expect((await scan(p.id, `${origin}/site/`)).error).toMatch(/private address/);
+    expect((await scan(p.id, "http://169.254.169.254/latest/meta-data/")).error).toMatch(/private address/);
+    expect((await scan(p.id, "ftp://example.com/")).error).toBeTruthy();
+  });
+});
+
+describe("the brand scan (L10)", () => {
+  const useProvider = (model = "brand-test-model") => {
+    process.env.BRAND_AI_API_URL = `${providerOrigin}/v1`;
+    process.env.BRAND_AI_API_KEY = "sk-test-brand";
+    if (model) process.env.BRAND_AI_MODEL = model;
+  };
+
+  it("ONB-02 L10 runs as a background job and puts the colour, logo and site name on the project and its starter assets, even after the wizard moved on", async () => {
+    const res = await wizardRoute(post("/api/admin/onboarding", { name: "Larkspur", website: `${origin}/site/`, businessType: "local" }));
+    const { project, scan: run } = (await res.json()) as { project: { id: string }; scan: { id: string } };
+    // The wizard answered before the site was read: the project and starters exist in the default look.
+    const before = getProjectById(project.id)!;
+    expect(parseBrand(before.brand).colors.primary).toBeUndefined();
+    expect(before.logoKey).toBeNull();
+    const { starter } = parseOnboarding(before.onboarding);
+    expect(parseFormRow(getDefaultForm(project.id)).design.primary).toBeUndefined();
+    const job = getDb().select().from(schema.jobs).where(eq(schema.jobs.type, BRAND_SCAN_JOB)).get()!;
+    // L19: the job names its project, so its progress follows project access.
+    expect(JSON.parse(job.payload)).toEqual({ projectId: project.id, runId: run.id });
+    expect(getDiscovery(project.id, run.id)).toMatchObject({ run: { status: "queued", finished: false }, discovery: null });
+    // Nobody is waiting on the wizard any more; the worker gets to it.
+    const startedAt = Date.now();
+    await runDueJobs();
+    expect(Date.now() - startedAt).toBeLessThan(30_000);
+
+    const after = getProjectById(project.id)!;
+    expect(parseBrand(after.brand).colors).toMatchObject({ primary: "#2f6b4f", button: "#2f6b4f" });
+    expect(after.logoKey).toMatch(/^images\/.+\.png$/);
+    expect(parseOnboarding(after.onboarding).found).toMatchObject({ siteName: "Larkspur Bakery", color: "#2f6b4f", logo: true, ai: false });
+    expect(parseFormRow(getDefaultForm(project.id)).design).toMatchObject({ primary: "#2f6b4f", button: "#2f6b4f" });
+    const widgets = listWidgets(project.id);
+    expect(widgets.every((w) => widgetConfig(w).design.accent === "#2f6b4f")).toBe(true);
+    expect(wallConfig(getWall(starter!.wallId)!).heroCta.background).toBe("#2f6b4f");
+    // Recolouring isn't the owner customising a widget.
+    expect(checklistState(project.id).steps.find((s) => s.id === "widget")!.done).toBe(false);
+    const done = getDiscovery(project.id, run.id)!;
+    expect(done.run).toMatchObject({ status: "done", finished: true, percent: 100 });
+    expect(done.discovery).toMatchObject({ brand: { name: "Larkspur Bakery", color: "#2f6b4f" }, error: null });
+    expect(done.discovery!.items).toHaveLength(4);
+  });
+
+  it("ONB-02 L10 a colour the owner already chose stays, and scanning again replaces the earlier scan", async () => {
+    const p = createProject({ name: "Bakery", slug: "bakery" });
+    createStarterAssets(p, { businessType: "local", color: "#123456" });
+    const first = startDiscovery(p.id, `${origin}/site/`);
+    const res = await rescanRoute(post("/api/admin/onboarding/discover", { projectId: p.id, url: `${origin}/site/` }));
+    expect(res.status).toBe(201);
+    const { run } = (await res.json()) as { run: { id: string } };
+    expect(getDiscovery(p.id, first.id)).toBeNull();
+    await runDueJobs();
+    expect(parseBrand(getProjectById(p.id)!.brand).colors.primary).toBe("#123456");
+    expect(parseFormRow(getDefaultForm(p.id)).design.primary).toBe("#123456");
+    expect(getDiscovery(p.id, run.id)!.discovery!.items).toHaveLength(4);
+    // Another project's scan can't be read through this one.
+    const other = createProject({ name: "Other", slug: "other" });
+    const wrong = await scanRoute(new Request(`http://localhost/api/admin/onboarding/discover?projectId=${other.id}&runId=${run.id}`, { headers: adminHeaders() }));
+    expect(wrong.status).toBe(404);
+  });
+
+  it("ONB-02 L10 a site that can't be read ends the scan quietly: the defaults stay and the job doesn't fail", async () => {
+    const p = createProject({ name: "Bakery", slug: "bakery" });
+    createStarterAssets(p, { businessType: "local" });
+    const d = await scan(p.id, `${origin}/missing/`);
+    expect(d).toMatchObject({ runId: null, items: [], brand: null });
+    expect(d.error).toMatch(/404/);
+    expect(parseBrand(getProjectById(p.id)!.brand).colors.primary).toBeUndefined();
+    expect(getDb().select().from(schema.jobs).where(eq(schema.jobs.type, BRAND_SCAN_JOB)).get()!.status).toBe("done");
+  });
+
+  it("ONB-02 L10 every read waits 10 seconds at most, and the whole scan stops at 30 seconds", async () => {
+    const p = createProject({ name: "Bakery", slug: "bakery" });
+    const waits: { url: string; timeoutMs?: number }[] = [];
+    // Only the clock is faked: each read "takes" 12 seconds of it.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    setOnboardingFetch(async (url, o) => {
+      waits.push({ url, timeoutMs: o?.timeoutMs });
+      vi.setSystemTime(Date.now() + 12_000);
+      return fetchPublicText(url, o);
+    });
+    await scan(p.id, `${origin}/site/`);
+    expect(waits.map((w) => w.timeoutMs)).toEqual([10_000, 10_000]);
+
+    waits.length = 0;
+    setOnboardingFetch(async (url, o) => {
+      waits.push({ url, timeoutMs: o?.timeoutMs });
+      vi.setSystemTime(Date.now() + 25_000);
+      return fetchPublicText(url, o);
+    });
+    const late = await scan(p.id, `${origin}/site/`);
+    // robots.txt used 25 of the 30 seconds: the page gets what's left.
+    expect(waits[1].timeoutMs).toBeLessThanOrEqual(5_000);
+    expect(late.items).toHaveLength(4);
+
+    waits.length = 0;
+    setOnboardingFetch(async (url, o) => {
+      waits.push({ url, timeoutMs: o?.timeoutMs });
+      vi.setSystemTime(Date.now() + 31_000);
+      return fetchPublicText(url, o);
+    });
+    const over = await scan(p.id, `${origin}/site/`);
+    expect(waits).toHaveLength(1);
+    expect(over.error).toMatch(/30 second limit/);
+  });
+
+  it("ONB-02 L10 without BRAND_AI_MODEL nothing is sent to a provider", async () => {
+    useProvider("");
+    const p = createProject({ name: "Tours", slug: "tours" });
+    const d = await scan(p.id, `${origin}/plain/`);
+    expect(sent).toHaveLength(0);
+    expect(d.brand).toEqual({ name: "Home", color: undefined, logoUrl: undefined });
+    expect(parseOnboarding(getProjectById(p.id)!.onboarding).found).toMatchObject({ ai: false });
+  });
+
+  it("ONB-02 L10 with a provider set, its site name and colour fill what the page's tags leave out, checked against the page", async () => {
+    useProvider();
+    answer = () => chat({ siteName: "Tamarind Tours", primaryColor: "#e0457b", testimonials: [] });
+    const p = createProject({ name: "Tours", slug: "tours" });
+    createStarterAssets(p, { businessType: "local" });
+    const d = await scan(p.id, `${origin}/plain/`);
+    expect(sent).toHaveLength(1);
+    expect(sent[0].auth).toBe("Bearer sk-test-brand");
+    expect(sent[0].body.model).toBe("brand-test-model");
+    const prompt = sent[0].body.messages.find((m) => m.role === "user")!.content;
+    // The page's text, title and style colours, never its markup.
+    expect(prompt).toContain("Sam Patel told us the evening walk");
+    expect(prompt).toContain("#e0457b");
+    expect(prompt).not.toContain("<style>");
+    // The title "Home" came from the heuristics, so it stays; the colour the page's tags didn't give comes from the provider.
+    expect(d.brand).toMatchObject({ name: "Home", color: "#e0457b" });
+    expect(parseBrand(getProjectById(p.id)!.brand).colors.primary).toBe("#e0457b");
+    expect(parseFormRow(getDefaultForm(p.id)).design.primary).toBe("#e0457b");
+    expect(parseOnboarding(getProjectById(p.id)!.onboarding).found).toMatchObject({ ai: true, color: "#e0457b" });
+
+    // A colour the page doesn't use (or a grey) is ignored, and the page's own theme colour always wins.
+    answer = () => chat({ siteName: "Wrong", primaryColor: "#00ff00", testimonials: [] });
+    const q = createProject({ name: "Tours 2", slug: "tours-2" });
+    expect((await scan(q.id, `${origin}/plain/`)).brand?.color).toBeUndefined();
+    answer = () => chat({ siteName: "Wrong", primaryColor: "#e0457b", testimonials: [] });
+    const r = createProject({ name: "Bakery", slug: "bakery" });
+    expect((await scan(r.id, `${origin}/site/`)).brand).toMatchObject({ name: "Larkspur Bakery", color: "#2f6b4f" });
+  });
+
+  it("ONB-03 L10 the provider's testimonials join the list only when the quote and name are on the page, once each", async () => {
+    useProvider();
+    answer = () =>
+      chat(
+        "```json\n" +
+          JSON.stringify({
+            siteName: null,
+            primaryColor: null,
+            testimonials: [
+              { authorName: "Sam Patel", authorTitle: null, authorCompany: null, text: "The evening walk was the best thing he did on his whole trip to the city.", rating: 5 },
+              // Made up: not on the page.
+              { authorName: "Jo Bloggs", text: "Absolutely the finest food tour in the whole country, ten out of ten." },
+              // A real quote with an invented name.
+              { authorName: "Invented Person", text: "Small-group food walks through the old town." },
+              { authorName: "x", text: "too short" },
+            ],
+          }) +
+          "\n```",
+      );
+    const p = createProject({ name: "Tours", slug: "tours" });
+    const d = await scan(p.id, `${origin}/plain/`);
+    expect(d.items.map((i) => [i.authorName, i.text, i.rating])).toEqual([["Sam Patel", "The evening walk was the best thing he did on his whole trip to the city.", 5]]);
+    expect(d.runId).toBeTruthy();
+    // They import like the rest: approved, from the website.
+    const imp = await importRoute(post("/api/admin/onboarding/import", { projectId: p.id, runId: d.runId, selection: "all" }));
+    expect(imp.status).toBe(200);
+    await runDueJobs();
+    expect(listTestimonials(p.id).map((t) => [t.authorName, t.status, t.platform])).toEqual([["Sam Patel", "approved", "website"]]);
+
+    // On a page the markup already covers, the same quote suggested again isn't listed twice.
+    answer = () => chat({ testimonials: [{ authorName: "Ada Lovelace", text: "Their cinnamon buns turned our office meeting into the highlight of the week!" }] });
+    const q = createProject({ name: "Bakery", slug: "bakery" });
+    expect((await scan(q.id, `${origin}/site/`)).items.map((i) => i.authorName)).toEqual(["Grace Hopper", "Ada Lovelace", "Katherine Johnson", "Alan Turing"]);
+  });
+
+  it("ONB-02 L10 a provider error, junk answer or timeout falls back to the heuristics silently", async () => {
+    useProvider();
+    const quiet = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const expectHeuristics = async (slug: string) => {
+      const p = createProject({ name: slug, slug });
+      const d = await scan(p.id, `${origin}/site/`);
+      expect(d.error).toBeNull();
+      expect(d.brand).toMatchObject({ name: "Larkspur Bakery", color: "#2f6b4f" });
+      expect(d.items).toHaveLength(4);
+      expect(parseOnboarding(getProjectById(p.id)!.onboarding).found).toMatchObject({ ai: false });
+    };
+    answer = () => ({ status: 500, body: { error: { message: "server on fire" } } });
+    await expectHeuristics("err");
+    answer = () => chat("I'm sorry, I can't help with that.");
+    await expectHeuristics("prose");
+    answer = () => ({ body: "not json" });
+    await expectHeuristics("junk");
+    answer = () => chat({ siteName: 42, primaryColor: "red", testimonials: "none" });
+    const p = createProject({ name: "odd", slug: "odd" });
+    expect((await scan(p.id, `${origin}/site/`)).brand).toMatchObject({ name: "Larkspur Bakery", color: "#2f6b4f" });
+
+    // Slower than what's left of the 30 seconds: the scan doesn't wait for it.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    setOnboardingFetch(async (url, o) => {
+      if (url.endsWith("/robots.txt")) vi.setSystemTime(Date.now() + 27_500);
+      return fetchPublicText(url, o);
+    });
+    answer = () => ({ ...chat({ siteName: "Too late" }), delayMs: 4_000 });
+    const t0 = performance.now();
+    await expectHeuristics("slow");
+    expect(performance.now() - t0).toBeLessThan(3_900);
+    quiet.mockRestore();
   });
 });
 
@@ -132,8 +392,12 @@ describe("the wizard", () => {
   it("ONB-01 makes the project from the answers, imports the chosen finds as approved and ticks the email box", async () => {
     const res = await wizardRoute(post("/api/admin/onboarding", { name: "Larkspur Bakery", website: `${origin}/site/`, businessType: "local", emailMe: true }));
     expect(res.status).toBe(201);
-    const { project, discovery } = (await res.json()) as { project: { id: string; slug: string }; discovery: { runId: string; items: { id: string; authorName: string }[] } };
+    const { project, scan: run } = (await res.json()) as { project: { id: string; slug: string }; scan: { id: string; status: string } };
     expect(project.slug).toBe("larkspur-bakery");
+    expect(run.status).toBe("queued");
+    await runDueJobs();
+    const found = await scanRoute(new Request(`http://localhost/api/admin/onboarding/discover?projectId=${project.id}&runId=${run.id}`, { headers: adminHeaders() }));
+    const { discovery } = (await found.json()) as { discovery: { runId: string; items: { id: string; authorName: string }[] } };
     const row = getProjectById(project.id)!;
     expect(row).toMatchObject({ website: `${origin}/site/`, businessType: "local" });
     expect(parseOnboarding(row.onboarding).answers).toEqual({ businessType: "local", website: `${origin}/site/` });
@@ -160,9 +424,12 @@ describe("the wizard", () => {
   it("ONB-01 a site that can't be read still makes the project, and skipping hides the card", async () => {
     const res = await wizardRoute(post("/api/admin/onboarding", { name: "No Site", website: `${origin}/missing/`, businessType: "saas" }));
     expect(res.status).toBe(201);
-    const body = (await res.json()) as { discovery: { error: string; items: unknown[] } };
-    expect(body.discovery.error).toMatch(/404/);
-    expect(body.discovery.items).toEqual([]);
+    const body = (await res.json()) as { project: { id: string }; scan: { id: string } };
+    await runDueJobs();
+    const d = getDiscovery(body.project.id, body.scan.id)!;
+    expect(d.run.status).toBe("done");
+    expect(d.discovery!.error).toMatch(/404/);
+    expect(d.discovery!.items).toEqual([]);
     expect(getPrefs(ADMIN_EMAIL).newTestimonial).toBe("off");
     const skip = await wizardRoute(post("/api/admin/onboarding", { skip: true }));
     expect(skip.status).toBe(200);
