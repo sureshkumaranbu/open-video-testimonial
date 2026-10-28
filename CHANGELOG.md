@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **The setup guide's brand scan runs in the background** (ONB-02): the project is made at once, a progress bar follows the scan (30 seconds at most, `robots.txt` respected, 5 MB and 10 seconds per request, no private addresses), and the logo, colour and site name land on the project even if you move on first; the new form, wall and widgets take the colour. A site that can't be read keeps the default look. Optionally, `BRAND_AI_MODEL` (with `BRAND_AI_API_URL` and `BRAND_AI_API_KEY`) adds a step with your own OpenAI-compatible provider that can suggest the name, colour and testimonials; only what's really on the page is kept, and any provider problem is skipped silently. See [`docs/help/getting-started.md`](docs/help/getting-started.md#what-we-look-for-on-your-site).
+
+- The recorder's end-to-end tests wait for what the page and server do rather than for fixed times, and the playback check no longer depends on whether the browser plays H.264.
+
 - **Direct uploads to S3** (opt-in, `S3_DIRECT_UPLOADS=true` with `STORAGE_DRIVER=s3`): videos go from the browser straight to your bucket in 8 MB parts, through URLs Plaudit presigns for one object, one part's exact size and type, and ten minutes. Plaudit then checks the real size and sniffs the first bytes, deletes anything that isn't a video, and stores the rest as before. Needs the bucket's CORS to allow `PUT` from `PUBLIC_URL`; if it doesn't, uploads carry on through the server. Only then do upload pages' policies allow the bucket's address. See [README](README.md#direct-uploads-to-the-bucket).
 
 - **Project access reaches files and jobs**: a member or API key limited to some projects now gets unpublished videos and photos (`/api/media/…`) only from those projects, and an import's progress only for theirs (progress that belongs to no project is for admins). Published files are unchanged.

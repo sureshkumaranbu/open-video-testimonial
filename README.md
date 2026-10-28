@@ -222,6 +222,7 @@ Every setting is an environment variable, read from `.env` (Node) or `docker-com
 | `TRANSLATE_PROVIDER` | `off` | Machine translation with your own provider: `deepl`, `libretranslate` or `openai` (any OpenAI-compatible `/chat/completions` endpoint). Testimonial text is sent to it only when you ask for a translation, a form translates on arrival, or you use bulk Translate ([docs/help/inbox.md](docs/help/inbox.md#translations)) |
 | `TRANSLATE_API_URL`, `TRANSLATE_API_KEY`, `TRANSLATE_MODEL` | DeepL Free / OpenAI addresses | The provider's address (required for LibreTranslate), your key (required for DeepL), and the model (required for `openai`) |
 | `EMBEDDINGS_MODEL`, `EMBEDDINGS_API_URL`, `EMBEDDINGS_API_KEY` | unset, OpenAI's address | Smart search with your own OpenAI-compatible `/embeddings` endpoint; off until a model is set. **When it's on, every testimonial's headline, text, transcript and answers are sent to that provider** ([docs/help/inbox.md](docs/help/inbox.md#smart-search)) |
+| `BRAND_AI_MODEL`, `BRAND_AI_API_URL`, `BRAND_AI_API_KEY` | unset, OpenAI's address | An optional AI step for the setup guide's brand scan, with your own OpenAI-compatible `/chat/completions` endpoint; off until a model is set. **When it's on, the text of the home page being scanned is sent to that provider**, which may suggest the site name, brand colour and testimonials; only what's really on the page is kept ([docs/help/getting-started.md](docs/help/getting-started.md#what-we-look-for-on-your-site)) |
 
 ## Optional features
 
