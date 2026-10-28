@@ -134,6 +134,13 @@
       "when": 1793182660475,
       "tag": "0018_direct_uploads",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1793227548449,
+      "tag": "0019_video_part2",
+      "breakpoints": true
     }
   ]
 }

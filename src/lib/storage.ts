@@ -36,7 +36,14 @@ const VIDEO_TYPES: Record<string, string> = {
 };
 
 export const MIME_BY_EXT: Record<string, string> = Object.fromEntries(
-  [...Object.entries(IMAGE_TYPES), ...Object.entries(VIDEO_TYPES), ["image/x-icon", "ico"]].map(([m, e]) => [e, m]),
+  [
+    ...Object.entries(IMAGE_TYPES),
+    ...Object.entries(VIDEO_TYPES),
+    ["image/x-icon", "ico"],
+    // VID-06: HLS playlists and their MPEG-TS segments.
+    ["application/vnd.apple.mpegurl", "m3u8"],
+    ["video/mp2t", "ts"],
+  ].map(([m, e]) => [e, m]),
 );
 
 /** WALL-07 favicons: the largest file kept. Real ones are a few KB. */
@@ -55,7 +62,7 @@ export async function saveFavicon(file: File): Promise<StoredObject & { mime: st
 }
 
 export { isVideoMime, sniffMime, UNSUPPORTED_VIDEO } from "./sniff";
-export { isMediaKey } from "./storage/local";
+export { hlsMasterOf, isMediaKey } from "./storage/local";
 
 /** The Content-Type for a key, from its extension. */
 export function mimeForKey(key: string) {

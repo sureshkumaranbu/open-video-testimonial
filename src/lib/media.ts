@@ -9,7 +9,7 @@ import { env } from "./env";
 import { enqueue, PermanentJobError } from "./jobs";
 import { newKey, storage } from "./storage";
 
-const { testimonials, answers } = schema;
+const { testimonials, answers, formVideos } = schema;
 
 /**
  * The media pipeline. After a video is stored, a job converts it with ffmpeg
@@ -283,8 +283,12 @@ async function convertStored(
   }
 }
 
-/** The row a video belongs to: a testimonial's main video, or the answer to a further question (D13: answers stay private). */
-export type VideoTarget = { testimonialId: string } | { answerId: string };
+/**
+ * The row a video belongs to: a testimonial's main video, the answer to a
+ * further question (D13: answers stay private), or the owner's own video on a
+ * form's welcome or thank-you page (FORM-17).
+ */
+export type VideoTarget = { testimonialId: string } | { answerId: string } | { formVideoId: string };
 
 type VideoRow = {
   videoKey: string | null;
@@ -303,7 +307,7 @@ export function trimOf(row: { trimStartMs?: number | null; trimEndMs?: number | 
   const endMs = row.trimEndMs ?? null;
   return startMs > 0 || endMs !== null ? { startMs, endMs } : null;
 }
-type VideoFields = Partial<typeof testimonials.$inferInsert & typeof answers.$inferInsert>;
+type VideoFields = Partial<typeof testimonials.$inferInsert & typeof answers.$inferInsert & typeof formVideos.$inferInsert>;
 
 function targetRow(t: VideoTarget): { read: () => VideoRow | null; write: (f: VideoFields) => void } {
   const db = getDb();
@@ -311,6 +315,12 @@ function targetRow(t: VideoTarget): { read: () => VideoRow | null; write: (f: Vi
     return {
       read: () => db.select().from(answers).where(eq(answers.id, t.answerId)).get() ?? null,
       write: (f) => void db.update(answers).set({ ...f, updatedAt: new Date() }).where(eq(answers.id, t.answerId)).run(),
+    };
+  }
+  if ("formVideoId" in t) {
+    return {
+      read: () => db.select().from(formVideos).where(eq(formVideos.id, t.formVideoId)).get() ?? null,
+      write: (f) => void db.update(formVideos).set({ ...f, updatedAt: new Date() }).where(eq(formVideos.id, t.formVideoId)).run(),
     };
   }
   return {
@@ -365,6 +375,8 @@ export async function processVideoTarget(target: VideoTarget, opts: { willRetry?
     videoHeight: converted.height,
     mediaStatus: "ready",
     mediaError: null,
+    // VID-06: the HLS copy was made from the old MP4; a new one follows (src/lib/video/hls.ts).
+    ...("testimonialId" in target ? { hlsKey: null } : {}),
   });
   await Promise.all(replaced.map((k) => storage().remove(k)));
 }

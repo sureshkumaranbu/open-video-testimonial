@@ -9,8 +9,10 @@ import { env } from "./env";
  * Two Phase 2 flags also switch endpoints, not just pages: `api2` (the
  * /api/v1 CRUD and analytics paths, M14) and `mcp` (the /mcp server and its
  * OAuth). `team2` (M14) turns on roles, per-project access and the audit log.
+ * `video2` (M16) shows multiclips, social clips, highlight reels and owner
+ * videos on forms; the HLS copies have their own setting (VIDEO_HLS).
  */
-export const FEATURES = ["forms", "inbox2", "widgets", "walls", "importers", "notifications", "onboarding", "campaigns", "booster", "analytics", "share", "imports2", "customers", "translations", "aisearch", "api2", "mcp", "team2"] as const;
+export const FEATURES = ["forms", "inbox2", "widgets", "walls", "importers", "notifications", "onboarding", "campaigns", "booster", "analytics", "share", "imports2", "customers", "translations", "aisearch", "api2", "mcp", "team2", "video2"] as const;
 export type Feature = (typeof FEATURES)[number];
 
 export function featureOn(f: Feature): boolean {

@@ -3,11 +3,21 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import type { StorageDriver } from "../storage";
 
-/** Every stored object's key, on every driver: `videos|images/<uuid>.<ext>`. */
+/**
+ * Every stored object's key, on every driver: `videos|images/<uuid>.<ext>`,
+ * or a file of an HLS copy (VID-06): `hls/<uuid>/master.m3u8`, a rendition's
+ * playlist `hls/<uuid>/v<n>.m3u8` and its segments `hls/<uuid>/v<n>_<5 digits>.ts`.
+ */
 const KEY_RE = /^(videos|images)\/[0-9a-f-]{36}\.[a-z0-9]{2,5}$/;
+const HLS_RE = /^hls\/[0-9a-f-]{36}\/(master\.m3u8|v[0-9]\.m3u8|v[0-9]_[0-9]{5}\.ts)$/;
 
 export function isMediaKey(key: string) {
-  return KEY_RE.test(key);
+  return KEY_RE.test(key) || HLS_RE.test(key);
+}
+
+/** VID-06: the master playlist of the HLS copy a key belongs to, or null when it isn't an HLS file. */
+export function hlsMasterOf(key: string): string | null {
+  return HLS_RE.test(key) ? `${key.slice(0, key.lastIndexOf("/"))}/master.m3u8` : null;
 }
 
 /** Moves a file, copying across filesystems (EXDEV) when a rename can't. */
@@ -56,6 +66,8 @@ export function createLocalDriver(root: () => string): StorageDriver & { name: "
     },
     async remove(key) {
       await fs.promises.rm(file(key), { force: true });
+      // An HLS copy's folder goes with its last file.
+      if (key.startsWith("hls/")) await fs.promises.rmdir(path.dirname(file(key))).catch(() => undefined);
     },
     async withLocalFile(key, fn) {
       // Already on disk: ffmpeg reads it in place.

@@ -119,6 +119,14 @@ export const env = {
   get mediaProcessing() {
     return process.env.MEDIA_PROCESSING !== "off";
   },
+  /**
+   * VID-06: also make an adaptive-streaming (HLS) copy of every approved
+   * video, which players use where the browser plays HLS itself (Safari).
+   * Off by default: it costs CPU and storage.
+   */
+  get videoHls() {
+    return process.env.VIDEO_HLS === "true";
+  },
   /** The background worker runs inside the server process unless turned off. */
   get workerEnabled() {
     return process.env.JOBS_WORKER !== "off";

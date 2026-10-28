@@ -17,11 +17,11 @@ import type { LegacyFormPatch } from "./forms/defaults";
 import { DEFAULT_QUESTIONS, DEFAULT_THANK_YOU, LEGACY_FORM_FIELDS, resolveQuestions } from "./forms/legacy";
 import { reanchorHighlights } from "./highlights";
 import { actorForSource, historyActor, recordHistory } from "./history";
-import { mediaUrl, MIME_BY_EXT, removeFiles } from "./storage";
+import { hlsMasterOf, mediaUrl, MIME_BY_EXT, removeFiles } from "./storage";
 import type { Brand } from "./validation";
 import { emitTestimonialEvent } from "./webhooks";
 
-const { projects, testimonials, tags, testimonialTags, answers, testimonialImages } = schema;
+const { projects, testimonials, tags, testimonialTags, answers, testimonialImages, videoRenders } = schema;
 
 export const DEFAULT_PROMPT = "How has our product helped you? We'd love to hear your story.";
 export { DEFAULT_QUESTIONS, DEFAULT_THANK_YOU };
@@ -312,6 +312,9 @@ export function getTestimonial(id: string): TestimonialWithTags | null {
  * project and form logos always; wall logos, covers and favicons while the
  * wall is published. Answer videos (questions 2..N) stay private (D13), and so do
  * images a merge brought in as owner-only (INBOX-11) and every file nothing uses. One indexed query, run on every /api/media request.
+ * M16: every file of a testimonial's HLS copy on the same terms as its MP4
+ * (VID-06); a form's own welcome and thank-you videos while the form is live
+ * (FORM-17); multiclips, social clips and reels stay owner-only.
  */
 export function isMediaPublic(key: string) {
   return Boolean(getDb().get<{ ok: number }>(publicMediaQuery(key)));
@@ -319,11 +322,17 @@ export function isMediaPublic(key: string) {
 
 /** The query behind isMediaPublic (exported so a test can check its plan uses an index for every kind of file). */
 export function publicMediaQuery(key: string) {
+  const hls = hlsMasterOf(key);
   return sql`
     SELECT 1 AS ok FROM testimonials
       WHERE (avatar_key = ${key} OR video_key = ${key} OR poster_key = ${key} OR company_logo_key = ${key}
           OR (video_original_key = ${key} AND trim_start_ms IS NULL AND trim_end_ms IS NULL))
         AND status = 'approved' AND withdrawn_at IS NULL
+    UNION ALL
+    SELECT 1 FROM testimonials WHERE hls_key = ${hls} AND status = 'approved' AND withdrawn_at IS NULL
+    UNION ALL
+    SELECT 1 FROM form_videos v JOIN forms f ON f.id = v.form_id
+      WHERE (v.video_key = ${key} OR v.video_original_key = ${key} OR v.poster_key = ${key}) AND f.status = 'live'
     UNION ALL
     SELECT 1 FROM testimonial_images i JOIN testimonials t ON t.id = i.testimonial_id
       WHERE i.key = ${key} AND i.owner_only = 0 AND t.status = 'approved' AND t.withdrawn_at IS NULL
@@ -341,7 +350,8 @@ export function publicMediaQuery(key: string) {
 /**
  * L18: the projects whose rows use a stored file (testimonial files, answer
  * videos, attached images, customer photos, image studio uploads, and
- * project, form, wall and booster logos), so a private file goes only to
+ * project, form, wall and booster logos; M16's HLS copies, renders and form
+ * videos), so a private file goes only to
  * someone who may open one of them. Usually one; a file nothing uses has none.
  */
 export function mediaProjectIds(key: string): string[] {
@@ -352,6 +362,7 @@ export function mediaProjectIds(key: string): string[] {
 
 /** The query behind mediaProjectIds (exported so a test can check every branch uses an index). */
 export function mediaProjectsQuery(key: string) {
+  const hls = hlsMasterOf(key);
   return sql`
     SELECT project_id AS projectId FROM testimonials
       WHERE avatar_key = ${key} OR video_key = ${key} OR video_original_key = ${key} OR poster_key = ${key} OR company_logo_key = ${key}
@@ -363,7 +374,11 @@ export function mediaProjectsQuery(key: string) {
     UNION SELECT id FROM projects WHERE logo_key = ${key}
     UNION SELECT project_id FROM forms WHERE logo_key = ${key}
     UNION SELECT project_id FROM walls WHERE logo_key = ${key} OR cover_key = ${key} OR favicon_key = ${key}
-    UNION SELECT project_id FROM boosters WHERE logo_key = ${key}`;
+    UNION SELECT project_id FROM boosters WHERE logo_key = ${key}
+    UNION SELECT project_id FROM testimonials WHERE hls_key = ${hls}
+    UNION SELECT project_id FROM video_renders WHERE key = ${key} OR replaced_key = ${key}
+    UNION SELECT f.project_id FROM form_videos v JOIN forms f ON f.id = v.form_id
+      WHERE v.video_key = ${key} OR v.video_original_key = ${key} OR v.poster_key = ${key}`;
 }
 
 export function countByStatus(projectId: string) {
@@ -543,6 +558,8 @@ export function updateTestimonial(
       .get();
     if (taken) throw new DuplicateReviewError(columns.platform);
   }
+  // VID-06: an HLS copy belongs to the video it was made from; a new file stops it being served.
+  if ("videoKey" in columns) columns.hlsKey = null;
   // Changing what the author wrote is allowed, but recorded.
   const edited = CONSENTED_FIELDS.filter((f) => f in diff);
 
@@ -639,8 +656,25 @@ export function mediaKeysOf(ids: string[]): string[] {
       .where(inArray(testimonialImages.testimonialId, ids))
       .all()
       .map((r) => r.key),
+    // M16: multiclips, social clips and HLS copies made from them (they go with the testimonial).
+    ...db
+      .select({ key: videoRenders.key, replaced: videoRenders.replacedKey, files: videoRenders.files })
+      .from(videoRenders)
+      .where(inArray(videoRenders.testimonialId, ids))
+      .all()
+      .flatMap((r) => [r.key, r.replaced, ...renderFiles(r.files)]),
   ];
   return [...new Set(keys.filter((k): k is string => Boolean(k)))];
+}
+
+/** A render's `files` column: every stored key it made (an HLS copy has many). */
+export function renderFiles(raw: string | null | undefined): string[] {
+  try {
+    const list: unknown = JSON.parse(raw || "[]");
+    return Array.isArray(list) ? list.filter((k): k is string => typeof k === "string") : [];
+  } catch {
+    return [];
+  }
 }
 
 /** Whether any row still points at a file: another testimonial, answer or image, a customer's photo, or an image studio upload. */
@@ -653,6 +687,8 @@ export function stillUsed(key: string) {
       UNION ALL SELECT 1 FROM testimonial_images WHERE key = ${key}
       UNION ALL SELECT 1 FROM customers WHERE avatar_key = ${key}
       UNION ALL SELECT 1 FROM share_assets WHERE key = ${key}
+      UNION ALL SELECT 1 FROM video_renders WHERE key = ${key} OR replaced_key = ${key}
+      UNION ALL SELECT 1 FROM form_videos WHERE video_key = ${key} OR video_original_key = ${key} OR poster_key = ${key}
       LIMIT 1`),
   );
 }
@@ -700,6 +736,7 @@ export interface PublicTestimonial {
 
 // Naming the codecs lets a browser without H.264 skip straight to the original.
 const PROCESSED_TYPE = 'video/mp4; codecs="avc1.640028, mp4a.40.2"';
+export const HLS_TYPE = "application/vnd.apple.mpegurl";
 
 /** Whether the served video is a cut of the original (VID-01). */
 export function isTrimmed(t: Pick<Testimonial, "trimStartMs" | "trimEndMs">) {
@@ -709,10 +746,13 @@ export function isTrimmed(t: Pick<Testimonial, "trimStartMs" | "trimEndMs">) {
 /**
  * The converted MP4 first (plays everywhere), then the original upload as a
  * fallback. A trimmed video has no fallback: the original holds what was cut.
+ * With an HLS copy (VID-06), that comes before both.
  */
 export function videoSources(t: Testimonial) {
   if (!t.videoKey) return [];
   const sources = [
+    // VID-06: the HLS copy first. Only browsers that play HLS themselves (Safari) take it; the rest skip to the MP4.
+    ...(t.hlsKey && t.mediaStatus === "ready" ? [{ url: mediaUrl(t.hlsKey)!, type: HLS_TYPE }] : []),
     { url: mediaUrl(t.videoKey)!, type: t.mediaStatus === "ready" ? PROCESSED_TYPE : (t.videoMime ?? "video/webm") },
   ];
   if (t.mediaStatus === "ready" && !isTrimmed(t) && t.videoOriginalKey && t.videoOriginalKey !== t.videoKey) {
