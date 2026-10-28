@@ -54,9 +54,9 @@ export function Reels({ projectId, initial, candidates }: { projectId: string; i
             void create();
           }}
         >
-          <label className="ib-mini">
+          <label className="rl-field">
             New reel
-            <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Spring launch" maxLength={120} data-testid="reel-new-name" />
+            <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Spring launch" maxLength={120} data-testid="reel-new-name" />
           </label>
           <button type="submit" className="secondary small" data-testid="reel-create">
             <Icon name="plus" />
@@ -159,9 +159,9 @@ function ReelEditor({ reel, candidates, onSaved, onDeleted }: { reel: Reel; cand
       <UnsavedGuard dirty={dirty} />
       <div className="panel panel-body stack">
         <div className="row spread">
-          <label className="ib-mini rl-name">
+          <label className="rl-field rl-name">
             Name
-            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} data-testid="reel-name" />
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} data-testid="reel-name" />
           </label>
           <div className="row" style={{ gap: "var(--space-2)" }}>
             <button type="button" className="secondary small" disabled={!dirty || busy} onClick={() =>
@@ -192,7 +192,7 @@ function ReelEditor({ reel, candidates, onSaved, onDeleted }: { reel: Reel; cand
           </div>
         </div>
         <div className="rl-grid">
-          <label className="ib-mini">
+          <label className="rl-field">
             Shape
             <select value={config.format} onChange={(e) => set({ format: e.target.value as RenderFormat })} data-testid="reel-format">
               {RENDER_FORMATS.map((f) => (
@@ -206,21 +206,21 @@ function ReelEditor({ reel, candidates, onSaved, onDeleted }: { reel: Reel; cand
           <Toggle label="Captions" hint="Word by word, for clips that have captions." checked={config.captions} onChange={(captions) => set({ captions })} />
         </div>
         <div className="rl-grid">
-          <label className="ib-mini">
+          <label className="rl-field">
             Title card
-            <input value={config.title} maxLength={120} placeholder="What our customers say" onChange={(e) => set({ title: e.target.value })} data-testid="reel-title" />
+            <input type="text" value={config.title} maxLength={120} placeholder="What our customers say" onChange={(e) => set({ title: e.target.value })} data-testid="reel-title" />
           </label>
-          <label className="ib-mini">
+          <label className="rl-field">
             Under the title
-            <input value={config.subtitle} maxLength={160} onChange={(e) => set({ subtitle: e.target.value })} />
+            <input type="text" value={config.subtitle} maxLength={160} onChange={(e) => set({ subtitle: e.target.value })} />
           </label>
-          <label className="ib-mini">
+          <label className="rl-field">
             Closing card
-            <input value={config.closingTitle} maxLength={120} placeholder="Try it free today" onChange={(e) => set({ closingTitle: e.target.value })} data-testid="reel-closing" />
+            <input type="text" value={config.closingTitle} maxLength={120} placeholder="Try it free today" onChange={(e) => set({ closingTitle: e.target.value })} data-testid="reel-closing" />
           </label>
-          <label className="ib-mini">
+          <label className="rl-field">
             Under the closing title
-            <input value={config.closingSubtitle} maxLength={160} placeholder="acme.com" onChange={(e) => set({ closingSubtitle: e.target.value })} />
+            <input type="text" value={config.closingSubtitle} maxLength={160} placeholder="acme.com" onChange={(e) => set({ closingSubtitle: e.target.value })} />
           </label>
         </div>
         <p className={`xsmall ${length > MAX_REEL_MS ? "error" : "muted"}`} data-testid="reel-length">
@@ -329,7 +329,7 @@ function ReelEditor({ reel, candidates, onSaved, onDeleted }: { reel: Reel; cand
 
 function TimeInput({ label, ms, onChange }: { label: string; ms: number; onChange: (ms: number) => void }) {
   return (
-    <label className="ib-mini rl-time">
+    <label className="rl-time">
       {label}
       <input
         type="number"
@@ -392,7 +392,7 @@ function ClipPicker({ candidates, onAdd }: { candidates: Candidate[]; onAdd: (c:
   const ok = range.endMs - range.startMs >= 1000 && range.endMs - range.startMs <= 120_000;
   return (
     <div className="stack ib-vtool" data-testid="clip-picker">
-      <label className="ib-mini">
+      <label className="rl-field">
         Testimonial
         <select value={id} onChange={(e) => setId(e.target.value)} data-testid="clip-testimonial">
           {candidates.map((c) => (
@@ -414,9 +414,11 @@ function ClipPicker({ candidates, onAdd }: { candidates: Candidate[]; onAdd: (c:
               </span>
             ))}
           </p>
-          <button type="button" className="secondary small" onMouseDown={(e) => e.preventDefault()} onClick={takeSelection} data-testid="clip-use-selection">
-            Use the selected words
-          </button>
+          <div>
+            <button type="button" className="secondary small" onMouseDown={(e) => e.preventDefault()} onClick={takeSelection} data-testid="clip-use-selection">
+              Use the selected words
+            </button>
+          </div>
         </>
       ) : (
         <p className="muted xsmall">{t?.transcript ? "This video has a transcript but no captions with times, so choose the part by its times." : "No transcript yet, so choose the part by its times."}</p>
