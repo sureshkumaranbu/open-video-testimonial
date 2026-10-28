@@ -199,9 +199,10 @@ test("TEAM-02 the audit log shows who approved and exported, and filters by acti
   await page.goto("/admin/settings");
   await page.getByTestId("audit-link").click();
   await expect(page.getByRole("heading", { name: "Audit log", level: 1 })).toBeVisible();
-  const approved = page.getByTestId("audit-row").filter({ hasText: "Approved a testimonial" }).filter({ hasText: "Grace" });
+  // Other specs approve a "Grace" too; this run's project tells them apart.
+  const approved = page.getByTestId("audit-row").filter({ hasText: "Approved a testimonial" }).filter({ hasText: `Audited ${RUN}` });
   await expect(approved).toContainText(E2E_ADMIN.email);
-  await expect(approved).toContainText(`Audited ${RUN}`);
+  await expect(approved).toContainText("Grace");
 
   await page.locator('select[name="action"]').selectOption({ label: "Any export" });
   await page.locator('select[name="project"]').selectOption({ label: `Audited ${RUN}` });
