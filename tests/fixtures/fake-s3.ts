@@ -216,7 +216,7 @@ export function createFakeS3(o: FakeS3Options) {
         return xml(
           200,
           `<ListPartsResult><Bucket>${o.bucket}</Bucket><Key>${key}</Key><UploadId>${uploadId}</UploadId><IsTruncated>false</IsTruncated>${parts
-            .map(([n, p]) => `<Part><PartNumber>${n}</PartNumber><ETag>${p.etag.replace(/"/g, "&quot;")}</ETag><Size>${p.body.length}</Size></Part>`)
+            .map(([n, p]) => `<Part><PartNumber>${n}</PartNumber><ETag>${p.etag.replace(/"/g, "&#34;")}</ETag><Size>${p.body.length}</Size></Part>`)
             .join("")}</ListPartsResult>`,
         );
       }

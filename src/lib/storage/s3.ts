@@ -91,6 +91,11 @@ export function bucketRootOf(cfg: Pick<S3Config, "endpoint" | "bucket" | "forceP
 }
 
 const xmlTag = (xml: string, name: string) => new RegExp(`<${name}>([^<]*)</${name}>`).exec(xml)?.[1] ?? null;
+/** XML character references back to text: named ones, and numeric ones such as the `&#34;` MinIO (Go's encoding/xml) writes for a quote. */
+const xmlUnescape = (s: string) =>
+  s.replace(/&(?:#(\d+)|#x([0-9a-f]+)|(quot|apos|lt|gt|amp));/gi, (_m, dec: string | undefined, hex: string | undefined, name: string | undefined) =>
+    dec ? String.fromCodePoint(Number(dec)) : hex ? String.fromCodePoint(parseInt(hex, 16)) : ({ quot: '"', apos: "'", lt: "<", gt: ">", amp: "&" } as Record<string, string>)[name!.toLowerCase()],
+  );
 const xmlEscape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** What a bare status means, for HEAD requests (they have no error body). */
@@ -364,7 +369,7 @@ export function createS3Driver(cfg: S3Config): S3Driver {
         if (!res.ok) throw await failure(res, "upload check");
         const xml = await res.text();
         for (const m of xml.matchAll(/<Part>([\s\S]*?)<\/Part>/g)) {
-          const etag = (xmlTag(m[1], "ETag") ?? "").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+          const etag = xmlUnescape(xmlTag(m[1], "ETag") ?? "");
           parts.push({ partNumber: Number(xmlTag(m[1], "PartNumber")), size: Number(xmlTag(m[1], "Size")), etag });
         }
         const next = xmlTag(xml, "NextPartNumberMarker");
