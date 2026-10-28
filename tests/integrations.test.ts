@@ -117,7 +117,14 @@ describe("INT-05 WordPress plugin", () => {
 
 describe("INT-03 Zapier, n8n and Make", () => {
   /** Runs a Zapier perform() against a stand-in for z.request and returns the requests it made. */
-  async function runZap(file: string, exportName: string | null, inputData: Record<string, unknown>, respond: (url: string) => unknown = () => ({ data: [] })) {
+  async function runZap(
+    file: string,
+    exportName: string | null,
+    inputData: Record<string, unknown>,
+    respond: (url: string) => unknown = () => ({ data: [] }),
+    step: "perform" | "performList" | "performSubscribe" | "performUnsubscribe" = "perform",
+    extra: Record<string, unknown> = {},
+  ) {
     const mod = requireFrom(`./${file}`);
     const def = exportName ? mod[exportName] : mod;
     const calls: { method: string; url: string; json?: unknown }[] = [];
@@ -128,7 +135,12 @@ describe("INT-03 Zapier, n8n and Make", () => {
       },
       errors: { Error: class extends Error {}, RefreshAuthError: class extends Error {} },
     };
-    const result = await def.operation.perform(z, { authData: { server: "https://plaudit.example/", apiKey: "plk_x" }, inputData });
+    const run = def.operation[step] ?? (step === "perform" ? def.operation.performList : undefined);
+    const result = await (def.operation.type === "hook" && step === "perform" ? def.operation.performList : run)(z, {
+      authData: { server: "https://plaudit.example/", apiKey: "plk_x" },
+      inputData,
+      ...extra,
+    });
     return { calls, result };
   }
 
@@ -149,7 +161,18 @@ describe("INT-03 Zapier, n8n and Make", () => {
       expect(calls.length, file).toBeGreaterThan(0);
       for (const c of calls) expect(inOpenApi(c.method, c.url), `${file}: ${c.method} ${c.url}`).toBe(true);
     }
-    const approved = await runZap("triggers/testimonial.js", "approved", { project: "acme" });
+    // Instant triggers: subscribe and unsubscribe through POST and DELETE /webhooks, for one event and project.
+    const sub = await runZap("triggers/testimonial.js", "approved", { project: "acme" }, () => ({ data: { id: "h1" } }), "performSubscribe", { targetUrl: "https://hooks.zapier.com/x" });
+    expect(sub.calls).toEqual([{ method: "POST", url: "https://plaudit.example/api/v1/webhooks", json: { url: "https://hooks.zapier.com/x", events: ["testimonial.approved"], project: "acme" } }]);
+    expect(inOpenApi("POST", sub.calls[0].url)).toBe(true);
+    const unsub = await runZap("triggers/testimonial.js", "approved", {}, () => ({ ok: true }), "performUnsubscribe", { subscribeData: { id: "h1" } });
+    expect(unsub.calls[0]).toMatchObject({ method: "DELETE", url: "https://plaudit.example/api/v1/webhooks/h1" });
+    expect(inOpenApi("DELETE", unsub.calls[0].url)).toBe(true);
+    const mod = requireFrom("./triggers/testimonial.js").approved.operation;
+    const t = { id: "t9", text: "Great" };
+    expect(mod.perform({}, { cleanedRequest: { event: "testimonial.approved", data: { testimonial: t } } })).toEqual([t]);
+    expect(mod.perform({}, { cleanedRequest: { event: "ping", data: {} } })).toEqual([]);
+    const approved = await runZap("triggers/testimonial.js", "approved", { project: "acme" }, undefined, "performList");
     expect(approved.calls[0].url).toBe("https://plaudit.example/api/v1/projects/acme/testimonials?limit=50&status=approved");
     const tag = await runZap("creates/moderate.js", "tag", { testimonialId: "t1", tags: ["Pricing"] }, () => ({ data: { id: "t1", tags: ["homepage"] } }));
     expect(tag.calls[1]).toMatchObject({ method: "PATCH", json: { tags: ["homepage", "pricing"] } });

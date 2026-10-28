@@ -22,6 +22,8 @@ type Hook = {
   formId: string | null;
   active: boolean;
   createdAt: string;
+  /** M14: set when an API key subscribed it (Zapier's instant triggers). */
+  apiKeyId?: string | null;
 };
 
 type FormOption = { id: string; name: string; projectId: string };
@@ -352,6 +354,7 @@ function WebhookRow({
             {project}
             {formName && ` · only “${formName}”`} · {hook.events.length ? hook.events.join(", ") : "default events"}
             {!hook.active && " · paused"}
+            {hook.apiKeyId && <span data-testid="webhook-by-key"> · added through the API</span>}
           </div>
         </div>
         <div className="row" style={{ gap: "var(--space-2)" }}>

@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
-import type { ApiKey, ApiKeyScope, Campaign, Customer, Feedback, Project, Wall, Widget } from "@/db/schema";
+import type { ApiKey, ApiKeyScope, Campaign, Customer, Feedback, Project, Wall, Webhook, Widget } from "@/db/schema";
 import { apiKeyReaches, requireApiKey } from "./api-keys";
 import { CampaignError, campaignToAdmin, type Funnel } from "./campaigns";
 import { env } from "./env";
@@ -11,6 +11,7 @@ import { ProjectError } from "./projects";
 import { mediaUrl } from "./storage";
 import { getProjectBySlug, getProjectById } from "./testimonials";
 import { WallError, wallToAdmin } from "./walls";
+import { parseEvents } from "./webhooks";
 import { WidgetError, widgetSnippets, widgetToAdmin } from "./widgets";
 
 const { customers, feedback } = schema;
@@ -183,6 +184,20 @@ export function feedbackToApi(f: Feedback) {
     text: f.text,
     author: { name: f.authorName, email: f.authorEmail },
     createdAt: f.createdAt.toISOString(),
+  };
+}
+
+/** A subscription as the API shows it: the secret only once, when it's made. */
+export function hookToApi(h: Webhook, o: { secret?: boolean } = {}) {
+  const project = h.projectId ? getProjectById(h.projectId) : null;
+  return {
+    id: h.id,
+    url: h.url,
+    events: parseEvents(h.events),
+    project: project?.slug ?? null,
+    active: h.active,
+    createdAt: h.createdAt.toISOString(),
+    ...(o.secret ? { secret: h.secret } : {}),
   };
 }
 

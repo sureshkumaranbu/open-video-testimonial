@@ -104,6 +104,8 @@ describe("API-01 the api2 flag", () => {
       "/projects/{slug}/feedback",
       "/projects/{slug}/analytics",
       "/analytics/{type}/{id}",
+      "/webhooks",
+      "/webhooks/{id}",
     ]);
     // Every $ref points at a schema that exists.
     const refs = [...JSON.stringify(spec).matchAll(/"#\/components\/schemas\/(\w+)"/g)].map((m) => m[1]);

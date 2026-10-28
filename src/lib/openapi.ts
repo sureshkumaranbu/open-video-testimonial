@@ -603,6 +603,21 @@ function api2Paths() {
         responses: { "200": one("ObjectAnalytics"), "400": error, ...reads },
       },
     },
+    "/webhooks": {
+      get: { summary: "List the webhook subscriptions this key made", operationId: "listSubscriptions", responses: { "200": many("Subscription"), "401": error } },
+      post: {
+        summary: "Subscribe a URL to events (write scope), as REST hooks need",
+        description:
+          "The hook is signed like any other (Plaudit-Signature), shows in Settings › Webhooks and can be deleted there. The secret is in this answer only. Public addresses only. Up to 50 per key.",
+        operationId: "subscribe",
+        requestBody: body("NewSubscription"),
+        responses: { "201": one("Subscription", "Created"), ...writes },
+      },
+    },
+    "/webhooks/{id}": {
+      parameters: [idParam],
+      delete: { summary: "Unsubscribe (write scope; only the key that subscribed)", operationId: "unsubscribe", responses: { "200": deleted, ...reads, "403": error } },
+    },
   };
 }
 
@@ -840,6 +855,27 @@ function api2Schemas() {
         text: str,
         author: { type: "object", properties: { name: nullable("string"), email: nullable("string") } },
         createdAt: time,
+      },
+    },
+    Subscription: {
+      type: "object",
+      properties: {
+        id: str,
+        url: { type: "string", format: "uri" },
+        events: { type: "array", items: { type: "string", enum: [...WEBHOOK_EVENTS] } },
+        project: nullable("string"),
+        active: { type: "boolean" },
+        createdAt: time,
+        secret: { type: "string", description: "Only when it's made: the signing secret for Plaudit-Signature" },
+      },
+    },
+    NewSubscription: {
+      type: "object",
+      required: ["url", "events"],
+      properties: {
+        url: { type: "string", format: "uri" },
+        events: { type: "array", minItems: 1, items: { type: "string", enum: [...WEBHOOK_EVENTS] } },
+        project: { type: "string", description: "A project's slug; required for a key limited to some projects" },
       },
     },
     ProjectAnalytics: obj("range, previousRange, days, tiles (testimonials, backlog, rating, views, booster clicks, invites; each with the previous period), series (views by day) and tables of widgets, forms and walls"),

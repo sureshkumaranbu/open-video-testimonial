@@ -4,6 +4,7 @@ import { getDb, schema } from "@/db";
 import type { Project, Webhook, WebhookEvent } from "@/db/schema";
 import { projectToApi, toApi } from "./api-shape";
 import { enqueue } from "./jobs";
+import { fetchPublicText } from "./net-guard";
 import type { TestimonialWithTags } from "./testimonials";
 
 const { webhooks, webhookDeliveries, projects } = schema;
@@ -203,24 +204,33 @@ export async function deliver(deliveryId: string, final: boolean) {
   let status: number | null = null;
   let text = "";
   let error: string | null = null;
+  const headers = {
+    "Content-Type": "application/json",
+    "User-Agent": "Plaudit-Webhooks/1",
+    "Plaudit-Event": d.event,
+    "Plaudit-Delivery": d.id,
+    "Plaudit-Signature": signatureHeader(hook.secret, d.payload),
+  };
   try {
-    const res = await fetch(hook.url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "Plaudit-Webhooks/1",
-        "Plaudit-Event": d.event,
-        "Plaudit-Delivery": d.id,
-        "Plaudit-Signature": signatureHeader(hook.secret, d.payload),
-      },
-      body: d.payload,
-      // A redirect could send the signed payload somewhere unexpected.
-      redirect: "manual",
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-    status = res.status;
-    text = (await res.text().catch(() => "")).slice(0, 1000);
-    if (!res.ok) error = res.status >= 300 && res.status < 400 ? `Redirects aren't followed (${res.status})` : `HTTP ${res.status}`;
+    if (hook.apiKeyId) {
+      // M14: a hook an API key subscribed (Zapier) may only reach public addresses, checked at connect time.
+      const res = await fetchPublicText(hook.url, { method: "POST", headers, body: d.payload, maxRedirects: 0, maxBytes: 64 * 1024, timeoutMs: TIMEOUT_MS });
+      status = res.status;
+      text = res.text.slice(0, 1000);
+      if (status < 200 || status >= 300) error = status >= 300 && status < 400 ? `Redirects aren't followed (${status})` : `HTTP ${status}`;
+    } else {
+      const res = await fetch(hook.url, {
+        method: "POST",
+        headers,
+        body: d.payload,
+        // A redirect could send the signed payload somewhere unexpected.
+        redirect: "manual",
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+      status = res.status;
+      text = (await res.text().catch(() => "")).slice(0, 1000);
+      if (!res.ok) error = res.status >= 300 && res.status < 400 ? `Redirects aren't followed (${res.status})` : `HTTP ${res.status}`;
+    }
   } catch (err) {
     error = (err as Error).name === "TimeoutError" ? `No response within ${TIMEOUT_MS / 1000} s` : (err as Error).message;
   }
