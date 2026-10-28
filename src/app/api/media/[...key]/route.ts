@@ -1,11 +1,29 @@
-import { requireApiKey } from "@/lib/api-keys";
+import { canOpen, projectAccessFor } from "@/lib/access";
+import { apiKeyReaches, requireApiKey } from "@/lib/api-keys";
 import { getRequestSession } from "@/lib/auth";
 import { isMediaKey, mimeForKey, storage, type StorageDriver } from "@/lib/storage";
-import { isMediaPublic } from "@/lib/testimonials";
+import { isMediaPublic, mediaProjectIds } from "@/lib/testimonials";
 
-/** API integrations get the same media URLs the REST API and webhooks hand out. */
-function hasApiKey(req: Request) {
-  return req.headers.has("authorization") && "key" in requireApiKey(req, "read");
+/**
+ * Who may fetch a file that isn't public: someone signed in, or a REST API
+ * key (integrations get the same media URLs the REST API and webhooks hand
+ * out). L18: a member or key limited to some projects only gets files that
+ * belong to one of them; the projects are looked up only for them, so
+ * everyone else costs no extra query.
+ */
+function mayReadPrivate(req: Request, key: string) {
+  let projects: string[] | null = null;
+  const owners = () => (projects ??= mediaProjectIds(key));
+  const session = getRequestSession(req);
+  if (session) {
+    const access = projectAccessFor(session.email, session.role);
+    if (access.all || owners().some((id) => canOpen(access, id))) return true;
+  }
+  if (!req.headers.has("authorization")) return false;
+  const auth = requireApiKey(req, "read");
+  if (!("key" in auth) || !auth.key) return false;
+  const apiKey = auth.key;
+  return apiKey.allProjects || owners().some((id) => apiKeyReaches(apiKey, id));
 }
 
 const notFound = () => new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
@@ -19,8 +37,9 @@ const unavailable = () => new Response("Media storage is unavailable", { status:
  *
  * Anyone may fetch a file only while its testimonial is approved and not
  * withdrawn; everything else (pending, rejected, withdrawn, or not attached
- * to a testimonial) is for the signed-in owner or a REST API key only, and a
- * 404 to everyone else. Public files are cacheable but must be revalidated on every use, so
+ * to a testimonial) is for the signed-in team or a REST API key only, and a
+ * 404 to everyone else; a member or key limited to some projects gets only
+ * those projects' files (L18). Public files are cacheable but must be revalidated on every use, so
  * a rejection or withdrawal takes effect immediately rather than when some
  * cache expires.
  */
@@ -29,7 +48,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ key: string[] }
   const key = parts.join("/");
   if (!isMediaKey(key)) return notFound();
   const isPublic = isMediaPublic(key);
-  if (!isPublic && !getRequestSession(req) && !hasApiKey(req)) return notFound();
+  if (!isPublic && !mayReadPrivate(req, key)) return notFound();
   let stat: Awaited<ReturnType<StorageDriver["stat"]>>;
   try {
     stat = await storage().stat(key);
