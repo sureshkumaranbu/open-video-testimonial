@@ -27,7 +27,7 @@ describe("IMP-01 X importer", () => {
       text: "Switched our onboarding to @acme and support tickets halved. Wild.",
       language: "en",
       url: "https://x.com/janedev/status/1844000000000000001",
-      date: { value: new Date("October 9, 2026"), precision: "day" },
+      date: { value: new Date(Date.UTC(2026, 9, 9)), precision: "day" },
     });
     expect(page.items[1]).toMatchObject({ authorName: "Sam K", language: "de" });
     expect(page.next).toBeNull();

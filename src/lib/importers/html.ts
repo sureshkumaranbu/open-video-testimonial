@@ -149,7 +149,13 @@ export function parseSourceDate(raw: unknown): { value: Date; precision: DatePre
   }
   // A bare date is midnight UTC, so it stays on its day in every time zone's display.
   m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
-  const t = m ? Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : Date.parse(s);
+  let t = m ? Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : Date.parse(s);
+  // "September 14, 2026" parses as local midnight, which is the day before in UTC
+  // east of Greenwich. Without a time it's a calendar day: keep that day at midnight UTC.
+  if (!m && sane(t) && !/\d:\d/.test(s)) {
+    const local = new Date(t);
+    t = Date.UTC(local.getFullYear(), local.getMonth(), local.getDate());
+  }
   return sane(t) ? { value: new Date(t), precision: "day" } : undefined;
 }
 
