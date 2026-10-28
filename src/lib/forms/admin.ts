@@ -7,6 +7,7 @@ import { FormError, formUrl, getForm, logoInUse, updateForm, type FormStats } fr
 import { isLocale } from "./labels";
 import { parseReward } from "@/lib/rewards-config";
 import { parseFormRow, toPublicForm } from "./schema";
+import { formVideosToAdmin } from "@/lib/video/form-videos";
 import { TEMPLATE_IDS } from "./templates";
 
 /**
@@ -74,6 +75,8 @@ export function formToAdmin(project: Project, form: Form, stats?: FormStats) {
     /** FORM-13: kept beside the config (its own column). */
     reward: parseReward(form.reward),
     links: shareLinks(project, form),
+    /** FORM-17: the owner's welcome and thank-you videos (their own rows). */
+    videos: formVideosToAdmin(form.id),
     ...(stats ? { stats } : {}),
   };
 }

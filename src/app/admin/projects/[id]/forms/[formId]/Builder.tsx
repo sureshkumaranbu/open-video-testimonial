@@ -11,7 +11,9 @@ import type { FormConfig, FormPage, PublicForm } from "@/lib/forms/schema";
 import type { RewardConfig } from "@/lib/rewards-config";
 import type { Brand } from "@/lib/validation";
 import type { FormRow } from "../types";
+import type { AdminFormVideo } from "@/lib/video/form-videos";
 import { ContentEditor, PageList } from "./ContentEditor";
+import { ownerVideosFrom } from "./OwnerVideoPanel";
 import { DesignEditor } from "./DesignEditor";
 import { SettingsEditor } from "./SettingsEditor";
 import { SharePanel } from "./SharePanel";
@@ -29,6 +31,8 @@ export type BuilderProject = {
   logoUrl: string | null;
   /** INBOX-13 (translations flag): offer "translate new testimonials into…"; `provider` is null when none is set up. */
   translations?: { provider: string | null };
+  /** FORM-17 (video2 flag): the owner's own welcome and thank-you videos. */
+  video2?: boolean;
 };
 
 type Props = {
@@ -59,6 +63,7 @@ const fingerprint = (d: Draft) => JSON.stringify({ ...d, settings: { ...d.settin
  */
 export function Builder({ project, initial, limits, initialTab }: Props) {
   const [form, setForm] = useState(initial);
+  const [videos, setVideos] = useState<AdminFormVideo[]>(initial.videos);
   const [draft, setDraft] = useState<Draft>(() => draftOf(initial));
   const [saved, setSaved] = useState(() => fingerprint(draftOf(initial)));
   const [tab, setTab] = useState<BuilderTab>(initialTab);
@@ -198,12 +203,22 @@ export function Builder({ project, initial, limits, initialTab }: Props) {
                 limits={limits}
                 preview
                 previewPage={selected}
+                ownerVideos={project.video2 ? ownerVideosFrom(videos) : undefined}
               />
             </DevicePreview>
             <p className="muted xsmall">The preview is the real form; recording and sending are off here.</p>
           </section>
           <section className="fb-panel" aria-label="Settings for this section">
-            {tab === "content" && <ContentEditor draft={draft} index={selected} onChange={setPages} />}
+            {tab === "content" && (
+              <ContentEditor
+                draft={draft}
+                index={selected}
+                onChange={setPages}
+                ownerVideo={
+                  project.video2 ? { formId: form.id, projectId: project.id, maxBytes: limits.maxVideoBytes, videos, onChange: setVideos } : undefined
+                }
+              />
+            )}
             {tab === "design" && (
               <DesignEditor
                 draft={draft}

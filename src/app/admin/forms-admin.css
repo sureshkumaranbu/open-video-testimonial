@@ -237,3 +237,11 @@
   border-bottom: 1px solid var(--line);
   overflow-wrap: anywhere;
 }
+
+/* FORM-17: the owner's own video on the welcome and thank-you pages. */
+.fb-owner-video {
+  width: 100%;
+  max-height: 240px;
+  border-radius: var(--radius-md);
+  background: var(--stage);
+}

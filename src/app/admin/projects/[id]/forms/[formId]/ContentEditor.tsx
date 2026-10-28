@@ -3,6 +3,7 @@
 import { Toggle } from "@/components/admin";
 import { MAX_QUESTIONS, RESPONSE_MODES, FIELD_TYPES, FORM_CONSENT_SCOPES, type CustomField, type FormPage, type QuestionPage } from "@/lib/forms/schema";
 import type { Draft } from "./Builder";
+import { OwnerVideoPanel, type OwnerVideoPanelProps } from "./OwnerVideoPanel";
 
 const PAGE_NAMES: Record<FormPage["type"], string> = {
   rating: "Rating",
@@ -343,7 +344,18 @@ function QuestionEditor({ page, onChange }: { page: QuestionPage; onChange: (p: 
 }
 
 /** The selected page's settings (FORM-02, right-hand panel, Content tab). */
-export function ContentEditor({ draft, index, onChange }: { draft: Draft; index: number; onChange: (pages: FormPage[]) => void }) {
+export function ContentEditor({
+  draft,
+  index,
+  onChange,
+  ownerVideo,
+}: {
+  draft: Draft;
+  index: number;
+  onChange: (pages: FormPage[]) => void;
+  /** FORM-17 (video2 flag): the owner's own video on the welcome and thank-you pages. */
+  ownerVideo?: Omit<OwnerVideoPanelProps, "slot">;
+}) {
   const page = draft.pages[index];
   if (!page) return <p className="muted">Pick a page on the left.</p>;
   const set = (p: FormPage) =>
@@ -380,6 +392,7 @@ export function ContentEditor({ draft, index, onChange }: { draft: Draft; index:
                   multiline
                   max={1000}
                 />
+                {ownerVideo && <OwnerVideoPanel {...ownerVideo} slot="welcome" pageOff={!page.enabled} />}
               </>
             );
           case "question":
@@ -448,6 +461,7 @@ export function ContentEditor({ draft, index, onChange }: { draft: Draft; index:
               <>
                 <Text label="Title" value={page.title} placeholder="Thank you!" onChange={(title) => set({ ...page, title })} />
                 <Text label="Message" value={page.message} onChange={(message) => set({ ...page, message })} max={2000} multiline />
+                {ownerVideo && <OwnerVideoPanel {...ownerVideo} slot="thank_you" />}
                 <fieldset className="fb-fieldset">
                   <legend>For 3 stars or fewer</legend>
                   <Text label="Title" value={page.low?.title ?? ""} onChange={(title) => set({ ...page, low: { title, message: page.low?.message ?? "" } })} />
