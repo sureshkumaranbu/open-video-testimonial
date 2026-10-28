@@ -1,4 +1,5 @@
 import { apiJson } from "@/lib/api-keys";
+import { audit, keyActor } from "@/lib/audit";
 import { apiError, libError, MAX_SMALL_BYTES, projectForKey, readJson, requireApi2 } from "@/lib/api-v1";
 import { deleteTag, listTagUsage, mergeTags, renameTag, tagDeleteBody, tagsPatchBody } from "@/lib/projects";
 import { firstIssue } from "@/lib/validation";
@@ -31,6 +32,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
   } catch (err) {
     return libError(err);
   }
+  audit(keyActor(auth.key), "tag.change", { objectType: "project", objectId: project.id, projectId: project.id, meta: c });
   return apiJson({ data: listTagUsage(project.id) });
 }
 

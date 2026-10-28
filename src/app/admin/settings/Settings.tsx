@@ -179,12 +179,12 @@ function ApiKeys({
           </label>
           {perProject && projects.length > 1 && (
             <label>
-              Projects
+              Reaches
               <select name="project" defaultValue="" data-testid="api-key-project">
-                <option value="">Every project</option>
+                <option value="">Everything</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
-                    Only {p.name}
+                    {p.name} only
                   </option>
                 ))}
               </select>
