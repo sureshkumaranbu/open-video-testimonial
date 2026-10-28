@@ -11,8 +11,10 @@ import { env } from "./env";
  * OAuth). `team2` (M14) turns on roles, per-project access and the audit log.
  * `video2` (M16) shows multiclips, social clips, highlight reels and owner
  * videos on forms; the HLS copies have their own setting (VIDEO_HLS).
+ * `insights` (M17) shows case studies and their public pages, Insights
+ * (Voice of Customer, ask a question, NPS), surveys and screenshot OCR.
  */
-export const FEATURES = ["forms", "inbox2", "widgets", "walls", "importers", "notifications", "onboarding", "campaigns", "booster", "analytics", "share", "imports2", "customers", "translations", "aisearch", "api2", "mcp", "team2", "video2"] as const;
+export const FEATURES = ["forms", "inbox2", "widgets", "walls", "importers", "notifications", "onboarding", "campaigns", "booster", "analytics", "share", "imports2", "customers", "translations", "aisearch", "api2", "mcp", "team2", "video2", "insights"] as const;
 export type Feature = (typeof FEATURES)[number];
 
 export function featureOn(f: Feature): boolean {

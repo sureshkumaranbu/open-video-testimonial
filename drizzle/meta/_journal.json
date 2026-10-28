@@ -141,6 +141,13 @@
       "when": 1793227548449,
       "tag": "0019_video_part2",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1793230732102,
+      "tag": "0020_insights",
+      "breakpoints": true
     }
   ]
 }
