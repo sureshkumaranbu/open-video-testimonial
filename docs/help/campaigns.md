@@ -78,11 +78,24 @@ Only times are stored: no IP addresses and no browser details. **No thanks** ope
 
 ## Auto-collect
 
-Invite people automatically, for example a few days after they buy. Both ways need the campaign to be **sending**; while it's a draft or paused they're refused, so nothing is lost silently.
+Invite people automatically, for example a few days after they buy. Every way needs the campaign to be **sending**; while it's a draft or paused they're refused, so nothing is lost silently.
 
 - **Incoming webhook.** On the **Auto-collect** tab press **Create webhook URL** and copy it: it's shown once. Your shop, CRM or automation tool (n8n, Zapier, Make) sends `POST` JSON such as `{"email": "ada@example.com", "name": "Ada", "plan": "Pro"}`. Extra fields become variables; `"delayDays": 3` (or `?delay=3` on the URL) sends the invitation three days later. **Regenerate URL** replaces it if it leaks; the old one stops working at once.
 - **REST API.** `POST /api/v1/invites` with a read-and-write API key from **Settings**, the campaign id from the Auto-collect tab, and the same fields. See [docs/API.md](../API.md#campaign-invites).
 
+- **Stripe and Shopify** (below): the buyer is invited after a paid checkout or invoice, or a fulfilled order.
+
 People already in the campaign, unsubscribed or who already responded are skipped, so sending the same person twice never emails them twice.
+
+### Stripe and Shopify
+
+On the **Auto-collect** tab, press **Add a Stripe trigger** or **Add a Shopify trigger**. Each trigger has its own **Endpoint URL**; add it in the shop, then paste the shop's **signing secret** into the trigger and press **Save**. The trigger says **On** once it has its secret.
+
+- **Stripe:** Developers › Webhooks › **Add endpoint**, with the URL and the events `checkout.session.completed` and `invoice.paid`. Copy the endpoint's **Signing secret** (`whsec_…`). Stripe's **Send test webhook** checks the setup.
+- **Shopify:** Settings › Notifications › Webhooks › **Create webhook**, event **Order fulfillment** (or **Order payment**), format JSON, with the URL. Copy the key shown under the webhook list ("Your webhooks will be signed with…").
+
+Choose which events invite people and how many **days to wait** (0 to 365; 7 by default). A Checkout is acted on only once it's paid, so bank transfers that never arrive don't invite anyone. The buyer's email and name come from the event; Shopify orders also give the company.
+
+Every delivery must carry the shop's signature over the exact body, made with that secret: Plaudit checks it before reading anything, and Stripe's timestamp must be within 5 minutes. A wrong signature is refused (the trigger's **Last delivery** line says so). The secret is kept to check signatures and never shown again; paste a new one to replace it. Each delivery is handled once, so the shop's retries never invite twice. While the campaign is paused, deliveries get a `409` and the shop retries them later. Each trigger takes up to 120 deliveries a minute and 2,000 a day. **Turn off** ignores deliveries without deleting the trigger; **Delete** retires its URL.
 
 For your own automations, the opt-in webhook events `invite.sent`, `invite.opened`, `invite.clicked` and `invite.declined` are under **Settings → Webhooks**.

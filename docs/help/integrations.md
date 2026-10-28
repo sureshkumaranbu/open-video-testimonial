@@ -6,10 +6,10 @@ Ready-made connections to other tools, in the repository's [`integrations/`](../
 
 A Zapier app ([`integrations/zapier/`](../../integrations/zapier/)) you can push to your own Zapier account as a private app (its README has the commands).
 
-- **Triggers:** New Testimonial, Testimonial Approved, New Private Feedback. They check for new items every few minutes.
+- **Triggers:** New Testimonial, Testimonial Approved, New Private Feedback. They're instant: turning a Zap on subscribes a webhook through the API (it shows in **Settings › Webhooks**), turning it off removes it.
 - **Actions:** Create Testimonial (the person's consent is required), Send Invite (through an active campaign), Approve Testimonial, Tag Testimonial.
 
-Testimonial Approved looks at the 50 newest approved testimonials, so approving a much older one won't trigger it. For instant events, add a Plaudit webhook pointing at "Webhooks by Zapier › Catch Hook" and check its signature in a Code step ([how](../API.md#verifying-webhook-signatures)).
+Zapier's samples (when you set up a step) come from the newest 50 items. Use a read-and-write key.
 
 ## n8n
 

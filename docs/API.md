@@ -5,7 +5,9 @@ Plaudit has a small REST API and signed webhooks, so you can connect it to n8n, 
 - [REST API](#rest-api)
 - [Forms, widgets, walls, campaigns and more](#forms-widgets-walls-campaigns-and-more) (flag `api2`)
 - [Analytics](#analytics)
+- [Webhook subscriptions (REST hooks)](#webhook-subscriptions-rest-hooks)
 - [MCP server for AI assistants](#mcp-server-for-ai-assistants)
+- [Stripe and Shopify triggers](#stripe-and-shopify-triggers)
 - [Webhooks](#webhooks)
 - [Verifying webhook signatures](#verifying-webhook-signatures)
 - [Connecting n8n](#connecting-n8n)
@@ -30,6 +32,8 @@ Send it as a bearer token:
 ```bash
 curl -H "Authorization: Bearer plk_…" https://plaudit.example.com/api/v1/projects
 ```
+
+With the `team2` flag, a key can be made for one project (**Reaches** when creating it). It then sees and changes only that project: other projects' ids answer `404`, as if they didn't exist, and `GET /projects` lists only its own. Keys made without a project (and every key from before) reach every project.
 
 Keys can be revoked at any time from the same screen. Each key may make 600 requests a minute. The API is meant for servers and scripts, so it doesn't send CORS headers for browsers.
 
@@ -230,7 +234,9 @@ Each path does what the same button in the dashboard does, with the same checks:
 
 Lists of testimonials, recipients, customers and feedback take `limit` (1 to 100, default 50) and `offset`; the others return everything.
 
-**Keys and projects.** Today every API key reaches every project on the server, as before. Each of these paths already checks the key against the project an id belongs to, so per-project keys can narrow that without changing the API.
+**Keys and projects.** Each of these paths checks the key against the project an id belongs to: a key made for one project ([above](#keys)) gets `404` for everything else.
+
+Changes made with a key (testimonials, campaigns started, paused or deleted, tags, webhook subscriptions) are in the dashboard's [audit log](AUTH.md#the-audit-log), under the key's name.
 
 ## Analytics
 
@@ -247,9 +253,43 @@ _Also `api2`, and `404` when analytics is off on the server (`ANALYTICS=off`, or
 curl -H "Authorization: Bearer plk_…" "https://plaudit.example.com/api/v1/projects/acme/analytics?from=2026-10-01&to=2026-10-27"
 ```
 
+## Webhook subscriptions (REST hooks)
+
+_Flag `api2`._ Tools such as Zapier subscribe and unsubscribe themselves:
+
+| Method and path | Scope | What it does |
+|---|---|---|
+| `POST /webhooks` | write | `{ "url", "events": [...], "project"? }`: a signed webhook for those events (at least one), for one project (by slug) or all. Answers `201` with `{ id, url, events, project, active, createdAt, secret }`; the secret is in this answer only |
+| `GET /webhooks` | read | The subscriptions this key made (no secrets) |
+| `DELETE /webhooks/{id}` | write | Unsubscribes. Only the key that made a subscription can delete it here |
+
+A subscription is an ordinary [webhook](#webhooks): the same events, payloads, `Plaudit-Signature`, retries and delivery log. It shows in **Settings → Webhooks** marked "added through the API", where an admin can edit or delete it. Unlike webhooks added in the dashboard, it may only point at a **public address**: it's checked when subscribing and again when each delivery connects, so a leaked key can't aim your server at your own network. A key limited to one project must name it. Up to 50 per key.
+
 ## MCP server for AI assistants
 
-`/mcp` (flag `mcp`) is a [Model Context Protocol](https://modelcontextprotocol.io) server over Streamable HTTP, with an API key as the bearer token: JSON-RPC 2.0 `POST`s for `initialize`, `ping`, `tools/list` and `tools/call`, answered with JSON. Its tools are `list_testimonials`, `search_testimonials`, `get_testimonial`, `get_embed_codes`, `summarize` and, for read-and-write keys only, `create_invite`. Testimonials go to the assistant without the author's email, phone, consent details or private fields. Setup for Claude Desktop and other clients: [help/mcp.md](help/mcp.md).
+`/mcp` (flag `mcp`) is a [Model Context Protocol](https://modelcontextprotocol.io) server over Streamable HTTP, with an API key or an OAuth access token as the bearer token: JSON-RPC 2.0 `POST`s for `initialize`, `ping`, `tools/list` and `tools/call`, answered with JSON. Its tools are `list_testimonials`, `search_testimonials`, `get_testimonial`, `get_embed_codes`, `summarize` and, for read-and-write keys only, `create_invite`. Testimonials go to the assistant without the author's email, phone, consent details or private fields. Setup for Claude Desktop and other clients: [help/mcp.md](help/mcp.md).
+
+**OAuth 2.1.** Connectors that sign in by themselves (Claude.ai, ChatGPT) use OAuth instead of a key. A request without a token answers `401` with `WWW-Authenticate: Bearer realm="plaudit", resource_metadata="…/.well-known/oauth-protected-resource/mcp"`, and from there:
+
+| Endpoint | Standard | What it does |
+|---|---|---|
+| `GET /.well-known/oauth-protected-resource` (and `…/mcp`) | RFC 9728 | The resource (`<server>/mcp`), its authorization server and scopes `plaudit:read`, `plaudit:write` |
+| `GET /.well-known/oauth-authorization-server` | RFC 8414 | The endpoints below; `S256` only, public clients only |
+| `POST /api/oauth/register` | RFC 7591 | Registers a public client: `{ redirect_uris, client_name? }`. Redirect URIs must be `https://`, or `http://` to `localhost`, `127.0.0.1` or `[::1]`, without a fragment. 20 an hour per address |
+| `GET /oauth/authorize` | OAuth 2.1 | `response_type=code`, `client_id`, `redirect_uri` (exactly as registered), `code_challenge` with `code_challenge_method=S256`, `state`, `scope`, `resource`. An unknown client or redirect URI gets an error page here, never a redirect. A member signs in and approves on a consent page: read, or read and send invitations (editors and up), and every project or some |
+| `POST /api/oauth/token` | OAuth 2.1 | `grant_type=authorization_code` (`code`, `client_id`, `redirect_uri`, `code_verifier`) or `refresh_token` (`refresh_token`, `client_id`), form-encoded. Access tokens (`plo_…`) last an hour; refresh tokens (`plr_…`) 30 days and change on every use. Using a refresh token twice revokes the connection |
+| `POST /api/oauth/revoke` | RFC 7009 | `token=…`: a refresh token ends the connection, an access token just itself |
+
+A token acts as the member who approved it, with their role and projects as they are now (a member who's removed, or demoted to viewer, loses what they no longer have), within the scope and projects they chose. Codes and tokens are stored as hashes. Admins see and disconnect connections under **Settings → API keys**; connecting and disconnecting are in the audit log.
+
+## Stripe and Shopify triggers
+
+_Flag `campaigns`._ A campaign's native triggers ([help/campaigns.md](help/campaigns.md#stripe-and-shopify)) have endpoints of their own, which need no key: every delivery must carry the shop's signature.
+
+- **`POST /api/hooks/stripe/<trigger id>`**: checks `Stripe-Signature` (HMAC-SHA256 of `<t>.<raw body>` with the endpoint's signing secret, any `v1`, `t` within 5 minutes). Acts on `checkout.session.completed` once `payment_status` is `paid` (or `no_payment_required`), using `customer_details.email` and `name`, and on `invoice.paid`, using `customer_email` and `customer_name`.
+- **`POST /api/hooks/shopify/<trigger id>`**: checks `X-Shopify-Hmac-Sha256` (base64 HMAC-SHA256 of the raw body) and acts on the `X-Shopify-Topic` `orders/fulfilled` or `orders/paid`, using the order's `email` (or `contact_email`, or the customer's), the customer's name and the billing company.
+
+Answers: `200` `{ ok, inviteId, scheduledFor }` (or `skipped`, as for [invites](#campaign-invites)); `200` with `ignored` for events the trigger doesn't act on, unpaid sessions and orders without an email; `200` `{ duplicate: true }` for a delivery already handled (by Stripe's event id or `X-Shopify-Webhook-Id`); `400` for a wrong signature or invalid JSON; `404` for an unknown trigger; `409` until the trigger has its secret, or while the campaign isn't sending (the shop retries later); `413` past 256 KB; `429` past 120 a minute or 2,000 a day per trigger. The dashboard manages triggers at `GET`/`POST /api/admin/campaigns/{id}/triggers` and `PATCH`/`DELETE …/triggers/{triggerId}`; the secret is never sent back (`secretSet: true`).
 
 ```bash
 curl -X POST https://plaudit.example.com/mcp -H "Authorization: Bearer plk_…" -H "Content-Type: application/json" \

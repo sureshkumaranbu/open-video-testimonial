@@ -4,9 +4,9 @@ A [Zapier Platform CLI](https://github.com/zapier/zapier-platform/tree/main/pack
 
 | Kind | Name | Plaudit API |
 |---|---|---|
-| Trigger | New Testimonial | `GET /projects/{slug}/testimonials` (polling) |
-| Trigger | Testimonial Approved | `GET /projects/{slug}/testimonials?status=approved` (polling) |
-| Trigger | New Private Feedback | `GET /projects/{slug}/feedback` (polling; needs `api2`) |
+| Trigger | New Testimonial | REST hook on `testimonial.created` (`POST`/`DELETE /webhooks`); samples from `GET /projects/{slug}/testimonials` |
+| Trigger | Testimonial Approved | REST hook on `testimonial.approved`; samples from `…/testimonials?status=approved` |
+| Trigger | New Private Feedback | REST hook on `feedback.created`; samples from `GET /projects/{slug}/feedback` |
 | Action | Create Testimonial | `POST /projects/{slug}/testimonials` |
 | Action | Send Invite | `POST /invites` |
 | Action | Approve Testimonial | `PATCH /testimonials/{id}` with `status: approved` |
@@ -14,7 +14,7 @@ A [Zapier Platform CLI](https://github.com/zapier/zapier-platform/tree/main/pack
 
 It uses only the public REST API with an API key. Feedback and the campaign dropdown need the `api2` feature flag on your server (on by default).
 
-Triggers poll every few minutes (Zapier's schedule) and look at the newest 50 items. **Testimonial Approved** follows creation order, so approving a testimonial that's older than the newest 50 approved ones won't trigger it. For instant events, use Plaudit's signed webhooks with "Webhooks by Zapier › Catch Hook" and check the `Plaudit-Signature` header in a Code step ([docs/API.md](../../docs/API.md#verifying-webhook-signatures)).
+Triggers are instant: turning a Zap on subscribes a webhook through `POST /api/v1/webhooks` (a read-and-write key; it shows in Plaudit's **Settings › Webhooks**), and turning it off deletes it. Zapier's samples come from the newest 50 items through the API. Webhooks need the `api2` flag on your server (on by default), and your Plaudit server must reach Zapier on the internet.
 
 ## Try it in your own Zapier account
 

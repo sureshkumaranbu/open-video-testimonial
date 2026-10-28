@@ -24,7 +24,24 @@ The sign-in page shows only the methods that are set up. **Settings → This ser
 
 ## Who can sign in
 
-There is one **owner**: the address in `ADMIN_EMAIL`. Everyone else is an **admin**. Admins can do everything except invite or remove people.
+There is one **owner**: the address in `ADMIN_EMAIL`. Everyone else is an **admin** unless the owner gives them another role (below). Admins can do everything except invite, remove or change people.
+
+### Roles and projects
+
+With the `team2` flag (on by default), the owner can give each person a role and, for editors and viewers, the projects they may open. Set it when inviting, or with **Change access** in **Settings → Team** (that works for people let in by `ADMIN_EMAILS` or `ALLOWED_EMAIL_DOMAINS` too):
+
+| Role | May |
+|---|---|
+| Owner | Everything, including the team, roles, storage and deleting projects. Always `ADMIN_EMAIL` |
+| Admin | Everything except the team: settings, API keys, webhooks, notification channels, connected assistants, the audit log, new projects. Always every project |
+| Editor | Content in their projects: approve, edit and delete testimonials, forms, widgets, walls, imports and exports, campaigns (start and send them), Stripe and Shopify triggers. Not settings, keys, webhooks or the team |
+| Viewer | Look at their projects and share approved testimonials (the image studio, embed codes). Nothing they do changes anything |
+
+The server checks the role and project on every dashboard request: a viewer pressing Approve, or anyone opening another project's address, gets a refusal (a 403, or the not-found page), whatever the browser shows. Lists, analytics and notification emails only include the projects someone may open. Editors and viewers see their role next to **Settings**. Without `team2`, everyone but the owner is an admin with every project, as before.
+
+### The audit log
+
+**Settings → Audit log** (admins, flag `team2`) lists who approved, rejected, hid, edited, retagged, trashed, restored or deleted testimonials, who exported what, and every change to the team, API keys, webhooks, campaigns, Stripe and Shopify triggers, project links and deletions, and connected assistants, through the dashboard or the API. Filter by action, person, project and dates, or **Download CSV**. Entries are kept for `AUDIT_RETENTION_DAYS` (365 by default). They never hold secrets, IP addresses or browser details.
 
 You can let people in three ways, and use any mix of them:
 
