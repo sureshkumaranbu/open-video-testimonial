@@ -1,3 +1,4 @@
+import { directReply, directRequest, openDirect, sessionLimit } from "@/lib/direct-upload";
 import { env } from "@/lib/env";
 import { getForm } from "@/lib/forms";
 import { parseFormRow } from "@/lib/forms/schema";
@@ -14,7 +15,8 @@ const STARTS_PER_WINDOW = 60;
  * Starts a resumable video upload for a collection page. A form's answer
  * names its question (?form=<id>&question=<key>, or the same in the JSON
  * body), which must accept a video; without one the project's own setting
- * decides, as on the classic page.
+ * decides, as on the classic page. `{direct: true, contentType}` asks for a
+ * direct-to-S3 session (L9), granted only while S3_DIRECT_UPLOADS is on.
  */
 export async function POST(req: Request, ctx: { params: Promise<{ slug: string }> }) {
   const { slug } = await ctx.params;
@@ -45,9 +47,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ slug: string }
   if (typeof body.size === "number" && body.size > env.maxVideoBytes) {
     return jsonError(413, tooLarge(env.maxVideoBytes));
   }
-  const { upload, token } = createUpload("video", { projectId: project.id, maxBytes: env.maxVideoBytes });
+  const direct = directRequest(body);
+  const created = createUpload("video", { projectId: project.id, maxBytes: sessionLimit(direct, body.size, env.maxVideoBytes), direct });
+  const upload = await openDirect(created.upload);
   return Response.json(
-    { id: upload.id, token, offset: 0, chunkSize: CHUNK_MAX_BYTES, expiresAt: upload.expiresAt.toISOString() },
+    { id: upload.id, token: created.token, offset: 0, chunkSize: CHUNK_MAX_BYTES, expiresAt: upload.expiresAt.toISOString(), ...directReply(upload) },
     { status: 201 },
   );
 }

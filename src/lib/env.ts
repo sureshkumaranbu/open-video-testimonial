@@ -273,6 +273,10 @@ export const env = {
     const p = (process.env.S3_PREFIX || "").trim().replace(/^\/+|\/+$/g, "");
     return p ? `${p}/` : "";
   },
+  /** L9: with STORAGE_DRIVER=s3, browsers upload videos straight to the bucket through presigned URLs (needs the bucket's CORS to allow PUT from PUBLIC_URL). */
+  get s3DirectUploads() {
+    return process.env.S3_DIRECT_UPLOADS === "true";
+  },
   /** Your own key for the Google review importer (Places API). */
   get googlePlacesApiKey() {
     return process.env.GOOGLE_PLACES_API_KEY || "";

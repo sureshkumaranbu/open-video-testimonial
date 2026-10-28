@@ -8,9 +8,11 @@ import { createS3Driver, type FetchLike, type S3Driver } from "./storage/s3";
 
 /**
  * Media storage: local disk under DATA_DIR/uploads (the default) or an
- * S3-compatible bucket (TEAM-05), picked by STORAGE_DRIVER. Uploads are still
- * received and sniffed on disk, then put through the driver (D16), and keys
- * are the same `videos|images/<uuid>.<ext>` on every driver.
+ * S3-compatible bucket (TEAM-05), picked by STORAGE_DRIVER. Uploads are
+ * received and sniffed on disk, then put through the driver (D16), unless
+ * S3_DIRECT_UPLOADS sends videos straight to the bucket (L9,
+ * src/lib/direct-upload.ts). Keys are the same `videos|images/<uuid>.<ext>`
+ * on every driver.
  */
 export interface StoredObject {
   key: string;
@@ -65,7 +67,8 @@ export class UploadError extends Error {}
 /** The file isn't a type we accept (415 rather than 413). */
 export class UnsupportedMediaError extends UploadError {}
 
-function checkType(mime: string | null, kind: MediaKind) {
+/** The type and extension to store a sniffed file under, or an UnsupportedMediaError (never SVG). */
+export function checkType(mime: string | null, kind: MediaKind) {
   const allowed = kind === "video" ? VIDEO_TYPES : IMAGE_TYPES;
   if (!mime || !(mime in allowed)) {
     throw new UnsupportedMediaError(
