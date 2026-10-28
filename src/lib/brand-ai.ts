@@ -9,7 +9,8 @@ import { ProviderError, providerJson } from "./provider-fetch";
 /**
  * The brand scan's optional AI step (ONB-02/03, L10), with the owner's own
  * OpenAI-compatible /chat/completions endpoint (BRAND_AI_API_URL,
- * BRAND_AI_API_KEY, BRAND_AI_MODEL). Off until a model is set. It gets the
+ * BRAND_AI_API_KEY, BRAND_AI_MODEL, or the shared AI_* settings when those
+ * aren't set). Off until a model is set. It gets the
  * home page's title, meta tags, the colours in its inline styles and its
  * visible text (capped), never the raw HTML, and may suggest the site name,
  * the primary colour and testimonials. Everything it says is checked before
@@ -25,8 +26,19 @@ const MAX_COLORS = 12;
 const MAX_ANSWER_BYTES = 256 * 1024;
 const MAX_ITEMS = 20;
 
+/**
+ * The provider the scan uses: BRAND_AI_* when BRAND_AI_MODEL is set (as
+ * before M17), else the shared AI_* settings (src/lib/ai.ts), so one set of
+ * settings covers every AI feature. Null when neither has a model.
+ */
+export function brandAiProvider(): { url: string; key: string; model: string } | null {
+  if (env.brandAiModel) return env.brandAiApiUrl ? { url: env.brandAiApiUrl, key: env.brandAiApiKey, model: env.brandAiModel } : null;
+  if (env.aiModel && env.aiApiUrl) return { url: env.aiApiUrl, key: env.aiApiKey, model: env.aiModel };
+  return null;
+}
+
 export function brandAiEnabled() {
-  return Boolean(env.brandAiModel && env.brandAiApiUrl);
+  return brandAiProvider() !== null;
 }
 
 const HEX = /#(?:[0-9a-f]{6}|[0-9a-f]{3})\b/gi;
@@ -117,21 +129,22 @@ const SYSTEM = [
  * answers with something unusable: the caller then keeps the heuristics.
  */
 export async function suggestBrand(html: string, url: string, o: { timeoutMs: number }): Promise<BrandSuggestion | null> {
-  if (!brandAiEnabled() || o.timeoutMs < 1000) return null;
+  const provider = brandAiProvider();
+  if (!provider || o.timeoutMs < 1000) return null;
   const digest = pageDigest(html, url);
   let json: unknown;
   try {
     json = await providerJson(
-      `${env.brandAiApiUrl}/chat/completions`,
+      `${provider.url}/chat/completions`,
       {
-        model: env.brandAiModel,
+        model: provider.model,
         temperature: 0,
         messages: [
           { role: "system", content: SYSTEM },
           { role: "user", content: digest.prompt },
         ],
       },
-      { headers: env.brandAiApiKey ? { Authorization: `Bearer ${env.brandAiApiKey}` } : {}, timeoutMs: o.timeoutMs, maxBytes: MAX_ANSWER_BYTES },
+      { headers: provider.key ? { Authorization: `Bearer ${provider.key}` } : {}, timeoutMs: o.timeoutMs, maxBytes: MAX_ANSWER_BYTES },
     );
   } catch (err) {
     if (err instanceof ProviderError) console.warn(`[onboarding] brand AI step skipped: ${err.message}`);

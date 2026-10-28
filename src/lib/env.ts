@@ -205,6 +205,35 @@ export const env = {
   get brandAiModel() {
     return (process.env.BRAND_AI_MODEL || "").trim();
   },
+  /**
+   * M17: the shared AI client (src/lib/ai.ts), your own OpenAI-compatible
+   * /chat/completions endpoint (AI_API_URL, AI_API_KEY, AI_MODEL). Off until
+   * a model is set; the key is optional (a local model usually needs none).
+   * Case studies, Voice of Customer, AI surveys and OCR send it the text (or
+   * screenshot) the owner asks about; the brand scan falls back to it when
+   * BRAND_AI_MODEL isn't set.
+   */
+  get aiApiUrl() {
+    return (process.env.AI_API_URL || "https://api.openai.com/v1").trim().replace(/\/+$/, "");
+  },
+  get aiApiKey() {
+    return (process.env.AI_API_KEY || "").trim();
+  },
+  get aiModel() {
+    return (process.env.AI_MODEL || "").trim();
+  },
+  /**
+   * IMP-07 screenshot OCR: "off" (default), "ai" (the AI client above, as a
+   * vision message) or "command" (a local program such as tesseract, run
+   * without a shell; `{input}` is the image file, and it prints the text).
+   */
+  get ocrProvider(): "off" | "ai" | "command" {
+    const p = (process.env.OCR_PROVIDER || "off").trim().toLowerCase();
+    return p === "ai" || p === "command" ? p : "off";
+  },
+  get ocrCommand() {
+    return process.env.OCR_COMMAND || "";
+  },
   /** Store a keyed hash of the submitter's IP with each consent record. Off by default. */
   get consentIpHash() {
     return process.env.CONSENT_IP_HASH === "true";

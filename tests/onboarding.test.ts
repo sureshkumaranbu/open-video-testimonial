@@ -97,6 +97,9 @@ afterEach(() => {
   delete process.env.BRAND_AI_API_URL;
   delete process.env.BRAND_AI_API_KEY;
   delete process.env.BRAND_AI_MODEL;
+  delete process.env.AI_API_URL;
+  delete process.env.AI_API_KEY;
+  delete process.env.AI_MODEL;
   sent.length = 0;
   answer = () => ({ body: {} });
   setOnboardingFetch(null);
@@ -287,6 +290,23 @@ describe("the brand scan (L10)", () => {
     expect(sent).toHaveLength(0);
     expect(d.brand).toEqual({ name: "Home", color: undefined, logoUrl: undefined });
     expect(parseOnboarding(getProjectById(p.id)!.onboarding).found).toMatchObject({ ai: false });
+  });
+
+  it("ONB-02 L10 without BRAND_AI_MODEL the shared AI_* settings are used, with no key when none is set", async () => {
+    process.env.AI_API_URL = `${providerOrigin}/v1`;
+    process.env.AI_MODEL = "shared-model";
+    answer = () => chat({ siteName: null, primaryColor: "#e0457b", testimonials: [] });
+    const p = createProject({ name: "Tours", slug: "tours" });
+    const d = await scan(p.id, `${origin}/plain/`);
+    expect(sent).toHaveLength(1);
+    expect(sent[0].body.model).toBe("shared-model");
+    expect(sent[0].auth).toBeUndefined();
+    expect(d.brand?.color).toBe("#e0457b");
+    // BRAND_AI_MODEL, when set, still wins.
+    useProvider();
+    const q = createProject({ name: "Tours 2", slug: "tours-2" });
+    await scan(q.id, `${origin}/plain/`);
+    expect(sent[1].body.model).toBe("brand-test-model");
   });
 
   it("ONB-02 L10 with a provider set, its site name and colour fill what the page's tags leave out, checked against the page", async () => {

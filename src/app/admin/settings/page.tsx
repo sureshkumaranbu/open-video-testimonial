@@ -63,6 +63,16 @@ export default async function SettingsPage() {
               <dd data-on={system.transcription.enabled}>
                 {system.transcription.enabled ? `On (${system.transcription.provider})` : "Off: set TRANSCRIBE_PROVIDER to enable"}
               </dd>
+              <dt>AI</dt>
+              <dd data-on={system.ai.enabled} data-testid="server-ai">
+                {system.ai.enabled
+                  ? `On: ${system.ai.model}${system.ai.host ? ` at ${system.ai.host}` : ""} (case studies, insights, AI surveys; only what you ask about is sent)`
+                  : "Off: set AI_MODEL (and AI_API_URL, AI_API_KEY) to enable"}
+              </dd>
+              <dt>Screenshot text (OCR)</dt>
+              <dd data-on={system.ocr.enabled} data-testid="server-ocr">
+                {system.ocr.enabled ? `On (${system.ocr.provider})` : system.ocr.provider === "off" ? "Off: set OCR_PROVIDER to enable" : `Off: ${system.ocr.problem}`}
+              </dd>
               <dt>Email</dt>
               <dd data-on={system.email.mode !== "off"}>
                 {system.email.mode === "smtp"
