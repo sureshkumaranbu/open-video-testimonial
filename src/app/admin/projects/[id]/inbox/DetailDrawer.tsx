@@ -12,6 +12,7 @@ import { HighlightEditor, type HighlightJson } from "./HighlightEditor";
 import { MergeDialog, type MergeCandidate } from "./MergeDialog";
 import { TranslationsPanel, type TranslationJson } from "./TranslationsPanel";
 import { sourceLabel, type InboxRow } from "./types";
+import { VideoStudio } from "./VideoStudio";
 import { VideoTools, type VideoToolsTestimonial } from "./VideoTools";
 
 type DetailAnswer = {
@@ -142,6 +143,7 @@ export function DetailDrawer({
   publicPages = false,
   customers = false,
   translations = false,
+  video2 = false,
   projectId,
 }: {
   id: string | null;
@@ -157,6 +159,8 @@ export function DetailDrawer({
   customers?: boolean;
   /** INBOX-13 (translations flag): the Translations section. */
   translations?: boolean;
+  /** VID-05, VID-07 (video2 flag): multiclips and social clips. */
+  video2?: boolean;
   projectId?: string;
 }) {
   const [detail, setDetail] = useState<Detail | null>(null);
@@ -418,6 +422,16 @@ export function DetailDrawer({
                 {t.videoKey && (
                   <VideoTools
                     t={t}
+                    onChanged={() => {
+                      void load();
+                      onChanged();
+                    }}
+                  />
+                )}
+                {video2 && t.videoKey && (
+                  <VideoStudio
+                    key={t.id}
+                    testimonialId={t.id}
                     onChanged={() => {
                       void load();
                       onChanged();
