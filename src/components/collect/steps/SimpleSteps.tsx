@@ -1,6 +1,8 @@
 "use client";
 
 import type { FormPage } from "@/lib/forms/schema";
+import type { OwnerVideo as OwnerVideoData } from "@/lib/video/form-videos";
+import { OwnerVideo } from "../OwnerVideo";
 import { StarInput } from "../StarInput";
 import type { StepCtx } from "./types";
 
@@ -28,10 +30,11 @@ export function RatingStep({ page, ctx }: { page: Page<"rating">; ctx: StepCtx }
   );
 }
 
-export function WelcomeStep({ page, ctx }: { page: Page<"welcome">; ctx: StepCtx }) {
+export function WelcomeStep({ page, ctx, video }: { page: Page<"welcome">; ctx: StepCtx; video?: OwnerVideoData }) {
   return (
     <>
       <h1>{page.title || ctx.t("welcomeTitle")}</h1>
+      {video && <OwnerVideo video={video} label={page.title || ctx.t("welcomeTitle")} />}
       <p className="fr-sub">{page.message || ctx.t("welcomeMessage")}</p>
       {page.bullets.length > 0 && (
         <ul className="fr-bullets">

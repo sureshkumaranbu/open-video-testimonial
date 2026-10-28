@@ -23,6 +23,8 @@ import { cleanupLoginTokens } from "./login-links";
 import { registerNotificationJobs } from "./notifications/jobs";
 import { registerOnboardingJobs } from "./onboarding";
 import { registerStorageJobs } from "./storage-migrate";
+import { refreshHls } from "./video/hls";
+import { registerVideoJobs } from "./video/jobs";
 import { deliver, DELIVER_JOB } from "./webhooks";
 
 /** Wires every background job type and periodic task to its handler. */
@@ -34,6 +36,8 @@ export function registerJobs() {
     const t = getTestimonial(testimonialId);
     if (t?.mediaStatus === "ready" && t.transcriptStatus === "none") queueTranscription(testimonialId);
     if (t?.mediaStatus === "ready" && autoApprove) maybeAutoApprove(testimonialId);
+    // VID-06: a new cut or file needs a new HLS copy (and the old one goes).
+    if (t) await refreshHls(testimonialId);
   });
   registerJob(TRANSCRIBE_JOB, async (payload, job) => {
     const { testimonialId } = payload as { testimonialId: string };
@@ -78,6 +82,7 @@ export function registerJobs() {
   registerAuditJobs();
   registerTriggerJobs();
   registerOAuthJobs();
+  registerVideoJobs();
 }
 
 export function startBackgroundWorker() {
