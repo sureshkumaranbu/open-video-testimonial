@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { registerAnalyticsJobs } from "./analytics";
 import { registerAuditJobs } from "./audit";
+import { registerTriggerJobs } from "./campaign-triggers";
 import { registerCustomerJobs } from "./customer-records";
 import { registerTranslationJobs } from "./translations";
 import { registerEmbeddingJobs } from "./embeddings";
@@ -74,6 +75,7 @@ export function registerJobs() {
   registerTranslationJobs();
   registerEmbeddingJobs();
   registerAuditJobs();
+  registerTriggerJobs();
 }
 
 export function startBackgroundWorker() {
