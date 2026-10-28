@@ -1,0 +1,123 @@
+/* SHARE-04: a case study, on its public page and in the editor's preview. Tokens from globals.css. */
+.csv {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  color: var(--ink);
+}
+.csv-kicker {
+  margin: 0;
+  color: var(--accent);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.csv-title {
+  margin: 0;
+  font-size: clamp(1.6rem, 1.2rem + 1.6vw, 2.25rem);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.csv-summary {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--text-lg, 1.125rem);
+  white-space: pre-line;
+}
+.csv-person {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.csv-person > span:last-child {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.csv-byline {
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+}
+.csv-avatar {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.csv-initials {
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+.csv-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.csv-metrics li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.csv-metric-value {
+  color: var(--accent);
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.csv-metric-label {
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+}
+.csv-quote {
+  margin: 0;
+  padding-left: var(--space-4);
+  border-left: 4px solid var(--accent);
+}
+.csv-quote blockquote {
+  margin: 0;
+}
+.csv-quote p {
+  margin: 0;
+  font-family: var(--font-voice);
+  font-size: clamp(1.15rem, 1rem + 0.8vw, 1.45rem);
+  line-height: 1.45;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.csv-quote p::before {
+  content: "\201C";
+}
+.csv-quote p::after {
+  content: "\201D";
+}
+.csv-quote figcaption {
+  margin-top: var(--space-2);
+  color: var(--ink-2);
+  font-size: var(--text-sm);
+}
+.csv-quote figcaption::before {
+  content: "— ";
+}
+.csv-section h2,
+.csv-section h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-lg, 1.125rem);
+}
+.csv-section p {
+  margin: 0;
+  line-height: 1.6;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}

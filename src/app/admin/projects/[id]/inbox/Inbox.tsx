@@ -74,6 +74,7 @@ export function Inbox({
   translations,
   smartSearch = false,
   video2 = false,
+  insights,
   initialOpenId,
 }: {
   project: Project;
@@ -94,6 +95,8 @@ export function Inbox({
   smartSearch?: boolean;
   /** M16 (video2 flag): multiclips and social clips in the drawer. */
   video2?: boolean;
+  /** M17 (insights flag): the drawer's "Case study", and manual add's Case study tab and screenshot reading (IMP-07, when OCR is on). */
+  insights?: { caseStudies: string; ocr: boolean };
   /** Opens this testimonial in the drawer at once (the "Review and approve" link in notifications). */
   initialOpenId?: string;
 }) {
@@ -263,7 +266,7 @@ export function Inbox({
 
   return (
     <div className="stack-lg" style={accentStyle(project.accentColor)} data-testid="inbox">
-      <ProjectHead project={project} actions={<ManualAddModal projectId={project.id} onAdded={() => void load(true)} />} />
+      <ProjectHead project={project} actions={<ManualAddModal projectId={project.id} onAdded={() => void load(true)} caseStudy={Boolean(insights)} ocr={insights?.ocr} />} />
 
       <div className="stat-row">
         <div className="stat pending">
@@ -435,6 +438,7 @@ export function Inbox({
         onChanged={() => void load(true)}
         tags={facets?.tags ?? []}
         shareStudio={shareStudio}
+        caseStudies={insights?.caseStudies}
         publicPages={publicPages}
         customers={customers}
         translations={Boolean(translations)}

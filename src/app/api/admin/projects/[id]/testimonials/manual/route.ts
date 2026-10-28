@@ -1,5 +1,6 @@
 import { auditRequest } from "@/lib/audit";
 import { getRequestSession } from "@/lib/auth";
+import { caseStudyToAdmin, createCaseStudy } from "@/lib/case-studies";
 import { jsonError, requireRole } from "@/lib/http";
 import { addManualTestimonial, ManualAddError } from "@/lib/manual-add";
 import { UnsupportedMediaError, UploadError } from "@/lib/storage";
@@ -13,7 +14,8 @@ const fileOf = (v: FormDataEntryValue | null) => (v instanceof File && v.size > 
  * Adds a testimonial by hand (PRD §8.1). Multipart: `payload` is the JSON
  * (lib/manual-add.ts manualInputSchema, plus `videoUpload: {id, token}` for a
  * finished resumable upload), with files `avatar`, `companyLogo` and up to 5
- * `images`. Answers 201 `{testimonial}`.
+ * `images`. Answers 201 `{testimonial}`. The Case study tab (`kind:
+ * "case_study"`, SHARE-04) also makes a case study from it: `{testimonial, caseStudy}`.
  */
 export async function POST(req: Request, ctx: Ctx) {
   const denied = requireRole(req, "editor");
@@ -48,6 +50,11 @@ export async function POST(req: Request, ctx: Ctx) {
       getRequestSession(req)?.email,
     );
     auditRequest(req, "testimonial.create", { objectType: "testimonial", objectId: testimonial.id, projectId: testimonial.projectId, summary: testimonial.authorName, meta: { source: "manual" } });
+    if (input.kind === "case_study") {
+      const cs = createCaseStudy(project, testimonial.id);
+      auditRequest(req, "case_study.create", { objectType: "case_study", objectId: cs.id, projectId: project.id, summary: `Made the case study “${cs.title}”` });
+      return Response.json({ testimonial, caseStudy: caseStudyToAdmin(cs) }, { status: 201 });
+    }
     return Response.json({ testimonial }, { status: 201 });
   } catch (err) {
     if (err instanceof ManualAddError) return jsonError(err.status, err.message);

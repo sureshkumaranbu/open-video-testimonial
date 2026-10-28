@@ -16,10 +16,14 @@ import { testimonialUpdateSchema } from "./validation";
  * else (an email, a call, a screenshot of a review). It goes in as approved
  * unless they pick another status, without webhooks or auto-approve, and
  * the consent ledger records that consent was collected outside Plaudit.
+ * The Case study tab (SHARE-04) adds the testimonial the same way; the route
+ * then makes a case study from it. The Image tab can read the screenshot
+ * first (IMP-07, src/lib/ocr.ts); the owner checks the fields, and the image
+ * is kept as the testimonial's screenshot.
  */
 
 export const MAX_MANUAL_IMAGES = 5;
-export const MANUAL_KINDS = ["text", "video", "image"] as const;
+export const MANUAL_KINDS = ["text", "video", "image", "case_study"] as const;
 export const MANUAL_CONSENT_DETAIL = "Added in the dashboard; consent was collected outside Plaudit";
 
 const edit = testimonialUpdateSchema.shape;
@@ -46,7 +50,7 @@ export const manualInputSchema = z
     /** INBOX-12 "Add testimonial" from a customer's profile: link to that person (checked against the project). */
     customerId: z.string().min(1).max(64).optional(),
   })
-  .refine((v) => v.kind !== "text" || Boolean(v.text?.trim()), { message: "Add the testimonial's text", path: ["text"] });
+  .refine((v) => (v.kind !== "text" && v.kind !== "case_study") || Boolean(v.text?.trim()), { message: "Add the testimonial's text", path: ["text"] });
 export type ManualInput = z.input<typeof manualInputSchema>;
 
 /** A manual add that can't be saved as asked. */

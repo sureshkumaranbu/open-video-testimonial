@@ -140,6 +140,7 @@ export function DetailDrawer({
   onNext,
   onChanged,
   shareStudio,
+  caseStudies,
   publicPages = false,
   customers = false,
   translations = false,
@@ -154,6 +155,8 @@ export function DetailDrawer({
   onChanged: () => void;
   tags: string[];
   shareStudio?: string;
+  /** SHARE-04 (insights flag): the case studies page, for "Case study". */
+  caseStudies?: string;
   publicPages?: boolean;
   /** INBOX-11, INBOX-12 (customers flag): the customer link, likely duplicates and "Merge into…". */
   customers?: boolean;
@@ -353,6 +356,12 @@ export function DetailDrawer({
                     <a className="button ghost small" href={`${shareStudio}?ids=${t.id}`} data-testid="create-image">
                       <Icon name="image" />
                       Create image
+                    </a>
+                  )}
+                  {caseStudies && (
+                    <a className="button ghost small" href={`${caseStudies}?from=${t.id}`} data-testid="create-case-study">
+                      <Icon name="pen" />
+                      Case study
                     </a>
                   )}
                   <button type="button" className="ghost small" onClick={() => setEditing((e) => !e)} aria-expanded={editing} data-testid="edit-toggle">
