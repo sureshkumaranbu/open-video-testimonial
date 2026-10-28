@@ -1,7 +1,7 @@
 import { getRequestSession } from "@/lib/auth";
 import { draftContent, sendCampaignTest } from "@/lib/campaigns";
 import { emailMode, explainSmtpError, fromAddress } from "@/lib/email";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 import { checkSenderDomain } from "@/lib/sender-auth";
 import { firstIssue } from "@/lib/validation";
@@ -14,7 +14,7 @@ import { campaignAndProject } from "../guard";
  * only reports; it never stops a send.
  */
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const found = campaignAndProject((await ctx.params).id);
   if (!found) return jsonError(404, "Campaign not found");

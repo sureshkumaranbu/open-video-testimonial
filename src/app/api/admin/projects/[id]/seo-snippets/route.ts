@@ -1,5 +1,5 @@
 import { env } from "@/lib/env";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { createSnippet, createSnippetBody, listSnippets, SnippetError, snippetToAdmin } from "@/lib/seo-snippets";
 import { getProjectById } from "@/lib/testimonials";
 import { firstIssue } from "@/lib/validation";
@@ -8,7 +8,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 /** SEO-01: the project's review snippets with their code and guidance. */
 export async function GET(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "viewer");
   if (denied) return denied;
   const project = getProjectById((await ctx.params).id);
   if (!project) return jsonError(404, "Project not found");
@@ -16,7 +16,7 @@ export async function GET(req: Request, ctx: Ctx) {
 }
 
 export async function POST(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const project = getProjectById((await ctx.params).id);
   if (!project) return jsonError(404, "Project not found");

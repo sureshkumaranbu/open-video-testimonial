@@ -6,7 +6,8 @@ import { analyticsUi, removedAlerts } from "@/lib/analytics";
 import { featureOn } from "@/lib/features";
 import { failingSyncs } from "@/lib/importers/sync";
 import { getWelcome } from "@/lib/onboarding";
-import { requireAdminPage } from "@/lib/server-session";
+import { onlyOpen, roleAtLeast } from "@/lib/access";
+import { pageAccess } from "@/lib/server-session";
 import { countByStatus, listProjects } from "@/lib/testimonials";
 import { accentStyle } from "@/lib/theme";
 import { ImportProjectForm, NewProjectForm } from "./AdminForms";
@@ -17,10 +18,11 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Dashboard" };
 
 export default async function AdminHome() {
-  const session = await requireAdminPage();
+  const { session, access } = await pageAccess();
+  const isAdmin = roleAtLeast(session.role, "admin");
   // D10: onboarding is offered here as a card, never as a redirect.
-  const welcome = featureOn("onboarding") && !getWelcome(session.email);
-  const projects = listProjects().map((p) => ({ ...p, counts: countByStatus(p.id) }));
+  const welcome = isAdmin && featureOn("onboarding") && !getWelcome(session.email);
+  const projects = onlyOpen(access, listProjects()).map((p) => ({ ...p, counts: countByStatus(p.id) }));
   const waiting = projects.reduce((n, p) => n + p.counts.pending, 0);
 
   return (
@@ -39,7 +41,7 @@ export default async function AdminHome() {
             </p>
           </div>
         </div>
-        {analyticsUi() && <RemovedAlerts alerts={removedAlerts()} />}
+        {analyticsUi() && <RemovedAlerts alerts={removedAlerts(access.all ? undefined : [...access.ids])} />}
         {featureOn("imports2") && <SyncAlerts alerts={failingSyncs()} />}
         {welcome && <WelcomeCard first={projects.length === 0} />}
         <div className="project-grid">
@@ -61,8 +63,8 @@ export default async function AdminHome() {
               </div>
             </Link>
           ))}
-          <NewProjectForm />
-          <ImportProjectForm />
+          {isAdmin && <NewProjectForm />}
+          {isAdmin && <ImportProjectForm />}
         </div>
       </main>
     </>

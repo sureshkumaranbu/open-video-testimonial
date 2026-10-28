@@ -306,6 +306,11 @@ export const env = {
     const n = Number(process.env.DIGEST_HOUR_UTC || 8);
     return Number.isInteger(n) && n >= 0 && n <= 23 ? n : 8;
   },
+  /** TEAM-02: days the audit log keeps an entry (default 365). */
+  get auditRetentionDays() {
+    const n = Number(process.env.AUDIT_RETENTION_DAYS || 365);
+    return Number.isInteger(n) && n > 0 ? n : 365;
+  },
   /**
    * Only for tests: exact host:port origins (e.g. "127.0.0.1:3198") that
    * outbound requests may reach although they're private addresses or not on a

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { getRequestSession } from "@/lib/auth";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { firstIssue } from "@/lib/validation";
 import { setTrim, trimInfo, VideoToolError } from "@/lib/video-tools";
 
@@ -17,7 +17,7 @@ const fail = (err: unknown) => {
 
 /** VID-01: the original's length, waveform peaks and the current trim, for the trim tool. */
 export async function GET(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "viewer");
   if (denied) return denied;
   try {
     return Response.json(await trimInfo((await ctx.params).id), { headers: { "Cache-Control": "private, no-store" } });
@@ -28,7 +28,7 @@ export async function GET(req: Request, ctx: Ctx) {
 
 /** VID-01: keep {startMs, endMs} of the original (both null = the whole video). The MP4 is re-cut in the background. */
 export async function PUT(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonError(400, firstIssue(parsed.error));

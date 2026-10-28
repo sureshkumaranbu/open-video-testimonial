@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { deleteProjectFeedback, listProjectFeedback, PAGE_SIZES } from "@/lib/inbox";
 import { getProjectById } from "@/lib/testimonials";
 import { firstIssue } from "@/lib/validation";
@@ -8,7 +8,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 /** The Feedback tab: private answers, newest first (`?page=&size=`). */
 export async function GET(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "viewer");
   if (denied) return denied;
   const project = getProjectById((await ctx.params).id);
   if (!project) return jsonError(404, "Project not found");
@@ -23,7 +23,7 @@ const deleteSchema = z.object({ ids: z.array(z.string().min(1).max(64)).min(1).m
 
 /** Deletes feedback for good: `{ids}`. Ids from another project are ignored. */
 export async function DELETE(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const project = getProjectById((await ctx.params).id);
   if (!project) return jsonError(404, "Project not found");

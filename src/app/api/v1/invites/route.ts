@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { apiJson, requireApiKey } from "@/lib/api-keys";
+import { keyCanAccess } from "@/lib/api-v1";
 import { CampaignError, createInvite, getCampaign, inviteInput } from "@/lib/campaigns";
 import { jsonError } from "@/lib/http";
 import { inviteToApi } from "@/lib/requests";
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
   const { campaignId, ...input } = parsed.data;
   const campaign = getCampaign(campaignId);
   const project = campaign && getProjectById(campaign.projectId);
-  if (!campaign || !project) return jsonError(404, "Campaign not found", { "Cache-Control": "no-store" });
+  if (!campaign || !project || !keyCanAccess(auth.key, project.id)) return jsonError(404, "Campaign not found", { "Cache-Control": "no-store" });
   try {
     const { invite, skipped } = createInvite(project, campaign, input);
     return apiJson({ data: invite ? inviteToApi(project, invite) : null, ...(skipped ? { skipped } : {}) }, skipped ? 200 : 201);

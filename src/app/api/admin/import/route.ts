@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import { env } from "@/lib/env";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { enqueue } from "@/lib/jobs";
 import { createImportTarget, IMPORT_JOB, ImportError, readManifest } from "@/lib/portability";
 import { discardUpload, getUpload, uploadFilePath } from "@/lib/uploads";
@@ -20,7 +20,7 @@ const schema = z.object({
  * copying the media runs in the background (poll /api/admin/jobs/:id).
  */
 export async function POST(req: Request) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "admin");
   if (denied) return denied;
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonError(400, firstIssue(parsed.error));

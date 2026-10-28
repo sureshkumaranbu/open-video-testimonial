@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { getRequestSession } from "@/lib/auth";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { discover, OnboardingError } from "@/lib/onboarding";
 import { firstIssue } from "@/lib/validation";
 
@@ -8,7 +8,7 @@ const body = z.object({ projectId: z.string().min(1).max(64), url: z.string().tr
 
 /** Looks for testimonials on the owner's site again (ONB-03), for a project that already exists. */
 export async function POST(req: Request) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "admin");
   if (denied) return denied;
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonError(400, firstIssue(parsed.error));

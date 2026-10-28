@@ -1,7 +1,8 @@
+import { auditRequest } from "@/lib/audit";
 import { z } from "zod";
 import type { Project } from "@/db/schema";
 import { getRequestSession } from "@/lib/auth";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { getInboxPrefs, MAX_BULK, parseInboxParams, type InboxQuery } from "@/lib/inbox";
 import { inboxExport } from "@/lib/inbox-export";
 import { exportZip, testimonialsCsv } from "@/lib/portability";
@@ -32,13 +33,14 @@ function viewDownload(project: Project, q: InboxQuery & { ids?: string[] }, form
  * without a `tab`, the view is All (everything but the trash).
  */
 export async function GET(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const project = getProjectById((await ctx.params).id);
   if (!project) return jsonError(404, "Project not found");
   const sp = new URL(req.url).searchParams;
   const format = sp.get("format") ?? "zip";
   const stamp = new Date().toISOString().slice(0, 10);
+  auditRequest(req, `export.${format === "json" || format === "csv" ? format : "zip"}`, { objectType: "project", objectId: project.id, projectId: project.id, summary: project.name, meta: { view: [...sp.keys()].filter((k) => k !== "format") } });
   const view = [...sp.keys()].some((k) => k !== "format");
   if (format === "json" || (format === "csv" && view)) {
     const prefs = getInboxPrefs(getRequestSession(req)?.email);
@@ -74,11 +76,12 @@ const selectionSchema = z.object({
 
 /** Exports the selected rows: `{format, ids}` (a long selection doesn't fit in a URL). */
 export async function POST(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const project = getProjectById((await ctx.params).id);
   if (!project) return jsonError(404, "Project not found");
   const parsed = selectionSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonError(400, firstIssue(parsed.error));
+  auditRequest(req, `export.${parsed.data.format}`, { objectType: "project", objectId: project.id, projectId: project.id, summary: `${parsed.data.ids.length} selected`, meta: { ids: parsed.data.ids.slice(0, 100) } });
   return viewDownload(project, { ...parseInboxParams(new URLSearchParams()), ids: parsed.data.ids }, parsed.data.format);
 }

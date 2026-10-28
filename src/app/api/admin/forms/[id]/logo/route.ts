@@ -1,5 +1,5 @@
 import { removeFormLogo, setFormLogo } from "@/lib/forms/admin";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { UnsupportedMediaError, UploadError } from "@/lib/storage";
 import { formErrorResponse, formResponse } from "../shared";
 
@@ -7,7 +7,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 /** Uploads the form's logo (multipart field `logo`: PNG, JPEG, WebP or GIF; checked by its bytes, never SVG). */
 export async function POST(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const { id } = await ctx.params;
   const data = await req.formData().catch(() => null);
@@ -24,7 +24,7 @@ export async function POST(req: Request, ctx: Ctx) {
 }
 
 export async function DELETE(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const { id } = await ctx.params;
   try {

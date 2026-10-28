@@ -1,5 +1,5 @@
 import { campaignToAdmin, disableWebhook, regenerateWebhook } from "@/lib/campaigns";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { campaignAndProject } from "../guard";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -9,7 +9,7 @@ type Ctx = { params: Promise<{ id: string }> };
  * in this answer only: Plaudit keeps just a hash of its token.
  */
 export async function POST(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const found = campaignAndProject((await ctx.params).id);
   if (!found) return jsonError(404, "Campaign not found");
@@ -19,7 +19,7 @@ export async function POST(req: Request, ctx: Ctx) {
 
 /** Turns the incoming webhook off. */
 export async function DELETE(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const found = campaignAndProject((await ctx.params).id);
   if (!found) return jsonError(404, "Campaign not found");

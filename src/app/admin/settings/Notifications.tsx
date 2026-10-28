@@ -13,7 +13,14 @@ import "@/app/admin/notifications.css";
  */
 
 type Frequency = "instant" | "daily" | "off";
-type Prefs = { newTestimonial: Frequency; weeklyPending: boolean; importSummary: boolean; monthlyReport: boolean; widgetRemoved: boolean; projectIds: string[] };
+type Prefs = {
+  newTestimonial: Frequency;
+  weeklyPending: boolean;
+  importSummary: boolean;
+  monthlyReport: boolean;
+  widgetRemoved: boolean;
+  projectIds: string[];
+};
 type ChannelType = "slack" | "discord" | "teams" | "telegram";
 type Channel = {
   id: string;
@@ -30,10 +37,30 @@ type Channel = {
 type ProjectOption = { id: string; name: string };
 
 const TYPES: { id: ChannelType; label: string; hint: string; placeholder: string }[] = [
-  { id: "slack", label: "Slack", hint: "In Slack, add the Incoming Webhooks app to a channel and copy its webhook URL.", placeholder: "https://hooks.slack.com/services/…" },
-  { id: "discord", label: "Discord", hint: "In Discord, open the channel's settings → Integrations → Webhooks → New webhook, then Copy webhook URL.", placeholder: "https://discord.com/api/webhooks/…" },
-  { id: "teams", label: "Microsoft Teams", hint: "In Teams, add the “Post to a channel when a webhook request is received” workflow and copy its URL.", placeholder: "https://….logic.azure.com/workflows/…" },
-  { id: "telegram", label: "Telegram", hint: "Create a bot with @BotFather, add it to your group or channel, then enter its token and the chat id.", placeholder: "" },
+  {
+    id: "slack",
+    label: "Slack",
+    hint: "In Slack, add the Incoming Webhooks app to a channel and copy its webhook URL.",
+    placeholder: "https://hooks.slack.com/services/…",
+  },
+  {
+    id: "discord",
+    label: "Discord",
+    hint: "In Discord, open the channel's settings → Integrations → Webhooks → New webhook, then Copy webhook URL.",
+    placeholder: "https://discord.com/api/webhooks/…",
+  },
+  {
+    id: "teams",
+    label: "Microsoft Teams",
+    hint: "In Teams, add the “Post to a channel when a webhook request is received” workflow and copy its URL.",
+    placeholder: "https://….logic.azure.com/workflows/…",
+  },
+  {
+    id: "telegram",
+    label: "Telegram",
+    hint: "Create a bot with @BotFather, add it to your group or channel, then enter its token and the chat id.",
+    placeholder: "",
+  },
 ];
 const EVENTS = [
   { id: "testimonial.created", label: "New testimonials" },
@@ -42,7 +69,18 @@ const EVENTS = [
 const typeLabel = (t: ChannelType) => TYPES.find((x) => x.id === t)?.label ?? t;
 
 /** `widgetAlerts`: install detection is on (analytics), so "a widget stopped showing" can be offered. */
-export function Notifications({ email, projects, widgetAlerts = true }: { email: string; projects: ProjectOption[]; widgetAlerts?: boolean }) {
+export function Notifications({
+  email,
+  projects,
+  widgetAlerts = true,
+  channels = true,
+}: {
+  email: string;
+  projects: ProjectOption[];
+  widgetAlerts?: boolean;
+  /** Chat channels are for admins (TEAM-01); everyone has their own email settings. */
+  channels?: boolean;
+}) {
   return (
     <section className="panel" aria-labelledby="notify-h" id="notifications">
       <div className="panel-head">
@@ -52,7 +90,7 @@ export function Notifications({ email, projects, widgetAlerts = true }: { email:
       </div>
       <div className="panel-body stack-lg">
         <EmailPrefs email={email} projects={projects} widgetAlerts={widgetAlerts} />
-        <Channels projects={projects} />
+        {channels && <Channels projects={projects} />}
       </div>
     </section>
   );
@@ -73,7 +111,14 @@ function EmailPrefs({ email, projects, widgetAlerts }: { email: string; projects
       .catch((e) => setError((e as Error).message));
   }, []);
 
-  if (!prefs) return error ? <p className="error" role="alert">{error}</p> : <p className="muted small">Loading…</p>;
+  if (!prefs)
+    return error ? (
+      <p className="error" role="alert">
+        {error}
+      </p>
+    ) : (
+      <p className="muted small">Loading…</p>
+    );
   const set = (patch: Partial<Prefs>) => setPrefs({ ...prefs, ...patch });
   const allProjects = prefs.projectIds.length === 0;
 
@@ -114,8 +159,17 @@ function EmailPrefs({ email, projects, widgetAlerts }: { email: string; projects
           <option value="off">Don&apos;t email me</option>
         </select>
       </label>
-      <Toggle label="Weekly reminder of testimonials waiting for review (Mondays)" checked={prefs.weeklyPending} onChange={(weeklyPending) => set({ weeklyPending })} />
-      <Toggle label="A summary when an import finishes" hint="Also when an automatic import adds reviews, or fails 3 times in a row." checked={prefs.importSummary} onChange={(importSummary) => set({ importSummary })} />
+      <Toggle
+        label="Weekly reminder of testimonials waiting for review (Mondays)"
+        checked={prefs.weeklyPending}
+        onChange={(weeklyPending) => set({ weeklyPending })}
+      />
+      <Toggle
+        label="A summary when an import finishes"
+        hint="Also when an automatic import adds reviews, or fails 3 times in a row."
+        checked={prefs.importSummary}
+        onChange={(importSummary) => set({ importSummary })}
+      />
       <Toggle label="A monthly report (on the 1st)" checked={prefs.monthlyReport} onChange={(monthlyReport) => set({ monthlyReport })} />
       {widgetAlerts && (
         <Toggle
@@ -223,8 +277,7 @@ function Channels({ projects }: { projects: ProjectOption[] }) {
       <div>
         <h3 className="small nt-h">Chat channels</h3>
         <p className="muted xsmall">
-          Post new testimonials (with the stars, the quote and a link to approve it) to a team chat. A form can choose which channels it uses
-          in its Settings.
+          Post new testimonials (with the stars, the quote and a link to approve it) to a team chat. A form can choose which channels it uses in its Settings.
         </p>
       </div>
       <form

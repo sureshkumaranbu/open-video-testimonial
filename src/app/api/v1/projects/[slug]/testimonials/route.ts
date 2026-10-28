@@ -2,9 +2,11 @@ import { z } from "zod";
 import { DATE_PRECISIONS } from "@/db/schema";
 import { API_STATUSES, type ApiStatus, apiExtras, apiStatus, toApi } from "@/lib/api-shape";
 import { apiJson, requireApiKey } from "@/lib/api-keys";
+import { projectForKey } from "@/lib/api-v1";
+import { audit, keyActor } from "@/lib/audit";
 import { CONSENT_SCOPES, grantConsent } from "@/lib/consent";
 import { jsonError } from "@/lib/http";
-import { createTestimonial, getProjectBySlug, getTestimonial, listTestimonials, updateTestimonial } from "@/lib/testimonials";
+import { createTestimonial, getTestimonial, listTestimonials, updateTestimonial } from "@/lib/testimonials";
 import { customFieldsSchema, firstIssue, tagNameSchema } from "@/lib/validation";
 import { emitTestimonialEvent } from "@/lib/webhooks";
 // Registers the notifications listener in this route's bundle.
@@ -25,7 +27,7 @@ function intParam(raw: string | null, fallback: number) {
 export async function GET(req: Request, ctx: Ctx) {
   const auth = requireApiKey(req, "read");
   if (auth.error) return auth.error;
-  const project = getProjectBySlug((await ctx.params).slug);
+  const project = projectForKey(auth.key, (await ctx.params).slug);
   if (!project) return jsonError(404, "Project not found");
   const q = new URL(req.url).searchParams;
   const status = q.get("status") || null;
@@ -88,7 +90,7 @@ const createSchema = z.object({
 export async function POST(req: Request, ctx: Ctx) {
   const auth = requireApiKey(req, "write");
   if (auth.error) return auth.error;
-  const project = getProjectBySlug((await ctx.params).slug);
+  const project = projectForKey(auth.key, (await ctx.params).slug);
   if (!project) return jsonError(404, "Project not found");
   const parsed = createSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonError(400, firstIssue(parsed.error));
@@ -107,5 +109,6 @@ export async function POST(req: Request, ctx: Ctx) {
   if (input.tags) updateTestimonial(t.id, { tags: input.tags }, { actor: "api" });
   emitTestimonialEvent("testimonial.created", getTestimonial(t.id));
   if (input.status === "approved") updateTestimonial(t.id, { status: "approved" }, { actor: "api" });
+  audit(keyActor(auth.key), "testimonial.create", { objectType: "testimonial", objectId: t.id, projectId: project.id, summary: input.name, meta: { status: input.status } });
   return apiJson({ data: toApi(getTestimonial(t.id)!) }, 201);
 }

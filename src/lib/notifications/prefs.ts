@@ -2,6 +2,7 @@ import { eq, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { getDb, schema } from "@/db";
 import { NOTIFY_FREQUENCIES } from "@/db/schema";
+import { projectAccessFor } from "../access";
 import { normalizeEmail, roleFor } from "../members";
 
 const { memberPrefs, members } = schema;
@@ -113,8 +114,12 @@ export function recipients(want: (p: Prefs) => boolean): Recipient[] {
   const out: Recipient[] = [];
   for (const row of rows) {
     const prefs = parsePrefs(row.notifications);
-    if (!want(prefs) || !canEmail(row.email)) continue;
-    out.push({ email: row.email, prefs, row });
+    if (!canEmail(row.email)) continue;
+    // TEAM-01: someone limited to some projects only hears about those.
+    const access = projectAccessFor(row.email, roleFor(row.email)!);
+    const own = access.all ? prefs : { ...prefs, projectIds: (prefs.projectIds.length ? prefs.projectIds.filter((id) => access.ids.has(id)) : [...access.ids]).concat("-") };
+    if (!want(own)) continue;
+    out.push({ email: row.email, prefs: own, row });
   }
   return out;
 }

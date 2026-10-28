@@ -1,4 +1,4 @@
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { UnsupportedMediaError, UploadError } from "@/lib/storage";
 import { removeWallImage, setWallImage, WALL_IMAGE_KINDS, WallError, wallToAdmin, type WallImageKind } from "@/lib/walls";
 import { wallAndProject } from "../guard";
@@ -12,7 +12,7 @@ function kindOf(req: Request): WallImageKind | null {
 
 /** Uploads the cover or logo (`?kind=cover|logo`, multipart field `image`: PNG, JPEG, WebP or GIF). */
 export async function POST(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const kind = kindOf(req);
   if (!kind) return jsonError(400, "Say which image: kind=cover or kind=logo");
@@ -33,7 +33,7 @@ export async function POST(req: Request, ctx: Ctx) {
 
 /** Removes the cover or logo and deletes its file unless something else uses it. */
 export async function DELETE(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const kind = kindOf(req);
   if (!kind) return jsonError(400, "Say which image: kind=cover or kind=logo");

@@ -1,13 +1,13 @@
 import { z } from "zod";
 import { getRequestSession } from "@/lib/auth";
-import { jsonError, requireAdmin, requireOwner } from "@/lib/http";
+import { jsonError, requireRole, requireOwner } from "@/lib/http";
 import { storageStatus } from "@/lib/storage";
 import { latestStorageMigration, localMediaKeys, startStorageMigration, StorageMigrationError } from "@/lib/storage-migrate";
 import { firstIssue } from "@/lib/validation";
 
 /** Where media is stored, whether it works, and the latest "Copy local media to S3" run. */
 export async function GET(req: Request) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "admin");
   if (denied) return denied;
   const [storage, keys] = await Promise.all([storageStatus({ fresh: true }), localMediaKeys()]);
   return Response.json({ storage: { ...storage, localFiles: keys.length }, migration: latestStorageMigration() });

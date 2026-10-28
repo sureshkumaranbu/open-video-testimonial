@@ -1,4 +1,4 @@
-import { jsonError, readJsonCapped, requireAdmin } from "@/lib/http";
+import { jsonError, readJsonCapped, requireRole } from "@/lib/http";
 import { deleteSyncSource, SyncError, syncPatchSchema, toSyncJson, updateSyncSource } from "@/lib/importers/sync";
 import { getProjectById } from "@/lib/testimonials";
 import { firstIssue } from "@/lib/validation";
@@ -7,7 +7,7 @@ type Ctx = { params: Promise<{ id: string; sourceId: string }> };
 
 /** Pause or resume a synced source, or change its interval or options. */
 export async function PATCH(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const { id, sourceId } = await ctx.params;
   const project = getProjectById(id);
@@ -26,7 +26,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
 /** Stops syncing this source. What it imported stays. */
 export async function DELETE(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const { id, sourceId } = await ctx.params;
   const project = getProjectById(id);

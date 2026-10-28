@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { getRequestSession } from "@/lib/auth";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { UnsupportedMediaError, UploadError } from "@/lib/storage";
 import { firstIssue } from "@/lib/validation";
 import { resetPoster, setPosterFrame, setPosterImage, VideoToolError } from "@/lib/video-tools";
@@ -21,7 +21,7 @@ const fail = (err: unknown) => {
  * multipart field `file` (PNG, JPEG, WebP or GIF) uses an image instead.
  */
 export async function POST(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const { id } = await ctx.params;
   const by = getRequestSession(req)?.email;
@@ -42,7 +42,7 @@ export async function POST(req: Request, ctx: Ctx) {
 
 /** VID-02: back to the default frame. */
 export async function DELETE(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   try {
     return Response.json({ testimonial: await resetPoster((await ctx.params).id, { by: getRequestSession(req)?.email }) });

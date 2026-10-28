@@ -1,5 +1,5 @@
 import { env } from "@/lib/env";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { deleteSnippet, getSnippet, SnippetError, snippetPatchBody, snippetToAdmin, updateSnippet } from "@/lib/seo-snippets";
 import { getProjectById } from "@/lib/testimonials";
 import { firstIssue } from "@/lib/validation";
@@ -13,7 +13,7 @@ function view(id: string) {
 }
 
 export async function GET(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "viewer");
   if (denied) return denied;
   const snippet = view((await ctx.params).id);
   if (!snippet) return jsonError(404, "Snippet not found");
@@ -22,7 +22,7 @@ export async function GET(req: Request, ctx: Ctx) {
 
 /** Name, schema type, scope and the reviewed item. */
 export async function PATCH(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const parsed = snippetPatchBody.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonError(400, firstIssue(parsed.error));
@@ -38,7 +38,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
 /** Pages that still load its script get an empty comment instead. */
 export async function DELETE(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   if (!deleteSnippet((await ctx.params).id)) return jsonError(404, "Snippet not found");
   return Response.json({ ok: true });

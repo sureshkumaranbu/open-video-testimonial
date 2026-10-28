@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { getRequestSession } from "@/lib/auth";
 import { updateAnswer } from "@/lib/answers";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { firstIssue } from "@/lib/validation";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -14,7 +14,7 @@ const bodySchema = z.object({ text: z.string().trim().max(5000).nullable() });
  * the history and the consent ledger.
  */
 export async function PATCH(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonError(400, firstIssue(parsed.error));

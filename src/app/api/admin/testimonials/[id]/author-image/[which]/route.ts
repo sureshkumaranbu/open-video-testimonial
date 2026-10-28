@@ -1,6 +1,6 @@
 import { getRequestSession } from "@/lib/auth";
 import { isAuthorImage, setAuthorImage } from "@/lib/author-images";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { UnsupportedMediaError, UploadError } from "@/lib/storage";
 
 type Ctx = { params: Promise<{ id: string; which: string }> };
@@ -9,7 +9,7 @@ const NAMES = { avatar: "photo", logo: "company logo" } as const;
 
 /** Uploads the person's photo (`…/avatar`) or company logo (`…/logo`): multipart field `file`, PNG, JPEG, WebP or GIF. */
 export async function POST(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const { id, which } = await ctx.params;
   if (!isAuthorImage(which)) return jsonError(404, "Not found");
@@ -29,7 +29,7 @@ export async function POST(req: Request, ctx: Ctx) {
 
 /** Removes the photo or logo and deletes its file. */
 export async function DELETE(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const { id, which } = await ctx.params;
   if (!isAuthorImage(which)) return jsonError(404, "Not found");

@@ -1,19 +1,45 @@
+import { canOpen, type Level, projectAccessFor, projectOfPath, roleAtLeast } from "./access";
 import { getRequestSession, isSameSiteRequest } from "./auth";
 
 export function jsonError(status: number, error: string, headers?: HeadersInit) {
   return Response.json({ error }, { status, headers });
 }
 
-/** Guards an admin API route: returns an error Response, or null if allowed. */
-export function requireAdmin(req: Request) {
-  if (!getRequestSession(req)) return jsonError(401, "Not signed in");
+/**
+ * Guards a dashboard API route (TEAM-01): signed in, a same-site request for
+ * anything but a read, a role of at least `level` (viewer < editor < admin <
+ * owner), and access to the project the path is about, if it's about one.
+ * Returns an error Response, or null if allowed. Every route under
+ * /api/admin calls this or requireOwner (tests/guard-rails.test.ts checks).
+ */
+export function requireRole(req: Request, level: Level) {
+  const session = getRequestSession(req);
+  if (!session) return jsonError(401, "Not signed in");
   if (req.method !== "GET" && req.method !== "HEAD" && !isSameSiteRequest(req)) return jsonError(403, "Cross-origin request blocked");
+  if (!roleAtLeast(session.role, level)) {
+    return jsonError(403, level === "editor" ? "Your role can only view and share. Ask an admin to change this." : "Only an admin can do this");
+  }
+  const projectId = projectOfPath(new URL(req.url).pathname);
+  if (projectId && !canOpen(projectAccessFor(session.email, session.role), projectId)) return jsonError(403, "You don't have access to this project");
   return null;
 }
 
-/** Like requireAdmin, for what only the owner may do (managing the team). */
+/** For a project named in the body or query rather than the path: null when the signed-in person may open it. */
+export function requireProjectAccess(req: Request, projectId: string) {
+  const session = getRequestSession(req);
+  if (!session) return jsonError(401, "Not signed in");
+  return canOpen(projectAccessFor(session.email, session.role), projectId) ? null : jsonError(403, "You don't have access to this project");
+}
+
+/** The projects the signed-in person may open (call after requireRole). */
+export function requestAccess(req: Request) {
+  const session = getRequestSession(req)!;
+  return projectAccessFor(session.email, session.role);
+}
+
+/** For what only the owner may do (managing the team, storage). */
 export function requireOwner(req: Request) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "admin");
   if (denied) return denied;
   return getRequestSession(req)!.role === "owner" ? null : jsonError(403, "Only the owner can do this");
 }

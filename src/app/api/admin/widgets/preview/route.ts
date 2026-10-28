@@ -1,4 +1,4 @@
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireProjectAccess, requireRole } from "@/lib/http";
 import { getProjectById } from "@/lib/testimonials";
 import { firstIssue } from "@/lib/validation";
 import { previewBody, widgetConfigSchema, widgetPayload } from "@/lib/widgets";
@@ -9,12 +9,14 @@ import { previewBody, widgetConfigSchema, widgetPayload } from "@/lib/widgets";
  * the embed will draw. Never cached.
  */
 export async function POST(req: Request) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "viewer");
   if (denied) return denied;
   const parsed = previewBody.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonError(400, firstIssue(parsed.error));
   const project = getProjectById(parsed.data.projectId);
   if (!project) return jsonError(404, "Project not found");
+  const no = requireProjectAccess(req, project.id);
+  if (no) return no;
   const cfg = widgetConfigSchema.safeParse(parsed.data.config);
   if (!cfg.success) return jsonError(400, firstIssue(cfg.error));
   const formId = parsed.data.connectedFormId ?? null;

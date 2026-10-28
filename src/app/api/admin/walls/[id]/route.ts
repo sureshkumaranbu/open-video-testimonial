@@ -1,4 +1,4 @@
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { firstIssue } from "@/lib/validation";
 import { deleteWall, updateWall, WallError, wallPatchBody, wallToAdmin, type WallConfigInput } from "@/lib/walls";
 import { wallAndProject } from "./guard";
@@ -6,7 +6,7 @@ import { wallAndProject } from "./guard";
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function GET(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "viewer");
   if (denied) return denied;
   const found = wallAndProject((await ctx.params).id);
   if (!found) return jsonError(404, "Wall not found");
@@ -15,7 +15,7 @@ export async function GET(req: Request, ctx: Ctx) {
 
 /** Name, theme, draft or published, featured testimonial, connected form, and the whole config. */
 export async function PATCH(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const parsed = wallPatchBody.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonError(400, firstIssue(parsed.error));
@@ -34,7 +34,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
 /** Deletes the wall; if it was the main wall, the project's wall address shows the classic page again. */
 export async function DELETE(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   if (!(await deleteWall((await ctx.params).id))) return jsonError(404, "Wall not found");
   return Response.json({ ok: true });

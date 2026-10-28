@@ -1,4 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -163,5 +164,35 @@ describe("requirement coverage", () => {
     const run = spawnSync(process.execPath, ["scripts/req-coverage.mjs", "--all", "--report"], { cwd: ROOT, encoding: "utf8" });
     expect(run.status).toBe(0);
     expect(run.stdout).toMatch(/All milestones: \d+ of 100 requirements covered/);
+  });
+});
+
+describe("TEAM-01 role guards", () => {
+  it("TEAM-01 every handler under /api/admin calls requireRole or requireOwner (sign-in and sign-out excepted)", () => {
+    const files = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "src/app/api/admin"], { cwd: ROOT, encoding: "utf8" }).split("\n").filter((f) => f.endsWith("/route.ts"));
+    expect(files.length).toBeGreaterThan(100);
+    const unguarded: string[] = [];
+    const levels = new Map<string, string>();
+    for (const file of files) {
+      const src = fs.readFileSync(path.join(ROOT, file), "utf8");
+      const handlers = [...src.matchAll(/export (?:async )?function (GET|POST|PUT|PATCH|DELETE)\b/g)];
+      handlers.forEach((m, i) => {
+        const body = src.slice(m.index, handlers[i + 1]?.index ?? src.length);
+        const route = `${m[1]} ${file.replace("src/app/api/admin/", "").replace("/route.ts", "")}`;
+        const level = /requireRole\(req, "(viewer|editor|admin|owner)"\)/.exec(body)?.[1] ?? (/requireOwner\(req\)/.test(body) ? "owner" : null);
+        if (level) levels.set(route, level);
+        else if (!["POST login", "POST logout"].includes(route)) unguarded.push(route);
+      });
+    }
+    expect(unguarded).toEqual([]);
+    // What only admins (or the owner) may do: the team, keys, webhooks, channels, the server, new projects, the audit log.
+    for (const route of ["GET api-keys", "POST api-keys", "POST webhooks", "PATCH webhooks/[id]", "POST notification-channels", "GET team", "POST team", "PATCH team", "GET audit", "POST projects", "DELETE projects/[id]", "POST import", "POST system/storage"]) {
+      expect(["admin", "owner"], route).toContain(levels.get(route));
+    }
+    // Editors may run campaigns, but viewers only read and share.
+    expect(levels.get("PATCH campaigns/[id]")).toBe("editor");
+    expect(levels.get("PATCH testimonials/[id]")).toBe("editor");
+    expect(levels.get("POST projects/[id]/share/render")).toBe("viewer");
+    expect(levels.get("GET projects/[id]/testimonials")).toBe("viewer");
   });
 });

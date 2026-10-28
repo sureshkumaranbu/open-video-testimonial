@@ -1,5 +1,5 @@
 import { getRequestSession } from "@/lib/auth";
-import { jsonError, readJsonCapped, requireAdmin } from "@/lib/http";
+import { jsonError, readJsonCapped, requireRole } from "@/lib/http";
 import { deleteTranslation, langSchema, saveTranslation, translationBody, TranslationError } from "@/lib/translations";
 import { firstIssue } from "@/lib/validation";
 
@@ -7,7 +7,7 @@ type Ctx = { params: Promise<{ id: string; lang: string }> };
 
 /** Adds or edits the translation into one language, by hand. */
 export async function PUT(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const { id, lang } = await ctx.params;
   const code = langSchema.safeParse(lang);
@@ -25,7 +25,7 @@ export async function PUT(req: Request, ctx: Ctx) {
 }
 
 export async function DELETE(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const { id, lang } = await ctx.params;
   const code = langSchema.safeParse(lang);

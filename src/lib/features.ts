@@ -7,9 +7,10 @@ import { env } from "./env";
  * APIs and existing pages behave the same either way. All on by default
  * since the Phase 1 release; PLAUDIT_FEATURES=none (or a shorter list) hides them.
  * Two Phase 2 flags also switch endpoints, not just pages: `api2` (the
- * /api/v1 CRUD and analytics paths, M14) and `mcp` (the /mcp server).
+ * /api/v1 CRUD and analytics paths, M14) and `mcp` (the /mcp server and its
+ * OAuth). `team2` (M14) turns on roles, per-project access and the audit log.
  */
-export const FEATURES = ["forms", "inbox2", "widgets", "walls", "importers", "notifications", "onboarding", "campaigns", "booster", "analytics", "share", "imports2", "customers", "translations", "aisearch", "api2", "mcp"] as const;
+export const FEATURES = ["forms", "inbox2", "widgets", "walls", "importers", "notifications", "onboarding", "campaigns", "booster", "analytics", "share", "imports2", "customers", "translations", "aisearch", "api2", "mcp", "team2"] as const;
 export type Feature = (typeof FEATURES)[number];
 
 export function featureOn(f: Feature): boolean {

@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import type { ApiKey, ApiKeyScope, Campaign, Customer, Feedback, Project, Wall, Widget } from "@/db/schema";
-import { requireApiKey } from "./api-keys";
+import { apiKeyReaches, requireApiKey } from "./api-keys";
 import { CampaignError, campaignToAdmin, type Funnel } from "./campaigns";
 import { env } from "./env";
 import { featureOn } from "./features";
@@ -36,12 +36,12 @@ export function requireApi2(req: Request, need: ApiKeyScope): { key: ApiKey; err
 }
 
 /**
- * Whether a key may reach a project. Today every key is instance-wide (keys
- * have no project list yet), so this is always true; it's the one place
- * per-project keys (TEAM-01) will narrow, and every M14 route goes through it.
+ * Whether a key may reach a project (TEAM-01): a key made with a project
+ * list reaches only those; older keys and keys made without one reach all.
+ * Every /api/v1 route and the MCP server go through it.
  */
-export function keyCanAccess(_key: ApiKey, _projectId: string): boolean {
-  return true;
+export function keyCanAccess(key: ApiKey, projectId: string): boolean {
+  return apiKeyReaches(key, projectId);
 }
 
 /** The project by its slug, if the key may reach it. */

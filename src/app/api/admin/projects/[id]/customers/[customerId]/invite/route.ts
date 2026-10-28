@@ -2,7 +2,7 @@ import { z } from "zod";
 import { CustomerError, inviteCustomer } from "@/lib/customer-records";
 import { emailEnabled } from "@/lib/email";
 import { getForm } from "@/lib/forms";
-import { jsonError, readJsonCapped, requireAdmin } from "@/lib/http";
+import { jsonError, readJsonCapped, requireRole } from "@/lib/http";
 import { getProjectById } from "@/lib/testimonials";
 import { firstIssue } from "@/lib/validation";
 
@@ -16,7 +16,7 @@ const body = z.object({
 
 /** INBOX-12 "Invite to a form" / "Ask for a video": a personal request link for this person, emailed when `send` is on. */
 export async function POST(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const { id, customerId } = await ctx.params;
   const project = getProjectById(id);

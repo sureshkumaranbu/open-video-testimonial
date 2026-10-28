@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { getRequestSession } from "@/lib/auth";
-import { jsonError, readJsonCapped, requireAdmin } from "@/lib/http";
+import { jsonError, readJsonCapped, requireRole } from "@/lib/http";
 import { createSyncSource, intervalSchema, listSyncSources, SyncError, toSyncJson } from "@/lib/importers/sync";
 import { getProjectById } from "@/lib/testimonials";
 import { firstIssue } from "@/lib/validation";
@@ -9,7 +9,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 /** IMP-02: this project's automatically synced sources, with their last run and the next one. */
 export async function GET(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "viewer");
   if (denied) return denied;
   const project = getProjectById((await ctx.params).id);
   if (!project) return jsonError(404, "Project not found");
@@ -20,7 +20,7 @@ const body = z.object({ runId: z.string().min(1).max(64), intervalHours: interva
 
 /** "Keep this in sync": the finished import `runId` again every 12 or 24 hours. */
 export async function POST(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const project = getProjectById((await ctx.params).id);
   if (!project) return jsonError(404, "Project not found");

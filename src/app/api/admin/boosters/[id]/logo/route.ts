@@ -1,5 +1,5 @@
 import { boosterToAdmin, removeBoosterLogo, setBoosterLogo } from "@/lib/boosters";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { UnsupportedMediaError, UploadError } from "@/lib/storage";
 import { boosterAndProject, boosterError } from "../guard";
 
@@ -7,7 +7,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 /** Uploads the page's own logo (multipart field `image`: PNG, JPEG, WebP or GIF). Without one, the project's logo shows. */
 export async function POST(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const found = boosterAndProject((await ctx.params).id);
   if (!found) return jsonError(404, "Booster not found");
@@ -24,7 +24,7 @@ export async function POST(req: Request, ctx: Ctx) {
 }
 
 export async function DELETE(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const found = boosterAndProject((await ctx.params).id);
   if (!found) return jsonError(404, "Booster not found");

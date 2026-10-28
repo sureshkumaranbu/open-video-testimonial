@@ -1,4 +1,4 @@
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { SHARE_ASSET_KINDS, type ShareAssetKind } from "@/db/schema";
 import { PRIVATE, projectOr404, shareFail } from "@/lib/share/http";
 import { addAsset, assetToAdmin, listAssets } from "@/lib/share/store";
@@ -7,7 +7,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 /** The studio's uploaded backgrounds and logos (owner-only). */
 export async function GET(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "viewer");
   if (denied) return denied;
   const found = projectOr404((await ctx.params).id);
   if ("response" in found) return found.response;
@@ -16,7 +16,7 @@ export async function GET(req: Request, ctx: Ctx) {
 
 /** SHARE-01: multipart `file` (PNG or JPEG, sniffed and size-capped) and `kind` (background or logo). */
 export async function POST(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const found = projectOr404((await ctx.params).id);
   if ("response" in found) return found.response;

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { googleReviewUrl } from "@/lib/booster-config";
 import { PlacesError, searchPlaces } from "@/lib/google-places";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { clientKey, rateLimit } from "@/lib/rate-limit";
 import { firstIssue } from "@/lib/validation";
 
@@ -13,7 +13,7 @@ const body = z.object({ query: z.string().max(200) });
  * 409 when GOOGLE_PLACES_API_KEY isn't set. 20 searches a minute.
  */
 export async function POST(req: Request) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonError(400, firstIssue(parsed.error));

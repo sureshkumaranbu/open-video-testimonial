@@ -1,4 +1,4 @@
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { ProjectError, removeProjectLogo, setProjectLogo } from "@/lib/projects";
 import { UnsupportedMediaError, UploadError } from "@/lib/storage";
 
@@ -6,7 +6,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 /** Uploads the project's logo (multipart field `logo`: PNG, JPEG, WebP or GIF), replacing the old one. */
 export async function POST(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const { id } = await ctx.params;
   const form = await req.formData().catch(() => null);
@@ -24,7 +24,7 @@ export async function POST(req: Request, ctx: Ctx) {
 
 /** Removes the logo and deletes its file. */
 export async function DELETE(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   try {
     return Response.json({ project: await removeProjectLogo((await ctx.params).id) });

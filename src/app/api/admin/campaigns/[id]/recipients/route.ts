@@ -1,5 +1,5 @@
 import { addRecipients, MAX_IMPORT_ROWS, recipientRows, recipientsBody, recipientToAdmin } from "@/lib/campaigns";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { firstIssue } from "@/lib/validation";
 import { campaignAndProject } from "../guard";
 
@@ -11,7 +11,7 @@ type Ctx = { params: Promise<{ id: string }> };
  * already responded). On an active campaign the invitations go out at once.
  */
 export async function POST(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const found = campaignAndProject((await ctx.params).id);
   if (!found) return jsonError(404, "Campaign not found");

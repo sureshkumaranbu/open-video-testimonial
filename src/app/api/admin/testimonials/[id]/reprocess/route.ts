@@ -1,10 +1,10 @@
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { queueVideoProcessing } from "@/lib/media";
 import { getTestimonial } from "@/lib/testimonials";
 
 /** Runs the video conversion again (after a failure, or once ffmpeg is installed). */
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const { id } = await ctx.params;
   const t = getTestimonial(id);
