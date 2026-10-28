@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { IMPORT_FIELDS, previewCsv } from "@/lib/csv-import";
-import { jsonError, readJsonCapped, requireAdmin } from "@/lib/http";
+import { jsonError, readJsonCapped, requireRole } from "@/lib/http";
 import { firstIssue } from "@/lib/validation";
 
 const MAX_BODY = 30 * 1024 * 1024;
@@ -12,7 +12,7 @@ const body = z.object({
 
 /** Detected column mapping plus the first rows, before importing anything. */
 export async function POST(req: Request) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const raw = await readJsonCapped(req, MAX_BODY);
   if (raw instanceof Response) return raw;

@@ -1,5 +1,5 @@
 import { getRequestSession } from "@/lib/auth";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { featureOn } from "@/lib/features";
 import { getInboxPrefs, inboxCounts, inboxFacets, inboxStats, parseInboxParams, queryTestimonials, smartRanking } from "@/lib/inbox";
 import { getProjectById } from "@/lib/testimonials";
@@ -15,7 +15,7 @@ type Ctx = { params: Promise<{ id: string }> };
  * aisearch flag) ranks `q` by meaning with the owner's embeddings provider.
  */
 export async function GET(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "viewer");
   if (denied) return denied;
   const project = getProjectById((await ctx.params).id);
   if (!project) return jsonError(404, "Project not found");

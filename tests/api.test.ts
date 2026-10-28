@@ -212,8 +212,16 @@ describe("REST API", () => {
   it("publishes an OpenAPI 3.1 description", async () => {
     const spec = await (await openapi()).json();
     expect(spec.openapi).toBe("3.1.0");
-    // D15 froze these three for Phase 1; M9 adds POST /invites (REQ-07).
-    expect(Object.keys(spec.paths)).toEqual(["/projects", "/projects/{slug}/testimonials", "/testimonials/{id}", "/invites"]);
+    // D15 froze these three for Phase 1; M9 adds POST /invites (REQ-07). Phase 2
+    // allows new paths: M14's sit behind the api2 flag (tests/api-crud.test.ts lists them).
+    expect(Object.keys(spec.paths).slice(0, 4)).toEqual(["/projects", "/projects/{slug}/testimonials", "/testimonials/{id}", "/invites"]);
+    process.env.PLAUDIT_FEATURES = "none";
+    try {
+      const before = await (await openapi()).json();
+      expect(Object.keys(before.paths)).toEqual(["/projects", "/projects/{slug}/testimonials", "/testimonials/{id}", "/invites"]);
+    } finally {
+      delete process.env.PLAUDIT_FEATURES;
+    }
     expect(Object.keys(spec.webhooks)).toContain("testimonial.approved");
     expect(spec.servers[0].url).toBe("http://localhost:3000/api/v1");
   });

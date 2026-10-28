@@ -306,6 +306,11 @@ export const env = {
     const n = Number(process.env.DIGEST_HOUR_UTC || 8);
     return Number.isInteger(n) && n >= 0 && n <= 23 ? n : 8;
   },
+  /** TEAM-02: days the audit log keeps an entry (default 365). */
+  get auditRetentionDays() {
+    const n = Number(process.env.AUDIT_RETENTION_DAYS || 365);
+    return Number.isInteger(n) && n > 0 ? n : 365;
+  },
   /**
    * Only for tests: exact host:port origins (e.g. "127.0.0.1:3198") that
    * outbound requests may reach although they're private addresses or not on a
@@ -313,6 +318,45 @@ export const env = {
    */
   get netGuardAllow() {
     return list(process.env.NET_GUARD_ALLOW);
+  },
+  // ------------------------------------------------------------- M14
+
+  /**
+   * Generic OpenID Connect sign-in (TEAM-03: Okta, Microsoft Entra ID,
+   * Authentik, Keycloak…): the issuer URL, whose
+   * /.well-known/openid-configuration Plaudit reads. Off while it's empty.
+   */
+  get oidcIssuer() {
+    return (process.env.OIDC_ISSUER || "").trim();
+  },
+  get oidcClientId() {
+    return (process.env.OIDC_CLIENT_ID || "").trim();
+  },
+  get oidcClientSecret() {
+    return process.env.OIDC_CLIENT_SECRET || "";
+  },
+  /** The sign-in button's name, as in "Continue with Okta". */
+  get oidcLabel() {
+    return (process.env.OIDC_LABEL || "").trim().slice(0, 40) || "single sign-on";
+  },
+  /** Scopes to ask for; "openid" is always included. */
+  get oidcScopes() {
+    const asked = (process.env.OIDC_SCOPES || "openid email profile").split(/[\s,]+/).filter(Boolean);
+    return [...new Set(["openid", ...asked])].join(" ");
+  },
+  /**
+   * Only accept addresses at these domains from the OIDC provider (comma
+   * list). An extra check: it doesn't let anyone in by itself.
+   */
+  get oidcEmailDomains() {
+    return list(process.env.OIDC_EMAIL_DOMAINS).map((d) => d.replace(/^@/, ""));
+  },
+  /**
+   * "true" accepts addresses the provider doesn't mark email_verified (Entra
+   * ID leaves the claim out). Only for a provider whose addresses you control.
+   */
+  get oidcTrustEmail() {
+    return process.env.OIDC_TRUST_EMAIL === "true";
   },
   /**
    * Only for tests: where importers fetch from instead of the real sites, as

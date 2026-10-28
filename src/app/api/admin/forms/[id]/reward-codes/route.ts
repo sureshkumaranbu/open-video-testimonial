@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { addCodes, listClaims, poolStats, removeUnclaimed, RewardError } from "@/lib/rewards";
 import { firstIssue } from "@/lib/validation";
 import { loadForm } from "../shared";
@@ -11,7 +11,7 @@ const addBody = z.object({ text: z.string().max(2_000_000, "That file is too big
 
 /** FORM-13 claim tracking: how many codes are left, and the latest claims with who got each one. */
 export async function GET(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "viewer");
   if (denied) return denied;
   const found = loadForm((await ctx.params).id);
   if (found instanceof Response) return found;
@@ -20,7 +20,7 @@ export async function GET(req: Request, ctx: Ctx) {
 
 /** Adds codes to the form's pool; codes already in it are skipped and counted. */
 export async function POST(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const found = loadForm((await ctx.params).id);
   if (found instanceof Response) return found;
@@ -38,7 +38,7 @@ export async function POST(req: Request, ctx: Ctx) {
 
 /** Removes the codes nobody has claimed yet. Claimed ones stay, for the record. */
 export async function DELETE(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const found = loadForm((await ctx.params).id);
   if (found instanceof Response) return found;

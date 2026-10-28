@@ -1,4 +1,4 @@
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { storage } from "@/lib/storage";
 import { getTestimonial } from "@/lib/testimonials";
 import { DOWNLOADS, downloadFor, type DownloadKind } from "@/lib/video-tools";
@@ -9,7 +9,7 @@ import { DOWNLOADS, downloadFor, type DownloadKind } from "@/lib/video-tools";
  * and never cached by anything but this browser session.
  */
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const kind = new URL(req.url).searchParams.get("file") ?? "mp4";
   if (!(DOWNLOADS as readonly string[]).includes(kind)) return jsonError(400, "Choose file=original or file=mp4");

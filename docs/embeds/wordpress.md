@@ -1,5 +1,7 @@
 # Plaudit widget on WordPress
 
+The [Plaudit plugin](../help/wordpress.md) adds a block, `[plaudit]` shortcodes, SEO mode and a site-wide toast. Without it, a Custom HTML block works too.
+
 Get the snippet from **Widgets › your widget › Share** in the dashboard. Replace `https://plaudit.example` and `w_abc123def456` below with your own server and widget id.
 
 1. Edit the page and add a **Custom HTML** block where the widget should go.

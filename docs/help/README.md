@@ -13,8 +13,12 @@ How to use each part of the Plaudit dashboard. Every section is on by default; `
 | [Widgets](widgets.md) | The widget studio: layouts, choosing testimonials, design and every way to embed |
 | [Walls and SEO](walls.md) | Wall of Love pages, the editor, the main wall, review snippets and search engines |
 | [Review booster](booster.md) | A page of review-site buttons with a QR code to print, the Google review link helper, and click counts |
-| [Campaigns](campaigns.md) | Email campaigns: wording and reminders, recipients, the preview and test send, tracking, "No thanks", and auto-collect from the API or a webhook |
+| [Campaigns](campaigns.md) | Email campaigns: wording and reminders, recipients, the preview and test send, tracking, "No thanks", and auto-collect from the API, a webhook, Stripe or Shopify |
 | [Analytics](analytics.md) | The dashboard, widget install alerts, form drop-off, wall and snippet numbers, and exactly what is (and isn't) collected |
 | [Notifications](notifications.md) | Your own emails, digests and reports, and Slack, Discord, Teams and Telegram channels |
+| [Team and audit log](team.md) | Roles (owner, admin, editor, viewer), which projects someone can open, and the audit log |
+| [AI assistants (MCP)](mcp.md) | Plaudit's MCP server: the tools, what an assistant sees, and connecting Claude.ai, ChatGPT (sign-in), Claude Desktop and other clients |
+| [WordPress](wordpress.md) | The plugin: the block, shortcodes, the site-wide toast, SEO mode and caching plugins |
+| [Zapier, Make, n8n and React](integrations.md) | The Zapier app, n8n and Make templates, and the `@plaudit/react` components |
 
 Elsewhere in `docs/`: [importing](../IMPORT.md) (review sites, saved pages, auto-sync, spreadsheets), [embedding a form](../EMBED.md), [embedding widgets](../embeds/README.md), [email setup](../EMAIL.md), [sign-in and team](../AUTH.md) and the [REST API and webhooks](../API.md).

@@ -1,4 +1,4 @@
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { ChannelError, channelPatchBody, channelToAdmin, deleteChannel, updateChannel } from "@/lib/notifications/channels";
 import { getProjectById } from "@/lib/testimonials";
 import { firstIssue } from "@/lib/validation";
@@ -6,7 +6,7 @@ import { firstIssue } from "@/lib/validation";
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "admin");
   if (denied) return denied;
   const parsed = channelPatchBody.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonError(400, firstIssue(parsed.error));
@@ -22,7 +22,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
 }
 
 export async function DELETE(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "admin");
   if (denied) return denied;
   if (!deleteChannel((await ctx.params).id)) return jsonError(404, "Channel not found");
   return Response.json({ ok: true });

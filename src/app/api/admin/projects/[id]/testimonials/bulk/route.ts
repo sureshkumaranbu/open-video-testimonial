@@ -1,6 +1,7 @@
+import { auditRequest } from "@/lib/audit";
 import { z } from "zod";
 import { getRequestSession } from "@/lib/auth";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { BULK_ACTIONS, BulkError, bulkUpdate, MAX_BULK } from "@/lib/inbox";
 import { getProjectById } from "@/lib/testimonials";
 import { langSchema } from "@/lib/translations";
@@ -24,7 +25,7 @@ const bodySchema = z.object({
  * that can't take the action (a withdrawn one can't be approved), are skipped.
  */
 export async function POST(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const project = getProjectById((await ctx.params).id);
   if (!project) return jsonError(404, "Project not found");
@@ -36,6 +37,7 @@ export async function POST(req: Request, ctx: Ctx) {
       tags: parsed.data.tags,
       langs: parsed.data.langs,
     });
+    auditRequest(req, `testimonial.bulk.${parsed.data.action}`, { objectType: "project", objectId: project.id, projectId: project.id, summary: `${result.updated.length} testimonials`, meta: { ids: result.updated.slice(0, 100), tags: parsed.data.tags } });
     return Response.json(result);
   } catch (err) {
     if (err instanceof BulkError) return jsonError(400, err.message);

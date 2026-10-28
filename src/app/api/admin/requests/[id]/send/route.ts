@@ -1,11 +1,11 @@
 import { emailEnabled } from "@/lib/email";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { getRequest, queueInvite, withLink } from "@/lib/requests";
 import { getProjectById } from "@/lib/testimonials";
 
 /** Sends (or re-sends) the invitation email. */
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const r = getRequest((await ctx.params).id);
   if (!r) return jsonError(404, "Request not found");

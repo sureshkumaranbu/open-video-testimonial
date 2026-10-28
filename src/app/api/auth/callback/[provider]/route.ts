@@ -9,7 +9,7 @@ const toLogin = (error: string, extra = "") =>
     headers: { Location: `${env.publicUrl}/admin/login?error=${error}${extra}`, "Set-Cookie": clearFlowCookieHeader() },
   });
 
-/** Google redirects back here (and Apple, via the POST below) with a code to swap for an id_token. */
+/** Google and generic OIDC providers redirect back here (and Apple, via the POST below) with a code to swap for an id_token. */
 export async function GET(req: Request, ctx: { params: Promise<{ provider: string }> }) {
   const { provider } = await ctx.params;
   if (!PROVIDERS.includes(provider as Provider)) return new Response("Not found", { status: 404 });
@@ -18,8 +18,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ provider: strin
   try {
     const identity = await finishSignIn(provider as Provider, {
       state: url.searchParams.get("state") ?? "",
-      // Apple's code was parked by the POST; Google's arrives here.
-      code: provider === "google" ? url.searchParams.get("code") : null,
+      // Apple's code was parked by the POST; the others' arrives here.
+      code: provider === "apple" ? null : url.searchParams.get("code"),
       flowId: readCookie(req, FLOW_COOKIE),
     });
     const session = completeSignIn(identity.email, provider as Provider, identity.name);

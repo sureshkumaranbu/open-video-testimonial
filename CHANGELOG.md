@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+- **Roles and project access** (feature flag `team2`): owner, admin, editor and viewer, and the projects an editor or viewer may open, set in **Settings → Team**. The server checks the role and project on every dashboard request; lists, analytics and emails show only the projects someone may open. API keys can be made for one project. Existing teams are unchanged: everyone stays an admin with every project until the owner says otherwise. See [`docs/help/team.md`](docs/help/team.md).
+
+- **Audit log** (`team2`): who approved, edited, deleted, trashed or exported testimonials, and every change to the team, keys, webhooks, campaigns, triggers, projects and connected assistants, filterable and as CSV. `AUDIT_RETENTION_DAYS` (365).
+
+- **Stripe and Shopify triggers** for campaigns: paste the shop's signing secret, and a paid checkout or invoice, or a fulfilled order, invites the buyer after the days you choose. Signatures are checked over the raw body and each delivery counts once. See [`docs/help/campaigns.md`](docs/help/campaigns.md#stripe-and-shopify).
+
+- **Sign-in for MCP connectors** (`mcp`): OAuth 2.1 with discovery, client registration, a consent page and PKCE, so Claude.ai's and ChatGPT's connectors can connect with just the address. Admins can disconnect them in **Settings → API keys**.
+
+- **Webhook subscriptions through the API** (`POST`/`DELETE /api/v1/webhooks`), public addresses only; the Zapier app's triggers are now instant.
+
+- Migration 0017 adds project lists for members and keys, the audit log, campaign triggers, the OAuth tables and `webhooks.api_key_id`; nothing existing changes.
+
+- **More of the REST API** (feature flag `api2`): forms, widgets, walls, campaigns (start, pause and add recipients), tags, customers, private feedback, and analytics for a project or one widget, form, wall, snippet or testimonial page over `?from=&to=`. Each path makes the dashboard's own checks and answers with the dashboard's shape, without secrets such as a campaign's incoming webhook. `openapi.json` lists them. See [`docs/API.md`](docs/API.md#forms-widgets-walls-campaigns-and-more).
+
+- **Single sign-on** with any OpenID Connect provider (Okta, Microsoft Entra ID, Authentik, Keycloak…), set up with `OIDC_ISSUER`, `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET` (and optionally `OIDC_LABEL`, `OIDC_SCOPES`, `OIDC_EMAIL_DOMAINS`, `OIDC_TRUST_EMAIL`). Who may sign in is decided as before. See [`docs/AUTH.md`](docs/AUTH.md#single-sign-on-oidc).
+
+- **An MCP server** at `/mcp` (feature flag `mcp`) for Claude and other AI assistants, with an API key: list, search and read testimonials, get embed codes, a summary Plaudit counts itself, and invites for read-and-write keys. Assistants never get anyone's email or phone. See [`docs/help/mcp.md`](docs/help/mcp.md).
+
+- **Integrations** (not in their marketplaces yet): a WordPress plugin with a block, `[plaudit]` shortcodes, SEO mode and a site-wide toast; a Zapier app; n8n and Make templates; and `@plaudit/react` with `PlauditWidget` and `PlauditForm`. See [`docs/help/wordpress.md`](docs/help/wordpress.md) and [`docs/help/integrations.md`](docs/help/integrations.md).
+
 - **Auto-sync** (feature flag `imports2`): **Keep this in sync** after an import from a review site's address or ID re-runs it every 12 or 24 hours with the same options, deduped as always. **Automatically synced** lists each source with its last and next run and what it added, with pause, run now and stop. After 3 failed runs in a row you get an email (with import emails on) and a dashboard notice, and it keeps trying. See [`docs/IMPORT.md`](docs/IMPORT.md#keeping-a-source-in-sync).
 
 - **22 more sources** (`imports2`): YouTube (each video as a testimonial, or its comments with your `YOUTUBE_API_KEY`), Reddit, WooCommerce's Store API, Etsy (your `ETSY_API_KEY`), WordPress.org, Apple Podcasts, Feefo, Shopify review apps, Clutch, AppSumo and Udemy; and from a page you save in your browser only: Yelp, Facebook, LinkedIn, Tripadvisor, Amazon, Fiverr, Airbnb, Zillow, Realtor.com, the Chrome Web Store and Trustindex.

@@ -1,4 +1,5 @@
-import { jsonError, requireAdmin, requireOwner } from "@/lib/http";
+import { auditRequest } from "@/lib/audit";
+import { jsonError, requireRole, requireOwner } from "@/lib/http";
 import { deleteProject, ProjectError } from "@/lib/projects";
 import { parseReminderDays } from "@/lib/requests";
 import { getProjectById, listTestimonials, updateProject } from "@/lib/testimonials";
@@ -9,7 +10,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 /** Project details plus its testimonials (all statuses, private fields included). */
 export async function GET(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "viewer");
   if (denied) return denied;
   const { id } = await ctx.params;
   const project = getProjectById(id);
@@ -22,7 +23,7 @@ export async function GET(req: Request, ctx: Ctx) {
 }
 
 export async function PATCH(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const { id } = await ctx.params;
   const parsed = projectUpdateSchema.safeParse(await req.json().catch(() => null));
@@ -47,6 +48,7 @@ export async function DELETE(req: Request, ctx: Ctx) {
   try {
     const result = await deleteProject(id, { confirm });
     if (!result) return jsonError(404, "Project not found");
+    auditRequest(req, "project.delete", { objectType: "project", objectId: id, projectId: id, summary: confirm });
     return Response.json({ deleted: true, files: result.files });
   } catch (err) {
     if (err instanceof ProjectError) return jsonError(err.status, err.message);

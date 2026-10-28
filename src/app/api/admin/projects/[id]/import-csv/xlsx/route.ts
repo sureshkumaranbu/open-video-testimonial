@@ -1,4 +1,4 @@
-import { jsonError, readCappedBytes, requireAdmin } from "@/lib/http";
+import { jsonError, readCappedBytes, requireRole } from "@/lib/http";
 import { getProjectById } from "@/lib/testimonials";
 import { looksLikeXlsx, readXlsx, rowsToCsv, XLSX_MAX_FILE_BYTES, XlsxError } from "@/lib/xlsx";
 
@@ -10,7 +10,7 @@ type Ctx = { params: Promise<{ id: string }> };
  * as a CSV. Nothing is imported here.
  */
 export async function POST(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const project = getProjectById((await ctx.params).id);
   if (!project) return jsonError(404, "Project not found");

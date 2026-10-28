@@ -1,10 +1,10 @@
 import { listConsentEvents, parseScopes } from "@/lib/consent";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { getTestimonial } from "@/lib/testimonials";
 
 /** The consent record for one testimonial: scopes and the full event history. */
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "viewer");
   if (denied) return denied;
   const { id } = await ctx.params;
   const t = getTestimonial(id);

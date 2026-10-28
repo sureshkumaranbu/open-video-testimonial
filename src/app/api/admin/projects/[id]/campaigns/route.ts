@@ -1,5 +1,5 @@
 import { CampaignError, campaignToAdmin, createCampaign, createCampaignBody, funnelsFor, listCampaigns } from "@/lib/campaigns";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { getProjectById } from "@/lib/testimonials";
 import { firstIssue } from "@/lib/validation";
 
@@ -7,7 +7,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 /** REQ-01: the project's campaigns, newest first, each with its funnel. */
 export async function GET(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "viewer");
   if (denied) return denied;
   const project = getProjectById((await ctx.params).id);
   if (!project) return jsonError(404, "Project not found");
@@ -18,7 +18,7 @@ export async function GET(req: Request, ctx: Ctx) {
 
 /** A new campaign, as a draft with our default wording. */
 export async function POST(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const project = getProjectById((await ctx.params).id);
   if (!project) return jsonError(404, "Project not found");

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { IMPORT_FIELDS, importCsv } from "@/lib/csv-import";
-import { jsonError, readJsonCapped, requireAdmin } from "@/lib/http";
+import { jsonError, readJsonCapped, requireRole } from "@/lib/http";
 import { getProjectById } from "@/lib/testimonials";
 import { firstIssue } from "@/lib/validation";
 
@@ -15,7 +15,7 @@ const csvBody = z.object({
 
 /** Imports testimonials from a CSV into this project. */
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const project = getProjectById((await ctx.params).id);
   if (!project) return jsonError(404, "Project not found");

@@ -2,7 +2,9 @@ import crypto from "node:crypto";
 import { asc, eq } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import type { Member, MemberRole } from "@/db/schema";
+import { memberProjectIds, setMemberProjects } from "./access";
 import { env } from "./env";
+import { featureOn } from "./features";
 
 /**
  * Who may sign in to the dashboard. There is one owner (ADMIN_EMAIL); everyone
@@ -28,16 +30,26 @@ export function getMember(email: string): Member | undefined {
   return getDb().select().from(schema.members).where(eq(schema.members.email, normalizeEmail(email))).get();
 }
 
+/**
+ * The role a non-owner has (TEAM-01): the one the owner set on their row
+ * (editor or viewer), else admin. Only with the `team2` flag; without it
+ * everyone but the owner is an admin, as before roles existed.
+ */
+function memberRole(row: Member | undefined): MemberRole {
+  return featureOn("team2") && (row?.role === "editor" || row?.role === "viewer") ? row.role : "admin";
+}
+
 /** The role this address signs in with, or null if it may not sign in. */
 export function roleFor(email: string): MemberRole | null {
   const e = normalizeEmail(email);
   const access = envAccess(e);
   if (access === "owner") return "owner";
-  if (access) return "admin";
+  const row = getMember(e);
+  if (access) return memberRole(row);
   // Only an invitation grants access through the table. Rows for people let
   // in by the environment just remember their name and last sign-in, so
   // taking them out of ADMIN_EMAILS really does lock them out.
-  return getMember(e)?.invitedBy ? "admin" : null;
+  return row?.invitedBy ? memberRole(row) : null;
 }
 
 /** Notes a successful sign-in, activating an invitation and keeping a first-time name. */
@@ -62,17 +74,46 @@ export function recordSignIn(email: string, name?: string | null) {
 
 export class TeamError extends Error {}
 
-/** Adds an invited admin. They sign in (and activate) with a link, Google or Apple. */
-export function inviteMember(email: string, invitedBy: string) {
+/** The roles the owner can give (TEAM-01). */
+export const ASSIGNABLE_ROLES = ["admin", "editor", "viewer"] as const;
+export type AssignableRole = (typeof ASSIGNABLE_ROLES)[number];
+
+/**
+ * Adds an invited member (an admin unless a role is given). They sign in
+ * (and activate) with a link, Google, Apple or single sign-on. `projectIds`
+ * limits an editor or viewer to those projects; null means every project.
+ */
+export function inviteMember(email: string, invitedBy: string, o: { role?: AssignableRole; projectIds?: string[] | null } = {}) {
   const e = normalizeEmail(email);
   if (roleFor(e)) throw new TeamError(`${e} can already sign in`);
+  const role = o.role ?? "admin";
   // A leftover row (from before they left ADMIN_EMAILS) becomes the invitation.
-  return getDb()
+  const row = getDb()
     .insert(schema.members)
-    .values({ id: crypto.randomUUID(), email: e, role: "admin", invitedBy: normalizeEmail(invitedBy) })
-    .onConflictDoUpdate({ target: schema.members.email, set: { invitedBy: normalizeEmail(invitedBy), activatedAt: null } })
+    .values({ id: crypto.randomUUID(), email: e, role, invitedBy: normalizeEmail(invitedBy) })
+    .onConflictDoUpdate({ target: schema.members.email, set: { invitedBy: normalizeEmail(invitedBy), activatedAt: null, role } })
     .returning()
     .get();
+  setMemberProjects(row.id, role === "admin" ? null : (o.projectIds ?? null));
+  return row;
+}
+
+/**
+ * The owner changes someone's role and projects (TEAM-01). Works for invited
+ * people and for those let in by ADMIN_EMAILS or an allowed domain (a row
+ * remembers it); never for the owner. Admins always have every project.
+ */
+export function setMemberAccess(email: string, role: AssignableRole, projectIds: string[] | null) {
+  const e = normalizeEmail(email);
+  const access = envAccess(e);
+  if (access === "owner") throw new TeamError("The owner's role can't be changed");
+  const existing = getMember(e);
+  if (!access && !existing?.invitedBy) throw new TeamError("Not found");
+  const row = existing
+    ? getDb().update(schema.members).set({ role }).where(eq(schema.members.id, existing.id)).returning().get()
+    : getDb().insert(schema.members).values({ id: crypto.randomUUID(), email: e, role }).returning().get();
+  setMemberProjects(row.id, role === "admin" ? null : projectIds);
+  return row;
 }
 
 /** Removes an invited admin. People let in by the environment can't be removed here. */
@@ -92,6 +133,8 @@ export type TeamEntry = {
   email: string;
   name: string | null;
   role: MemberRole;
+  /** TEAM-01: null for every project. */
+  projectIds: string[] | null;
   access: Access;
   invitedBy: string | null;
   activatedAt: string | null;
@@ -107,7 +150,8 @@ export function listTeam(): TeamEntry[] {
     id: row?.id ?? null,
     email,
     name: row?.name ?? null,
-    role: access === "owner" ? "owner" : "admin",
+    role: access === "owner" ? "owner" : memberRole(row),
+    projectIds: access === "owner" || memberRole(row) === "admin" || !row || row.allProjects ? null : memberProjectIds(row.id),
     access,
     invitedBy: row?.invitedBy ?? null,
     activatedAt: iso(row?.activatedAt),

@@ -86,6 +86,12 @@
       "$comment": "The remaining P1 importers (PRD §8.2) and leftovers L12 and L14 ship here too; their tests carry IMP-01 and L12/L14, which aren't gated.",
       "packages": [],
       "requirements": ["IMP-02", "IMP-04", "INBOX-11", "INBOX-12", "INBOX-13", "INBOX-14"]
+    },
+    "M14": {
+      "name": "Team, API and integrations (Phase 2)",
+      "$comment": "API-01 is the /api/v1 CRUD of PRD §19 (forms, widgets, walls, campaigns, tags, customers, feedback) and API-02 its analytics read (L16); the PRD gives §19 no IDs of its own. REQ-07 (auto-collect, M9) gains native Stripe and Shopify triggers here. TEAM-01, TEAM-02 and the REQ-07 triggers came in its second part, after M13 (migration 0017).",
+      "packages": [],
+      "requirements": ["TEAM-01", "TEAM-02", "TEAM-03", "API-01", "API-02", "INT-03", "INT-04", "INT-05", "INT-06", "REQ-07"]
     }
   },
   "concurrent": [

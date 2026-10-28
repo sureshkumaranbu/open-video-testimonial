@@ -1,0 +1,84 @@
+{
+  "name": "Plaudit: invite customers after a purchase",
+  "flow": [
+    {
+      "id": 1,
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "parameters": {
+        "hook": null,
+        "maxResults": 1
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 2,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {
+        "handleErrors": false,
+        "useNewZLibDeCompress": true
+      },
+      "filter": {
+        "name": "Has an email address",
+        "conditions": [
+          [
+            {
+              "a": "{{1.email}}",
+              "o": "exist"
+            }
+          ]
+        ]
+      },
+      "mapper": {
+        "url": "https://plaudit.example.com/api/v1/invites",
+        "method": "post",
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "Bearer plk_REPLACE_ME"
+          }
+        ],
+        "qs": [],
+        "bodyType": "raw",
+        "parseResponse": true,
+        "contentType": "application/json",
+        "data": "{\"campaignId\": \"REPLACE_WITH_CAMPAIGN_ID\", \"email\": \"{{1.email}}\", \"name\": \"{{1.name}}\", \"delayDays\": 7}",
+        "timeout": "",
+        "shareCookies": false,
+        "followRedirect": false,
+        "rejectUnauthorized": true
+      },
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 0
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "instant": true,
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "autoCommitTriggerLast": true,
+      "sequential": false,
+      "confidential": true,
+      "dataloss": false,
+      "dlq": false,
+      "freshVariables": false
+    },
+    "designer": {
+      "orphans": []
+    }
+  }
+}

@@ -1,5 +1,5 @@
 import { getRequestSession } from "@/lib/auth";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { decodeUpload } from "@/lib/importers/html";
 import { ImportError, previewImport, type PreviewUpload } from "@/lib/importers/run";
 import { getProjectById } from "@/lib/testimonials";
@@ -21,7 +21,7 @@ function json(raw: FormDataEntryValue | null) {
  * Answers 201 with the run and the latest matching items.
  */
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const project = getProjectById((await ctx.params).id);
   if (!project) return jsonError(404, "Project not found");

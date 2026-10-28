@@ -1,4 +1,4 @@
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { getProjectById } from "@/lib/testimonials";
 import { firstIssue } from "@/lib/validation";
 import { createWall, createWallBody, listWalls, WallError, wallToAdmin } from "@/lib/walls";
@@ -7,7 +7,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 /** WALL-01: the project's walls, oldest first. */
 export async function GET(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "viewer");
   if (denied) return denied;
   const project = getProjectById((await ctx.params).id);
   if (!project) return jsonError(404, "Project not found");
@@ -16,7 +16,7 @@ export async function GET(req: Request, ctx: Ctx) {
 
 /** A new wall, as a draft. */
 export async function POST(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const project = getProjectById((await ctx.params).id);
   if (!project) return jsonError(404, "Project not found");

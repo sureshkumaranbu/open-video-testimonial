@@ -1,11 +1,11 @@
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { ffmpegAvailable } from "@/lib/media";
 import { getTestimonial } from "@/lib/testimonials";
 import { queueTranscription, transcriptionEnabled } from "@/lib/transcribe";
 
 /** Queues (or re-runs) speech-to-text for a video testimonial. */
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const { id } = await ctx.params;
   const t = getTestimonial(id);

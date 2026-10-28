@@ -434,6 +434,30 @@ export function addRecipients(project: Project, c: Campaign, rows: ImportRow[], 
   return { created: queued, skipped };
 }
 
+const recipientPerson = z.object({
+  email: z.string().trim().max(254),
+  name: z.string().trim().max(120).optional(),
+  company: z.string().trim().max(120).optional(),
+  title: z.string().trim().max(120).optional(),
+});
+
+/** REQ-02: how people are added, from the dashboard and the API alike. */
+export const recipientsBody = z.discriminatedUnion("source", [
+  /** Pasted lines, or a CSV file's text. */
+  z.object({ source: z.literal("paste"), text: z.string().min(1, "Paste some people or load a CSV file").max(2_000_000) }),
+  z.object({ source: z.literal("customers"), ids: z.array(z.string().max(64)).min(1, "Pick at least one customer").max(MAX_IMPORT_ROWS) }),
+  z.object({ source: z.literal("manual"), person: recipientPerson }),
+]);
+export type RecipientsBody = z.infer<typeof recipientsBody>;
+
+/** The body's people as import rows. */
+export function recipientRows(project: Project, d: RecipientsBody): ImportRow[] {
+  return importRows(
+    project,
+    d.source === "paste" ? { kind: "paste", text: d.text } : d.source === "customers" ? { kind: "customers", ids: d.ids } : { kind: "manual", person: d.person },
+  );
+}
+
 /** Reads one way of adding people (a paste or CSV, picked customers, one person) into import rows. */
 export function importRows(project: Project, source: { kind: "paste"; text: string } | { kind: "customers"; ids: string[] } | { kind: "manual"; person: RecipientInput }): ImportRow[] {
   if (source.kind === "paste") return parseRecipientTable(source.text);

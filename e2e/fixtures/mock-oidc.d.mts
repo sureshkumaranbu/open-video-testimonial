@@ -6,4 +6,5 @@ export function startMockOidc(opts?: {
   applePublicKey?: string;
   appleTeamId?: string;
   appleKeyId?: string;
-}): Promise<{ base: string; issuer: (provider: "google" | "apple") => string; close: () => Promise<void> }>;
+  oidcSecret?: string;
+}): Promise<{ base: string; issuer: (provider: "google" | "apple" | "oidc") => string; close: () => Promise<void> }>;

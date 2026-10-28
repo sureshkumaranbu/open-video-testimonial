@@ -1,5 +1,5 @@
 import { getRequestSession } from "@/lib/auth";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { OnboardingError, runWizard, setWelcome, wizardBody } from "@/lib/onboarding";
 import { firstIssue } from "@/lib/validation";
 
@@ -9,7 +9,7 @@ import { firstIssue } from "@/lib/validation";
  * hides the dashboard's Get started card instead.
  */
 export async function POST(req: Request) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "admin");
   if (denied) return denied;
   const email = getRequestSession(req)!.email;
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;

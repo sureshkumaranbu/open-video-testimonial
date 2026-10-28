@@ -1,7 +1,7 @@
 import { createForm, FormError, listForms } from "@/lib/forms";
 import { createFormBody, formToAdmin } from "@/lib/forms/admin";
 import { getTemplate } from "@/lib/forms/templates";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { getProjectById } from "@/lib/testimonials";
 import { firstIssue } from "@/lib/validation";
 
@@ -9,7 +9,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 /** The project's forms (default first) with their stats and share links. */
 export async function GET(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "viewer");
   if (denied) return denied;
   const project = getProjectById((await ctx.params).id);
   if (!project) return jsonError(404, "Project not found");
@@ -18,7 +18,7 @@ export async function GET(req: Request, ctx: Ctx) {
 
 /** A new step-by-step form, blank (from the project's question) or from a template. */
 export async function POST(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const project = getProjectById((await ctx.params).id);
   if (!project) return jsonError(404, "Project not found");

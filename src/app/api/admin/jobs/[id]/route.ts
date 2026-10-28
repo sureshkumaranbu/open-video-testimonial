@@ -1,9 +1,9 @@
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { getJob } from "@/lib/jobs";
 
 /** Progress of a background job (used by the import screen). */
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "viewer");
   if (denied) return denied;
   const job = getJob((await ctx.params).id);
   if (!job) return jsonError(404, "Job not found");

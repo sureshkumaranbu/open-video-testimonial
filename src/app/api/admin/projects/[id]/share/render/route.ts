@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { designSize, renderSpecSchema, SHARE_FORMATS } from "@/lib/share/design";
 import { imageName, PRIVATE, projectOr404, shareFail } from "@/lib/share/http";
 import { renderShare } from "@/lib/share/render";
@@ -13,7 +13,7 @@ const body = renderSpecSchema.extend({ format: z.enum(SHARE_FORMATS).default("pn
  * The overrides are for this image only; the testimonials don't change.
  */
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "viewer");
   if (denied) return denied;
   const found = projectOr404((await ctx.params).id);
   if ("response" in found) return found.response;

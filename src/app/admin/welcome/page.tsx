@@ -1,7 +1,7 @@
 import { emailMode } from "@/lib/email";
 import { requireFeature } from "@/lib/features";
 import { BUSINESS_LABELS, BUSINESS_TYPES } from "@/lib/onboarding";
-import { requireAdminPage } from "@/lib/server-session";
+import { requireRolePage } from "@/lib/server-session";
 import { AppBar } from "../AppBar";
 import { Wizard } from "./Wizard";
 
@@ -10,7 +10,7 @@ export const metadata = { title: "Get started" };
 
 /** The first-run wizard (ONB-01). Reached from the Get started card; /admin itself never redirects here (D10). */
 export default async function WelcomePage() {
-  await requireAdminPage();
+  await requireRolePage("admin");
   requireFeature("onboarding");
   return (
     <>

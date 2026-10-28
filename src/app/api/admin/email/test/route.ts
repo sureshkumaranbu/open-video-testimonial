@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { emailMode, explainSmtpError, sendMail } from "@/lib/email";
 import { env } from "@/lib/env";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { rateLimit } from "@/lib/rate-limit";
 import { firstIssue } from "@/lib/validation";
 
@@ -12,7 +12,7 @@ const schema = z.object({ to: z.email("Enter a valid email address").max(254).op
  * a hint for the common setup mistakes.
  */
 export async function POST(req: Request) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "admin");
   if (denied) return denied;
   const parsed = schema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return jsonError(400, firstIssue(parsed.error));

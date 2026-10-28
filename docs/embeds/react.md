@@ -2,7 +2,7 @@
 
 Get the snippet from **Widgets › your widget › Share** in the dashboard. Replace `https://plaudit.example` and `w_abc123def456` below with your own server and widget id.
 
-Copy-paste component (a published `@plaudit/react` package comes later). Save it as `PlauditWidget.jsx`:
+For a server-rendered app (Next.js, Remix) or SEO mode, use the `PlauditWidget` and `PlauditForm` components in [`packages/react/`](../../packages/react/README.md) (`@plaudit/react`, not on npm yet). For a quick start, a copy-paste component: save it as `PlauditWidget.jsx`:
 
 ```jsx
 import { useEffect, useRef } from "react";

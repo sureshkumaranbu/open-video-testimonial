@@ -2,14 +2,14 @@ import { deleteForm, setFormStatus, updateForm } from "@/lib/forms";
 import { formPatchBody } from "@/lib/forms/admin";
 import type { FormPatch } from "@/lib/forms/schema";
 import { getRequestSession } from "@/lib/auth";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { firstIssue } from "@/lib/validation";
 import { formErrorResponse, formResponse, loadForm } from "./shared";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function GET(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "viewer");
   if (denied) return denied;
   return formResponse((await ctx.params).id);
 }
@@ -20,7 +20,7 @@ export async function GET(req: Request, ctx: Ctx) {
  * classic form refuses what the classic page can't show (409).
  */
 export async function PATCH(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const { id } = await ctx.params;
   const found = loadForm(id);
@@ -39,7 +39,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
 /** Deletes a form; its testimonials stay (form_id becomes empty). The default form can't be deleted (409). */
 export async function DELETE(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   try {
     const gone = await deleteForm((await ctx.params).id);

@@ -1,4 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -61,7 +62,7 @@ describe("docs/plan/ownership.json", () => {
       ].sort(),
     );
     // Phase 2 milestones (M9 on) gate requirement IDs only; they have no work packages.
-    expect(Object.keys(manifest.milestones)).toEqual(["M1", "M2", "M3", "M4", "M5", "M6", "M7", "M9", "M10", "M11", "M12", "M13"]);
+    expect(Object.keys(manifest.milestones)).toEqual(["M1", "M2", "M3", "M4", "M5", "M6", "M7", "M9", "M10", "M11", "M12", "M13", "M14"]);
   });
 
   it("is consistent, with no file owned by two packages that run at the same time", () => {
@@ -143,7 +144,7 @@ describe("requirement coverage", () => {
     expect(coverage(["FORM-01", "FORM-02"], titles)).toEqual({ "FORM-01": [titles[2]], "FORM-02": [] });
   });
 
-  it("gates each milestone's IDs, and every ID with --all (54 from Phase 1, then M9's REQ-01..07, M10's 8, M11's 6, M12's 10 and M13's 6)", () => {
+  it("gates each milestone's IDs, and every ID with --all (54 from Phase 1, then M9's REQ-01..07, M10's 8, M11's 6, M12's 10, M13's 6 and M14's 9 new ones)", () => {
     expect(requirementsFor(manifest, "M1")).toEqual(["TEAM-04", "TEAM-05"]);
     expect(requirementsFor(manifest, "M2")).toContain("FORM-18");
     expect(requirementsFor(manifest, "M9")).toEqual(["REQ-01", "REQ-02", "REQ-03", "REQ-04", "REQ-05", "REQ-06", "REQ-07"]);
@@ -151,15 +152,47 @@ describe("requirement coverage", () => {
     expect(requirementsFor(manifest, "M11")).toEqual(["DISP-13", "DISP-14", "FORM-15", "WALL-05", "SEO-04", "AN-01"]);
     expect(requirementsFor(manifest, "M12")).toEqual(["VID-01", "VID-02", "VID-03", "VID-04", "WALL-04", "SHARE-01", "SHARE-02", "SHARE-03", "DISP-08", "WALL-07"]);
     expect(requirementsFor(manifest, "M13")).toEqual(["IMP-02", "IMP-04", "INBOX-11", "INBOX-12", "INBOX-13", "INBOX-14"]);
+    // M14 also lists REQ-07 (from M9) for its native Stripe and Shopify triggers; --all counts it once.
+    expect(requirementsFor(manifest, "M14")).toEqual(["TEAM-01", "TEAM-02", "TEAM-03", "API-01", "API-02", "INT-03", "INT-04", "INT-05", "INT-06", "REQ-07"]);
     const all = requirementsFor(manifest, "all");
-    expect(all).toHaveLength(91);
+    expect(all).toHaveLength(100);
     expect(new Set(all).size).toBe(all.length);
-    expect(() => requirementsFor(manifest, "M14")).toThrow(/Unknown milestone/);
+    expect(() => requirementsFor(manifest, "M15")).toThrow(/Unknown milestone/);
   });
 
   it("prints the table and passes with --report", () => {
     const run = spawnSync(process.execPath, ["scripts/req-coverage.mjs", "--all", "--report"], { cwd: ROOT, encoding: "utf8" });
     expect(run.status).toBe(0);
-    expect(run.stdout).toMatch(/All milestones: \d+ of 91 requirements covered/);
+    expect(run.stdout).toMatch(/All milestones: \d+ of 100 requirements covered/);
+  });
+});
+
+describe("TEAM-01 role guards", () => {
+  it("TEAM-01 every handler under /api/admin calls requireRole or requireOwner (sign-in and sign-out excepted)", () => {
+    const files = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "src/app/api/admin"], { cwd: ROOT, encoding: "utf8" }).split("\n").filter((f) => f.endsWith("/route.ts"));
+    expect(files.length).toBeGreaterThan(100);
+    const unguarded: string[] = [];
+    const levels = new Map<string, string>();
+    for (const file of files) {
+      const src = fs.readFileSync(path.join(ROOT, file), "utf8");
+      const handlers = [...src.matchAll(/export (?:async )?function (GET|POST|PUT|PATCH|DELETE)\b/g)];
+      handlers.forEach((m, i) => {
+        const body = src.slice(m.index, handlers[i + 1]?.index ?? src.length);
+        const route = `${m[1]} ${file.replace("src/app/api/admin/", "").replace("/route.ts", "")}`;
+        const level = /requireRole\(req, "(viewer|editor|admin|owner)"\)/.exec(body)?.[1] ?? (/requireOwner\(req\)/.test(body) ? "owner" : null);
+        if (level) levels.set(route, level);
+        else if (!["POST login", "POST logout"].includes(route)) unguarded.push(route);
+      });
+    }
+    expect(unguarded).toEqual([]);
+    // What only admins (or the owner) may do: the team, keys, webhooks, channels, the server, new projects, the audit log.
+    for (const route of ["GET api-keys", "POST api-keys", "POST webhooks", "PATCH webhooks/[id]", "POST notification-channels", "GET team", "POST team", "PATCH team", "GET audit", "POST projects", "DELETE projects/[id]", "POST import", "POST system/storage"]) {
+      expect(["admin", "owner"], route).toContain(levels.get(route));
+    }
+    // Editors may run campaigns, but viewers only read and share.
+    expect(levels.get("PATCH campaigns/[id]")).toBe("editor");
+    expect(levels.get("PATCH testimonials/[id]")).toBe("editor");
+    expect(levels.get("POST projects/[id]/share/render")).toBe("viewer");
+    expect(levels.get("GET projects/[id]/testimonials")).toBe("viewer");
   });
 });

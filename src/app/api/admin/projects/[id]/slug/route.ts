@@ -1,4 +1,5 @@
-import { jsonError, requireAdmin } from "@/lib/http";
+import { auditRequest } from "@/lib/audit";
+import { jsonError, requireRole } from "@/lib/http";
 import { changeProjectSlug, checkSlug, ProjectError } from "@/lib/projects";
 import { getProjectById } from "@/lib/testimonials";
 
@@ -6,7 +7,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 /** Whether the project can take ?slug=, and whose old links it would replace (the dashboard warns before the change). */
 export async function GET(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "admin");
   if (denied) return denied;
   const { id } = await ctx.params;
   if (!getProjectById(id)) return jsonError(404, "Project not found");
@@ -15,7 +16,7 @@ export async function GET(req: Request, ctx: Ctx) {
 
 /** Changes the project's link. The old slug keeps working as a redirect (D17). */
 export async function POST(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "admin");
   if (denied) return denied;
   const { id } = await ctx.params;
   const body = (await req.json().catch(() => null)) as { slug?: unknown } | null;
@@ -24,6 +25,7 @@ export async function POST(req: Request, ctx: Ctx) {
   const check = checkSlug(body.slug, id);
   try {
     const project = changeProjectSlug(id, body.slug);
+    auditRequest(req, "project.slug", { objectType: "project", objectId: id, projectId: id, summary: project.slug });
     return Response.json({
       project,
       ...(check.replacesAliasOf

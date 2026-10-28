@@ -1,11 +1,11 @@
 import crypto from "node:crypto";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb, schema } from "@/db";
-import type { ApiKeyScope } from "@/db/schema";
+import type { ApiKey, ApiKeyScope } from "@/db/schema";
 import { jsonError } from "./http";
 import { rateLimit } from "./rate-limit";
 
-const { apiKeys } = schema;
+const { apiKeys, apiKeyProjects } = schema;
 
 /**
  * REST API keys: `plk_` + 32 random bytes. Only a SHA-256 hash is stored (the
@@ -13,18 +13,26 @@ const { apiKeys } = schema;
  */
 const hash = (key: string) => crypto.createHash("sha256").update(key).digest("hex");
 
-export function createApiKey(name: string, scope: ApiKeyScope) {
+/** A new key; `projectIds` limits it to those projects (TEAM-01), null or absent reaches every project. */
+export function createApiKey(name: string, scope: ApiKeyScope, projectIds: string[] | null = null) {
   const key = `plk_${crypto.randomBytes(32).toString("base64url")}`;
-  const row = getDb()
-    .insert(apiKeys)
-    .values({ id: crypto.randomUUID(), name, scope, prefix: key.slice(0, 12), keyHash: hash(key), createdAt: new Date() })
-    .returning()
-    .get();
+  const db = getDb();
+  const row = db.transaction((tx) => {
+    const r = tx
+      .insert(apiKeys)
+      .values({ id: crypto.randomUUID(), name, scope, prefix: key.slice(0, 12), keyHash: hash(key), createdAt: new Date(), allProjects: projectIds === null })
+      .returning()
+      .get();
+    const valid = projectIds?.length ? tx.select({ id: schema.projects.id }).from(schema.projects).where(inArray(schema.projects.id, projectIds)).all() : [];
+    for (const p of valid) tx.insert(apiKeyProjects).values({ apiKeyId: r.id, projectId: p.id }).run();
+    return r;
+  });
   return { key, row };
 }
 
 export function listApiKeys() {
-  return getDb()
+  const db = getDb();
+  const rows = db
     .select({
       id: apiKeys.id,
       name: apiKeys.name,
@@ -33,10 +41,19 @@ export function listApiKeys() {
       createdAt: apiKeys.createdAt,
       lastUsedAt: apiKeys.lastUsedAt,
       revokedAt: apiKeys.revokedAt,
+      allProjects: apiKeys.allProjects,
     })
     .from(apiKeys)
     .orderBy(desc(apiKeys.createdAt))
     .all();
+  const links = db.select().from(apiKeyProjects).all();
+  return rows.map(({ allProjects, ...r }) => ({ ...r, projectIds: allProjects ? null : links.filter((l) => l.apiKeyId === r.id).map((l) => l.projectId) }));
+}
+
+/** TEAM-01: whether a key may reach a project (keys made before 0017, and any made without a list, reach all). */
+export function apiKeyReaches(key: Pick<ApiKey, "id" | "allProjects">, projectId: string): boolean {
+  if (key.allProjects) return true;
+  return Boolean(getDb().select().from(apiKeyProjects).where(and(eq(apiKeyProjects.apiKeyId, key.id), eq(apiKeyProjects.projectId, projectId))).get());
 }
 
 export function revokeApiKey(id: string) {

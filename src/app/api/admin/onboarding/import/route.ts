@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { ImportError } from "@/lib/importers/run";
 import { importDiscovered, OnboardingError } from "@/lib/onboarding";
 import { firstIssue } from "@/lib/validation";
@@ -12,7 +12,7 @@ const body = z.object({
 
 /** Imports the testimonials the owner chose from their site, as approved (ONB-03). */
 export async function POST(req: Request) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "admin");
   if (denied) return denied;
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonError(400, firstIssue(parsed.error));

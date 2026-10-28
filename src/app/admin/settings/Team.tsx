@@ -3,28 +3,153 @@
 import { useCallback, useEffect, useState } from "react";
 import { Icon } from "@/components/Icon";
 
+type Role = "owner" | "admin" | "editor" | "viewer";
+type Assignable = Exclude<Role, "owner">;
+
 type Entry = {
   id: string | null;
   email: string;
   name: string | null;
-  role: "owner" | "admin";
+  role: Role;
+  projectIds: string[] | null;
   access: "owner" | "admin-emails" | "domain" | "invited";
   activatedAt: string | null;
   lastSignInAt: string | null;
 };
 
-const ACCESS: Record<Entry["access"], string> = {
-  owner: "Owner (ADMIN_EMAIL)",
-  "admin-emails": "Admin (ADMIN_EMAILS)",
-  domain: "Admin (allowed domain)",
-  invited: "Admin (invited)",
+type ProjectOption = { id: string; name: string };
+
+const SOURCE: Record<Entry["access"], string> = {
+  owner: "ADMIN_EMAIL",
+  "admin-emails": "ADMIN_EMAILS",
+  domain: "allowed domain",
+  invited: "invited",
 };
+
+const ROLE_NAME: Record<Role, string> = { owner: "Owner", admin: "Admin", editor: "Editor", viewer: "Viewer" };
+
+/** TEAM-01: what each role may do, as the invite form explains it. */
+const ROLE_HELP: Record<Assignable, string> = {
+  admin: "Everything except the team: settings, API keys, webhooks, every project",
+  editor: "Testimonials, forms, widgets, walls, campaigns and imports, in the projects you choose",
+  viewer: "Look and share approved testimonials, in the projects you choose",
+};
+
+/** Role and projects, for an invitation or a change. */
+function AccessFields({
+  role,
+  setRole,
+  projectIds,
+  setProjectIds,
+  projects,
+  idPrefix,
+}: {
+  role: Assignable;
+  setRole: (r: Assignable) => void;
+  projectIds: string[] | null;
+  setProjectIds: (ids: string[] | null) => void;
+  projects: ProjectOption[];
+  idPrefix: string;
+}) {
+  return (
+    <div className="stack" style={{ gap: "var(--space-2)" }}>
+      <label>
+        Role
+        <select value={role} onChange={(e) => setRole(e.target.value as Assignable)} data-testid={`${idPrefix}-role`}>
+          {(["admin", "editor", "viewer"] as const).map((r) => (
+            <option key={r} value={r}>
+              {ROLE_NAME[r]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p className="muted small">{ROLE_HELP[role]}.</p>
+      {role !== "admin" && (
+        <fieldset className="stack" style={{ gap: "var(--space-1)", border: 0, padding: 0 }}>
+          <legend className="small">Projects</legend>
+          <label className="row small" style={{ gap: "var(--space-2)" }}>
+            <input type="checkbox" checked={projectIds === null} onChange={(e) => setProjectIds(e.target.checked ? null : [])} />
+            Every project, including new ones
+          </label>
+          {projectIds !== null &&
+            projects.map((p) => (
+              <label key={p.id} className="row small" style={{ gap: "var(--space-2)" }}>
+                <input
+                  type="checkbox"
+                  checked={projectIds.includes(p.id)}
+                  onChange={(e) => setProjectIds(e.target.checked ? [...projectIds, p.id] : projectIds.filter((x) => x !== p.id))}
+                />
+                {p.name}
+              </label>
+            ))}
+        </fieldset>
+      )}
+    </div>
+  );
+}
+
+function EditAccess({
+  member,
+  projects,
+  onSaved,
+  onCancel,
+}: {
+  member: Entry;
+  projects: ProjectOption[];
+  onSaved: (msg: string, error?: boolean) => void;
+  onCancel: () => void;
+}) {
+  const [role, setRole] = useState<Assignable>(member.role === "owner" ? "admin" : member.role);
+  const [projectIds, setProjectIds] = useState<string[] | null>(member.projectIds);
+  return (
+    <div className="stack" data-testid="team-access-editor">
+      <AccessFields role={role} setRole={setRole} projectIds={projectIds} setProjectIds={setProjectIds} projects={projects} idPrefix="edit" />
+      <div className="row" style={{ gap: "var(--space-2)" }}>
+        <button
+          type="button"
+          className="small"
+          onClick={async () => {
+            const res = await fetch("/api/admin/team", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email: member.email, role, projectIds: role === "admin" ? null : projectIds }),
+            });
+            const body = await res.json().catch(() => ({}));
+            onSaved(res.ok ? `${member.email} is now ${ROLE_NAME[role].toLowerCase()}.` : body.error, !res.ok);
+          }}
+        >
+          Save access
+        </button>
+        <button type="button" className="ghost small" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : null);
 
 /** Settings → Team: who can sign in, and (for the owner) invitations. */
-export function Team({ you, canInvite, emailOn }: { you: { email: string; role: "owner" | "admin" }; canInvite: boolean; emailOn: boolean }) {
+export function Team({
+  you,
+  canInvite,
+  emailOn,
+  roles = false,
+  projects = [],
+}: {
+  you: { email: string; role: Role };
+  canInvite: boolean;
+  emailOn: boolean;
+  /** TEAM-01 (flag team2): roles and per-project access. */
+  roles?: boolean;
+  projects?: ProjectOption[];
+}) {
   const [team, setTeam] = useState<Entry[]>([]);
+  const [role, setRole] = useState<Assignable>("admin");
+  const [projectIds, setProjectIds] = useState<string[] | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
+  const projectName = (id: string) => projects.find((p) => p.id === id)?.name ?? "a deleted project";
   const [domains, setDomains] = useState<string[]>([]);
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState<{ text: string; link?: string; error?: boolean } | null>(null);
@@ -62,7 +187,9 @@ export function Team({ you, canInvite, emailOn }: { you: { email: string; role: 
       </div>
       <div className="panel-body stack">
         <p className="muted small">
-          Everyone here can use the whole dashboard. Only the owner can invite and remove people.
+          {roles
+            ? "Admins can use the whole dashboard; editors and viewers only what their role allows, in their projects. Only the owner can invite, remove and change people."
+            : "Everyone here can use the whole dashboard. Only the owner can invite and remove people."}
           {domains.length > 0 && <> Anyone with a verified address at {domains.join(", ")} can also sign in.</>}
         </p>
         <div className="table-wrap">
@@ -92,11 +219,39 @@ export function Team({ you, canInvite, emailOn }: { you: { email: string; role: 
                     )}
                     {m.email === you.email && <span className="muted small"> (you)</span>}
                   </td>
-                  <td>{ACCESS[m.access]}</td>
+                  <td data-testid="team-role">
+                    {roles ? ROLE_NAME[m.role] : m.access === "owner" ? "Owner" : "Admin"} ({SOURCE[m.access]})
+                    {roles && m.projectIds && (
+                      <span className="muted small" style={{ display: "block" }}>
+                        {m.projectIds.length ? m.projectIds.map(projectName).join(", ") : "No projects yet"}
+                      </span>
+                    )}
+                    {editing === m.email && (
+                      <EditAccess
+                        member={m}
+                        projects={projects}
+                        onCancel={() => setEditing(null)}
+                        onSaved={async (text, error) => {
+                          setMessage({ text, error });
+                          if (!error) setEditing(null);
+                          await load();
+                        }}
+                      />
+                    )}
+                  </td>
                   <td className="muted small">
-                    {m.lastSignInAt ? `Last signed in ${when(m.lastSignInAt)}` : m.access === "invited" && !m.activatedAt ? "Invited, not signed in yet" : "Not signed in yet"}
+                    {m.lastSignInAt
+                      ? `Last signed in ${when(m.lastSignInAt)}`
+                      : m.access === "invited" && !m.activatedAt
+                        ? "Invited, not signed in yet"
+                        : "Not signed in yet"}
                   </td>
                   <td>
+                    {owner && roles && m.access !== "owner" && editing !== m.email && (
+                      <button type="button" className="ghost small" onClick={() => setEditing(m.email)} aria-label={`Change access for ${m.email}`}>
+                        Change access
+                      </button>
+                    )}
                     {owner && m.access === "invited" && m.id && (
                       <div className="row" style={{ justifyContent: "flex-end", gap: "var(--space-2)" }}>
                         {!m.activatedAt && (
@@ -138,7 +293,10 @@ export function Team({ you, canInvite, emailOn }: { you: { email: string; role: 
             style={{ alignItems: "end" }}
             onSubmit={async (e) => {
               e.preventDefault();
-              const res = await call("/api/admin/team", { method: "POST", body: JSON.stringify({ email }) });
+              const res = await call("/api/admin/team", {
+                method: "POST",
+                body: JSON.stringify({ email, ...(roles ? { role, projectIds: role === "admin" ? null : projectIds } : {}) }),
+              });
               setMessage(res.ok ? sentMessage(res.body.member.email, res.body) : { text: res.body.error, error: true });
               if (res.ok) setEmail("");
               await load();
@@ -148,17 +306,19 @@ export function Team({ you, canInvite, emailOn }: { you: { email: string; role: 
               Invite someone by email
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required maxLength={254} />
             </label>
+            {roles && (
+              <AccessFields role={role} setRole={setRole} projectIds={projectIds} setProjectIds={setProjectIds} projects={projects} idPrefix="invite" />
+            )}
             <button type="submit">Send invitation</button>
           </form>
         )}
         {owner && !canInvite && (
           <p className="notice warn">
-            Invited people sign in with an email link, Google or Apple, and none of those is on yet. Only the owner can use the password. See docs/AUTH.md.
+            Invited people sign in with an email link, Google, Apple or single sign-on, and none of those is on yet. Only the owner can use the password. See
+            docs/AUTH.md.
           </p>
         )}
-        {owner && canInvite && !emailOn && (
-          <p className="muted small">Email isn&apos;t set up, so you&apos;ll get each invitation link to send yourself.</p>
-        )}
+        {owner && canInvite && !emailOn && <p className="muted small">Email isn&apos;t set up, so you&apos;ll get each invitation link to send yourself.</p>}
         {message && (
           <div className={message.error ? "notice warn" : "notice"} role={message.error ? "alert" : "status"} data-testid="team-message">
             <p>{message.text}</p>

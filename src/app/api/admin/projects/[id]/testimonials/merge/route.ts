@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { getRequestSession } from "@/lib/auth";
-import { jsonError, readJsonCapped, requireAdmin } from "@/lib/http";
+import { jsonError, readJsonCapped, requireRole } from "@/lib/http";
 import { MergeError, mergeTestimonials } from "@/lib/merge";
 import { getProjectById } from "@/lib/testimonials";
 import { firstIssue } from "@/lib/validation";
@@ -22,7 +22,7 @@ const body = z.object({
  * Both must be in this project; withdrawn ones are refused (409).
  */
 export async function POST(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const project = getProjectById((await ctx.params).id);
   if (!project) return jsonError(404, "Project not found");

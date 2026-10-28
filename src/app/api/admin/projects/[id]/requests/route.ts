@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { emailEnabled } from "@/lib/email";
 import { getForm, listForms } from "@/lib/forms";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { createRequests, listRequests, parseRecipients, withLink } from "@/lib/requests";
 import { getProjectById } from "@/lib/testimonials";
 import { firstIssue } from "@/lib/validation";
@@ -10,7 +10,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 /** Everyone asked for a testimonial in this project, with their personal links. */
 export async function GET(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "viewer");
   if (denied) return denied;
   const project = getProjectById((await ctx.params).id);
   if (!project) return jsonError(404, "Project not found");
@@ -33,7 +33,7 @@ const bodySchema = z.object({
 
 /** Creates requests from pasted lines or CSV, and optionally emails them. */
 export async function POST(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const project = getProjectById((await ctx.params).id);
   if (!project) return jsonError(404, "Project not found");

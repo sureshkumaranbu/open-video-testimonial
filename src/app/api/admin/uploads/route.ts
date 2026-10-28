@@ -1,5 +1,7 @@
 import { env } from "@/lib/env";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { getRequestSession } from "@/lib/auth";
+import { roleAtLeast } from "@/lib/access";
+import { jsonError, requireProjectAccess, requireRole } from "@/lib/http";
 import { tooLarge } from "@/lib/sniff";
 import { getProjectById } from "@/lib/testimonials";
 import { CHUNK_MAX_BYTES, createUpload } from "@/lib/uploads";
@@ -11,7 +13,7 @@ import { CHUNK_MAX_BYTES, createUpload } from "@/lib/uploads";
  * since the resumable client sends only `{size}` in the body.
  */
 export async function POST(req: Request) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const json = (await req.json().catch(() => ({}))) as { size?: unknown; kind?: unknown; projectId?: unknown } | null;
   const sp = new URL(req.url).searchParams;
@@ -19,11 +21,15 @@ export async function POST(req: Request) {
   if (body.kind === "video") {
     const project = typeof body.projectId === "string" ? getProjectById(body.projectId) : null;
     if (!project) return jsonError(404, "Project not found");
+    const no = requireProjectAccess(req, project.id);
+    if (no) return no;
     if (typeof body.size === "number" && body.size > env.maxVideoBytes) return jsonError(413, tooLarge(env.maxVideoBytes));
     const { upload, token } = createUpload("video", { projectId: project.id, maxBytes: env.maxVideoBytes });
     return Response.json({ id: upload.id, token, offset: 0, chunkSize: CHUNK_MAX_BYTES }, { status: 201 });
   }
   if (body.kind !== undefined && body.kind !== "import") return jsonError(400, "Choose an upload kind: import or video");
+  // An archive becomes a new project, which only admins may add (TEAM-01).
+  if (!roleAtLeast(getRequestSession(req)!.role, "admin")) return jsonError(403, "Only an admin can do this");
   if (typeof body.size === "number" && body.size > env.maxImportBytes) return jsonError(413, tooLarge(env.maxImportBytes));
   const { upload, token } = createUpload("import", { maxBytes: env.maxImportBytes });
   return Response.json({ id: upload.id, token, offset: 0, chunkSize: CHUNK_MAX_BYTES }, { status: 201 });

@@ -5,12 +5,14 @@ import { api, errorMessage } from "@/app/admin/api";
 import { ConfirmDialog, CopyField } from "@/components/admin";
 import { Icon } from "@/components/Icon";
 import type { AdminCampaign } from "@/lib/campaigns";
+import { TriggersSection } from "./TriggersSection";
 
 type Props = { campaign: AdminCampaign; apiBase: string; onChange: () => Promise<void> };
 
 /**
  * REQ-07: invites from your other tools. The API takes a key from Settings;
- * the incoming webhook URL carries its own secret token, shown once.
+ * the incoming webhook URL carries its own secret token, shown once; Stripe
+ * and Shopify triggers check the provider's signature.
  */
 export function AutoCollectPanel({ campaign: c, apiBase, onChange }: Props) {
   const [url, setUrl] = useState<string | null>(null);
@@ -96,6 +98,8 @@ export function AutoCollectPanel({ campaign: c, apiBase, onChange }: Props) {
           <p className="muted xsmall">Each URL takes up to 120 invites a minute and bodies up to 16 KB.</p>
         </div>
       </section>
+
+      <TriggersSection campaignId={c.id} />
 
       <section className="panel">
         <div className="panel-head">

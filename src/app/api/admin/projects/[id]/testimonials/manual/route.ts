@@ -1,5 +1,6 @@
+import { auditRequest } from "@/lib/audit";
 import { getRequestSession } from "@/lib/auth";
-import { jsonError, requireAdmin } from "@/lib/http";
+import { jsonError, requireRole } from "@/lib/http";
 import { addManualTestimonial, ManualAddError } from "@/lib/manual-add";
 import { UnsupportedMediaError, UploadError } from "@/lib/storage";
 import { getProjectById } from "@/lib/testimonials";
@@ -15,7 +16,7 @@ const fileOf = (v: FormDataEntryValue | null) => (v instanceof File && v.size > 
  * `images`. Answers 201 `{testimonial}`.
  */
 export async function POST(req: Request, ctx: Ctx) {
-  const denied = requireAdmin(req);
+  const denied = requireRole(req, "editor");
   if (denied) return denied;
   const project = getProjectById((await ctx.params).id);
   if (!project) return jsonError(404, "Project not found");
@@ -46,6 +47,7 @@ export async function POST(req: Request, ctx: Ctx) {
       },
       getRequestSession(req)?.email,
     );
+    auditRequest(req, "testimonial.create", { objectType: "testimonial", objectId: testimonial.id, projectId: testimonial.projectId, summary: testimonial.authorName, meta: { source: "manual" } });
     return Response.json({ testimonial }, { status: 201 });
   } catch (err) {
     if (err instanceof ManualAddError) return jsonError(err.status, err.message);

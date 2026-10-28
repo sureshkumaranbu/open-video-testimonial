@@ -1,0 +1,22 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "plaudit/embed",
+  "version": "0.1.0",
+  "title": "Plaudit testimonials",
+  "category": "embed",
+  "icon": "format-quote",
+  "description": "A saved Plaudit widget, or a collection form.",
+  "keywords": ["testimonials", "reviews", "wall of love", "plaudit"],
+  "textdomain": "plaudit",
+  "attributes": {
+    "kind": { "type": "string", "enum": ["widget", "form"], "default": "widget" },
+    "widget": { "type": "string", "default": "" },
+    "project": { "type": "string", "default": "" },
+    "form": { "type": "string", "default": "" },
+    "seo": { "type": "boolean", "default": true },
+    "height": { "type": "number", "default": 640 }
+  },
+  "supports": { "html": false, "align": ["wide", "full"] },
+  "editorScript": "file:./index.js"
+}
