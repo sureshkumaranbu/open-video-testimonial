@@ -7,7 +7,9 @@ import { audit, keyActor } from "@/lib/audit";
 import { CONSENT_SCOPES, grantConsent } from "@/lib/consent";
 import { jsonError } from "@/lib/http";
 import { createTestimonial, getTestimonial, listTestimonials, updateTestimonial } from "@/lib/testimonials";
-import { customFieldsSchema, firstIssue, tagNameSchema } from "@/lib/validation";
+import { FETCH_MEDIA_JOB } from "@/lib/csv-import";
+import { enqueue } from "@/lib/jobs";
+import { authorSocialsSchema, customFieldsSchema, firstIssue, tagNameSchema } from "@/lib/validation";
 import { emitTestimonialEvent } from "@/lib/webhooks";
 // Registers the notifications listener in this route's bundle.
 import "@/lib/notifications";
@@ -81,6 +83,10 @@ const createSchema = z.object({
     .regex(/^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$/, "Use a language code such as en or pt-BR")
     .optional(),
   customFields: customFieldsSchema.optional(),
+  /** EXT-01: the author's profiles ({x, linkedin, instagram, tiktok}), as the browser extension reads them from a post. */
+  socials: authorSocialsSchema.optional(),
+  /** EXT-01: the author's photo, fetched in the background like an import's (public addresses only). */
+  avatarUrl: z.url({ protocol: /^https$/, error: "Use an https:// address for the photo" }).max(2000).optional(),
   /** You confirm the author agreed to publication (recorded in the consent ledger). */
   consent: z.literal(true, { error: "Set consent: true to confirm the author agreed to publication" }),
   consentScopes: z.array(z.enum(CONSENT_SCOPES)).optional(),
@@ -94,12 +100,13 @@ export async function POST(req: Request, ctx: Ctx) {
   if (!project) return jsonError(404, "Project not found");
   const parsed = createSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonError(400, firstIssue(parsed.error));
-  const { website, sourceDate, ...input } = parsed.data;
+  const { website, sourceDate, socials, avatarUrl, ...input } = parsed.data;
   const t = createTestimonial(
     project.id,
-    { ...input, authorWebsite: website, sourceDate: sourceDate ? new Date(sourceDate) : undefined },
+    { ...input, authorWebsite: website, authorSocials: socials, sourceDate: sourceDate ? new Date(sourceDate) : undefined },
     { source: "api" },
   );
+  if (avatarUrl) enqueue(FETCH_MEDIA_JOB, { testimonialId: t.id, videoUrl: null, avatarUrl }, { maxAttempts: 3 });
   grantConsent({
     testimonialId: t.id,
     project,

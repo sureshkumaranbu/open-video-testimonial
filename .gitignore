@@ -15,3 +15,5 @@ test-results/
 playwright-report/
 .qa/
 .claude/worktrees/
+# npm run build:extension
+dist/

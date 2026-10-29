@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Plaudit extension options</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Plaudit extension</h1>
+      <p class="muted">Saves what you select on a page, or an X or LinkedIn post, to your own Plaudit server as a pending testimonial.</p>
+      <form id="form">
+        <div class="fields">
+          <label>
+            Your Plaudit address
+            <input id="server" type="url" required placeholder="https://plaudit.example.com" />
+          </label>
+          <label>
+            API key
+            <input id="key" type="password" required autocomplete="off" placeholder="plk_…" />
+            <span class="hint">
+              In Plaudit: Settings › API keys › New key. Choose "Read and write" (the least that can add a testimonial) and limit it to the one project
+              you'll save to. The key stays on this device, in the extension's own storage, and is sent only to the address above.
+            </span>
+          </label>
+          <div class="row">
+            <button id="check" type="button" class="secondary">Find my projects</button>
+          </div>
+          <label>
+            Save to the project
+            <select id="project" required></select>
+          </label>
+          <div class="row">
+            <button id="save" type="submit">Save</button>
+          </div>
+        </div>
+      </form>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+      <p class="muted">
+        When you save, the browser may ask to let this extension reach your Plaudit address. It works either way (your server allows the extension
+        itself), so you can say no. The extension reads a page only when you use its menu item or button there.
+      </p>
+    </main>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>
