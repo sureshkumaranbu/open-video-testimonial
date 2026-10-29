@@ -37,6 +37,8 @@ type Props = {
   banner?: ReactNode;
   /** INBOX-13 (translations flag): offer "show translations in the visitor's language". */
   translations?: boolean;
+  /** INT-07 (commerce flag): the sales popup layout and the "Verified purchase" mark. */
+  commerce?: boolean;
 };
 
 const draftOf = (w: AdminWidget): Draft => ({
@@ -51,7 +53,7 @@ const draftOf = (w: AdminWidget): Draft => ({
  * Labels · Share on the left, and on the right the live preview at desktop,
  * tablet or phone width over a light or dark page.
  */
-export function Studio({ project, initial, pickable, facets, origin, initialTab, banner, translations = false }: Props) {
+export function Studio({ project, initial, pickable, facets, origin, initialTab, banner, translations = false, commerce = false }: Props) {
   const [widget, setWidget] = useState(initial);
   const [draft, setDraft] = useState<Draft>(() => draftOf(initial));
   const [saved, setSaved] = useState(() => JSON.stringify(draftOf(initial)));
@@ -124,11 +126,11 @@ export function Studio({ project, initial, pickable, facets, origin, initialTab,
             ]}
           >
             <div className="ws-panel" style={{ paddingTop: "var(--space-3)" }}>
-              {tab === "layout" && <LayoutPanel draft={draft} update={update} />}
+              {tab === "layout" && <LayoutPanel draft={draft} update={update} commerce={commerce} />}
               {tab === "testimonials" && <TestimonialsPanel draft={draft} update={update} pickable={pickable} facets={facets} />}
-              {tab === "design" && <DesignPanel draft={draft} update={update} accent={project.accentColor} translations={translations} />}
-              {tab === "settings" && <SettingsPanel draft={draft} update={update} forms={facets.forms} />}
-              {tab === "labels" && <LabelsPanel draft={draft} update={update} />}
+              {tab === "design" && <DesignPanel draft={draft} update={update} accent={project.accentColor} translations={translations} commerce={commerce} />}
+              {tab === "settings" && <SettingsPanel draft={draft} update={update} forms={facets.forms} projectId={project.id} />}
+              {tab === "labels" && <LabelsPanel draft={draft} update={update} commerce={commerce} />}
               {tab === "share" && <SharePanel widgetId={widget.id} name={draft.name} origin={origin} dirty={dirty} />}
             </div>
           </Tabs>

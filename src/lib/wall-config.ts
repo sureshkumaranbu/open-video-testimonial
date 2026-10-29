@@ -125,6 +125,8 @@ export const displaySchema = z.object({
   showHeadline: z.boolean().default(true),
   showSource: z.boolean().default(false),
   showVerified: z.boolean().default(false),
+  /** INT-07: "Verified purchase" on testimonials whose email matched a Stripe purchase (flag `commerce`). */
+  showVerifiedPurchase: z.boolean().default(true),
   date: z.enum(DATE_MODES).default("hidden"),
 });
 

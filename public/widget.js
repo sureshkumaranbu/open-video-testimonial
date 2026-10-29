@@ -249,7 +249,7 @@
       tm.setAttribute("datetime", x.date);
       who.appendChild(tm);
     }
-    if (d && d.showVerified && x.verified) who.appendChild(el("div", "m vf", "\u2713 " + L.verified));
+    if (d && d.showVerified && x.verified) who.appendChild(el("div", "m vf", "\u2713 " + (x.verifiedLabel || L.verified)));
     a.appendChild(who);
     if (d && d.showSource && x.sourceUrl) {
       var src = el("a", "src", (x.platform || "?").charAt(0).toUpperCase());
@@ -354,7 +354,7 @@
     navigator.sendBeacon(b + "/api/widget/" + encodeURIComponent(id) + "/seen", JSON.stringify({ k: k, u: u }));
   }
 
-  // Draws a saved widget into host's shadow root (the studio preview too). cfg: {base, preview, id}.
+  // Draws a saved widget into host's shadow root (the studio preview too).
   W.mount = function (host, cfg, data) {
     cfg = cfg || {};
     if (host._plauditStop) host._plauditStop();

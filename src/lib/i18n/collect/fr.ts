@@ -115,6 +115,7 @@ export const fr = {
   rewardCopy: "Copier le code",
   rewardOpen: "Ouvrir votre cadeau",
   rewardSoldOut: "Toutes les récompenses ont été distribuées, mais merci quand même.",
+  rewardUnavailable: "Votre code n'a pas pu être créé pour l'instant. L'équipe a été prévenue ; merci quand même.",
   wheelSpinning: "La roue tourne…",
   wheelWon: "Vous avez gagné : {prize}",
   wheelChance: "{chance} % de chances",

@@ -14,8 +14,12 @@ if (typeof window !== "undefined") z.config({ jitless: true });
 
 export const REWARD_MODES = ["none", "same", "wheel"] as const;
 export type RewardMode = (typeof REWARD_MODES)[number];
-/** What "the same for everyone" hands out: one coupon code, a link, or a unique code from the form's pool. */
-export const REWARD_KINDS = ["code", "url", "pool"] as const;
+/**
+ * What "the same for everyone" hands out: one coupon code, a link, a unique
+ * code from the form's pool, or (INT-07, flag `commerce`) a single-use Stripe
+ * promotion code made from the owner's coupon when the reward is given.
+ */
+export const REWARD_KINDS = ["code", "url", "pool", "stripe"] as const;
 export type RewardKind = (typeof REWARD_KINDS)[number];
 
 export const MAX_PRIZES = 12;
@@ -41,6 +45,15 @@ const rewardObject = z.object({
   kind: z.enum(REWARD_KINDS).default("code"),
   code: z.string().trim().max(100).default(""),
   url: z.union([z.literal(""), httpUrl]).default(""),
+  /** INT-07: the Stripe coupon's ID; each person gets their own promotion code for it. */
+  stripeCoupon: z
+    .string()
+    .trim()
+    .max(100)
+    .regex(/^[A-Za-z0-9_-]*$/, "Use the coupon's ID from Stripe (letters, numbers, - and _)")
+    .default(""),
+  /** Days each promotion code works for; 0 = until the coupon itself ends. */
+  stripeExpiresDays: z.number().int("Whole days").min(0).max(365).default(0),
   prizes: z.array(wheelPrizeSchema).max(MAX_PRIZES, `Up to ${MAX_PRIZES} prizes`).default([]),
 });
 
@@ -49,6 +62,7 @@ export const rewardConfigSchema = rewardObject.superRefine((r, ctx) => {
   if (r.mode === "same") {
     if (r.kind === "code" && !r.code) issue("Enter the coupon code everyone gets", ["code"]);
     if (r.kind === "url" && !r.url) issue("Enter the reward's link", ["url"]);
+    if (r.kind === "stripe" && !r.stripeCoupon) issue("Enter the ID of the Stripe coupon to make codes from", ["stripeCoupon"]);
   }
   if (r.mode === "wheel") {
     if (r.prizes.length < 2) issue("A wheel needs at least two prizes", ["prizes"]);
@@ -98,7 +112,9 @@ export function pickPrize(weights: number[], random: number): number {
 /**
  * What a person is given after sending (the thank-you page and the
  * confirmation email). A wheel lists every prize's label and chance (never
- * the other prizes' codes) and which one it landed on.
+ * the other prizes' codes) and which one it landed on. `unavailable` is a
+ * Stripe coupon that Stripe couldn't make (the owner sees why in the audit
+ * log); the thank-you still shows.
  */
 export type GrantedReward =
   | {
@@ -108,5 +124,11 @@ export type GrantedReward =
       code: string | null;
       url: string | null;
       wheel?: { labels: string[]; chances: number[]; won: number };
+      /**
+       * Server-only, never sent: a Stripe promotion code is still to be made
+       * from this coupon (src/lib/commerce/coupons.ts finishReward removes it).
+       */
+      stripe?: { coupon: string; expiresDays: number };
     }
-  | { status: "sold_out"; title: string; message: string };
+  | { status: "sold_out"; title: string; message: string }
+  | { status: "unavailable"; title: string; message: string };

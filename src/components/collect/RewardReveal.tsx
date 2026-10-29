@@ -87,6 +87,10 @@ export function RewardReveal({ reward, labels: l, projectName }: { reward: Grant
         <p className="fr-sub" data-testid="reward-sold-out">
           {l.rewardSoldOut}
         </p>
+      ) : reward.status === "unavailable" ? (
+        <p className="fr-sub" data-testid="reward-unavailable">
+          {l.rewardUnavailable}
+        </p>
       ) : (
         <>
           {reward.message && <p className="fr-sub">{reward.message}</p>}

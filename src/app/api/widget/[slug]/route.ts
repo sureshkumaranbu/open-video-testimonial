@@ -5,18 +5,23 @@ import { visitorLang } from "@/lib/translations";
 import { EMPTY_WIDGET_PAYLOAD, getWidget, WIDGET_ID, widgetConfig, widgetPayload } from "@/lib/widgets";
 
 const CACHE = "public, max-age=60, stale-while-revalidate=300";
+/** INT-07: a sales popup's purchases go stale fast, so it's cached briefly. */
+const SALES_CACHE = "public, max-age=30, stale-while-revalidate=30";
 
 /**
  * Widget mode (DISP-01): a saved widget's payload. A deleted one answers with
  * nothing to show. `?l=` is the visitor's browser language: a widget set to
  * show translations (INBOX-13) answers with the stored one for it, if any.
+ * A sales popup (INT-07) answers with its purchases' display fields only
+ * (src/lib/commerce/sales-feed.ts) and is cached for less time; like every
+ * widget it sets no cookies.
  */
 function savedWidget(id: string, lang: string | null) {
   const w = getWidget(id);
   const project = w && getProjectById(w.projectId);
   if (!w || !project) return jsonError(404, "Widget not found", CORS_HEADERS);
   const body = w.deletedAt ? EMPTY_WIDGET_PAYLOAD : widgetPayload(project, w, widgetConfig(w), { lang });
-  return Response.json(body, { headers: { ...CORS_HEADERS, "Cache-Control": CACHE } });
+  return Response.json(body, { headers: { ...CORS_HEADERS, "Cache-Control": w.layout === "sales" ? SALES_CACHE : CACHE } });
 }
 
 /**

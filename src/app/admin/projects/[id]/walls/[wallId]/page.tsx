@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { ObjectAnalytics } from "@/components/analytics/ObjectAnalytics";
 import { analyticsUi } from "@/lib/analytics";
 import { env } from "@/lib/env";
-import { requireFeature } from "@/lib/features";
+import { featureOn, requireFeature } from "@/lib/features";
 import { listForms } from "@/lib/forms";
 import { listTagUsage } from "@/lib/projects";
 import { listFeed } from "@/lib/public-feed";
@@ -45,6 +45,7 @@ export default async function WallEditorPage({ params }: { params: Promise<{ id:
           tags={listTagUsage(project.id).map((t) => t.name)}
           forms={listForms(project.id).map((f) => ({ id: f.id, name: f.name }))}
           featured={featured}
+          commerce={featureOn("commerce")}
         />
         {analyticsUi() && (
           <div className="panel panel-body">

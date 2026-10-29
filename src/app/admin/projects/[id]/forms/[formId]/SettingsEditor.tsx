@@ -297,7 +297,7 @@ export function SettingsEditor({
       {project.translations && <AutoTranslateField value={s.autoTranslate} provider={project.translations.provider} onChange={(autoTranslate) => set({ autoTranslate })} />}
 
       <LowRatingEditor value={s.lowRating} onChange={(lowRating) => set({ lowRating })} pages={draft.pages} classic={form.layout === "classic"} />
-      <RewardsEditor formId={form.id} reward={draft.reward} onChange={(reward) => update((d) => ({ ...d, reward }))} classic={form.layout === "classic"} />
+      <RewardsEditor formId={form.id} projectId={project.id} reward={draft.reward} onChange={(reward) => update((d) => ({ ...d, reward }))} classic={form.layout === "classic"} stripe={Boolean(project.commerce)} />
 
       <NotifySection projectId={project.id} formId={form.id} value={s.notify.channelIds} onChange={(channelIds) => set({ notify: { channelIds } })} />
       <FormWebhooks projectId={project.id} formId={form.id} />

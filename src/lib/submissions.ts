@@ -32,6 +32,7 @@ import { queueAnswerVideo, queueVideoProcessing } from "./media";
 import { clientIp, clientKey, rateLimit } from "./rate-limit";
 import { findRequestByToken, markResponded, queueThankYou } from "./requests";
 import { grantReward, releaseCodes, type GrantedReward } from "./rewards";
+import { finishReward } from "./commerce/coupons";
 import { deleteObject, saveUpload, UploadError } from "./storage";
 import { createTestimonial, getTestimonial, updateTestimonial } from "./testimonials";
 import { claimUpload, getUpload } from "./uploads";
@@ -266,7 +267,7 @@ export async function submitForm(a: {
       ];
     });
     const feedbackPages = cfg.pages.filter((p) => p.type === "feedback");
-    const { answers: storedAnswers, notes, reward } = getDb().transaction((tx) => ({
+    const { answers: storedAnswers, notes, reward: granted } = getDb().transaction((tx) => ({
       answers: insertAnswers(tx, testimonial.id, answerRows),
       images: insertImages(tx, testimonial.id, images),
       // Once per submission, never by rating or words (see rewards.ts). The classic page has no reward.
@@ -328,6 +329,8 @@ export async function submitForm(a: {
     else maybeAutoApprove(testimonial.id);
 
     const url = withdrawUrl(token);
+    // INT-07: a Stripe coupon reward's code is made now that the submission is stored (a failure still thanks them).
+    const reward = await finishReward(project, form, granted, { testimonialId: testimonial.id });
     queueThankYou(project, fromRequest, url, form, { reward });
     const thankYou = thankYouFor(cfg, input.rating);
     const message = a.legacy
@@ -354,14 +357,14 @@ export async function submitForm(a: {
  * everyone else (rewards never depend on the rating), a request link counts
  * as answered, and `feedback.created` fires.
  */
-function submitLowRating(a: {
+async function submitLowRating(a: {
   project: Project;
   form: Form;
   cfg: FormConfig;
   labels: ReturnType<typeof resolveLabels>;
   input: unknown;
   req: Request;
-}): SubmissionResult {
+}): Promise<SubmissionResult> {
   const { project, form, cfg, labels, req } = a;
   const parsed = lowRatingSubmissionSchema.safeParse(a.input);
   if (!parsed.success) throw new SubmissionError(400, firstIssue(parsed.error));
@@ -373,7 +376,7 @@ function submitLowRating(a: {
   const request = input.requestToken ? findRequestByToken(input.requestToken) : null;
   const fromRequest = request?.projectId === project.id ? request : null;
   const contact: { name?: string; email?: string } = cfg.settings.lowRating.askContact ? input.person : {};
-  const { note, reward } = getDb().transaction((tx) => {
+  const { note, reward: granted } = getDb().transaction((tx) => {
     const [note] = insertFeedback(
       tx,
       project.id,
@@ -400,6 +403,7 @@ function submitLowRating(a: {
     { feedback: { id: note.id, formId: form.id, testimonialId: null, rating: note.rating, text: note.text, source: note.source, createdAt: note.createdAt.toISOString() } },
     { formId: form.id },
   );
+  const reward = await finishReward(project, form, granted, { feedbackId: note.id });
   queueThankYou(project, fromRequest, null, form, { reward, feedback: true });
   const low = thankYouFor(cfg, input.rating);
   const thankYou = { ...low, message: low.message || labels.lowRatingThanks, copyText: false, share: false };

@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, isNull, notInArray, sql, type SQL } from "
 import { getDb, schema } from "@/db";
 import type { Testimonial } from "@/db/schema";
 import { withTags } from "./inbox";
+import { featureOn } from "./features";
 import { mediaUrl } from "./storage";
 import { toPublic, type TestimonialWithTags } from "./testimonials";
 import { publicFiltersSchema, type FeedAggregate, type FeedItem, type PublicFilters, type ResolvedFilters } from "./widget-config";
@@ -185,6 +186,8 @@ export function toFeedItem(
       platform: t.platform,
       sourceUrl: httpOnly(t.sourceUrl),
       verified: t.source === "form",
+      // INT-07: shown only with the commerce flag on.
+      verifiedPurchase: Boolean(t.verifiedPurchaseAt) && featureOn("commerce"),
       images: (extra.images ?? []).map((i) => ({ url: mediaUrl(i.key)!, alt: i.alt })),
       companyLogoUrl: mediaUrl(t.companyLogoKey),
       highlights: (extra.highlights ?? []).map((h) => ({ start: h.start, end: h.end })),

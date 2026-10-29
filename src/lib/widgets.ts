@@ -13,11 +13,13 @@ import {
   PLACEMENTS,
   widgetConfigSchema,
   WIDGET_FONTS,
+  type FeedItem,
   type PublicWidget,
   type WidgetConfig,
   type WidgetConfigInput,
   type WidgetPayload,
 } from "./widget-config";
+import { salesFeed } from "./commerce/sales-feed";
 import { feedAggregate, listFeed } from "./public-feed";
 import { accentStyle } from "./theme";
 import { firstIssue } from "./validation";
@@ -291,10 +293,21 @@ export function widgetPayload(
     firstNameOnly: cfg.design.firstNameOnly,
   });
   // Only stored translations of these public rows; the provider is never called here.
-  const testimonials = cfg.design.translations === "visitor" && o.lang ? applyTranslations(feed, o.lang, languagesOf(feed.map((t) => t.id))) : feed;
+  const translated = cfg.design.translations === "visitor" && o.lang ? applyTranslations(feed, o.lang, languagesOf(feed.map((t) => t.id))) : feed;
+  const marked = withVerifiedMarks(translated, cfg);
+  // INT-07: a sales popup's items are purchases (and, if it mixes them in, snippets of these).
+  const testimonials = cfg.layout === "sales" ? salesFeed(project.id, cfg, marked) : marked;
   const aggregate = feedAggregate(project.id, cfg.filters, { scope: cfg.aggregate.scope, mode: sel.mode, manualIds: sel.manualIds });
   const widget = toPublicWidget(w, cfg, { cta: ctaLinks(project, w.connectedFormId), wallUrl: `/wall/${project.slug}`, projectAccent: project.accentColor });
-  const pins = new Set(sel.pinnedIds);
+  // The ✓ mark is drawn when either kind is on; each item says whether it has one (withVerifiedMarks).
+  widget.design.showVerified = cfg.design.showVerified || cfg.design.showVerifiedPurchase;
+  if (cfg.layout === "sales") {
+    // A popup has no button, summary or pins, and with nothing to show it draws nothing on the host page.
+    widget.cta = null;
+    widget.aggregate = { show: false };
+    widget.css = `.e{display:none}${widget.css}`;
+  }
+  const pins = new Set(cfg.layout === "sales" ? [] : sel.pinnedIds);
   while (widget.pinned < testimonials.length && pins.has(testimonials[widget.pinned].id)) widget.pinned++;
   return {
     project: { name: project.name, slug: project.slug, accentColor: project.accentColor },
@@ -302,6 +315,21 @@ export function widgetPayload(
     testimonials,
     aggregate,
   };
+}
+
+/**
+ * Which items get the ✓ mark, and with which words: "Verified purchase"
+ * (INT-07) when the widget shows those and the item is one, else "Verified"
+ * for form submissions when the widget shows that.
+ */
+export function withVerifiedMarks(items: FeedItem[], cfg: Pick<WidgetConfig, "design" | "labels">): FeedItem[] {
+  const d = cfg.design;
+  return items.map((t) => {
+    const purchase = d.showVerifiedPurchase && Boolean(t.extra.verifiedPurchase);
+    const { verifiedLabel, ...extra } = t.extra;
+    void verifiedLabel;
+    return { ...t, extra: { ...extra, verified: purchase || (d.showVerified && t.extra.verified), ...(purchase ? { verifiedLabel: cfg.labels.verifiedPurchase } : {}) } };
+  });
 }
 
 /** What the feed answers for a deleted widget: nothing to show, and nothing about the project. */

@@ -115,6 +115,7 @@ export const nl = {
   rewardCopy: "Code kopiëren",
   rewardOpen: "Open je beloning",
   rewardSoldOut: "Alle beloningen zijn vergeven, maar toch bedankt.",
+  rewardUnavailable: "Je code kon nu niet worden gemaakt. Het team weet ervan; toch bedankt.",
   wheelSpinning: "Het rad draait…",
   wheelWon: "Je hebt gewonnen: {prize}",
   wheelChance: "{chance}% kans",

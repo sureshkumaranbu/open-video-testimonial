@@ -59,6 +59,7 @@ export default async function WidgetStudioPage({
           initialTab={TABS.includes(tab as StudioTab) ? (tab as StudioTab) : "layout"}
           banner={analyticsUi() ? <InstallStatus widgetId={widget.id} status={installStatus(widget)} /> : undefined}
           translations={featureOn("translations")}
+          commerce={featureOn("commerce")}
         />
         {analyticsUi() && (
           <div className="panel panel-body">

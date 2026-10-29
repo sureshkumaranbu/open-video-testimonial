@@ -114,6 +114,7 @@ export const ar = {
   rewardCopy: "نسخ الرمز",
   rewardOpen: "افتح مكافأتك",
   rewardSoldOut: "نفدت المكافآت، لكن شكرًا لك على أي حال.",
+  rewardUnavailable: "تعذّر إنشاء رمزك الآن. أُبلغ الفريق بذلك، وشكرًا لك على أي حال.",
   wheelSpinning: "العجلة تدور…",
   wheelWon: "ربحت: {prize}",
   wheelChance: "فرصة {chance}%",

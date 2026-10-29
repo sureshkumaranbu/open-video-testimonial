@@ -13,6 +13,7 @@ const KIND_NAMES: Record<RewardKind, string> = {
   code: "One coupon code for everyone",
   url: "A link (a download, a booking page…)",
   pool: "A unique code each, from your list of codes",
+  stripe: "A single-use Stripe promotion code each (from your coupon)",
 };
 const VIA: Record<Claim["via"], string> = { testimonial: "Testimonial", feedback: "Private feedback", recipient: "Campaign recipient", removed: "Deleted since" };
 
@@ -31,7 +32,22 @@ export function RewardRulesNote() {
 }
 
 /** FORM-13: the reward a form gives, and its pool of unique codes. */
-export function RewardsEditor({ formId, reward, onChange, classic }: { formId: string; reward: RewardConfig; onChange: (r: RewardConfig) => void; classic: boolean }) {
+export function RewardsEditor({
+  formId,
+  projectId,
+  reward,
+  onChange,
+  classic,
+  stripe = false,
+}: {
+  formId: string;
+  projectId: string;
+  reward: RewardConfig;
+  onChange: (r: RewardConfig) => void;
+  classic: boolean;
+  /** INT-07 (commerce flag): offer "Stripe coupon". */
+  stripe?: boolean;
+}) {
   const set = (patch: Partial<RewardConfig>) => onChange({ ...reward, ...patch });
   const total = wheelTotal(reward.prizes);
   const setPrize = (i: number, patch: Partial<WheelPrize>) => set({ prizes: reward.prizes.map((p, j) => (j === i ? { ...p, ...patch } : p)) });
@@ -58,7 +74,9 @@ export function RewardsEditor({ formId, reward, onChange, classic }: { formId: s
               <label>
                 What they get
                 <select value={reward.kind} onChange={(e) => set({ kind: e.target.value as RewardKind })} data-testid="reward-kind">
-                  {(Object.keys(KIND_NAMES) as RewardKind[]).map((k) => (
+                  {(Object.keys(KIND_NAMES) as RewardKind[])
+                    .filter((k) => k !== "stripe" || stripe || reward.kind === "stripe")
+                    .map((k) => (
                     <option key={k} value={k}>
                       {KIND_NAMES[k]}
                     </option>
@@ -78,6 +96,43 @@ export function RewardsEditor({ formId, reward, onChange, classic }: { formId: s
                 </label>
               )}
               {reward.kind === "pool" && <CodePool formId={formId} />}
+              {reward.kind === "stripe" && (
+                <fieldset className="fb-fieldset" data-testid="reward-stripe">
+                  <legend>Stripe coupon</legend>
+                  <label>
+                    Coupon ID
+                    <input
+                      type="text"
+                      value={reward.stripeCoupon}
+                      maxLength={100}
+                      onChange={(e) => set({ stripeCoupon: e.target.value.trim() })}
+                      placeholder="THANKYOU10"
+                      data-testid="reward-stripe-coupon"
+                    />
+                    <span className="muted xsmall">In Stripe: Product catalogue → Coupons, then the coupon&apos;s ID. Each person gets their own code for it, usable once.</span>
+                  </label>
+                  <label>
+                    Each code works for (days)
+                    <input
+                      type="number"
+                      min={0}
+                      max={365}
+                      value={reward.stripeExpiresDays}
+                      onChange={(e) => {
+                        const n = Number(e.target.value);
+                        if (Number.isInteger(n) && n >= 0 && n <= 365) set({ stripeExpiresDays: n });
+                      }}
+                      data-testid="reward-stripe-days"
+                    />
+                    <span className="muted xsmall">0 keeps each code until the coupon itself ends.</span>
+                  </label>
+                  <p className="muted xsmall">
+                    The code is made when someone sends the form, with the restricted key on this project&apos;s{" "}
+                    <a href={`/admin/projects/${projectId}/commerce`}>Commerce page</a>. That key needs only one permission: Promotion codes, Write. If Stripe
+                    can&apos;t make the code, the person still sees the thank-you, and the reason is in the audit log.
+                  </p>
+                </fieldset>
+              )}
             </>
           )}
           {reward.mode === "wheel" && (
