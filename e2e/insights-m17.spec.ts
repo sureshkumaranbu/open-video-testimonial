@@ -16,6 +16,8 @@ import { adminApi, createProject, FIXTURES, fixtureRequests, fixtureRespond, res
 const RUN = Date.now().toString(36);
 const AI_PATH = "/ai/v1/chat/completions";
 
+test.skip(process.env.E2E_SERVER_IN_CONTAINER === "true" || Boolean(process.env.E2E_BASE_URL), "Needs the suite's own server, which reaches the fixture server");
+
 test.beforeEach(async ({ page }) => {
   await useFreshIp(page);
   await resetFixtures();
