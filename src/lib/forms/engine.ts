@@ -8,6 +8,8 @@ import {
   type FormConfig,
   type FormPage,
   type LowRatingSettings,
+  type NpsPage,
+  type PublicForm,
   type QuestionPage,
 } from "./schema";
 
@@ -38,9 +40,16 @@ export type AnswerState = {
   images: number;
 };
 
+/** NPS-01: an NPS answer while it's being given (null = no score picked yet). */
+export type NpsState = { score: number | null; why: string };
+
 /** Everything the runner holds while someone fills the form in (files are kept beside it). */
 export type Answers = {
   rating: number;
+  /** NPS-01: per NPS page key. */
+  nps: Record<string, NpsState>;
+  /** NPS-01: a promoter in a survey said yes to the testimonial step. */
+  optIn: boolean;
   answers: Record<string, AnswerState>;
   feedback: Record<string, string>;
   person: PersonState;
@@ -58,11 +67,15 @@ const answerMode = (q: QuestionPage): AnswerState["mode"] => (q.mode === "video"
 /** A fresh state for the form, with any prefilled details. */
 export function emptyAnswers(cfg: Pick<FormConfig, "pages">, prefill?: Partial<PersonState>): Answers {
   const answers: Record<string, AnswerState> = {};
+  const nps: Record<string, NpsState> = {};
   for (const p of cfg.pages) {
     if (p.type === "question") answers[p.key] = { mode: answerMode(p), text: "", hasVideo: false, videoReady: false, images: 0 };
+    if (p.type === "nps") nps[p.key] = { score: null, why: "" };
   }
   return {
     rating: 0,
+    nps,
+    optIn: false,
     answers,
     feedback: {},
     person: { name: "", email: "", title: "", company: "", website: "", phone: "", socials: {}, ...prefill },
@@ -81,7 +94,7 @@ export function pageEnabled(p: FormPage): boolean {
 /** The key of the private feedback step the low-rating branch shows (never a valid field key, so it can't clash). */
 export const LOW_RATING_KEY = "_low";
 
-type BranchCfg = Pick<FormConfig, "pages"> & { settings?: { lowRating?: LowRatingSettings } };
+type BranchCfg = Pick<FormConfig, "pages"> & { settings?: { lowRating?: LowRatingSettings }; kind?: PublicForm["kind"] };
 
 /**
  * FORM-12: whether this rating sends the person to private feedback. Only
@@ -99,14 +112,41 @@ export function lowRatingPage(low: LowRatingSettings): Extract<FormPage, { type:
   return { type: "feedback", key: LOW_RATING_KEY, enabled: true, required: true, title: low.title, subtitle: low.subtitle || undefined, placeholder: low.placeholder || undefined };
 }
 
+/** NPS-01: the pages a survey always shows; the rest (questions, consent, about you, review) are its testimonial step. */
+export const SURVEY_PAGE_TYPES: readonly FormPage["type"][] = ["welcome", "rating", "nps", "feedback"];
+
+/** The form's NPS question, if it shows one (a form has at most one). */
+export function npsPageOf(cfg: Pick<FormConfig, "pages">): NpsPage | null {
+  return cfg.pages.find((p): p is NpsPage => p.type === "nps" && p.enabled) ?? null;
+}
+
+/**
+ * NPS-01, the low-rating branch (FORM-12) in reverse: in a survey, a
+ * promoter (9–10 on its NPS question, with the offer on) is offered the
+ * testimonial step; everyone else's answers stay private.
+ */
+export function promoterOffer(cfg: BranchCfg, nps: Answers["nps"] | Record<string, { score: number | null } | undefined> | undefined): boolean {
+  if (cfg.kind !== "survey") return false;
+  const page = npsPageOf(cfg);
+  if (!page?.offerTestimonial) return false;
+  const score = nps?.[page.key]?.score;
+  return typeof score === "number" && score >= 9;
+}
+
 /**
  * The steps in order: every enabled page, without the thank-you page (shown
  * after sending). With `state`, branching applies: a rating in the
  * low-rating branch keeps the pages up to the rating, then the private
- * feedback step, and drops the questions, consent and the rest.
+ * feedback step, and drops the questions, consent and the rest. A survey
+ * (NPS-01) shows its survey pages, and its testimonial step only to a
+ * promoter who said yes to it.
  */
-export function visiblePages(cfg: BranchCfg, state?: Pick<Answers, "rating">): FormPage[] {
+export function visiblePages(cfg: BranchCfg, state?: Pick<Answers, "rating"> & Partial<Pick<Answers, "nps" | "optIn">>): FormPage[] {
   const pages = cfg.pages.filter((p) => p.type !== "thank_you" && pageEnabled(p));
+  if (state && cfg.kind === "survey") {
+    if (promoterOffer(cfg, state.nps) && state.optIn) return pages;
+    return pages.filter((p) => SURVEY_PAGE_TYPES.includes(p.type));
+  }
   if (!state || !inLowRatingBranch(cfg, state.rating)) return pages;
   const at = pages.findIndex((p) => p.type === "rating");
   return [...pages.slice(0, at + 1), lowRatingPage(cfg.settings!.lowRating!)];
@@ -180,6 +220,11 @@ export function validateStep(page: FormPage, state: Answers, labels: Labels): Re
       // A video still uploading doesn't stop Continue: it keeps going in the background (answer-uploads.ts).
       break;
     }
+    case "nps": {
+      const a = state.nps[page.key];
+      if (page.required && (a?.score === null || a?.score === undefined)) errors[`n:${page.key}`] = labels.errorNps;
+      break;
+    }
     case "feedback":
       if (page.required && !state.feedback[page.key]?.trim()) errors[`f:${page.key}`] = labels.errorRequired;
       if (page.key === LOW_RATING_KEY && state.person.email.trim() && !EMAIL_RE.test(state.person.email.trim())) errors.email = labels.errorEmail;
@@ -243,9 +288,16 @@ const submittedAnswer = z.object({
 });
 export type SubmittedAnswer = z.infer<typeof submittedAnswer>;
 
+/** NPS-01: one NPS answer as sent. */
+const submittedNps = z.object({ key: fieldKeySchema, score: z.number().int().min(0).max(10), why: z.string().max(2000).optional() });
+
 /** The JSON `payload` of a form submission (multipart; files ride beside it). */
 export const formSubmissionSchema = z.object({
   rating: z.number().int().min(1).max(5).optional(),
+  /** NPS-01: answers to the form's NPS question. */
+  nps: z.array(submittedNps).max(3).default([]),
+  /** NPS-01: a survey promoter chose the testimonial step. */
+  optIn: z.boolean().optional(),
   answers: z.array(submittedAnswer).max(MAX_QUESTIONS).default([]),
   feedback: z.array(z.object({ key: fieldKeySchema, text: z.string().max(5000) })).max(10).default([]),
   person: z.object({
@@ -294,6 +346,7 @@ export function buildSubmissionSchema(cfg: FormConfig, labels: Labels = resolveL
   const company = pages.find((p): p is Extract<FormPage, { type: "about_company" }> => p.type === "about_company");
   const consent = cfg.pages.find((p): p is Extract<FormPage, { type: "consent" }> => p.type === "consent");
   const rating = pages.find((p): p is Extract<FormPage, { type: "rating" }> => p.type === "rating");
+  const npsPages = pages.filter((p): p is NpsPage => p.type === "nps");
 
   const keep = (s: FormSubmission) => {
     const answers = questions.flatMap((q) => {
@@ -309,6 +362,7 @@ export function buildSubmissionSchema(cfg: FormConfig, labels: Labels = resolveL
     return {
       ...s,
       rating: rating ? s.rating : undefined,
+      nps: keepNps(npsPages, s.nps),
       answers,
       feedback: feedbackPages.flatMap((p) => {
         const text = s.feedback.find((f) => f.key === p.key)?.text.trim();
@@ -345,6 +399,7 @@ export function buildSubmissionSchema(cfg: FormConfig, labels: Labels = resolveL
     .superRefine((s, ctx) => {
       const issue = (path: (string | number)[], message: string) => ctx.addIssue({ code: "custom", path, message });
       if (rating?.required && !s.rating) issue(["rating"], labels.errorRating);
+      for (const p of npsPages) if (p.required && !s.nps.some((n) => n.key === p.key)) issue(["nps", p.key], `${p.title}: ${labels.errorNps}`);
       for (const q of questions) {
         const a = s.answers.find((x) => x.key === q.key);
         const hasText = Boolean(a?.text?.trim()) && q.mode !== "video";
@@ -387,6 +442,55 @@ export function buildSubmissionSchema(cfg: FormConfig, labels: Labels = resolveL
     .transform(keep);
 }
 export type CheckedSubmission = ReturnType<ReturnType<typeof buildSubmissionSchema>["parse"]>;
+
+/** The NPS answers to keep: one per NPS page the form shows, with the "why" trimmed. */
+function keepNps(pages: NpsPage[], sent: z.output<typeof submittedNps>[]) {
+  return pages.flatMap((p) => {
+    const a = sent.find((n) => n.key === p.key);
+    return a ? [{ key: p.key, score: a.score, why: a.why?.trim() || undefined }] : [];
+  });
+}
+
+/**
+ * NPS-01: what a survey sends when there's no testimonial (not a promoter,
+ * or a promoter who said no): its NPS answer and private questions, and a
+ * name and email only from a request link. Nothing of it is ever published.
+ */
+export const surveySubmissionSchema = z.object({
+  nps: z.array(submittedNps).max(3).default([]),
+  feedback: z.array(z.object({ key: fieldKeySchema, text: z.string().max(5000) })).max(10).default([]),
+  rating: z.number().int().min(1).max(5).optional(),
+  hiddenFields: z.record(z.string().max(40), z.string().max(PREFILL_MAX_CHARS)).default({}),
+  requestToken: z.string().max(100).optional(),
+  language: z.string().max(16).optional(),
+});
+
+/** The survey-only submission for one form: required NPS and private questions answered, unknown keys dropped. */
+export function buildSurveySchema(cfg: FormConfig, labels: Labels = resolveLabels("en")) {
+  const pages = cfg.pages.filter((p) => pageEnabled(p) && SURVEY_PAGE_TYPES.includes(p.type));
+  const npsPages = pages.filter((p): p is NpsPage => p.type === "nps");
+  const feedbackPages = pages.filter((p): p is Extract<FormPage, { type: "feedback" }> => p.type === "feedback");
+  const rating = pages.find((p): p is Extract<FormPage, { type: "rating" }> => p.type === "rating");
+  return surveySubmissionSchema
+    .superRefine((s, ctx) => {
+      for (const p of npsPages) if (p.required && !s.nps.some((n) => n.key === p.key)) ctx.addIssue({ code: "custom", path: ["nps", p.key], message: `${p.title}: ${labels.errorNps}` });
+      for (const p of feedbackPages) {
+        if (p.required && !s.feedback.find((f) => f.key === p.key)?.text.trim()) ctx.addIssue({ code: "custom", path: ["feedback", p.key], message: `${p.title}: ${labels.errorRequired}` });
+      }
+      if (rating?.required && !s.rating) ctx.addIssue({ code: "custom", path: ["rating"], message: labels.errorRating });
+    })
+    .transform((s) => ({
+      ...s,
+      rating: rating ? s.rating : undefined,
+      nps: keepNps(npsPages, s.nps),
+      feedback: feedbackPages.flatMap((p) => {
+        const text = s.feedback.find((f) => f.key === p.key)?.text.trim();
+        return text ? [{ key: p.key, text }] : [];
+      }),
+      hiddenFields: Object.fromEntries(cfg.settings.hiddenFields.flatMap((k) => (s.hiddenFields[k] ? [[k, s.hiddenFields[k]]] : []))),
+    }));
+}
+export type SurveySubmission = ReturnType<ReturnType<typeof buildSurveySchema>["parse"]>;
 
 /**
  * What the runner sends from the low-rating branch (FORM-12): the rating,

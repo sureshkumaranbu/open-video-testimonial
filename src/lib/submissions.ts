@@ -9,11 +9,13 @@ import { insertAnswers, type NewAnswer } from "./answers";
 import { insertFeedback } from "./feedback";
 import {
   buildSubmissionSchema,
+  buildSurveySchema,
   formSubmissionSchema,
   inLowRatingBranch,
   isQuestion,
   lowRatingSubmissionSchema,
   pickPrimary,
+  promoterOffer,
   tagsFromSubmission,
   thankYouFor,
   type FormSubmission,
@@ -22,6 +24,7 @@ import {
 import { fillLabel, resolveLabels } from "./forms/labels";
 import { parseFormRow, type FormConfig } from "./forms/schema";
 import { insertImages, MAX_IMAGES_PER_QUESTION, type NewImage } from "./images";
+import { insertSurveyResponses } from "./insights/nps";
 import { emitEvent, emitTestimonialEvent } from "./webhooks";
 // Registers the notifications listener in this bundle too (route handlers and the worker can load separate module copies).
 import "./notifications";
@@ -127,6 +130,16 @@ export async function submitForm(a: {
   const labels = resolveLabels(form.language, cfg.labels.overrides);
   if (form.status === "paused") {
     throw new SubmissionError(409, cfg.settings.closedMessage.trim() || fillLabel(labels.closedMessage, { project: project.name }));
+  }
+
+  // NPS-01: a survey makes a testimonial only for a promoter who said yes; the server makes the same call as the runner.
+  if (!a.legacy && form.kind === "survey") {
+    const raw = a.input as { nps?: unknown; optIn?: unknown } | null;
+    const nps = Object.fromEntries((Array.isArray(raw?.nps) ? raw.nps : []).flatMap((n: unknown) => {
+      const x = n as { key?: unknown; score?: unknown };
+      return typeof x?.key === "string" && typeof x.score === "number" ? [[x.key, { score: x.score }]] : [];
+    }));
+    if (!(raw?.optIn === true && promoterOffer({ ...cfg, kind: "survey" }, nps))) return submitSurvey({ project, form, cfg, labels, input: a.input, req });
   }
 
   // FORM-12: the server makes the same call as the runner, from the rating alone.
@@ -260,6 +273,8 @@ export async function submitForm(a: {
       reward: a.legacy
         ? null
         : grantReward(tx, { form, hasVideo: videos.size > 0, privateFeedback: false, request: fromRequest, target: { testimonialId: testimonial.id } }),
+      // NPS-01: the NPS answer, linked to the testimonial it led to.
+      nps: insertSurveyResponses(tx, { projectId: project.id, formId: form.id, testimonialId: testimonial.id, name: person.name, email: person.email, answers: input.nps }),
       notes: insertFeedback(
         tx,
         project.id,
@@ -389,4 +404,62 @@ function submitLowRating(a: {
   const low = thankYouFor(cfg, input.rating);
   const thankYou = { ...low, message: low.message || labels.lowRatingThanks, copyText: false, share: false };
   return { id: note.id, message: fillLabel(thankYou.message, { project: project.name }), withdrawUrl: null, thankYou, ...(reward ? { reward } : {}), feedbackOnly: true };
+}
+
+/**
+ * NPS-01: a survey answered without the testimonial step (not a promoter,
+ * the offer off, or a promoter who said no). Its NPS answer goes to
+ * survey_responses and its private questions to feedback (source "survey"),
+ * with a name and email only from a request link: nothing is published,
+ * there's no consent to record and nothing to withdraw. A request link
+ * counts as answered and `feedback.created` fires for each private answer.
+ */
+function submitSurvey(a: {
+  project: Project;
+  form: Form;
+  cfg: FormConfig;
+  labels: ReturnType<typeof resolveLabels>;
+  input: unknown;
+  req: Request;
+}): SubmissionResult {
+  const { project, form, cfg, labels, req } = a;
+  const parsed = buildSurveySchema(cfg, labels).safeParse(a.input);
+  if (!parsed.success) throw new SubmissionError(400, firstIssue(parsed.error));
+  const input = parsed.data;
+  if (!input.nps.length && !input.feedback.length) throw new SubmissionError(400, labels.errorNps);
+  const cap = cfg.settings.maxPerIpPerDay;
+  if (cap && !rateLimit(`form-ip:${form.id}:${clientKey(req)}`, cap, DAY)) {
+    throw new SubmissionError(429, "You've already sent the most answers this form takes from one place today. Thank you!");
+  }
+  const request = input.requestToken ? findRequestByToken(input.requestToken) : null;
+  const fromRequest = request?.projectId === project.id ? request : null;
+  const { responses, notes } = getDb().transaction((tx) => ({
+    responses: insertSurveyResponses(tx, { projectId: project.id, formId: form.id, testimonialId: null, name: fromRequest?.name, email: fromRequest?.email, answers: input.nps }),
+    notes: insertFeedback(
+      tx,
+      project.id,
+      input.feedback.map((f) => ({
+        formId: form.id,
+        customerId: null,
+        testimonialId: null,
+        rating: input.rating ?? null,
+        text: f.text,
+        authorName: fromRequest?.name ?? null,
+        authorEmail: fromRequest?.email ?? null,
+      })),
+      "survey",
+    ),
+  }));
+  if (fromRequest) markResponded(fromRequest, null);
+  for (const note of notes) {
+    emitEvent("feedback.created", project, { feedback: { id: note.id, formId: form.id, testimonialId: null, rating: note.rating, text: note.text, source: note.source, createdAt: note.createdAt.toISOString() } }, { formId: form.id });
+  }
+  const thankYou = { ...thankYouFor(cfg), copyText: false, share: false };
+  return {
+    id: responses[0]?.id ?? notes[0]!.id,
+    message: fillLabel(thankYou.message || labels.thankYouMessage, { project: project.name }),
+    withdrawUrl: null,
+    thankYou,
+    feedbackOnly: true,
+  };
 }

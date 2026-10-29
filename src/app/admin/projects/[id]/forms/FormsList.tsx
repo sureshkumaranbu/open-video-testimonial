@@ -7,18 +7,21 @@ import { useMemo, useState } from "react";
 import { api } from "@/app/admin/api";
 import { ConfirmDialog, EmptyState, SearchField, Segmented } from "@/components/admin";
 import { Icon } from "@/components/Icon";
+import { NewSurvey } from "./NewSurvey";
 import type { FormRow } from "./types";
 
 type Props = {
   projectId: string;
   initial: FormRow[];
   templates: { id: string; name: string; description: string }[];
+  /** NPS-01 (insights flag): offer "New survey"; `ai` is whether AI is on for the project. */
+  surveys?: { ai: boolean };
 };
 
 type View = "list" | "expanded";
 
 /** The forms list (FORM-01): search, a list or expanded view, stats, and edit, share, duplicate, pause and delete. */
-export function FormsList({ projectId, initial, templates }: Props) {
+export function FormsList({ projectId, initial, templates, surveys }: Props) {
   const router = useRouter();
   const [forms, setForms] = useState(initial);
   const [q, setQ] = useState("");
@@ -89,6 +92,7 @@ export function FormsList({ projectId, initial, templates }: Props) {
           </button>
         </div>
       </form>
+      {surveys && <NewSurvey projectId={projectId} ai={surveys.ai} />}
 
       <div className="row spread" style={{ flexWrap: "wrap", gap: "var(--space-3)" }}>
         <SearchField label="Search forms" value={q} onChange={setQ} />
@@ -135,6 +139,7 @@ export function FormsList({ projectId, initial, templates }: Props) {
                 </div>
                 <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
                   {f.isDefault && <span className="badge">Default</span>}
+                  {f.kind === "survey" && <span className="badge" data-testid="survey-badge">Survey</span>}
                   <span className="badge" data-status={f.status}>
                     {f.status === "paused" ? "Paused" : "Live"}
                   </span>

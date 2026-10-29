@@ -33,6 +33,8 @@ export type BuilderProject = {
   translations?: { provider: string | null };
   /** FORM-17 (video2 flag): the owner's own welcome and thank-you videos. */
   video2?: boolean;
+  /** NPS-01 (insights flag): "Add NPS question". */
+  insights?: boolean;
 };
 
 type Props = {
@@ -82,6 +84,7 @@ export function Builder({ project, initial, limits, initialTab }: Props) {
       name: draft.name,
       status: form.status,
       layout: form.layout,
+      kind: form.kind,
       language: draft.language,
       logoUrl: form.logoUrl,
       pages: draft.pages,
@@ -140,6 +143,7 @@ export function Builder({ project, initial, limits, initialTab }: Props) {
           <h1>{draft.name}</h1>
           <p className="muted small">
             {form.isDefault ? "Default form · " : ""}
+            {form.kind === "survey" ? "Survey · " : ""}
             {form.status === "paused" ? "Paused" : "Live"} · {form.layout === "classic" ? "Classic page" : "Step by step"}
           </p>
         </div>
@@ -152,6 +156,15 @@ export function Builder({ project, initial, limits, initialTab }: Props) {
           </button>
         </div>
       </div>
+      {form.kind === "survey" && (
+        <div className="notice" data-testid="survey-notice">
+          <p>
+            A survey: its NPS answer and private questions go to Insights and private feedback, never onto a public page. Only promoters (9–10) who say yes
+            go on to the question, consent and about-you pages and become a testimonial.
+            {form.status === "paused" ? " It's paused: check the questions, then resume it in Settings to publish it." : ""}
+          </p>
+        </div>
+      )}
       {form.layout === "classic" && (
         <div className="notice fb-classic" data-testid="classic-notice">
           <p>
@@ -188,7 +201,15 @@ export function Builder({ project, initial, limits, initialTab }: Props) {
       >
         <div className="fb-builder">
           <aside className="fb-pages" aria-label="Pages">
-            <PageList pages={draft.pages} selected={selected} onSelect={setSelected} onChange={setPages} editable={tab === "content"} />
+            <PageList
+              pages={draft.pages}
+              selected={selected}
+              onSelect={setSelected}
+              onChange={setPages}
+              editable={tab === "content"}
+              nps={Boolean(project.insights) || draft.pages.some((p) => p.type === "nps")}
+              npsTitle={`How likely are you to recommend ${project.name} to a friend or colleague?`}
+            />
           </aside>
           <section className="fb-preview" aria-label="Preview">
             <DevicePreview device={device} onDevice={setDevice} label="Form preview" testId="form-preview">
@@ -214,6 +235,7 @@ export function Builder({ project, initial, limits, initialTab }: Props) {
                 draft={draft}
                 index={selected}
                 onChange={setPages}
+                survey={form.kind === "survey"}
                 ownerVideo={
                   project.video2 ? { formId: form.id, projectId: project.id, maxBytes: limits.maxVideoBytes, videos, onChange: setVideos } : undefined
                 }

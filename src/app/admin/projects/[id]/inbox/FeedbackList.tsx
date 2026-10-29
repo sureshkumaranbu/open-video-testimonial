@@ -67,7 +67,7 @@ export function FeedbackList({ projectId, version, onChanged }: { projectId: str
           <div className="row spread">
             <strong>{f.authorName || "Someone"}</strong>
             <span className="muted xsmall">
-              {f.source === "low-rating" ? "Low rating · " : ""}
+              {f.source === "low-rating" ? "Low rating · " : f.source === "survey" ? "Survey · " : ""}
               {timeAgo(f.createdAt)}
             </span>
           </div>

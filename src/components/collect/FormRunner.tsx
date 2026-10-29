@@ -9,6 +9,7 @@ import {
   inLowRatingBranch,
   isQuestion,
   LOW_RATING_KEY,
+  promoterOffer,
   thankYouFor,
   validateStep,
   visiblePages,
@@ -24,6 +25,7 @@ import { createAnswerUploads } from "./answer-uploads";
 import { ConsentStep } from "./ConsentBlock";
 import { clearDraft, hasContent, loadDraft, restoreDraft, saveDraft, toDraft, type FormDraft } from "./draft";
 import { AboutCompanyStep, AboutYouStep } from "./steps/AboutSteps";
+import { NpsStep } from "./steps/NpsStep";
 import { QuestionStep } from "./steps/QuestionStep";
 import { ReviewStep } from "./steps/ReviewStep";
 import { FeedbackStep, LowRatingStep, RatingStep, WelcomeStep } from "./steps/SimpleSteps";
@@ -54,6 +56,9 @@ export type FormRunnerProps = {
 
 type Done = { withdrawUrl: string | null; thankYou: ThankYouContent; reward: GrantedReward | null; feedbackOnly: boolean };
 
+/** NPS-01: the NPS answers as sent (only scored ones). */
+const npsPayload = (nps: Answers["nps"]) => Object.entries(nps).flatMap(([key, a]) => (a.score === null ? [] : [{ key, score: a.score, why: a.why.trim() || undefined }]));
+
 /** Posts to the page embedding us; nothing private is ever in these messages. */
 function tellHost(message: object) {
   if (typeof window !== "undefined" && window.parent !== window) window.parent.postMessage(message, "*");
@@ -76,8 +81,15 @@ export function FormRunner(props: FormRunnerProps) {
   const honeypotRef = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<Answers>(() => emptyAnswers(form, prefill.person));
   const lowBranch = inLowRatingBranch(form, state.rating);
-  // Recomputed only when the rating crosses the low-rating threshold.
-  const steps = useMemo(() => visiblePages(form, { rating: lowBranch ? 1 : 0 }), [form, lowBranch]);
+  // NPS-01: a survey promoter who said yes gets the testimonial step.
+  const testimonialStep = form.kind !== "survey" || (promoterOffer(form, state.nps) && state.optIn);
+  // Recomputed only when the rating crosses the low-rating threshold, or a survey's testimonial step comes or goes.
+  const steps = useMemo(
+    () => visiblePages(form, form.kind === "survey" ? (testimonialStep ? { rating: 0, nps: state.nps, optIn: true } : { rating: 0, nps: {}, optIn: false }) : { rating: lowBranch ? 1 : 0 }),
+    // state.nps matters only when testimonialStep flips, which recomputes this anyway.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [form, lowBranch, testimonialStep],
+  );
   const [files, setFiles] = useState<RunnerFiles>({ photo: null, logo: null, images: {} });
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -244,12 +256,34 @@ export function FormRunner(props: FormRunnerProps) {
     await post(body);
   }
 
+  /** NPS-01: a survey without the testimonial step sends its NPS answer and private questions only. */
+  async function sendSurvey() {
+    const body = new FormData();
+    body.set(
+      "payload",
+      JSON.stringify({
+        ...(state.rating ? { rating: state.rating } : {}),
+        nps: npsPayload(state.nps),
+        feedback: Object.entries(state.feedback).flatMap(([key, text]) => (text.trim() ? [{ key, text }] : [])),
+        hiddenFields: prefill.hidden,
+        ...(props.requestToken ? { requestToken: props.requestToken } : {}),
+        language: form.language,
+      }),
+    );
+    if (honeypotRef.current?.value) body.set("website", honeypotRef.current.value);
+    await post(body);
+  }
+
   async function send() {
     setSubmitting(true);
     setError(null);
     try {
-      if (lowBranch) {
+      if (lowBranch && form.kind !== "survey") {
         await sendLowRating();
+        return;
+      }
+      if (!testimonialStep) {
+        await sendSurvey();
         return;
       }
       const answers: { key: string; text?: string; videoUpload?: string; videoUploadToken?: string }[] = [];
@@ -270,6 +304,8 @@ export function FormRunner(props: FormRunnerProps) {
       const { name, email, title, company, phone, website, socials } = state.person;
       const payload = {
         ...(state.rating ? { rating: state.rating } : {}),
+        nps: npsPayload(state.nps),
+        ...(form.kind === "survey" ? { optIn: true } : {}),
         answers,
         feedback: Object.entries(state.feedback).flatMap(([key, text]) => (text.trim() ? [{ key, text }] : [])),
         person: { name, email, title, company, phone, socials },
@@ -371,6 +407,8 @@ export function FormRunner(props: FormRunnerProps) {
       switch (shown.type) {
         case "rating":
           return <RatingStep page={shown} ctx={ctx} />;
+        case "nps":
+          return <NpsStep page={shown} ctx={ctx} />;
         case "welcome":
           return <WelcomeStep page={shown} ctx={ctx} video={props.ownerVideos?.welcome} />;
         case "question":

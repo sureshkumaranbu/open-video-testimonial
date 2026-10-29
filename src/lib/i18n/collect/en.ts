@@ -121,6 +121,13 @@ export const en = {
   lowRatingContact: "If you'd like a reply, leave your name and email (optional).",
   lowRatingName: "Name",
   lowRatingThanks: "Thank you for telling us. {project} will read every word.",
+  // NPS questions and surveys (NPS-01)
+  npsScoreLabel: "Your score from 0 to 10",
+  npsWhy: "What's the main reason for your score?",
+  npsOfferTitle: "Thank you! Would you also share a few words {project} can show on its site?",
+  npsOfferYes: "Yes, I'll write a short testimonial",
+  npsOfferNo: "No thanks, just send my answer",
+  errorNps: "Please pick a score from 0 to 10",
   rewardTitle: "A thank-you from {project}",
   rewardCode: "Your code",
   rewardCopy: "Copy code",

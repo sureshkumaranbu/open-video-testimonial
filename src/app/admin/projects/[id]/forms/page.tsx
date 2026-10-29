@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { requireFeature } from "@/lib/features";
+import { aiForProject } from "@/lib/ai";
+import { featureOn, requireFeature } from "@/lib/features";
 import { listForms } from "@/lib/forms";
 import { formToAdmin } from "@/lib/forms/admin";
 import { FORM_TEMPLATES } from "@/lib/forms/templates";
@@ -40,6 +41,7 @@ export default async function FormsPage({ params }: { params: Promise<{ id: stri
           projectId={project.id}
           initial={JSON.parse(JSON.stringify(forms))}
           templates={FORM_TEMPLATES.map(({ id, name, description }) => ({ id, name, description }))}
+          surveys={featureOn("insights") ? { ai: aiForProject(project) } : undefined}
         />
       </main>
     </>
