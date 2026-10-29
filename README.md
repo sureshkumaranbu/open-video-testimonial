@@ -434,9 +434,9 @@ A **saved widget** from the widget studio (preview flag `widgets`) is embedded b
 ## Backups, moving and upgrading
 
 - **Export a project.** Go to **Import & export → Download everything**. The .zip contains:
-  - `plaudit.json`: all data, including private fields, consent history, answers, edit history, old links, translations, customers, campaigns and their recipients, review boosters and their clicks, reward codes, and synced sources (never an API key; they arrive paused, as do active campaigns)
+  - `plaudit.json`: all data, including private fields, consent history, answers, edit history, old links, translations, customers, campaigns and their recipients, review boosters and their clicks, reward codes, and synced sources (never an API key; they arrive paused, as do active campaigns); highlight reels, owner form videos, case studies, saved insight reports, NPS answers, social post drafts, Verified purchase marks, purchases (never an email) and the Stripe connection (never its secrets: paste the signing secret and restricted key again after importing, and give Stripe the new webhook address). Multiclips and social clips come as what was asked for, to be made again
   - `testimonials.csv`
-  - every video and photo
+  - every video and photo, the owner's form videos and each highlight reel's newest file (when it fits `MAX_VIDEO_MB`)
 - **Import it** on any Plaudit server from the admin home page (**Import a project**). It becomes a new project with everything restored. Imported requests never send email by themselves.
 - **Bring testimonials from elsewhere.** Go to **Import & export → Import testimonials from a CSV** (or a spreadsheet: .xlsx, or a table you paste). Columns are matched automatically and you can change the matches before importing. Videos and photos can be downloaded from URLs in the file.
 - **Whole-server backup.** Copy `DATA_DIR`, or the `plaudit-data` Docker volume, while Plaudit is stopped. With [media in a bucket](#media-storage-s3), back up the bucket as well. For example:

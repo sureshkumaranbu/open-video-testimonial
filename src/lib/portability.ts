@@ -7,13 +7,16 @@ import { getDb, schema, type Tx } from "@/db";
 import {
   APPROVERS,
   CAMPAIGN_STATUSES,
+  CASE_STUDY_STATUSES,
   DATE_PRECISIONS,
   FEEDBACK_SOURCES,
   FORM_KINDS,
   FORM_LAYOUTS,
   FORM_STATUSES,
+  FORM_VIDEO_SLOTS,
   HISTORY_ACTIONS,
   HISTORY_ACTORS,
+  INSIGHT_REPORT_KINDS,
   REDIRECT_KINDS,
   SEO_SCHEMA_TYPES,
   TESTIMONIAL_STATUSES,
@@ -24,6 +27,10 @@ import {
   type Project,
   type TestimonialStatus,
 } from "@/db/schema";
+import { caseStudyContentSchema } from "./case-studies";
+import { purchaseKeyId } from "./commerce/purchases";
+import { MAX_DRAFT_CHARS } from "./commerce/social";
+import { DEFAULT_RETENTION_DAYS, MAX_RETENTION_DAYS } from "./commerce/stripe-connection";
 import { listConsentEvents, listConsentVersions, logConsentEvent } from "./consent";
 import { toCsv } from "./csv";
 import { countWords } from "./dates";
@@ -39,6 +46,8 @@ import { findProjectBySlugOrAlias } from "./projects";
 import { listRequests } from "./requests";
 import { deleteObject, saveFile, sniffMime, storage, type MediaKind } from "./storage";
 import { createProject, listProjects, listTestimonials, type TestimonialWithTags } from "./testimonials";
+import { queueFormVideo } from "./video/form-videos";
+import { reelClipSchema, reelConfigSchema } from "./video/reel-config";
 import { boosterDesignSchema, boosterLinksSchema } from "./booster-config";
 import { canSync, getAdapter } from "./importers/registry";
 import { brandSchema, slugSchema } from "./validation";
@@ -56,6 +65,14 @@ import { extractEntry, openZip, readEntryText, ZipError, zipStream, type ZipSour
  * version 1, as new keys that older versions ignore: they import a new archive
  * as far as they understand it, and this version imports old archives, giving
  * them a default form from the project's settings.
+ *
+ * M16–M18 (L21, L23, L25) ride the same way: highlight reels (with the newest
+ * rendered file when it fits the video limit), owner form videos, multiclip
+ * and social clip definitions (made again after a move; the multiclip shown
+ * as a testimonial's video keeps its files), case studies, saved reports,
+ * survey answers, social post drafts, Verified purchase marks, purchases
+ * (never an email, only its keyed hash) and the Stripe connection without
+ * its secrets.
  */
 export const EXPORT_FORMAT = "plaudit-export";
 export const IMPORT_JOB = "import.archive";
@@ -87,6 +104,15 @@ const {
   rewardCodes,
   importSources,
   translations,
+  highlightReels,
+  videoRenders,
+  formVideos,
+  caseStudies,
+  insightReports,
+  surveyResponses,
+  socialDrafts,
+  purchases,
+  stripeConnections,
 } = schema;
 
 const MEDIA_PREFIX = "media/";
@@ -266,6 +292,8 @@ function exportTestimonial(t: TestimonialWithTags, related: Related) {
     })),
     // M13 (INBOX-11): the testimonial this one was merged into.
     mergedIntoId: t.mergedIntoId,
+    // M18 (INT-07): marked "Verified purchase".
+    verifiedPurchaseAt: iso(t.verifiedPurchaseAt),
     highlights: (related.highlights.get(t.id) ?? []).map((h) => ({
       answerId: h.answerId,
       start: h.start,
@@ -573,6 +601,151 @@ export function buildManifest(project: Project) {
       .orderBy(asc(slugRedirects.createdAt))
       .all()
       .map((r) => ({ kind: r.kind, oldSlug: r.oldSlug, formId: r.formId, wallId: r.wallId, boosterId: r.boosterId, createdAt: r.createdAt.toISOString() })),
+    ...m16to18(project),
+  };
+}
+
+/** L21, L23, L25: what M16, M17 and M18 added, as manifest keys older versions ignore. */
+function m16to18(project: Project) {
+  const db = getDb();
+  const renders = db.select().from(videoRenders).where(eq(videoRenders.projectId, project.id)).orderBy(asc(videoRenders.createdAt)).all();
+  const reels = db.select().from(highlightReels).where(eq(highlightReels.projectId, project.id)).orderBy(asc(highlightReels.createdAt)).all();
+  const formIds = db.select({ id: forms.id }).from(forms).where(eq(forms.projectId, project.id));
+  const connection = db.select().from(stripeConnections).where(eq(stripeConnections.projectId, project.id)).get();
+  return {
+    highlightReels: reels.map((r) => {
+      // The newest rendered file comes along when it fits the video limit an import checks; otherwise it's made again.
+      const file = renders
+        .filter((x) => x.reelId === r.id && x.kind === "reel" && x.status === "ready" && x.key && (x.sizeBytes ?? 0) <= env.maxVideoBytes)
+        .at(-1);
+      return {
+        id: r.id,
+        name: r.name,
+        config: readJson<Record<string, unknown>>(r.config, {}),
+        render: file
+          ? { video: mediaPath(file.key), options: readJson<Record<string, unknown>>(file.options, {}), durationMs: file.durationMs, width: file.width, height: file.height, sizeBytes: file.sizeBytes, createdAt: file.createdAt.toISOString() }
+          : null,
+        createdAt: r.createdAt.toISOString(),
+        updatedAt: r.updatedAt.toISOString(),
+      };
+    }),
+    // Multiclips and social clips as definitions; the one in use as a testimonial's video keeps the answer's own file, so switching back still works.
+    renders: renders
+      .filter((r) => (r.kind === "multiclip" || r.kind === "social") && r.testimonialId && (r.status === "ready" || r.usedAsVideo))
+      .map((r) => ({
+        testimonialId: r.testimonialId,
+        kind: r.kind,
+        options: readJson<Record<string, unknown>>(r.options, {}),
+        usedAsVideo: r.usedAsVideo,
+        replaced: r.usedAsVideo ? mediaPath(r.replacedKey) : null,
+        createdAt: r.createdAt.toISOString(),
+      })),
+    formVideos: db
+      .select()
+      .from(formVideos)
+      .where(inArray(formVideos.formId, formIds))
+      .orderBy(asc(formVideos.createdAt))
+      .all()
+      .map((v) => ({
+        formId: v.formId,
+        slot: v.slot,
+        media: {
+          video: mediaPath(v.videoKey),
+          videoMime: v.videoMime,
+          videoOriginal: v.videoOriginalKey !== v.videoKey ? mediaPath(v.videoOriginalKey) : null,
+          poster: mediaPath(v.posterKey),
+          durationMs: v.videoDurationMs,
+          width: v.videoWidth,
+          height: v.videoHeight,
+        },
+        transcript: v.transcript,
+        captionsVtt: v.captionsVtt,
+        createdAt: v.createdAt.toISOString(),
+        updatedAt: v.updatedAt.toISOString(),
+      })),
+    caseStudies: db
+      .select()
+      .from(caseStudies)
+      .where(eq(caseStudies.projectId, project.id))
+      .orderBy(asc(caseStudies.createdAt))
+      .all()
+      .map((c) => ({
+        id: c.id,
+        testimonialId: c.testimonialId,
+        status: c.status,
+        title: c.title,
+        content: readJson<Record<string, unknown>>(c.content, {}),
+        aiDraftedAt: iso(c.aiDraftedAt),
+        createdAt: c.createdAt.toISOString(),
+        updatedAt: c.updatedAt.toISOString(),
+      })),
+    insightReports: db
+      .select()
+      .from(insightReports)
+      .where(eq(insightReports.projectId, project.id))
+      .orderBy(asc(insightReports.createdAt))
+      .all()
+      .map((r) => ({
+        kind: r.kind,
+        name: r.name,
+        params: readJson<Record<string, unknown>>(r.params, {}),
+        result: readJson<Record<string, unknown>>(r.result, {}),
+        createdBy: r.createdBy,
+        createdAt: r.createdAt.toISOString(),
+      })),
+    surveyResponses: db
+      .select()
+      .from(surveyResponses)
+      .where(eq(surveyResponses.projectId, project.id))
+      .orderBy(asc(surveyResponses.createdAt))
+      .all()
+      .map((r) => ({
+        formId: r.formId,
+        testimonialId: r.testimonialId,
+        questionKey: r.questionKey,
+        score: r.score,
+        comment: r.comment,
+        authorName: r.authorName,
+        authorEmail: r.authorEmail,
+        createdAt: r.createdAt.toISOString(),
+      })),
+    socialDrafts: db
+      .select()
+      .from(socialDrafts)
+      .where(eq(socialDrafts.projectId, project.id))
+      .orderBy(asc(socialDrafts.createdAt))
+      .all()
+      .map((d) => ({ testimonialId: d.testimonialId, text: d.text, editedBy: d.editedBy, aiRewrittenAt: iso(d.aiRewrittenAt), createdAt: d.createdAt.toISOString(), updatedAt: d.updatedAt.toISOString() })),
+    // Which server's key made the hashes: another server's can't match them, so it drops them on import.
+    purchaseKeyId: purchaseKeyId(),
+    purchases: db
+      .select()
+      .from(purchases)
+      .where(eq(purchases.projectId, project.id))
+      .orderBy(asc(purchases.purchasedAt))
+      .all()
+      .map((x) => ({
+        externalId: x.externalId,
+        eventType: x.eventType,
+        firstName: x.firstName,
+        place: x.place,
+        product: x.product,
+        amount: x.amount,
+        currency: x.currency,
+        emailHash: x.emailHash,
+        purchasedAt: x.purchasedAt.toISOString(),
+        createdAt: x.createdAt.toISOString(),
+      })),
+    // Never the signing secret or the restricted key: they're pasted again after an import.
+    stripeConnection: connection
+      ? {
+          enabled: connection.enabled,
+          retentionDays: connection.retentionDays,
+          verifyPurchases: connection.verifyPurchases,
+          defaultProduct: connection.defaultProduct,
+          createdAt: connection.createdAt.toISOString(),
+        }
+      : null,
   };
 }
 
@@ -589,6 +762,9 @@ function manifestKeys(m: Manifest): string[] {
     ...m.customers.map((c) => c.avatar),
     ...m.walls.flatMap((w) => [w.logo, w.cover]),
     ...m.boosters.map((b) => b.logo),
+    ...m.formVideos.flatMap((v) => [v.media.video, v.media.videoOriginal, v.media.poster]),
+    ...m.highlightReels.map((r) => r.render?.video ?? null),
+    ...m.renders.map((r) => r.replaced),
     ...m.testimonials.flatMap((t) => [
       t.media.video,
       t.media.videoOriginal,
@@ -727,7 +903,7 @@ export function exportZip(project: Project): ReadableStream<Uint8Array> {
         `Plaudit export of "${project.name}" (${manifest.exportedAt}).\n\n` +
         "plaudit.json     everything, including private fields and consent history (format version 1)\n" +
         "testimonials.csv one row per testimonial, for spreadsheets\n" +
-        "media/           videos, posters, photos, logos and images\n\n" +
+        "media/           videos, posters, photos, logos, images and highlight reels\n\n" +
         "Import it on any Plaudit server from the admin home page (Import a project).\n" +
         "This file contains personal data (names, emails, consent records). Store it securely.\n",
     };
@@ -1013,6 +1189,112 @@ const redirectSchema = z.object({
   createdAt: when,
 });
 
+// M16–M18 (L21, L23, L25). Each list falls back to empty, so archives from before them still import.
+const reelSchema = z.object({
+  id: z.string(),
+  name: label(120, "Highlight reel"),
+  // Checked with reelConfigSchema once its testimonial ids are mapped.
+  config: jsonObject,
+  render: z
+    .object({
+      video: z.string().max(200),
+      options: jsonObject,
+      durationMs: z.number().int().nullable().catch(null),
+      width: z.number().int().nullable().catch(null),
+      height: z.number().int().nullable().catch(null),
+      sizeBytes: z.number().int().nullable().catch(null),
+      createdAt: when,
+    })
+    .nullable()
+    .catch(null),
+  createdAt: when,
+  updatedAt: when,
+});
+
+const renderDefSchema = z.object({
+  testimonialId: z.string(),
+  kind: z.enum(["multiclip", "social"]),
+  options: jsonObject,
+  usedAsVideo: z.boolean().catch(false),
+  replaced: mediaRef,
+  createdAt: when,
+});
+
+const formVideoSchema = z.object({
+  formId: z.string(),
+  slot: z.enum(FORM_VIDEO_SLOTS),
+  media: mediaSchema,
+  transcript: textOrNull(50_000),
+  captionsVtt: textOrNull(200_000),
+  createdAt: when,
+  updatedAt: when,
+});
+
+const caseStudySchema = z.object({
+  id: z.string(),
+  testimonialId: z.string(),
+  status: z.enum(CASE_STUDY_STATUSES).catch("draft"),
+  title: label(160, "Case study"),
+  content: z.unknown(),
+  aiDraftedAt: when,
+  createdAt: when,
+  updatedAt: when,
+});
+
+const insightReportSchema = z.object({
+  kind: z.enum(INSIGHT_REPORT_KINDS),
+  name: label(120, "Report"),
+  params: jsonObject,
+  result: jsonObject,
+  createdBy: textOrNull(254),
+  createdAt: when,
+});
+
+const surveyResponseSchema = z.object({
+  formId: ref,
+  testimonialId: ref,
+  questionKey: z.string().min(1).max(40),
+  score: z.number().int().min(0).max(10),
+  comment: textOrNull(10_000),
+  authorName: textOrNull(120),
+  authorEmail: textOrNull(254),
+  createdAt: when,
+});
+
+const socialDraftSchema = z.object({
+  testimonialId: z.string(),
+  text: z.string().trim().min(1).max(MAX_DRAFT_CHARS),
+  editedBy: textOrNull(254),
+  aiRewrittenAt: when,
+  createdAt: when,
+  updatedAt: when,
+});
+
+const purchaseSchema = z.object({
+  externalId: z.string().min(1).max(200),
+  eventType: z.string().max(60).catch("checkout.session.completed"),
+  firstName: textOrNull(40),
+  place: textOrNull(60),
+  product: textOrNull(80),
+  amount: z.number().int().min(0).nullable().catch(null),
+  currency: z.string().regex(/^[a-z]{3}$/).nullable().catch(null),
+  emailHash: z.string().regex(/^[0-9a-f]{64}$/).nullable().catch(null),
+  purchasedAt: isoDate,
+  createdAt: when,
+});
+
+const stripeConnectionSchema = z
+  .object({
+    enabled: z.boolean().catch(true),
+    retentionDays: z.number().int().min(1).max(MAX_RETENTION_DAYS).catch(DEFAULT_RETENTION_DAYS),
+    verifyPurchases: z.boolean().catch(true),
+    defaultProduct: z.string().trim().max(80).catch(""),
+    createdAt: when,
+  })
+  .nullable()
+  .optional()
+  .catch(null);
+
 const manifestSchema = z.object({
   format: z.literal(EXPORT_FORMAT),
   version: z.literal(EXPORT_VERSION),
@@ -1140,6 +1422,7 @@ const manifestSchema = z.object({
       history: listOf(historySchema),
       translations: listOf(translationSchema),
       mergedIntoId: ref,
+      verifiedPurchaseAt: when.optional(),
       createdAt: isoDate,
       updatedAt: isoDate,
     }),
@@ -1181,6 +1464,16 @@ const manifestSchema = z.object({
   boosterClicks: listOf(boosterClickSchema),
   rewardCodes: listOf(rewardCodeSchema),
   importSources: listOf(importSourceSchema),
+  highlightReels: listOf(reelSchema),
+  renders: listOf(renderDefSchema),
+  formVideos: listOf(formVideoSchema),
+  caseStudies: listOf(caseStudySchema),
+  insightReports: listOf(insightReportSchema),
+  surveyResponses: listOf(surveyResponseSchema),
+  socialDrafts: listOf(socialDraftSchema),
+  purchaseKeyId: z.string().max(64).nullable().optional().catch(null),
+  purchases: listOf(purchaseSchema),
+  stripeConnection: stripeConnectionSchema,
 });
 
 export type ImportManifest = z.infer<typeof manifestSchema>;
@@ -1258,7 +1551,7 @@ export function createImportTarget(manifest: ImportManifest, opts: { slug?: stri
     autoApproveVideo: p.autoApproveVideo,
   });
   // The logo is a file, so it arrives with the rest of the media in importArchive.
-  const branded = Object.keys(p.brand.colors).length || Object.keys(p.brand.fonts).length;
+  const branded = Object.keys(p.brand.colors).length || Object.keys(p.brand.fonts).length || p.brand.name || p.brand.description;
   return (
     getDb()
       .update(projects)
@@ -1282,6 +1575,14 @@ function claimSlug(taken: Set<string>, wanted: string, fallback: string) {
     }
   }
 }
+
+/** What an imported multiclip or social clip says until it's made again. */
+export const NOT_IN_EXPORT = "Imported without its video file. Make it again to get the file.";
+/** What an imported Stripe connection says until its secrets are pasted again. */
+export const STRIPE_IMPORTED = "Imported from a Plaudit export. Paste the signing secret and restricted key again, and point Stripe's webhook at the address above.";
+/** As src/lib/insights/reports.ts caps them. */
+const MAX_REPORTS = 200;
+const MAX_REPORT_BYTES = 512 * 1024;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const WIDGET_ID = /^w_[a-z0-9]{12}$/;
@@ -1437,6 +1738,13 @@ export async function importArchive(zipPath: string, projectId: string) {
         [w.cover, "image"],
       ]),
       ...manifest.boosters.map((b): [string | null, MediaKind] => [b.logo, "image"]),
+      ...manifest.formVideos.flatMap((v): [string | null, MediaKind][] => [
+        [v.media.video, "video"],
+        [v.media.videoOriginal, "video"],
+        [v.media.poster, "image"],
+      ]),
+      ...manifest.highlightReels.map((r): [string | null, MediaKind] => [r.render?.video ?? null, "video"]),
+      ...manifest.renders.map((r): [string | null, MediaKind] => [r.replaced, "video"]),
     ];
     for (const t of manifest.testimonials) {
       refs.push(
@@ -1464,7 +1772,25 @@ export async function importArchive(zipPath: string, projectId: string) {
     const feedbackIds = new Map<string, string>();
     const campaignIds = new Map(manifest.campaigns.map((c) => [c.id, crypto.randomUUID()]));
     const boosterIds = new Map(manifest.boosters.map((b) => [b.id, crypto.randomUUID()]));
-    const extra = { campaigns: 0, boosters: 0, rewardCodes: 0, importSources: 0, translations: 0 };
+    const extra = {
+      campaigns: 0,
+      boosters: 0,
+      rewardCodes: 0,
+      importSources: 0,
+      translations: 0,
+      highlightReels: 0,
+      renders: 0,
+      formVideos: 0,
+      caseStudies: 0,
+      insightReports: 0,
+      surveyResponses: 0,
+      socialDrafts: 0,
+      purchases: 0,
+      stripeConnection: 0,
+    };
+    // L25: hashes another server made can't match anything here (its key differs), so they're dropped.
+    const sameKey = manifest.purchaseKeyId === purchaseKeyId();
+    const convertFormVideos: string[] = [];
     const now = new Date();
     const date = (s: string | null | undefined) => (s ? new Date(s) : null);
     const at = (s: string | null | undefined) => date(s) ?? now;
@@ -1585,6 +1911,7 @@ export async function importArchive(zipPath: string, projectId: string) {
             trashedAt: status === "trashed" ? at(t.trashedAt) : null,
             statusBeforeTrash,
             consentPublic: t.consentPublic,
+            verifiedPurchaseAt: date(t.verifiedPurchaseAt),
           })
           .run();
         for (const name of new Set(t.tags.map((x) => x.trim().toLowerCase()).filter(Boolean))) {
@@ -1993,9 +2320,222 @@ export async function importArchive(zipPath: string, projectId: string) {
           .run();
       }
 
+      // ---- M16–M18 (L21, L23, L25)
+
+      // FORM-17: owner videos on forms' welcome and thank-you pages; converted again unless the archive has the converted copy.
+      for (const v of manifest.formVideos) {
+        const formId = lookup(formIds, v.formId);
+        const [vVideo, vOriginal, vPoster] = [stored(v.media.video), stored(v.media.videoOriginal), stored(v.media.poster)];
+        const vPlayable = vVideo ?? vOriginal;
+        if (!formId || !vPlayable) continue;
+        const ready = Boolean(vVideo && vPoster && vVideo.mime === "video/mp4" && vOriginal);
+        const row = tx
+          .insert(formVideos)
+          .values({
+            id: crypto.randomUUID(),
+            formId,
+            slot: v.slot,
+            videoKey: vPlayable.key,
+            videoMime: vPlayable.mime,
+            videoOriginalKey: (vOriginal ?? vVideo)!.key,
+            posterKey: vPoster?.key ?? null,
+            videoDurationMs: v.media.durationMs,
+            videoWidth: v.media.width,
+            videoHeight: v.media.height,
+            mediaStatus: ready ? "ready" : "none",
+            transcript: v.transcript,
+            captionsVtt: v.captionsVtt,
+            transcriptStatus: v.transcript || v.captionsVtt ? "ready" : "none",
+            createdAt: at(v.createdAt),
+            updatedAt: at(v.updatedAt),
+          })
+          .onConflictDoNothing()
+          .returning({ id: formVideos.id })
+          .get();
+        if (!row) continue; // a second video for the same page
+        extra.formVideos++;
+        if (!ready) convertFormVideos.push(row.id);
+      }
+
+      // VID-08: highlight reels, their clips pointing at the new testimonials (a clip whose testimonial didn't come is left out), and the newest rendered file.
+      const reelIds = new Map<string, string>();
+      for (const r of manifest.highlightReels) {
+        if (reelIds.has(r.id)) continue;
+        const id = crypto.randomUUID();
+        reelIds.set(r.id, id);
+        const clips = (Array.isArray(r.config.clips) ? r.config.clips : []).flatMap((c: unknown) => {
+          const clip = reelClipSchema.safeParse(c);
+          const testimonialId = clip.success ? lookup(ids, clip.data.testimonialId) : null;
+          return clip.success && testimonialId ? [{ ...clip.data, testimonialId }] : [];
+        });
+        const config = reelConfigSchema.safeParse({ ...r.config, clips });
+        tx.insert(highlightReels)
+          .values({ id, projectId, name: r.name, config: JSON.stringify(config.success ? config.data : reelConfigSchema.parse({ clips: clips.slice(0, 20) })), createdAt: at(r.createdAt), updatedAt: at(r.updatedAt) })
+          .run();
+        extra.highlightReels++;
+        const video = r.render ? stored(r.render.video) : null;
+        if (r.render && video) {
+          tx.insert(videoRenders)
+            .values({
+              id: crypto.randomUUID(),
+              projectId,
+              reelId: id,
+              kind: "reel",
+              status: "ready",
+              options: JSON.stringify(r.render.options),
+              key: video.key,
+              files: JSON.stringify([video.key]),
+              durationMs: r.render.durationMs,
+              width: r.render.width,
+              height: r.render.height,
+              sizeBytes: r.render.sizeBytes,
+              createdAt: at(r.render.createdAt),
+              updatedAt: now,
+            })
+            .run();
+          extra.renders++;
+        }
+      }
+
+      // VID-05, VID-07: multiclips and social clips come as what was asked for, to be made again. The multiclip a
+      // testimonial shows as its video is that video's file, so it stays in use, with the first answer's own file to switch back to.
+      const inUse = new Set<string>();
+      for (const r of manifest.renders) {
+        const testimonialId = lookup(ids, r.testimonialId);
+        if (!testimonialId) continue;
+        const row = tx.select({ videoKey: testimonials.videoKey, videoOriginalKey: testimonials.videoOriginalKey }).from(testimonials).where(eq(testimonials.id, testimonialId)).get();
+        const current = row?.videoOriginalKey ?? row?.videoKey ?? null;
+        const replaced = file(r.replaced);
+        const used = r.kind === "multiclip" && r.usedAsVideo && Boolean(current && replaced) && !inUse.has(testimonialId);
+        if (used) inUse.add(testimonialId);
+        tx.insert(videoRenders)
+          .values({
+            id: crypto.randomUUID(),
+            projectId,
+            testimonialId,
+            kind: r.kind,
+            status: used ? "ready" : "failed",
+            error: used ? null : NOT_IN_EXPORT,
+            options: JSON.stringify(r.options),
+            key: used ? current : null,
+            files: JSON.stringify(used ? [current] : []),
+            usedAsVideo: used,
+            replacedKey: used ? replaced : null,
+            createdAt: at(r.createdAt),
+            updatedAt: now,
+          })
+          .run();
+        extra.renders++;
+      }
+
+      // SHARE-04: case studies keep their id (so /cs/ links still work after a move) when it's free here.
+      for (const c of manifest.caseStudies) {
+        const testimonialId = lookup(ids, c.testimonialId);
+        if (!testimonialId) continue;
+        const free = UUID.test(c.id) && !tx.select({ id: caseStudies.id }).from(caseStudies).where(eq(caseStudies.id, c.id)).get();
+        const content = caseStudyContentSchema.safeParse(c.content ?? {});
+        tx.insert(caseStudies)
+          .values({
+            id: free ? c.id : crypto.randomUUID(),
+            projectId,
+            testimonialId,
+            status: c.status,
+            title: c.title,
+            content: JSON.stringify(content.success ? content.data : caseStudyContentSchema.parse({})),
+            aiDraftedAt: date(c.aiDraftedAt),
+            createdAt: at(c.createdAt),
+            updatedAt: at(c.updatedAt),
+          })
+          .run();
+        extra.caseStudies++;
+      }
+
+      // VOC-01: saved reports as they were shown, the ids they cite pointing at the new rows.
+      for (const r of manifest.insightReports.slice(-MAX_REPORTS)) {
+        const result = remapObject(r.result);
+        if (Buffer.byteLength(result) > MAX_REPORT_BYTES) continue;
+        tx.insert(insightReports)
+          .values({ id: crypto.randomUUID(), projectId, kind: r.kind, name: r.name, params: remapObject(r.params), result, createdBy: r.createdBy, createdAt: at(r.createdAt) })
+          .run();
+        extra.insightReports++;
+      }
+
+      // NPS-01: every answer, private as before.
+      for (const r of manifest.surveyResponses) {
+        tx.insert(surveyResponses)
+          .values({
+            id: crypto.randomUUID(),
+            projectId,
+            formId: lookup(formIds, r.formId),
+            testimonialId: lookup(ids, r.testimonialId),
+            questionKey: r.questionKey,
+            score: r.score,
+            comment: r.comment,
+            authorName: r.authorName,
+            authorEmail: r.authorEmail,
+            createdAt: at(r.createdAt),
+          })
+          .run();
+        extra.surveyResponses++;
+      }
+
+      // INT-08: social post drafts as they were last saved.
+      for (const d of manifest.socialDrafts) {
+        const testimonialId = lookup(ids, d.testimonialId);
+        if (!testimonialId) continue;
+        extra.socialDrafts += tx
+          .insert(socialDrafts)
+          .values({ testimonialId, projectId, text: d.text, editedBy: d.editedBy, aiRewrittenAt: date(d.aiRewrittenAt), createdAt: at(d.createdAt), updatedAt: at(d.updatedAt) })
+          .onConflictDoNothing()
+          .run().changes;
+      }
+
+      // INT-07: purchases (never an email) and the connection without its secrets, which the owner pastes again.
+      for (const x of manifest.purchases) {
+        extra.purchases += tx
+          .insert(purchases)
+          .values({
+            id: crypto.randomUUID(),
+            projectId,
+            externalId: x.externalId,
+            eventType: x.eventType,
+            firstName: x.firstName,
+            place: x.place,
+            product: x.product,
+            amount: x.amount,
+            currency: x.currency,
+            emailHash: sameKey ? x.emailHash : null,
+            purchasedAt: new Date(x.purchasedAt),
+            createdAt: at(x.createdAt),
+          })
+          .onConflictDoNothing()
+          .run().changes;
+      }
+      const c = manifest.stripeConnection;
+      if (c) {
+        extra.stripeConnection += tx
+          .insert(stripeConnections)
+          .values({
+            id: crypto.randomUUID(),
+            projectId,
+            signingSecret: "",
+            restrictedKey: "",
+            enabled: c.enabled,
+            retentionDays: c.retentionDays,
+            verifyPurchases: c.verifyPurchases,
+            defaultProduct: c.defaultProduct,
+            lastResult: STRIPE_IMPORTED,
+            createdAt: at(c.createdAt),
+            updatedAt: now,
+          })
+          .onConflictDoNothing()
+          .run().changes;
+      }
+
       const logoKey = file(manifest.project.logo);
       if (logoKey) tx.update(projects).set({ logoKey }).where(eq(projects.id, projectId)).run();
     });
+    for (const id of convertFormVideos) await queueFormVideo(id);
 
     for (const t of manifest.testimonials) {
       logConsentEvent({
