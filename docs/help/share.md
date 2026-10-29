@@ -1,6 +1,6 @@
 # Sharing testimonials
 
-Two ways to take a testimonial beyond your site: its own page, and images from the **Image studio**.
+Two ways to take a testimonial beyond your site: its own page, and images from the **Image studio**. A third, a **case study** with its own page and PDF, is in [Insights, case studies and surveys](insights.md#case-studies).
 
 ## A testimonial's own page
 

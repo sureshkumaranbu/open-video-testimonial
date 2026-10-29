@@ -10,6 +10,7 @@ How to use each part of the Plaudit dashboard. Every section is on by default; `
 | [Customers](customers.md) | One record per person: their testimonials, feedback, invitations and rewards, and inviting them or asking for a video |
 | [Video tools](video.md) | Trimming a video, picking or uploading its poster, replacing the file and downloading it |
 | [Sharing](share.md) | A testimonial's own page with share links, and the image studio for social posts, slides and emails |
+| [Insights, case studies and surveys](insights.md) | Your own AI provider and what it's sent; case studies with a page and PDF; Voice of Customer; asking a question; NPS questions, surveys and AI surveys; saved reports; reading screenshots |
 | [Widgets](widgets.md) | The widget studio: layouts, choosing testimonials, design and every way to embed |
 | [Walls and SEO](walls.md) | Wall of Love pages, the editor, the main wall, review snippets and search engines |
 | [Review booster](booster.md) | A page of review-site buttons with a QR code to print, the Google review link helper, and click counts |

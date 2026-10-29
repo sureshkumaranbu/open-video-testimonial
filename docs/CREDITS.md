@@ -34,6 +34,10 @@ The names, roles, companies and quotes used on the home page are fictional. Any 
 
 `sample.webm` (ffmpeg `testsrc2` pattern plus a sine tone) and `avatar.png` (ffmpeg `testsrc2` frame) are generated, and MIT like the rest of the repository.
 
+## Case-study PDFs (SHARE-04)
+
+Drawn on the server with [pdf-lib](https://github.com/Hopding/pdf-lib) and [@pdf-lib/fontkit](https://github.com/Hopding/fontkit) (both MIT), in Geist Regular (above). No headless browser, and no other font or image is bundled.
+
 ## Highlight reel music (VID-08)
 
 The background music under highlight reels is original: Plaudit synthesises it on your server with ffmpeg's `aevalsrc` from an expression in [`src/lib/video/compose.ts`](../src/lib/video/compose.ts) (`MUSIC_BED`): two soft triads, C major and A minor, crossfading every eight seconds. No recording, sample or third-party audio is used or shipped, so it carries no licence of its own beyond the repository's (MIT).
@@ -47,6 +51,6 @@ Self-hosted so a form never asks a third party for a font (FORM-08).
 | Files | Font | Licence |
 |---|---|---|
 | `geist-latin.woff2`, `geist-mono-latin.woff2` | [Geist and Geist Mono](https://github.com/vercel/geist-font), latin subset | SIL Open Font License 1.1 |
-| `og/Geist-Regular.ttf` | Geist Regular (for generated share images; satori reads TTF only) | SIL Open Font License 1.1 |
+| `og/Geist-Regular.ttf` | Geist Regular (for generated share images, satori reads TTF only; and case-study PDFs, SHARE-04, embedded as a subset by pdf-lib) | SIL Open Font License 1.1 |
 
 Schibsted Grotesk and Newsreader, also offered in the form designer, are the app's own fonts, self-hosted at build time by `next/font` (both SIL Open Font License 1.1).

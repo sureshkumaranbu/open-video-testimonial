@@ -100,6 +100,10 @@ With `imports2` on, the CSV import on **Import & export** also takes:
 
 Both go through the same column mapper, preview, warnings and import as a CSV, and each row is linked to a customer record by its email.
 
+## Screenshots
+
+With the `insights` flag on, **Import a screenshot** on **Import & export** adds a review that came as an image. With OCR set up (`OCR_PROVIDER=command` with tesseract, or `ai`), Plaudit reads the quote, name and date out of it; you check them before it's added, and the image is kept as the testimonial's screenshot. See [Reading screenshots](help/insights.md#reading-screenshots).
+
 ## Terms and ownership
 
 Each source in the picker says how it reads and what its terms say. Plaudit asks you to confirm **"I own or manage this listing"** before anything is fetched, and the server enforces it. We can't prove ownership technically: it's your promise, so import only your own business, app or product. The people who wrote the reviews agreed to the review site's terms, not to Plaudit's consent wording, so every imported testimonial's consent record says "Imported from <source>. Consent was collected outside Plaudit; keep your own record of it."
