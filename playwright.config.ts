@@ -151,6 +151,9 @@ export default defineConfig({
             // per project for the non-AI paths. No real provider is ever called.
             AI_API_URL: `${FIXTURE_ORIGIN}/ai/v1`,
             AI_MODEL: "e2e-stand-in",
+            // INT-07: thank-you coupons are made at the fixture server's stand-in Stripe API (fixtureRespond on
+            // /stripe/v1/promotion_codes); no real Stripe account is ever called.
+            STRIPE_API_URL: `${FIXTURE_ORIGIN}/stripe`,
             // IMP-07: a stand-in for tesseract (no shell; prints a review screenshot's text).
             OCR_PROVIDER: "command",
             OCR_COMMAND: `"${process.execPath}" "${path.resolve(__dirname, "e2e/fixtures/fake-tesseract.mjs")}" {input}`,
