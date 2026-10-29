@@ -10,6 +10,7 @@ const SHAPES: Record<WidgetLayout, [number, number, number, number][]> = {
   featured: [[14, 14, 72, 54], [38, 74, 24, 10]],
   badge: [[18, 32, 64, 36]],
   toast: [[6, 54, 46, 36]],
+  sales: [[6, 66, 58, 22], [10, 70, 10, 14]],
 };
 
 export function LayoutThumb({ layout }: { layout: WidgetLayout }) {
