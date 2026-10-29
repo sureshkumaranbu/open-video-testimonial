@@ -107,8 +107,9 @@ export function Commerce({ projectId, admin }: { projectId: string; admin: boole
             />
           )}
           {c?.lastResult && (
-            <p className="small" data-testid="stripe-last">
-              Last event{c.lastEventAt ? ` (${when(c.lastEventAt)})` : ""}: {c.lastResult}
+            <p className={c.lastEventAt ? "small" : "notice small"} data-testid="stripe-last">
+              {/* No event yet: an imported connection's note to paste its secrets again. */}
+              {c.lastEventAt ? `Last event (${when(c.lastEventAt)}): ${c.lastResult}` : c.lastResult}
             </p>
           )}
           {admin && (

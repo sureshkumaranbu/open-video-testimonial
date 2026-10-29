@@ -56,6 +56,43 @@ test("export everything, then import it as a new project", async ({ page, baseUR
   await expect(consent.locator("li[data-type=imported]")).toContainText("Imported from a Plaudit export");
 });
 
+test("L23 L25 SHARE-04 INT-07 INT-08 a case study, a social draft and the Stripe connection come across; the connection asks for its secrets again", async ({ page, baseURL }) => {
+  test.slow();
+  const api = await adminApi(baseURL!);
+  const p = await createProject(api, `Shop Co ${RUN}`, `shop-${RUN}`);
+  const [id] = await seed(api, p.slug, [{ name: "Ola Owner", text: "Our shop sells twice as much now.", email: "ola@example.com", status: "approved" }]);
+  expect((await api.post(`/api/admin/projects/${p.id}/case-studies`, { data: { testimonialId: id } })).status()).toBe(201);
+  expect((await api.put(`/api/admin/testimonials/${id}/social-draft`, { data: { text: "Twice the sales. Thanks, Ola!" } })).ok()).toBe(true);
+  const connected = await api.put(`/api/admin/projects/${p.id}/stripe`, { data: { signingSecret: "whsec_e2e_moving_123456", retentionDays: 30 } });
+  expect(connected.status(), await connected.text()).toBeLessThan(300);
+
+  await signIn(page);
+  await page.goto(`/admin/projects/${p.id}/data`);
+  const download = page.waitForEvent("download");
+  await page.getByTestId("export-zip").click();
+  const zipPath = test.info().outputPath("shop.zip");
+  await (await download).saveAs(zipPath);
+
+  await page.goto("/admin");
+  await page.getByTestId("import-file").setInputFiles(zipPath);
+  const card = page.getByTestId("import-project");
+  await expect(card.getByRole("status")).toContainText("Imported 1 testimonial", { timeout: 30_000 });
+  await card.getByRole("link", { name: `Shop Co ${RUN} (imported)` }).click();
+  await expect(page).toHaveURL(/\/admin\/projects\/[0-9a-f-]{36}$/);
+  const copy = page.url().split("/").pop()!;
+
+  await page.goto(`/admin/projects/${copy}/case-studies`);
+  await expect(page.getByTestId("cs-list")).toContainText("Ola Owner");
+  await page.goto(`/admin/projects/${copy}/commerce`);
+  await expect(page.getByTestId("stripe-state")).toHaveText("Needs its signing secret");
+  await expect(page.getByTestId("stripe-last")).toContainText("Paste the signing secret and restricted key again");
+  const imported = (await (await api.get(`/api/admin/projects/${copy}/stripe`)).json()).connection;
+  expect(imported).toMatchObject({ signingSecretSet: false, restrictedKeySet: false, retentionDays: 30 });
+
+  const [copied] = (await (await api.get(`/api/admin/projects/${copy}/testimonials?tab=approved`)).json()).items as { id: string }[];
+  expect((await (await api.get(`/api/admin/testimonials/${copied.id}/social-draft`)).json()).draft).toMatchObject({ text: "Twice the sales. Thanks, Ola!", edited: true });
+});
+
 test("a bad file gets a clear message", async ({ page }) => {
   await signIn(page);
   await page.getByTestId("import-file").setInputFiles({ name: "notes.zip", mimeType: "application/zip", buffer: Buffer.from("not a zip") });

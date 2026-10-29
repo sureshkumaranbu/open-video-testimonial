@@ -12,8 +12,15 @@ Plaudit has a built-in [Model Context Protocol](https://modelcontextprotocol.io)
 | `get_embed_codes` | The snippets for your saved widgets and forms, and your wall's address | read |
 | `summarize` | How many testimonials you have in each status, the average rating and its spread, your top tags and the newest quotes. **Plaudit counts these itself: no AI is involved and nothing is sent anywhere** | read |
 | `create_invite` | Adds someone to an active campaign, which emails them its invitation (optionally some days later) | read and write |
+| `list_case_studies`, `get_case_study` | Your case studies and one in full (flag `insights`) | read |
+| `create_case_study`, `update_case_study` | Starts a draft from a testimonial with Plaudit's template (no AI), or changes the title, a section, the metrics or whether it's published | read and write |
+| `nps_summary` | Your NPS score, promoters, passives and detractors, the spread, the trend and the latest comments, optionally for some dates or one form (flag `insights`) | read |
+| `list_survey_responses` | Each NPS answer: the score, its group and the comment, never an email (flag `insights`) | read |
+| `list_insight_reports`, `get_insight_report` | Your saved Insights reports, and one with what it found (flag `insights`) | read |
+| `get_social_draft` | An approved testimonial's social post draft, its link and the X and LinkedIn share links (flag `commerce`) | read |
+| `update_social_draft` | Saves new text for that draft; webhooks that ticked `testimonial.social_draft_updated` hear about it | read and write |
 
-With several projects, the assistant says which one (by its slug); with one, it doesn't need to.
+With several projects, the assistant says which one (by its slug); with one, it doesn't need to. The case study, NPS, report and social draft tools are listed only while their feature is on. Changes made through them are in the audit log, with the key or the person whose assistant made them.
 
 **What the assistant sees.** The words, rating, tags and the person's name, job title and company. **Never** their email address or phone number, consent records, or a form's private and hidden fields. A video's address is included only while the testimonial is approved. The assistant's provider (Anthropic, OpenAI…) receives whatever the tools return, so connect only assistants you're happy to share your testimonials with.
 
@@ -23,13 +30,13 @@ Connectors that sign in by themselves, such as **Claude.ai's custom connectors**
 
 1. In the app, add a custom connector (or MCP server) with the URL `https://plaudit.example.com/mcp`. Leave any client ID and secret fields empty: Plaudit registers the app itself.
 2. The app opens Plaudit. Sign in if you aren't already, and you'll see **Let “…” use Plaudit?**
-3. Choose what it may do (**Read**, or **Read and send invitations**, which only editors and admins can give) and which projects, then **Allow**. You're sent back to the app.
+3. Choose what it may do (**Read**, or **Read and make changes**: send invitations, and edit case studies and social post drafts, which only editors and admins can give) and which projects, then **Allow**. You're sent back to the app. Connections made before case studies and social drafts had tools, with what was then "Read and send invitations", can use the new write tools too; disconnect and connect again choosing **Read** if you'd rather they didn't.
 
 The connection acts as you, with your role and projects as they are at the time of each request, within what you allowed. Access tokens last an hour and the app renews them itself; if you're removed from the team, or the app is disconnected, it stops at once. Admins see every connection under **Settings › API keys › Connected assistants**, with **Disconnect**. Connecting and disconnecting are in the audit log. Exact menu names in Claude and ChatGPT change from time to time; look for "custom connector" or "MCP server".
 
 ## Or use a key
 
-In Plaudit, **Settings › API keys**: name it (for example "Claude") and choose **Read only**, unless you want the assistant to send invitations. A read-only key never sees `create_invite`. Revoke it on the same screen at any time. Each key may make 600 requests a minute.
+In Plaudit, **Settings › API keys**: name it (for example "Claude") and choose **Read only**, unless you want the assistant to send invitations or change case studies and social drafts. A read-only key never sees the write tools. Revoke it on the same screen at any time. Each key may make 600 requests a minute.
 
 ## Claude Desktop
 
@@ -80,7 +87,7 @@ Add Plaudit as a connector with sign-in, as above: ChatGPT reaches your server f
 |---|---|
 | The tools don't appear in Claude Desktop | Check the config is valid JSON, that Node.js is installed (`npx -v` in a terminal), and restart Claude Desktop. Its MCP log is under **Settings › Developer** |
 | `401` / "Invalid or revoked API key" | Copy the key again; it's shown once when it's made. Revoked keys stop at once |
-| "create_invite needs write access" | Use a read-and-write key, or connect again choosing "Read and send invitations" (editors and admins), or invite from the dashboard |
+| "create_invite needs write access" (or another write tool) | Use a read-and-write key, or connect again choosing "Read and make changes" (editors and admins), or do it in the dashboard |
 | The connector says it can't connect, or Plaudit shows "This app can't connect" | The app's sign-in request didn't match what it registered. Remove the connector and add it again; requests last 10 minutes |
 | "This campaign is a draft" | Start the campaign in Plaudit first |
 | "Say which project" | Tell the assistant which project, by its slug (shown in the project's address) |

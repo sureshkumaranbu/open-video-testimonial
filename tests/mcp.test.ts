@@ -126,7 +126,20 @@ describe("INT-04 MCP server: transport and auth", () => {
 describe("INT-04 MCP tools", () => {
   it("INT-04 a read key lists only the read tools; a write key also gets create_invite", async () => {
     const names = async (key: string) => ((await rpc("tools/list", undefined, key)).result.tools as { name: string }[]).map((t) => t.name);
-    expect(await names(read)).toEqual(["list_testimonials", "search_testimonials", "get_testimonial", "get_embed_codes", "summarize"]);
+    expect(await names(read)).toEqual([
+      "list_testimonials",
+      "search_testimonials",
+      "get_testimonial",
+      "get_embed_codes",
+      "summarize",
+      "list_case_studies",
+      "get_case_study",
+      "nps_summary",
+      "list_survey_responses",
+      "list_insight_reports",
+      "get_insight_report",
+      "get_social_draft",
+    ]);
     expect(await names(write)).toContain("create_invite");
     const tools = (await rpc("tools/list")).result.tools as { name: string; inputSchema: { type: string; properties: object } }[];
     expect(tools.find((t) => t.name === "search_testimonials")!.inputSchema).toMatchObject({ type: "object", properties: { query: { type: "string" } } });

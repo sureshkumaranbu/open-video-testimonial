@@ -106,6 +106,9 @@ export const brandSchema = z.object({
     .object({ heading: z.string().trim().min(1).max(40), body: z.string().trim().min(1).max(40) })
     .partial()
     .default({}),
+  /** The business or product as it calls itself, and a line about it: the brand scan (ONB-02) fills them in when empty; editable after. */
+  name: z.string().trim().max(80).optional(),
+  description: z.string().trim().max(300).optional(),
 });
 export type Brand = z.infer<typeof brandSchema>;
 

@@ -56,7 +56,7 @@ export function Consent({ req, clientName, redirectHost, wantsWrite, canWrite, e
           {wantsWrite && (
             <label className="row" style={{ gap: "var(--space-2)", opacity: canWrite ? 1 : 0.6 }}>
               <input type="radio" name="scope" checked={scope === "write"} disabled={!canWrite} onChange={() => setScope("write")} />
-              Read and send invitations through your campaigns{!canWrite && " (your role can only view)"}
+              Read and make changes: send invitations through your campaigns, and edit case studies and social post drafts{!canWrite && " (your role can only view)"}
             </label>
           )}
         </fieldset>

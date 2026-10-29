@@ -37,6 +37,19 @@ export const RELEASED = {
   // Phase 1 (D19): all of its schema, final once M1 merged into plaudit/v1-parity. Later needs are 0011+.
   "0009_phase1_foundations": { when: 1792930322975, sha256: "a45fb051b55fa77bef2aca6284d29c52ff1aca6d8a1808a96554440bfe3565c6" },
   "0010_inbox_search": { when: 1792930389390, sha256: "e3d45c384d629fd32cfc41e7a08881449ae05205dd28b272834fef003638502a" },
+  // Phase 2 (M8–M14) and Phase 3 (M15–M18 and the leftovers), pinned once they merged.
+  "0011_fk_indexes": { when: 1793110660801, sha256: "0e5da084623738b31184fe3ece66a4c1e59b4f1bd358cb16f5ad185b2f8dbe4e" },
+  "0012_campaigns": { when: 1793116924154, sha256: "4095c5aa3c2211615dad4db870521cd856ac1e6339c5764aa8c805032ac8b8c2" },
+  "0013_booster_rewards": { when: 1793125221579, sha256: "d64bfe461445fa6171dfa2ce6b9fe00e17f5b2649ec7d4185fc39fb95c0840a6" },
+  "0014_analytics": { when: 1793129024782, sha256: "54850f4f9647642305b38ee98bee0c590a3244b048db583cb966aef48ce10490" },
+  "0015_video_share": { when: 1793133044765, sha256: "aa617e1faf333d99afffa34d848940718d48adc8d50c4697e29691ae2abaa797" },
+  "0016_import_inbox": { when: 1793137303263, sha256: "712bd980a6dfeb8cea534dac6477f6ffa3baf3d8bb526e387d1a567b37a78261" },
+  "0017_team_api": { when: 1793144791200, sha256: "b835abef863812140f14bccb4aab5d50881e4223f90c3a5c37bcfe42fd28c504" },
+  "0018_direct_uploads": { when: 1793182660475, sha256: "7e0f99bb4e4dc0033047fc375fbdfc2b541225294b2c38c86efb334631b21c7b" },
+  "0019_video_part2": { when: 1793227548449, sha256: "23c0b4497999faa997516e05181d1f11a8b25b767dcb7a11120fb3389b99fa62" },
+  "0020_insights": { when: 1793230732102, sha256: "88320ae37446087f051e37e38deea33b307164ec64a1e0d5ee1930e8a3197afb" },
+  "0021_commerce": { when: 1793235398058, sha256: "0757d02008994bacefae0c8aadda24b81715630d8430f99fbd2aa65170458f11" },
+  "0022_server_keys": { when: 1793240852699, sha256: "43283003dd68185d00fe5d1f4cef0a37e5504a43ee9e567c6bbba1850edc489c" },
 };
 
 /** SQL that rebuilds or removes tables and columns, or switches FK checks (which does nothing inside BEGIN). */

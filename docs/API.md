@@ -51,7 +51,7 @@ All paths are relative to `https://<your-plaudit>/api/v1`.
 | `DELETE /testimonials/{id}` | write | Deletes a testimonial and its media for good. It doesn't go to the trash |
 | `POST /invites` | write | Adds a person to an active campaign and queues its invitation, optionally some days later ([below](#campaign-invites)) |
 
-With the `api2` flag on (the default), there are also paths for forms, widgets, walls, campaigns and their recipients, tags, customers, private feedback and analytics: see [below](#forms-widgets-walls-campaigns-and-more).
+With the `api2` flag on (the default), there are also paths for forms, widgets, walls, campaigns and their recipients, tags, customers, private feedback and analytics: see [below](#forms-widgets-walls-campaigns-and-more), and for [case studies, NPS, saved reports and social drafts](#case-studies-nps-saved-reports-and-social-drafts).
 
 Errors look like `{ "error": "…" }`, with status `400` (invalid input), `401` (missing or invalid key), `403` (read-only key), `404`, `409` (for example, re-publishing a testimonial whose author withdrew consent, or approving one whose author asked to keep it private), `413` (a body over the limit) or `429`.
 
@@ -236,7 +236,22 @@ Lists of testimonials, recipients, customers and feedback take `limit` (1 to 100
 
 **Keys and projects.** Each of these paths checks the key against the project an id belongs to: a key made for one project ([above](#keys)) gets `404` for everything else.
 
-Changes made with a key (testimonials, campaigns started, paused or deleted, tags, webhook subscriptions) are in the dashboard's [audit log](AUTH.md#the-audit-log), under the key's name.
+Changes made with a key (testimonials, campaigns started, paused or deleted, tags, webhook subscriptions, case studies, social drafts) are in the dashboard's [audit log](AUTH.md#the-audit-log), under the key's name.
+
+## Case studies, NPS, saved reports and social drafts
+
+_Also behind `api2`; case studies, NPS and saved reports need the `insights` flag too, social drafts `commerce` (both on by default). With either off, its paths answer `404` and `openapi.json` leaves them out._ The same rules as [above](#forms-widgets-walls-campaigns-and-more): the dashboard's checks and messages, 16 KB bodies, and `404` for another project's ids.
+
+| Method and path | Scope | What it does |
+|---|---|---|
+| `GET /projects/{slug}/case-studies` | read | The project's case studies, last changed first: `{ id, testimonialId, status, title, content: { summary, challenge, solution, result, pullQuote, metrics: [{ value, label }] }, aiDraftedAt, person: { name, title, company }, publicUrl, canBePublic, createdAt, updatedAt }`. `publicUrl` is set only while it's published and its testimonial may be public |
+| `POST /projects/{slug}/case-studies` | write | A new draft from a testimonial, `{ testimonialId }`, filled from the template (no AI involved). `409` for a testimonial in the trash |
+| `GET`, `PATCH /case-studies/{id}` | read, write | One case study. `PATCH` takes `title`, `status` (`draft` or `published`) and `content` with any of its fields; fields left out keep their values. Up to 4 metrics |
+| `GET /projects/{slug}/nps` | read | The NPS dashboard's numbers: `{ responses, score, promoters, passives, detractors, distribution, trend, comments }` (the latest 100 comments, with a name, never an email). `?from=`, `?to=` (YYYY-MM-DD) and `?formId=` narrow it. Read only |
+| `GET /projects/{slug}/survey-responses` | read | Every answer to an NPS question, newest first: `{ id, formId, testimonialId, questionKey, score, category, comment, author: { name, email }, createdAt }`, `category` being `promoter`, `passive` or `detractor`. Private, like feedback. `?formId=`; paged. Read only |
+| `GET /projects/{slug}/insight-reports` | read | Saved Insights reports, newest first, without their results: `{ id, kind, name, params, createdBy, createdAt }`, `kind` being `voc`, `ask` or `nps`. Read only |
+| `GET /insight-reports/{id}` | read | One saved report with its `result`, as it was when saved. Read only |
+| `GET`, `PATCH /testimonials/{id}/social-draft` | read, write | An approved testimonial's social post draft (made from the template the first time): `{ testimonialId, text, url, post, shareUrls, clip, edited, aiRewrittenAt, updatedAt }`. `PATCH` takes `{ text }`, at most 256 characters so it fits on X with the link, and sends `testimonial.social_draft_updated`. `409` while the testimonial isn't approved |
 
 ## Analytics
 
@@ -267,7 +282,7 @@ A subscription is an ordinary [webhook](#webhooks): the same events, payloads, `
 
 ## MCP server for AI assistants
 
-`/mcp` (flag `mcp`) is a [Model Context Protocol](https://modelcontextprotocol.io) server over Streamable HTTP, with an API key or an OAuth access token as the bearer token: JSON-RPC 2.0 `POST`s for `initialize`, `ping`, `tools/list` and `tools/call`, answered with JSON. Its tools are `list_testimonials`, `search_testimonials`, `get_testimonial`, `get_embed_codes`, `summarize` and, for read-and-write keys only, `create_invite`. Testimonials go to the assistant without the author's email, phone, consent details or private fields. Setup for Claude Desktop and other clients: [help/mcp.md](help/mcp.md).
+`/mcp` (flag `mcp`) is a [Model Context Protocol](https://modelcontextprotocol.io) server over Streamable HTTP, with an API key or an OAuth access token as the bearer token: JSON-RPC 2.0 `POST`s for `initialize`, `ping`, `tools/list` and `tools/call`, answered with JSON. Its tools are `list_testimonials`, `search_testimonials`, `get_testimonial`, `get_embed_codes`, `summarize`, with `insights` on `list_case_studies`, `get_case_study`, `nps_summary`, `list_survey_responses`, `list_insight_reports` and `get_insight_report`, with `commerce` on `get_social_draft`, and, for read-and-write keys only, `create_invite`, `create_case_study`, `update_case_study` and `update_social_draft`. They make the same checks as the REST paths above, and changes are in the audit log. Testimonials go to the assistant without the author's email, phone, consent details or private fields. Setup for Claude Desktop and other clients: [help/mcp.md](help/mcp.md).
 
 **OAuth 2.1.** Connectors that sign in by themselves (Claude.ai, ChatGPT) use OAuth instead of a key. A request without a token answers `401` with `WWW-Authenticate: Bearer realm="plaudit", resource_metadata="…/.well-known/oauth-protected-resource/mcp"`, and from there:
 
@@ -276,7 +291,7 @@ A subscription is an ordinary [webhook](#webhooks): the same events, payloads, `
 | `GET /.well-known/oauth-protected-resource` (and `…/mcp`) | RFC 9728 | The resource (`<server>/mcp`), its authorization server and scopes `plaudit:read`, `plaudit:write` |
 | `GET /.well-known/oauth-authorization-server` | RFC 8414 | The endpoints below; `S256` only, public clients only |
 | `POST /api/oauth/register` | RFC 7591 | Registers a public client: `{ redirect_uris, client_name? }`. Redirect URIs must be `https://`, or `http://` to `localhost`, `127.0.0.1` or `[::1]`, without a fragment. 20 an hour per address |
-| `GET /oauth/authorize` | OAuth 2.1 | `response_type=code`, `client_id`, `redirect_uri` (exactly as registered), `code_challenge` with `code_challenge_method=S256`, `state`, `scope`, `resource`. An unknown client or redirect URI gets an error page here, never a redirect. A member signs in and approves on a consent page: read, or read and send invitations (editors and up), and every project or some |
+| `GET /oauth/authorize` | OAuth 2.1 | `response_type=code`, `client_id`, `redirect_uri` (exactly as registered), `code_challenge` with `code_challenge_method=S256`, `state`, `scope`, `resource`. An unknown client or redirect URI gets an error page here, never a redirect. A member signs in and approves on a consent page: read, or read and make changes (send invitations, edit case studies and social drafts; editors and up), and every project or some |
 | `POST /api/oauth/token` | OAuth 2.1 | `grant_type=authorization_code` (`code`, `client_id`, `redirect_uri`, `code_verifier`) or `refresh_token` (`refresh_token`, `client_id`), form-encoded. Access tokens (`plo_…`) last an hour; refresh tokens (`plr_…`) 30 days and change on every use. Using a refresh token twice revokes the connection |
 | `POST /api/oauth/revoke` | RFC 7009 | `token=…`: a refresh token ends the connection, an access token just itself |
 
@@ -322,6 +337,8 @@ Under **Settings → Webhooks**, add the URL of your endpoint. You can limit it 
 | `testimonial.updated` | *Opt-in.* Someone changed its content in the dashboard or through the API: the text, an answer, the author's details, the rating, the transcript or captions, or another field the [API can edit](#editing-a-testimonial). Status and tag changes don't send it |
 | `form.submitted` | *Opt-in.* Someone sent a form (any form, including the classic page). `data` is `{ form: { id, slug, name }, testimonialId, hiddenFields }`; the testimonial itself comes with `testimonial.created` |
 | `feedback.created` | *Opt-in.* Someone answered a form's private question, or a low rating sent them to private feedback (FORM-12). `data.feedback` is `{ id, formId, testimonialId, rating, text, createdAt }`, plus `source: "low-rating"` and `testimonialId: null` for the low-rating branch. Private feedback is never published |
+| `survey.response` | *Opt-in.* Someone answered a survey's NPS question without going on to write a testimonial (NPS-01). One per NPS question answered. `data` is `{ response: { id, formId, questionKey, score, category, comment, createdAt }, form: { id, slug, name } }`, `category` being `promoter`, `passive` or `detractor`; never a name or email. A promoter who writes a testimonial sends `testimonial.created` instead. The survey's private questions still send `feedback.created` |
+| `testimonial.social_draft_updated` | *Opt-in.* Someone saved an approved testimonial's social post draft, or put it back to the template, in the drawer or through the API or MCP (flag `commerce`). `data` is `{ testimonial, socialDraft }`, `socialDraft` being the draft as it is now, in [`testimonial.approved`'s shape](#webhooks) plus `edited`, `aiRewrittenAt` and `updatedAt` |
 | `import.completed` | *Opt-in.* An import from a review site or another tool finished (once per run). `data.import` is `{ id, source, platform, imported, duplicates, skipped, failed, startedAt, finishedAt }`, plus `syncId` for a run of a synced source (IMP-02), which sends it only when the run added testimonials. See [IMPORT.md](IMPORT.md) |
 | `invite.sent` | *Opt-in.* A campaign or Requests-tab invitation or reminder was handed to the mail server. `data` is `{ invite, kind }`, `kind` being `invite` or `reminder`; `invite` is the shape [above](#campaign-invites) |
 | `invite.opened` | *Opt-in.* The first open of a campaign email, for campaigns that track opens |
@@ -335,7 +352,7 @@ Every way a testimonial leaves your site (rejected, hidden, trashed, deleted or 
 
 Imports (CSV, archive or a review site) don't send per-testimonial webhooks; a review-site import sends one `import.completed` to hooks that select it.
 
-A webhook can belong to **one form** (set in the form builder's Settings, or `formId` when you create it through the dashboard's API): it then receives only that form's testimonial events and its `form.submitted` and `feedback.created`.
+A webhook can belong to **one form** (set in the form builder's Settings, or `formId` when you create it through the dashboard's API): it then receives only that form's testimonial events and its `form.submitted`, `feedback.created` and `survey.response`.
 
 When auto-approve approves a new testimonial, you get `testimonial.created` (with `status: "pending"`) and then `testimonial.approved` (with `"approvedBy": "auto"`). For a text testimonial the two are queued together; for a video, `approved` comes once the video has been processed. Deliveries are first attempted in the order they were queued, but a retry can arrive after a later event, so use `createdAt` or the testimonial's `updatedAt` if order matters to you.
 
@@ -363,7 +380,7 @@ Each delivery is a `POST` with a JSON body:
 }
 ```
 
-`text` fits one post on X together with `url` (X counts a link as 23 characters). `clip` is the testimonial's newest social clip (M16), `{ renderId, url, width, height }`, when it has one; its `url` is a media address readable with an API key. The field is new, so code that ignores unknown fields is unaffected. The project includes its settings, as in the REST API:
+`text` fits one post on X together with `url` (X counts a link as 23 characters). `clip` is the testimonial's newest social clip (M16), `{ renderId, url, width, height }`, when it has one; its `url` is a media address readable with an API key. The field is new, so code that ignores unknown fields is unaffected. It's the draft at approval; later edits send `testimonial.social_draft_updated` to hooks that tick it. The project includes its settings, as in the REST API:
 
 ```json
 "autoApprove": { "enabled": true, "minRating": 4, "includeVideo": false }

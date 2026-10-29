@@ -1,4 +1,4 @@
-import { ANALYTICS_OBJECTS, DATE_PRECISIONS, FORM_STATUSES, WEBHOOK_EVENTS } from "@/db/schema";
+import { ANALYTICS_OBJECTS, CASE_STUDY_STATUSES, DATE_PRECISIONS, FORM_STATUSES, INSIGHT_REPORT_KINDS, WEBHOOK_EVENTS } from "@/db/schema";
 import { CONSENT_SCOPES } from "./consent";
 import { featureOn } from "./features";
 import { TEMPLATE_IDS } from "./forms/templates";
@@ -9,10 +9,14 @@ import { LAYOUTS, PLACEMENTS } from "./widget-config";
 /**
  * OpenAPI 3.1 description of the REST API, served at /api/v1/openapi.json.
  * The M14 paths (forms, widgets, walls, campaigns, tags, customers, feedback,
- * analytics) are listed only while the `api2` flag is on, as they answer.
+ * analytics) are listed only while the `api2` flag is on, as they answer;
+ * M17's case studies, NPS and saved reports also need `insights`, and M18's
+ * social drafts `commerce` (L23, L25).
  */
 export function openApiSpec(serverUrl: string) {
   const api2 = featureOn("api2");
+  const insights = api2 && featureOn("insights");
+  const commerce = api2 && featureOn("commerce");
   const ref = (name: string) => ({ $ref: `#/components/schemas/${name}` });
   const error = { description: "Error", content: { "application/json": { schema: ref("Error") } } };
   const idParam = { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } };
@@ -158,6 +162,8 @@ export function openApiSpec(serverUrl: string) {
         },
       },
       ...(api2 ? api2Paths() : {}),
+      ...(insights ? insightsPaths() : {}),
+      ...(commerce ? commercePaths() : {}),
     },
     webhooks: Object.fromEntries(
       [...WEBHOOK_EVENTS, "ping"].map((event) => [
@@ -410,6 +416,8 @@ export function openApiSpec(serverUrl: string) {
           },
         },
         ...(api2 ? api2Schemas() : {}),
+        ...(insights ? insightsSchemas() : {}),
+        ...(commerce ? commerceSchemas() : {}),
         WebhookPayload: {
           type: "object",
           properties: {
@@ -424,6 +432,21 @@ export function openApiSpec(serverUrl: string) {
                 invite: { ...ref("Invite"), description: "On invite.* events" },
                 kind: { type: "string", enum: ["invite", "reminder"], description: "Only on invite.sent" },
                 approvedBy: { type: "string", enum: ["owner", "api", "auto"], description: "Only on testimonial.approved" },
+                socialDraft: { type: "object", description: "On testimonial.approved (with the commerce flag) and testimonial.social_draft_updated: text, url, post, shareUrls, clip" },
+                response: {
+                  type: "object",
+                  description: "Only on survey.response: one NPS answer (never an email)",
+                  properties: {
+                    id: { type: "string" },
+                    formId: { type: "string" },
+                    questionKey: { type: "string" },
+                    score: { type: "integer", minimum: 0, maximum: 10 },
+                    category: { type: "string", enum: ["promoter", "passive", "detractor"] },
+                    comment: { type: ["string", "null"] },
+                    createdAt: { type: "string", format: "date-time" },
+                  },
+                },
+                form: { type: "object", description: "On form.submitted and survey.response: id, slug, name" },
                 message: { type: "string" },
               },
             },
@@ -882,5 +905,188 @@ function api2Schemas() {
     },
     ProjectAnalytics: obj("range, previousRange, days, tiles (testimonials, backlog, rating, views, booster clicks, invites; each with the previous period), series (views by day) and tables of widgets, forms and walls"),
     ObjectAnalytics: obj("type, id, range, previousRange, days, current and previous totals, daily series, topPages (widgets), funnel (forms), sites (snippets) and install (widgets)"),
+  };
+}
+
+// ------------------------------------------------------------------ M17 and M18 (L23, L25)
+
+function insightsPaths() {
+  return {
+    "/projects/{slug}/case-studies": {
+      parameters: [slugParam],
+      get: { summary: "List a project's case studies, last changed first (flag insights)", operationId: "listCaseStudies", responses: { "200": many("CaseStudy"), ...reads } },
+      post: {
+        summary: "Start a draft case study from a testimonial, filled from the template (write scope)",
+        description: "No AI is involved. 409 for a testimonial in the trash.",
+        operationId: "createCaseStudy",
+        requestBody: body("NewCaseStudy"),
+        responses: { "201": one("CaseStudy", "Created"), ...writes },
+      },
+    },
+    "/case-studies/{id}": {
+      parameters: [idParam],
+      get: { summary: "Get a case study", operationId: "getCaseStudy", responses: { "200": one("CaseStudy"), ...reads } },
+      patch: {
+        summary: "Change a case study's title, content fields or status (write scope)",
+        description: "Content fields left out keep their values. Published makes /cs/{id} and its PDF public while the testimonial is approved with public consent.",
+        operationId: "updateCaseStudy",
+        requestBody: body("CaseStudyPatch"),
+        responses: { "200": one("CaseStudy"), ...writes },
+      },
+    },
+    "/projects/{slug}/nps": {
+      parameters: [slugParam],
+      get: {
+        summary: "A project's NPS: the score, the three groups, the spread, a trend and the latest comments (read only)",
+        operationId: "npsSummary",
+        parameters: [
+          { name: "from", in: "query", description: "First day (UTC), YYYY-MM-DD", schema: { type: "string", format: "date" } },
+          { name: "to", in: "query", description: "Last day (UTC), YYYY-MM-DD", schema: { type: "string", format: "date" } },
+          { name: "formId", in: "query", description: "Only this form's answers", schema: { type: "string" } },
+        ],
+        responses: { "200": one("NpsSummary"), "400": error, ...reads },
+      },
+    },
+    "/projects/{slug}/survey-responses": {
+      parameters: [slugParam],
+      get: {
+        summary: "List a project's NPS answers, newest first (read only)",
+        operationId: "listSurveyResponses",
+        parameters: [{ name: "formId", in: "query", description: "Only this form's answers", schema: { type: "string" } }, ...pageQuery],
+        responses: { "200": many("SurveyResponse", true), "400": error, ...reads },
+      },
+    },
+    "/projects/{slug}/insight-reports": {
+      parameters: [slugParam],
+      get: { summary: "List a project's saved Insights reports, newest first, without their results (read only)", operationId: "listInsightReports", responses: { "200": many("InsightReport"), ...reads } },
+    },
+    "/insight-reports/{id}": {
+      parameters: [idParam],
+      get: { summary: "Get a saved report with its result, as it was when saved (read only)", operationId: "getInsightReport", responses: { "200": one("InsightReport"), ...reads } },
+    },
+  };
+}
+
+function commercePaths() {
+  return {
+    "/testimonials/{id}/social-draft": {
+      parameters: [idParam],
+      get: {
+        summary: "An approved testimonial's social post draft, made from the template if it has none yet (flag commerce)",
+        description: "409 while the testimonial isn't approved.",
+        operationId: "getSocialDraft",
+        responses: { "200": one("SocialDraft"), ...reads, "409": error },
+      },
+      patch: {
+        summary: "Save new text for the draft (write scope); sends testimonial.social_draft_updated",
+        operationId: "updateSocialDraft",
+        requestBody: body("SocialDraftPatch"),
+        responses: { "200": one("SocialDraft"), ...writes },
+      },
+    },
+  };
+}
+
+function insightsSchemas() {
+  const str = { type: "string" };
+  const time = { type: "string", format: "date-time" };
+  const nullable = (type: string) => ({ type: [type, "null"] });
+  const content = {
+    type: "object",
+    properties: {
+      summary: { type: "string", maxLength: 500 },
+      challenge: { type: "string", maxLength: 3000 },
+      solution: { type: "string", maxLength: 3000 },
+      result: { type: "string", maxLength: 3000 },
+      pullQuote: { type: "string", maxLength: 600, description: "The customer's own words" },
+      metrics: { type: "array", maxItems: 4, items: { type: "object", required: ["value", "label"], properties: { value: { type: "string", maxLength: 24 }, label: { type: "string", maxLength: 80 } } } },
+    },
+  };
+  return {
+    CaseStudy: {
+      type: "object",
+      properties: {
+        id: str,
+        projectId: str,
+        testimonialId: str,
+        status: { type: "string", enum: [...CASE_STUDY_STATUSES] },
+        title: str,
+        content,
+        aiDraftedAt: nullable("string"),
+        person: { type: ["object", "null"], properties: { name: str, title: nullable("string"), company: nullable("string") } },
+        publicUrl: { type: ["string", "null"], format: "uri", description: "Live only while published and the testimonial may be public" },
+        canBePublic: { type: "boolean" },
+        createdAt: time,
+        updatedAt: time,
+      },
+    },
+    NewCaseStudy: { type: "object", required: ["testimonialId"], properties: { testimonialId: str } },
+    CaseStudyPatch: {
+      type: "object",
+      additionalProperties: false,
+      properties: { title: { type: "string", minLength: 1, maxLength: 160 }, status: { type: "string", enum: [...CASE_STUDY_STATUSES] }, content },
+    },
+    NpsSummary: {
+      type: "object",
+      description: "Promoters score 9–10, passives 7–8, detractors 0–6; the score is promoters' share minus detractors', −100 to 100",
+      properties: {
+        responses: { type: "integer" },
+        score: nullable("integer"),
+        promoters: { type: "integer" },
+        passives: { type: "integer" },
+        detractors: { type: "integer" },
+        distribution: { type: "array", items: { type: "object", properties: { value: { type: "integer" }, count: { type: "integer" } } } },
+        trend: { type: "object", properties: { by: { type: "string", enum: ["day", "week"] }, points: { type: "array", items: { type: "object" } } } },
+        comments: { type: "array", description: "The latest 100, with a name but never an email", items: { type: "object" } },
+      },
+    },
+    SurveyResponse: {
+      type: "object",
+      description: "One answer to an NPS question. Private: never published",
+      properties: {
+        id: str,
+        projectId: str,
+        formId: nullable("string"),
+        testimonialId: { type: ["string", "null"], description: "Set when a promoter went on to write one" },
+        questionKey: str,
+        score: { type: "integer", minimum: 0, maximum: 10 },
+        category: { type: "string", enum: ["promoter", "passive", "detractor"] },
+        comment: nullable("string"),
+        author: { type: "object", properties: { name: nullable("string"), email: nullable("string") } },
+        createdAt: time,
+      },
+    },
+    InsightReport: {
+      type: "object",
+      properties: {
+        id: str,
+        kind: { type: "string", enum: [...INSIGHT_REPORT_KINDS] },
+        name: str,
+        params: { type: "object", description: "What was asked: dates, tags, source, question" },
+        result: { type: "object", description: "Only on GET /insight-reports/{id}: the report as it was shown" },
+        createdBy: nullable("string"),
+        createdAt: time,
+      },
+    },
+  };
+}
+
+function commerceSchemas() {
+  return {
+    SocialDraft: {
+      type: "object",
+      properties: {
+        testimonialId: { type: "string" },
+        text: { type: "string" },
+        url: { type: "string", format: "uri", description: "The testimonial's own page, added when it's shared" },
+        post: { type: "string", description: "The text and the link, as one post" },
+        shareUrls: { type: "object", properties: { x: { type: "string", format: "uri" }, linkedin: { type: "string", format: "uri" } } },
+        clip: { type: ["object", "null"], description: "The newest ready social clip, if any" },
+        edited: { type: "boolean" },
+        aiRewrittenAt: { type: ["string", "null"] },
+        updatedAt: { type: "string", format: "date-time" },
+      },
+    },
+    SocialDraftPatch: { type: "object", required: ["text"], additionalProperties: false, properties: { text: { type: "string", minLength: 1, maxLength: 256 } } },
   };
 }

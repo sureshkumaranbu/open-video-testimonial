@@ -10,7 +10,7 @@ From each purchase Plaudit keeps only what the popup can show:
 - a **city**, or the **country** when Stripe has no city (never the street, postcode or region),
 - the **product**, the **amount** and the **time**.
 
-It never keeps the buyer's email, the rest of their name, the address or any card or payment detail. To match testimonials, it keeps a keyed hash of the email (an HMAC made with your server's `SESSION_SECRET`), which can't be turned back into the address. Purchases are deleted after **90 days** by default; you choose between 1 and 365 days on the Commerce tab, and **Delete all purchases** removes them at once. "Verified purchase" marks on testimonials stay.
+It never keeps the buyer's email, the rest of their name, the address or any card or payment detail. To match testimonials, it keeps a keyed hash of the email (an HMAC made with a random key your server creates for itself and keeps in its database), which can't be turned back into the address. Changing `SESSION_SECRET` doesn't affect it. Purchases recorded before that key existed were hashed with `SESSION_SECRET` and still match until they expire, as long as it hasn't changed. Purchases are deleted after **90 days** by default; you choose between 1 and 365 days on the Commerce tab, and **Delete all purchases** removes them at once. "Verified purchase" marks on testimonials stay.
 
 ## Connect Stripe
 
@@ -54,6 +54,10 @@ Admins connect and disconnect Stripe, set its secrets and delete purchases, as w
 ## Turning it off
 
 Switch **Record purchases** off to stop keeping anything (Stripe's events are still answered, so it doesn't retry them). **Disconnect** deletes the connection and every recorded purchase; its webhook URL stops working, so remove the endpoint in Stripe too. With `commerce` left out of `PLAUDIT_FEATURES`, the Commerce tab is hidden, the webhook answers 404 and popups show nothing.
+
+## Moving the project
+
+A project export carries the connection's settings and the recorded purchases (never an email), but not the signing secret or the restricted key. After importing, the Commerce tab says so: paste both again, and point Stripe's webhook at the new address shown there. On the same server, purchases still match testimonials. On another server they can't (its key is different), so they're kept for the popup only; "Verified purchase" marks already on testimonials come across.
 
 ## If something's wrong
 

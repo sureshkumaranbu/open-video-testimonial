@@ -107,3 +107,7 @@ Only PNG, JPEG and WebP up to 4 MB are read, checked by their first bytes. Nothi
 ## Who can do what
 
 With roles on (`team2`): viewers read case studies, Insights, NPS and saved reports, ask questions (without the AI answer) and download PDFs. Editors make, change, publish and delete case studies, use every AI button, read screenshots, save and delete reports and download them as CSV. Only admins switch AI in a project on or off. Each change is in the audit log.
+
+## From other tools
+
+Case studies (list, read, start from a testimonial, change), the NPS numbers, every NPS answer and saved reports are in the REST API and the MCP server, read only except case studies ([API.md](../API.md#case-studies-nps-saved-reports-and-social-drafts), [mcp.md](mcp.md)). A survey answered without the testimonial step sends the opt-in webhook `survey.response` with the score, its group, the comment and the form, never an email. A project export carries case studies, saved reports and NPS answers.

@@ -249,7 +249,7 @@ export function discoverFromHtml(html: string, base?: string): ImportedReview[] 
 
 // -------------------------------------------------------------- the brand
 
-export type SiteBrand = { name?: string; color?: string; logoUrl?: string };
+export type SiteBrand = { name?: string; description?: string; color?: string; logoUrl?: string };
 
 const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
@@ -267,7 +267,7 @@ export function usableBrandColor(hex: string): boolean {
   return lightness > 0.12 && lightness < 0.85 && saturation > 0.2;
 }
 
-/** Site name, theme colour and a logo image (never SVG) from the page head and header. */
+/** Site name and description, theme colour and a logo image (never SVG) from the page head and header. */
 export function brandFromHtml(html: string, base: string): SiteBrand {
   const doc = parseDom(html);
   const meta = (pred: (e: Element) => boolean) => {
@@ -277,6 +277,7 @@ export function brandFromHtml(html: string, base: string): SiteBrand {
   const prop = (p: string) => meta((e) => (attr(e, "property") ?? attr(e, "name") ?? "").toLowerCase() === p);
   const titleEl = findOne(doc, (e) => e.name === "title");
   const name = cleanLine(prop("og:site_name") ?? prop("application-name") ?? (titleEl ? textOf(titleEl).split(/\s[|–—-]\s/)[0] : undefined), 80);
+  const description = cleanLine(prop("description") ?? prop("og:description"), 300);
   // A page can carry one theme-color per colour scheme: take the first that looks like a brand colour.
   const color = findAll(doc, (e) => e.name === "meta" && (attr(e, "name") ?? "").toLowerCase() === "theme-color")
     .map((e) => attr(e, "content")?.trim() ?? "")
@@ -288,6 +289,7 @@ export function brandFromHtml(html: string, base: string): SiteBrand {
   const logo = notSvg(touch ? attr(touch, "href") : undefined) ?? notSvg(headerLogo ? attr(headerLogo, "src") : undefined) ?? notSvg(prop("og:image"));
   return {
     name,
+    description,
     color: color && HEX.test(color) ? color.toLowerCase() : undefined,
     logoUrl: logo ? httpUrl(logo, base) : undefined,
   };

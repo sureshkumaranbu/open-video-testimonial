@@ -10,6 +10,7 @@ import "@/app/admin/project-settings.css";
 type ColorKey = keyof Brand["colors"];
 type Colors = Record<ColorKey, string>;
 type Fonts = { heading: string; body: string };
+type Words = { name: string; description: string };
 
 /**
  * Font stacks every device already has, so the kit needs no font files.
@@ -38,19 +39,21 @@ function colorsOf(brand: Brand): Colors {
   };
 }
 const fontsOf = (brand: Brand): Fonts => ({ heading: brand.fonts.heading ?? "", body: brand.fonts.body ?? "" });
+const wordsOf = (brand: Brand): Words => ({ name: brand.name ?? "", description: brand.description ?? "" });
 
-/** The brand as stored: empty colours and fonts are left out, so they keep following the defaults. */
-function toBrand(colors: Colors, fonts: Fonts): Brand {
+/** The brand as stored: empty colours, fonts and words are left out, so they keep following the defaults. */
+function toBrand(colors: Colors, fonts: Fonts, words: Words): Brand {
   const keep = <T extends Record<string, string>>(o: T) => Object.fromEntries(Object.entries(o).filter(([, v]) => v)) as Partial<T>;
-  return { colors: keep(colors), fonts: keep(fonts) };
+  return { colors: keep(colors), fonts: keep(fonts), ...keep({ name: words.name.trim(), description: words.description.trim() }) };
 }
 
 const familyOf = (id: string) => fontFamilyOf(FONTS.find((f) => f.id === id) ?? FONTS[0]);
 
 /**
  * The brand kit: a logo, colours and fonts that new forms, widgets and walls
- * start with. Changing it later doesn't restyle what's already made. The logo
- * uploads as soon as it's picked; colours and fonts save with the button.
+ * start with, and the brand's name and a line about it (the onboarding scan
+ * fills them in from the site). Changing it later doesn't restyle what's
+ * already made. The logo uploads as soon as it's picked; the rest saves with the button.
  */
 export function BrandKit({
   projectId,
@@ -69,16 +72,17 @@ export function BrandKit({
   onLogo: (logoKey: string | null, message: string) => void;
   onSaved: (message: string) => void;
 }) {
-  const [saved, setSaved] = useState(() => ({ colors: colorsOf(brand), fonts: fontsOf(brand) }));
+  const [saved, setSaved] = useState(() => ({ colors: colorsOf(brand), fonts: fontsOf(brand), words: wordsOf(brand) }));
   const [colors, setColors] = useState(saved.colors);
   const [fonts, setFonts] = useState(saved.fonts);
+  const [words, setWords] = useState(saved.words);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [logoBusy, setLogoBusy] = useState<"upload" | "remove" | null>(null);
   const [logoError, setLogoError] = useState<string | null>(null);
   const file = useRef<HTMLInputElement>(null);
 
-  const dirty = JSON.stringify({ colors, fonts }) !== JSON.stringify(saved);
+  const dirty = JSON.stringify({ colors, fonts, words }) !== JSON.stringify(saved);
   useEffect(() => onDirty(dirty), [dirty, onDirty]);
 
   // What each colour falls back to while it's empty, as the preview (and a new form, lib/forms/design.ts) shows it.
@@ -94,8 +98,8 @@ export function BrandKit({
     setSaving(true);
     setError(null);
     try {
-      await api(`/api/admin/projects/${projectId}`, { method: "PATCH", json: { brand: toBrand(colors, fonts) } });
-      setSaved({ colors, fonts });
+      await api(`/api/admin/projects/${projectId}`, { method: "PATCH", json: { brand: toBrand(colors, fonts, words) } });
+      setSaved({ colors, fonts, words });
       onSaved("Brand kit saved");
     } catch (err) {
       setError(errorMessage(err));
@@ -145,6 +149,19 @@ export function BrandKit({
       </div>
       <div className="panel-body stack-lg">
         <p className="muted small">New forms, widgets and walls start with these. Changing them later leaves what you&apos;ve already made as it is.</p>
+
+        <div className="stack">
+          <h3 className="ps-subtitle">Name and description</h3>
+          <label>
+            Brand name
+            <input type="text" value={words.name} maxLength={80} onChange={(e) => setWords((w) => ({ ...w, name: e.target.value }))} placeholder="As your customers know it" data-testid="brand-name" />
+          </label>
+          <label>
+            Short description
+            <textarea rows={2} value={words.description} maxLength={300} onChange={(e) => setWords((w) => ({ ...w, description: e.target.value }))} placeholder="One line about what you do" data-testid="brand-description" />
+          </label>
+          <p className="hint xsmall">Filled in from your website when you set up the project. Change them any time.</p>
+        </div>
 
         <div className="stack">
           <h3 className="ps-subtitle">Logo</h3>
@@ -269,6 +286,7 @@ export function BrandKit({
               onClick={() => {
                 setColors(saved.colors);
                 setFonts(saved.fonts);
+                setWords(saved.words);
               }}
               disabled={saving}
             >

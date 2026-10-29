@@ -19,6 +19,7 @@ import { npsScore, npsSummary } from "@/lib/insights/nps";
 import { vocReport, insightFiltersSchema } from "@/lib/insights/voc";
 import { resetRateLimits } from "@/lib/rate-limit";
 import { createProject, getTestimonial } from "@/lib/testimonials";
+import { createWebhook } from "@/lib/webhook-admin";
 import { ADMIN_EMAIL, adminHeaders, formSubmission, params, submitFormRequest, useTempDataDir } from "./helpers";
 
 let ctx: ReturnType<typeof useTempDataDir>;
@@ -103,6 +104,26 @@ describe("NPS-01 the NPS question in the forms engine", () => {
     const missing = await send(form.slug, { feedback: [{ key: "survey_1", text: "x" }] });
     expect(missing.status).toBe(400);
     expect((await missing.json()).error).toMatch(/Please pick a score/);
+  });
+
+  it("NPS-01 L23 a survey-only answer sends survey.response (score, category, comment and form, never an email) to hooks that ticked it", async () => {
+    createWebhook({ url: "https://hooks.example/nps", events: ["survey.response"], projectId: null, formId: null, active: true });
+    createWebhook({ url: "https://hooks.example/default", events: [], projectId: null, formId: null, active: true });
+    const form = survey();
+    getDb().update(schema.forms).set({ status: "live" }).where(eq(schema.forms.id, form.id)).run();
+    expect((await send(form.slug, { nps: [{ key: "nps", score: 4, why: "Too slow" }], person: PERSON, consent: CONSENT })).status).toBe(201);
+    const sent = getDb().select().from(schema.webhookDeliveries).all();
+    expect(sent.map((d) => d.event)).toEqual(["survey.response"]);
+    const body = JSON.parse(sent[0].payload);
+    const [row] = getDb().select().from(schema.surveyResponses).all();
+    expect(body.data).toEqual({
+      response: { id: row.id, formId: form.id, questionKey: "nps", score: 4, category: "detractor", comment: "Too slow", createdAt: row.createdAt.toISOString() },
+      form: { id: form.id, slug: form.slug, name: "Customer survey" },
+    });
+    expect(sent[0].payload).not.toContain("@");
+    // A promoter who goes on to write a testimonial gets testimonial.created instead, not survey.response.
+    await send(form.slug, { nps: [{ key: "nps", score: 10 }], optIn: true, answers: [{ key: "q1", text: "Acme saved us hours." }], person: PERSON, consent: CONSENT });
+    expect(getDb().select().from(schema.webhookDeliveries).all().filter((d) => d.event === "survey.response")).toHaveLength(1);
   });
 
   it("NPS-01 a promoter who opts in goes through the whole testimonial pipeline, and the answer is linked to the testimonial", async () => {

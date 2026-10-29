@@ -12,7 +12,7 @@ import { GET as widgetFeed } from "@/app/api/widget/[slug]/route";
 import { GET as widgetHtml } from "@/app/api/widget/[slug]/html/route";
 import { getDb, schema } from "@/db";
 import { stripeSignature } from "@/lib/campaign-triggers";
-import { deleteExpiredPurchases, emailHash, purchaseFromStripe } from "@/lib/commerce/purchases";
+import { deleteExpiredPurchases, emailHash, hasPurchase, legacyEmailHash, purchaseFromStripe, purchaseMatchKey } from "@/lib/commerce/purchases";
 import { fillSalesLine } from "@/lib/commerce/sales-feed";
 import { createForm, updateForm } from "@/lib/forms";
 import { formPagesSchema, parseFormRow } from "@/lib/forms/schema";
@@ -209,6 +209,40 @@ describe("INT-07 Verified purchase", () => {
     const c = await connect({ verifyPurchases: false });
     await sendHook(c.id, checkout());
     expect(getTestimonial(t.id)!.verifiedPurchaseAt).toBeNull();
+  });
+});
+
+describe("INT-07 L25 the purchase matching key", () => {
+  it("INT-07 L25 is this server's own random key, made on first use and kept in the database, so changing SESSION_SECRET doesn't stop purchases matching", async () => {
+    expect(getDb().select().from(schema.serverKeys).all()).toEqual([]);
+    const key = purchaseMatchKey();
+    expect(key).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(getDb().select().from(schema.serverKeys).all()).toMatchObject([{ name: "purchase-email", value: key }]);
+    expect(purchaseMatchKey()).toBe(key);
+    const t = createTestimonial(projectId, { name: "Priya", email: "priya@example.com", text: "Lovely" }, { source: "api" });
+    const c = await connect();
+    await sendHook(c.id, checkout());
+    expect(purchases()[0].emailHash).not.toBe(legacyEmailHash("priya@example.com"));
+
+    const secret = process.env.SESSION_SECRET;
+    process.env.SESSION_SECRET = "a-brand-new-session-secret-0123456789";
+    try {
+      expect(emailHash("priya@example.com")).toBe(purchases()[0].emailHash);
+      expect(hasPurchase(projectId, "Priya@Example.com")).toBe(true);
+      expect(await (await verifiedRoute(admin(`/api/admin/testimonials/${t.id}/verified-purchase`, { verified: true }), params({ id: t.id }))).json()).toMatchObject({ verifiedPurchaseAt: expect.any(String) });
+    } finally {
+      process.env.SESSION_SECRET = secret;
+    }
+  });
+
+  it("INT-07 L25 a purchase recorded before the key existed (hashed with SESSION_SECRET) still matches", async () => {
+    await connect();
+    getDb().insert(schema.purchases).values({ id: crypto.randomUUID(), projectId, externalId: "evt_old", eventType: "invoice.paid", emailHash: legacyEmailHash("sam@example.com"), purchasedAt: new Date() }).run();
+    expect(hasPurchase(projectId, " SAM@example.com")).toBe(true);
+    expect(hasPurchase(projectId, "someone@example.com")).toBe(false);
+    const t = approved({ name: "Sam", email: "sam@example.com", text: "Fine" });
+    emitTestimonialEvent("testimonial.created", getTestimonial(t.id));
+    expect(getTestimonial(t.id)!.verifiedPurchaseAt).toBeInstanceOf(Date);
   });
 });
 

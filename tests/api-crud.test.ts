@@ -106,6 +106,14 @@ describe("API-01 the api2 flag", () => {
       "/analytics/{type}/{id}",
       "/webhooks",
       "/webhooks/{id}",
+      // L23 (flag insights) and L25 (flag commerce).
+      "/projects/{slug}/case-studies",
+      "/case-studies/{id}",
+      "/projects/{slug}/nps",
+      "/projects/{slug}/survey-responses",
+      "/projects/{slug}/insight-reports",
+      "/insight-reports/{id}",
+      "/testimonials/{id}/social-draft",
     ]);
     // Every $ref points at a schema that exists.
     const refs = [...JSON.stringify(spec).matchAll(/"#\/components\/schemas\/(\w+)"/g)].map((m) => m[1]);

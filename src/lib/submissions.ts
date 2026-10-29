@@ -24,7 +24,7 @@ import {
 import { fillLabel, resolveLabels } from "./forms/labels";
 import { parseFormRow, type FormConfig } from "./forms/schema";
 import { insertImages, MAX_IMAGES_PER_QUESTION, type NewImage } from "./images";
-import { insertSurveyResponses } from "./insights/nps";
+import { insertSurveyResponses, npsGroup } from "./insights/nps";
 import { emitEvent, emitTestimonialEvent } from "./webhooks";
 // Registers the notifications listener in this bundle too (route handlers and the worker can load separate module copies).
 import "./notifications";
@@ -416,7 +416,8 @@ async function submitLowRating(a: {
  * survey_responses and its private questions to feedback (source "survey"),
  * with a name and email only from a request link: nothing is published,
  * there's no consent to record and nothing to withdraw. A request link
- * counts as answered and `feedback.created` fires for each private answer.
+ * counts as answered, `survey.response` fires for each NPS answer and
+ * `feedback.created` for each private answer.
  */
 function submitSurvey(a: {
   project: Project;
@@ -455,6 +456,18 @@ function submitSurvey(a: {
     ),
   }));
   if (fromRequest) markResponded(fromRequest, null);
+  // L23: each survey-only NPS answer has its own event; like feedback.created, never an email.
+  for (const r of responses) {
+    emitEvent(
+      "survey.response",
+      project,
+      {
+        response: { id: r.id, formId: form.id, questionKey: r.questionKey, score: r.score, category: npsGroup(r.score), comment: r.comment, createdAt: r.createdAt.toISOString() },
+        form: { id: form.id, slug: form.slug, name: form.name },
+      },
+      { formId: form.id },
+    );
+  }
   for (const note of notes) {
     emitEvent("feedback.created", project, { feedback: { id: note.id, formId: form.id, testimonialId: null, rating: note.rating, text: note.text, source: note.source, createdAt: note.createdAt.toISOString() } }, { formId: form.id });
   }

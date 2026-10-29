@@ -311,6 +311,7 @@ async function scanSite(projectId: string, url: string, by: string | null, end: 
   project = getProjectById(projectId);
   if (!project) return;
   applyBrandColor(project, merged.brand.color);
+  applyBrandWords(projectId, merged.brand.name, merged.brand.description);
   const latest = parseOnboarding(getProjectById(projectId)!.onboarding);
   saveOnboarding(projectId, {
     ...latest,
@@ -389,6 +390,19 @@ async function saveLogo(projectId: string, logoUrl: string, timeoutMs: number) {
  * none is set yet: a colour the owner chose always stays. The starter widgets
  * keep their updatedAt, so the checklist doesn't count this as customising one.
  */
+/** The site's name and description go on the brand kit where it has none yet, to be edited there (Settings › Brand kit). */
+function applyBrandWords(projectId: string, name: string | undefined, description: string | undefined) {
+  const project = getProjectById(projectId);
+  if (!project || (!name && !description)) return;
+  const kit = parseBrand(project.brand);
+  if ((kit.name || !name) && (kit.description || !description)) return;
+  try {
+    updateBrand(projectId, { ...kit, name: kit.name || name, description: kit.description || description });
+  } catch {
+    // Something the brand kit refuses: leave it empty.
+  }
+}
+
 function applyBrandColor(project: Project, color: string | undefined) {
   if (!color) return;
   const kit = parseBrand(project.brand);
