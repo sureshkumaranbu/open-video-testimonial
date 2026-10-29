@@ -515,6 +515,9 @@ export const WEBHOOK_EVENTS = [
   // M11 install detection (DISP-13): opt-in too.
   "widget.installed",
   "widget.removed",
+  // M20 (L23, L25): opt-in too.
+  "survey.response",
+  "testimonial.social_draft_updated",
 ] as const;
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number] | "ping";
 
@@ -1826,7 +1829,7 @@ export const purchases = sqliteTable(
     /** In the currency's smallest unit (pence, cents), as Stripe sends it. */
     amount: integer("amount"),
     currency: text("currency"),
-    /** HMAC-SHA256 of the normalised email with a key derived from SESSION_SECRET; never the email. */
+    /** HMAC-SHA256 of the normalised email, keyed with server_keys `purchase-email` (before 0022: SESSION_SECRET); never the email. */
     emailHash: text("email_hash"),
     purchasedAt: integer("purchased_at", { mode: "timestamp_ms" }).notNull(),
     createdAt: createdAt(),
@@ -1863,6 +1866,18 @@ export const socialDrafts = sqliteTable(
   },
   (t) => [index("social_drafts_project_idx").on(t.projectId)],
 );
+
+/**
+ * 0022 (M20, L25): keys this server made for itself, by name, created on
+ * first use. `purchase-email` keys the hash purchases are matched with, so
+ * changing SESSION_SECRET no longer stops them matching. Never exported.
+ */
+export const serverKeys = sqliteTable("server_keys", {
+  name: text("name").primaryKey(),
+  /** base64url random bytes. */
+  value: text("value").notNull(),
+  createdAt: createdAt(),
+});
 
 export type Member = typeof members.$inferSelect;
 export type Project = typeof projects.$inferSelect;
@@ -1914,3 +1929,4 @@ export type SurveyResponse = typeof surveyResponses.$inferSelect;
 export type StripeConnection = typeof stripeConnections.$inferSelect;
 export type Purchase = typeof purchases.$inferSelect;
 export type SocialDraft = typeof socialDrafts.$inferSelect;
+export type ServerKey = typeof serverKeys.$inferSelect;

@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { and, count, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import type { Purchase, StripeConnection, Testimonial } from "@/db/schema";
 import { env } from "../env";
@@ -7,7 +7,7 @@ import { featureOn } from "../features";
 import { registerPeriodic } from "../jobs";
 import { getConnection } from "./stripe-connection";
 
-const { purchases, stripeConnections, testimonials } = schema;
+const { purchases, serverKeys, stripeConnections, testimonials } = schema;
 
 /**
  * INT-07 (M18): purchases from a project's Stripe connection. What's kept is
@@ -21,13 +21,46 @@ const { purchases, stripeConnections, testimonials } = schema;
 /** The email as matched: trimmed and lower case. */
 const normalEmail = (email: string) => email.trim().toLowerCase();
 
+/** The server_keys row purchase emails are hashed with. */
+const MATCH_KEY = "purchase-email";
+let matchKey: { db: unknown; value: string } | null = null;
+
 /**
- * A keyed hash of an email (HMAC-SHA256 with a key derived from
- * SESSION_SECRET), so a purchase can be matched to a testimonial without the
- * address being stored. Changing SESSION_SECRET stops older purchases matching.
+ * This server's own random key for purchase hashes (L25), made the first
+ * time it's needed and kept in the database, so it survives a change of
+ * SESSION_SECRET. Concurrent first uses agree: the first insert wins.
+ */
+export function purchaseMatchKey(): string {
+  const db = getDb();
+  if (matchKey?.db === db) return matchKey.value;
+  const value = crypto.randomBytes(32).toString("base64url");
+  db.insert(serverKeys).values({ name: MATCH_KEY, value, createdAt: new Date() }).onConflictDoNothing().run();
+  const row = db.select().from(serverKeys).where(eq(serverKeys.name, MATCH_KEY)).get()!;
+  matchKey = { db, value: row.value };
+  return row.value;
+}
+
+/** A short public fingerprint of the key, so an import can tell whether its hashes were made here. Never the key. */
+export function purchaseKeyId(): string {
+  return crypto.createHash("sha256").update(`plaudit-purchase-key-id:${purchaseMatchKey()}`).digest("hex").slice(0, 16);
+}
+
+/**
+ * A keyed hash of an email (HMAC-SHA256 with this server's purchase key), so
+ * a purchase can be matched to a testimonial without the address being stored.
  */
 export function emailHash(email: string): string {
+  return crypto.createHmac("sha256", purchaseMatchKey()).update(`purchase-email:${normalEmail(email)}`).digest("hex");
+}
+
+/** The hash as M18 made it, keyed on SESSION_SECRET: purchases recorded before 0022 carry it until their retention ends. */
+export function legacyEmailHash(email: string): string {
   return crypto.createHmac("sha256", env.sessionSecret).update(`purchase-email:${normalEmail(email)}`).digest("hex");
+}
+
+/** Every hash a purchase from this email may be stored under: today's, and M18's while old rows remain. */
+export function emailHashes(email: string): string[] {
+  return [emailHash(email), legacyEmailHash(email)];
 }
 
 const str = (v: unknown, max: number) => (typeof v === "string" && v.trim() ? v.trim().replace(/\s+/g, " ").slice(0, max) : null);
@@ -185,7 +218,7 @@ export function hasPurchase(projectId: string, email: string): boolean {
     getDb()
       .select({ id: purchases.id })
       .from(purchases)
-      .where(and(eq(purchases.projectId, projectId), eq(purchases.emailHash, emailHash(email))))
+      .where(and(eq(purchases.projectId, projectId), inArray(purchases.emailHash, emailHashes(email))))
       .get(),
   );
 }
