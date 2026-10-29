@@ -31,7 +31,7 @@ Every `testimonial.approved` webhook carries the draft as `data.socialDraft` ([A
 - `socialDraft.shareUrls.x` and `.linkedin`: the share links,
 - `socialDraft.clip.url`: the social clip, when there is one (download it with your API key).
 
-The webhook fires when you approve, with the template draft; edits you make afterwards aren't sent. For a hand-edited post, copy it from the drawer.
+The webhook fires when you approve, with the template draft. To send your edits too, also tick **testimonial.social_draft_updated** on the webhook: it fires each time someone saves the draft (or puts it back to the template), with the same `data.socialDraft`. Your automation can then update or replace the queued post.
 
 First, in Plaudit, go to **Settings › Webhooks** and add a webhook with the address your automation tool gives you (below), choosing the event **testimonial.approved** and, if you like, one project.
 

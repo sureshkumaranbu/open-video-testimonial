@@ -114,6 +114,22 @@ describe("INT-08 social post drafts", () => {
     expect(reset.draft.text).toBe(templateDraft(getTestimonial(t.id)!));
   });
 
+  it("INT-08 L25 saving or resetting a draft sends testimonial.social_draft_updated to hooks that ticked it, with the draft as it is now", async () => {
+    createWebhook({ url: "https://hooks.example/drafts", events: ["testimonial.social_draft_updated"], projectId: null, formId: null, active: true });
+    createWebhook({ url: "https://hooks.example/default", events: [], projectId: null, formId: null, active: true });
+    const t = make();
+    approve(t.id);
+    const url = `/api/admin/testimonials/${t.id}/social-draft`;
+    await draftPut(req(url, { text: "Ten stories a week." }), params({ id: t.id }));
+    await resetRoute(req(url, undefined, "DELETE"), params({ id: t.id }));
+    const sent = getDb().select().from(schema.webhookDeliveries).where(eq(schema.webhookDeliveries.event, "testimonial.social_draft_updated")).all();
+    // Opt-in: only the hook that ticked it, once per save.
+    expect(sent).toHaveLength(2);
+    const [saved, reset] = sent.map((d) => JSON.parse(d.payload));
+    expect(saved).toMatchObject({ event: "testimonial.social_draft_updated", project: { slug: "acme" }, data: { testimonial: { id: t.id }, socialDraft: { text: "Ten stories a week.", edited: true, url: `http://localhost:3000/t/${t.id}`, post: `Ten stories a week.\n\nhttp://localhost:3000/t/${t.id}` } } });
+    expect(reset.data.socialDraft).toMatchObject({ text: templateDraft(getTestimonial(t.id)!), edited: false });
+  });
+
   it("INT-08 a ready social clip from M16 is offered with the draft", async () => {
     const t = make();
     approve(t.id);

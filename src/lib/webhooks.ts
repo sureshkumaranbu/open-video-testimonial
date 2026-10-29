@@ -1,10 +1,10 @@
 import crypto from "node:crypto";
 import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { getDb, schema } from "@/db";
-import type { Project, Webhook, WebhookEvent } from "@/db/schema";
+import type { Project, SocialDraft, Webhook, WebhookEvent } from "@/db/schema";
 import { projectToApi, toApi } from "./api-shape";
 import { markIfPurchased } from "./commerce/purchases";
-import { approvedDraftPayload } from "./commerce/social";
+import { approvedDraftPayload, socialDraftView } from "./commerce/social";
 import { enqueue } from "./jobs";
 import { fetchPublicText } from "./net-guard";
 import type { TestimonialWithTags } from "./testimonials";
@@ -188,6 +188,18 @@ export function emitTestimonialEvent(event: WebhookEvent, t: TestimonialWithTags
   const project = () => getDb().select().from(projects).where(eq(projects.id, t.projectId)).get() ?? null;
   const data = () => ({ testimonial: toApi(t), ...(event === "testimonial.approved" ? { approvedBy: t.approvedBy } : {}), ...(socialDraft ? { socialDraft } : {}) });
   return fanOut(event, t.projectId, project, data, { formId: t.formId, testimonial: t });
+}
+
+/**
+ * L25 (INT-08): someone saved (or reset) an approved testimonial's social
+ * post draft, in the drawer or through the API. Opt-in; `data.socialDraft`
+ * is the draft as it is now: testimonial.approved's shape plus
+ * `edited`, `aiRewrittenAt` and `updatedAt`.
+ */
+export function emitSocialDraftUpdated(t: TestimonialWithTags, d: SocialDraft) {
+  const project = () => getDb().select().from(projects).where(eq(projects.id, t.projectId)).get() ?? null;
+  const data = () => ({ testimonial: toApi(t), socialDraft: socialDraftView(t, d) });
+  return fanOut("testimonial.social_draft_updated", t.projectId, project, data, { formId: t.formId, testimonial: t });
 }
 
 /** Sends a "ping" so the owner can check their endpoint. */

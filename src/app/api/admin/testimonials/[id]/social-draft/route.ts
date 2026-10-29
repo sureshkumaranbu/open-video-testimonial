@@ -5,6 +5,7 @@ import { ensureSocialDraft, resetSocialDraft, saveSocialDraft, socialDraftBody, 
 import { featureOn } from "@/lib/features";
 import { jsonError, readJsonCapped, requireRole } from "@/lib/http";
 import { getProjectById, getTestimonial } from "@/lib/testimonials";
+import { emitSocialDraftUpdated } from "@/lib/webhooks";
 import { firstIssue } from "@/lib/validation";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -40,6 +41,7 @@ export async function PUT(req: Request, ctx: Ctx) {
   if (!parsed.success) return jsonError(400, firstIssue(parsed.error));
   const draft = saveSocialDraft(t, parsed.data, getRequestSession(req)?.email ?? null);
   auditRequest(req, "social_draft.update", { objectType: "testimonial", objectId: t.id, projectId: t.projectId, summary: `Changed ${t.authorName}’s social post draft` });
+  emitSocialDraftUpdated(t, draft);
   return Response.json({ draft: socialDraftView(t, draft) });
 }
 
@@ -51,5 +53,6 @@ export async function DELETE(req: Request, ctx: Ctx) {
   if (t instanceof Response) return t;
   const draft = resetSocialDraft(t);
   auditRequest(req, "social_draft.reset", { objectType: "testimonial", objectId: t.id, projectId: t.projectId, summary: `Put ${t.authorName}’s social post draft back to the template` });
+  emitSocialDraftUpdated(t, draft);
   return Response.json({ draft: socialDraftView(t, draft) });
 }
