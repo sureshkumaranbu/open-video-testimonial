@@ -22,9 +22,12 @@ test.beforeEach(async ({ page }) => {
 type Row = { mediaStatus: string; transcriptStatus: string; hlsKey: string | null; videoKey: string | null };
 const detail = async (api: APIRequestContext, id: string) => (await (await api.get(`/api/admin/testimonials/${id}/detail`)).json()).testimonial as Row;
 
-async function needFfmpeg(api: APIRequestContext) {
+/** Skips unless the server has ffmpeg and, where asked, transcription or HLS (a plain container has neither). */
+async function needFfmpeg(api: APIRequestContext, needs: { transcription?: boolean; hls?: boolean } = {}) {
   const system = await (await api.get("/api/admin/system")).json();
   test.skip(!system.ffmpeg, "ffmpeg isn't installed on this server");
+  test.skip(Boolean(needs.transcription) && !system.transcription?.enabled, "transcription isn't set up on this server");
+  test.skip(Boolean(needs.hls) && !system.hls, "VIDEO_HLS is off on this server");
 }
 
 /** A converted, approved video testimonial with its transcript made (the suite's stand-in transcriber). */
@@ -91,7 +94,7 @@ test("VID-05 the owner makes a multiclip of a submission's video answers in the 
 test("VID-07 the owner renders a square social clip in a chosen look and downloads it", async ({ page, baseURL, browserName }) => {
   skipLinuxWebkitMedia(browserName);
   const api = await adminApi(baseURL!);
-  await needFfmpeg(api);
+  await needFfmpeg(api, { transcription: true });
   const p = await createProject(api, `Social ${RUN}`, `social-${RUN}`);
   const id = await readyVideo(api, p.slug, "Sam Social");
   await signIn(page);
@@ -114,7 +117,7 @@ test("VID-07 the owner renders a square social clip in a chosen look and downloa
 test("VID-08 the owner builds a highlight reel by selecting transcript words, renders it with music and downloads it", async ({ page, baseURL, browserName }) => {
   skipLinuxWebkitMedia(browserName);
   const api = await adminApi(baseURL!);
-  await needFfmpeg(api);
+  await needFfmpeg(api, { transcription: true });
   const p = await createProject(api, `Reel ${RUN}`, `reel-${RUN}`);
   await readyVideo(api, p.slug, "Rita Reel");
   await readyVideo(api, p.slug, "Rob Reel");
@@ -179,7 +182,7 @@ test("VID-08 the owner builds a highlight reel by selecting transcript words, re
 test("FORM-17 the owner adds a welcome video in the builder; it plays on the live form with captions", async ({ page, baseURL, browserName }) => {
   skipLinuxWebkitMedia(browserName);
   const api = await adminApi(baseURL!);
-  await needFfmpeg(api);
+  await needFfmpeg(api, { transcription: true });
   const { project, form, url } = await formProject(api, "Welcome Video Co", {
     pages: [
       { type: "welcome", enabled: true, title: "Hello from the team" },
@@ -225,7 +228,7 @@ test("FORM-17 the owner adds a welcome video in the builder; it plays on the liv
 
 test("VID-06 an approved video's HLS playlist is served to anyone, listed first by players, and refused once it's rejected", async ({ baseURL }) => {
   const api = await adminApi(baseURL!);
-  await needFfmpeg(api);
+  await needFfmpeg(api, { hls: true });
   const p = await createProject(api, `Hls ${RUN}`, `hls-${RUN}`);
   const [id] = await seed(api, p.slug, [{ name: "Hana Hls", video: true, status: "approved" }]);
   await expect.poll(async () => (await detail(api, id)).hlsKey, { timeout: 90_000 }).toMatch(/^hls\/[0-9a-f-]{36}\/master\.m3u8$/);
