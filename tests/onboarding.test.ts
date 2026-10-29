@@ -16,7 +16,7 @@ import { runDueJobs } from "@/lib/jobs";
 import { getPrefs } from "@/lib/notifications/prefs";
 import { BRAND_SCAN_JOB, checklistState, createStarterAssets, type Discovery, getDiscovery, getWelcome, parseOnboarding, setOnboardingFetch, startDiscovery } from "@/lib/onboarding";
 import { fetchPublicText } from "@/lib/net-guard";
-import { parseBrand } from "@/lib/projects";
+import { parseBrand, updateBrand } from "@/lib/projects";
 import { createProject, createTestimonial, getProjectById, listTestimonials } from "@/lib/testimonials";
 import { getWall, wallConfig } from "@/lib/walls";
 import { listWidgets, updateWidget, widgetConfig } from "@/lib/widgets";
@@ -141,9 +141,10 @@ describe("finding testimonials on the owner's site", () => {
     expect(tamil.map((f) => [f.authorName, f.authorTitle])).toEqual([["சுரேஷ் குமார்", "மாணவர்"]]);
   });
 
-  it("ONB-03 reads the brand: site name, theme colour and a non-SVG logo", () => {
+  it("ONB-03 reads the brand: site name and description, theme colour and a non-SVG logo", () => {
     expect(brandFromHtml(html, "https://larkspur.example/home/")).toEqual({
       name: "Larkspur Bakery",
+      description: "Sourdough and pastries, baked in Leeds every morning.",
       color: "#2f6b4f",
       logoUrl: "https://larkspur.example/home/logo.png",
     });
@@ -206,6 +207,8 @@ describe("the brand scan (L10)", () => {
 
     const after = getProjectById(project.id)!;
     expect(parseBrand(after.brand).colors).toMatchObject({ primary: "#2f6b4f", button: "#2f6b4f" });
+    // M15 follow-up: the site's name and description land on the brand kit, where they can be edited.
+    expect(parseBrand(after.brand)).toMatchObject({ name: "Larkspur Bakery", description: "Sourdough and pastries, baked in Leeds every morning." });
     expect(after.logoKey).toMatch(/^images\/.+\.png$/);
     expect(parseOnboarding(after.onboarding).found).toMatchObject({ siteName: "Larkspur Bakery", color: "#2f6b4f", logo: true, ai: false });
     expect(parseFormRow(getDefaultForm(project.id)).design).toMatchObject({ primary: "#2f6b4f", button: "#2f6b4f" });
@@ -223,6 +226,7 @@ describe("the brand scan (L10)", () => {
   it("ONB-02 L10 a colour the owner already chose stays, and scanning again replaces the earlier scan", async () => {
     const p = createProject({ name: "Bakery", slug: "bakery" });
     createStarterAssets(p, { businessType: "local", color: "#123456" });
+    updateBrand(p.id, { ...parseBrand(getProjectById(p.id)!.brand), name: "Our bakery" });
     const first = startDiscovery(p.id, `${origin}/site/`);
     const res = await rescanRoute(post("/api/admin/onboarding/discover", { projectId: p.id, url: `${origin}/site/` }));
     expect(res.status).toBe(201);
@@ -230,6 +234,8 @@ describe("the brand scan (L10)", () => {
     expect(getDiscovery(p.id, first.id)).toBeNull();
     await runDueJobs();
     expect(parseBrand(getProjectById(p.id)!.brand).colors.primary).toBe("#123456");
+    // A name the owner already gave the brand kit stays; the empty description is filled in.
+    expect(parseBrand(getProjectById(p.id)!.brand)).toMatchObject({ name: "Our bakery", description: "Sourdough and pastries, baked in Leeds every morning." });
     expect(parseFormRow(getDefaultForm(p.id)).design.primary).toBe("#123456");
     expect(getDiscovery(p.id, run.id)!.discovery!.items).toHaveLength(4);
     // Another project's scan can't be read through this one.

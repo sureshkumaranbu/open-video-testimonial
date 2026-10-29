@@ -188,7 +188,7 @@ test("TEAM-04 typed delete removes the project and its links", async ({ page, ba
   expect(refused.status()).toBe(400);
 });
 
-test("TEAM-04 brand kit: logo, colours and fonts save and come back", async ({ page, baseURL }) => {
+test("TEAM-04 ONB-02 brand kit: logo, colours, fonts, name and description save and come back", async ({ page, baseURL }) => {
   const api = await adminApi(baseURL!);
   const p = await createProject(api, "Brand Co", slug("brand"));
   await signIn(page);
@@ -207,16 +207,20 @@ test("TEAM-04 brand kit: logo, colours and fonts save and come back", async ({ p
   await kit.getByLabel("Primary", { exact: true }).fill("#3d63dd");
   await kit.getByLabel("Button text", { exact: true }).fill("#ffffff");
   await kit.getByRole("group", { name: "Heading font" }).getByRole("radio", { name: SERIF }).check();
+  // M15 follow-up: the name and description the onboarding scan fills in can be edited here.
+  await kit.getByLabel("Brand name").fill("Brand Co Ltd");
+  await kit.getByLabel("Short description").fill("Brand kits for busy teams.");
   await expect(kit.getByTestId("brand-preview").locator(".ps-preview-link")).toHaveCSS("color", "rgb(61, 99, 221)");
   await kit.getByRole("button", { name: "Save brand kit" }).click();
   await expect(page.getByTestId("settings-toast")).toContainText("Brand kit saved");
 
   const brand = JSON.parse((await (await api.get(`/api/admin/projects/${p.id}`)).json()).project.brand);
-  expect(brand).toEqual({ colors: { primary: "#3d63dd", buttonText: "#ffffff" }, fonts: { heading: "serif" } });
+  expect(brand).toEqual({ colors: { primary: "#3d63dd", buttonText: "#ffffff" }, fonts: { heading: "serif" }, name: "Brand Co Ltd", description: "Brand kits for busy teams." });
 
   await page.reload();
   await expect(kit.getByLabel("Primary", { exact: true })).toHaveValue("#3d63dd");
   await expect(kit.getByRole("group", { name: "Heading font" }).getByRole("radio", { name: SERIF })).toBeChecked();
+  await expect(kit.getByLabel("Brand name")).toHaveValue("Brand Co Ltd");
   await expect(kit.getByTestId("logo-preview")).toBeVisible();
 
   // A bad file is refused with a reason; removing the logo deletes it.
