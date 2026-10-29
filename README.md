@@ -447,6 +447,7 @@ A **saved widget** from the widget studio (preview flag `widgets`) is embedded b
   docker compose start
   ```
 
+- **Backups while it runs, and Litestream.** [docs/BACKUPS.md](docs/BACKUPS.md) covers a nightly copy without stopping Plaudit and continuous copies to S3 with Litestream. Plaudit uses SQLite only; Postgres support is deferred.
 - **Upgrade.** Run `git pull`, then `docker compose up -d --build`, or `npm ci && npm run build` and restart. Database changes are applied automatically at start-up. Take a backup first.
 
 ## Privacy and consent
