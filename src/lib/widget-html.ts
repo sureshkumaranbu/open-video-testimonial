@@ -70,7 +70,7 @@ function card(t: FeedItem, w: PublicWidget, abs: (u: string) => string) {
     `<footer class="a"><div><div class="n">${escapeHtml(t.name)}</div>` +
       (byline ? `<div class="m">${escapeHtml(byline)}</div>` : "") +
       (date ? `<div class="m"><time datetime="${escapeHtml(t.extra.date)}">${escapeHtml(date)}</time></div>` : "") +
-      (d.showVerified && t.extra.verified ? `<div class="m vf">${escapeHtml(w.labels.verified)}</div>` : "") +
+      (d.showVerified && t.extra.verified ? `<div class="m vf">${escapeHtml(t.extra.verifiedLabel ?? w.labels.verified)}</div>` : "") +
       `</div>` +
       (d.showSource && t.extra.sourceUrl
         ? `<a class="src" href="${escapeHtml(t.extra.sourceUrl)}" rel="nofollow noopener" target="_blank">${escapeHtml(t.extra.platform ?? "Source")}</a>`

@@ -35,6 +35,8 @@ export type BuilderProject = {
   video2?: boolean;
   /** NPS-01 (insights flag): "Add NPS question". */
   insights?: boolean;
+  /** INT-07 (commerce flag): the "Stripe coupon" reward. */
+  commerce?: boolean;
 };
 
 type Props = {

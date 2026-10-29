@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { RemovedAlerts } from "@/components/analytics/RemovedAlerts";
 import { analyticsUi, removedAlerts, widgetSummaries } from "@/lib/analytics";
-import { requireFeature } from "@/lib/features";
+import { featureOn, requireFeature } from "@/lib/features";
 import { requireAdminPage } from "@/lib/server-session";
 import { getProjectById } from "@/lib/testimonials";
 import { listWidgets, widgetToAdmin } from "@/lib/widgets";
@@ -40,6 +40,7 @@ export default async function WidgetsPage({ params }: { params: Promise<{ id: st
           projectId={project.id}
           initial={JSON.parse(JSON.stringify(listWidgets(project.id).map(widgetToAdmin)))}
           stats={analyticsUi() ? widgetSummaries(project.id) : undefined}
+          commerce={featureOn("commerce")}
         />
       </main>
     </>

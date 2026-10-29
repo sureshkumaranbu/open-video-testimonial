@@ -133,6 +133,8 @@ export const en = {
   rewardCopy: "Copy code",
   rewardOpen: "Open your reward",
   rewardSoldOut: "All the rewards have been claimed, but thank you all the same.",
+  /** INT-07: a Stripe coupon that Stripe couldn't make; the thank-you still shows. */
+  rewardUnavailable: "Your code couldn't be made just now. The team has been told, and thank you all the same.",
   wheelSpinning: "Spinning the wheel…",
   wheelWon: "You won: {prize}",
   wheelChance: "{chance}% chance",

@@ -35,7 +35,7 @@ curl -H "Authorization: Bearer plk_…" https://plaudit.example.com/api/v1/proje
 
 With the `team2` flag, a key can be made for one project (**Reaches** when creating it). It then sees and changes only that project: other projects' ids answer `404`, as if they didn't exist, and `GET /projects` lists only its own. Keys made without a project (and every key from before) reach every project.
 
-Keys can be revoked at any time from the same screen. Each key may make 600 requests a minute. The API is meant for servers and scripts, so it doesn't send CORS headers for browsers.
+Keys can be revoked at any time from the same screen. Each key may make 600 requests a minute. The API is meant for servers and scripts, so it doesn't send CORS headers for browsers, with one exception: the [browser extension](help/extension.md) (EXT-01). Requests from a `chrome-extension://` or `moz-extension://` origin that carry a key get `Access-Control-Allow-Origin` set to that origin (and the preflight is answered for `Authorization` and `Content-Type`); never `Access-Control-Allow-Credentials`, so cookies can't be used, and no other origin gets CORS headers.
 
 ### Endpoints
 
@@ -147,7 +147,7 @@ curl -X POST https://plaudit.example.com/api/v1/projects/acme/testimonials \
   -d '{"name":"Grace Hopper","text":"Shipped it in a day.","rating":5,"tags":["sales"],"consent":true}'
 ```
 
-`consent: true` is required. It confirms that the person agreed to publication, and it's recorded in the consent ledger as given via the API. Optional fields are `email`, `title`, `company`, `headline`, `website` (the author's site), `platform`, `sourceUrl`, `sourceDate` (`2026-10-12` or a full ISO timestamp), `datePrecision`, `language`, `customFields` (an object of up to 50 keys, each a string, number, boolean or `null`), `status` (`pending` or `approved`) and `consentScopes` (any of `website`, `social`, `ads`, `name` and `face`; `website` is always included).
+`consent: true` is required. It confirms that the person agreed to publication, and it's recorded in the consent ledger as given via the API. Optional fields are `email`, `title`, `company`, `headline`, `website` (the author's site), `platform`, `sourceUrl`, `sourceDate` (`2026-10-12` or a full ISO timestamp), `datePrecision`, `language`, `customFields` (an object of up to 50 keys, each a string, number, boolean or `null`), `status` (`pending` or `approved`) and `consentScopes` (any of `website`, `social`, `ads`, `name` and `face`; `website` is always included). Since M18 (for the browser extension) it also takes `socials` (`{x, linkedin, instagram, tiktok}`, a profile link or handle each) and `avatarUrl` (an `https://` photo of the author, downloaded in the background like an import's, from public addresses only).
 
 ### Editing a testimonial
 
@@ -296,6 +296,14 @@ curl -X POST https://plaudit.example.com/mcp -H "Authorization: Bearer plk_…" 
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"summarize","arguments":{"project":"acme"}}}'
 ```
 
+## Stripe purchases (sales popup and Verified purchase)
+
+_Flag `commerce`._ A project's own Stripe connection ([help/sales-popup.md](help/sales-popup.md)) has its own endpoint, which needs no key: every delivery must carry Stripe's signature, checked exactly as for a [Stripe trigger](#stripe-and-shopify-triggers).
+
+- **`POST /api/hooks/stripe-purchases/<connection id>`**: acts on `checkout.session.completed` once `payment_status` is `paid` (or `no_payment_required`), and on `invoice.paid`. It keeps the first word of `customer_details.name` (or `customer_name`), the city (else the country's name) from the address, the product (`metadata.product_name`, `plaudit_product` or `product`, else an invoice line's or expanded line item's description without its quantity and price), the amount and currency, the event's `created` time, and an HMAC of the email. The email, the rest of the name and address, and every card or payment detail are dropped. A testimonial in the project with the same email is marked "Verified purchase".
+
+Answers: `200` `{ ok, purchaseId, marked? }`; `200` with `ignored` for other events, unpaid sessions and while recording is off; `200` `{ duplicate: true }` for an event already recorded (by its id); `400` for a wrong signature or invalid JSON; `404` for an unknown connection or with `commerce` off; `409` until the signing secret is set; `413` past 256 KB; `429` past 300 a minute or 5,000 a day per connection. The dashboard manages it at `GET`/`PUT`/`DELETE /api/admin/projects/{id}/stripe` (the signing secret and restricted key are never sent back: `signingSecretSet`, `restrictedKeySet`) and deletes recorded purchases at `DELETE /api/admin/projects/{id}/purchases`; `PUT /api/admin/testimonials/{id}/verified-purchase` `{verified}` removes or restores a mark. Social post drafts are at `GET`/`PUT`/`DELETE /api/admin/testimonials/{id}/social-draft` and `POST …/social-draft/rewrite`.
+
 ## Webhooks
 
 Under **Settings → Webhooks**, add the URL of your endpoint. You can limit it to one project (or one form) and to the events you care about, and **Edit** changes the URL, events, project and form later without changing the secret or losing the delivery log. For Slack, Discord, Teams or Telegram messages, use **Settings → Notifications** instead ([docs/help/notifications.md](help/notifications.md)). Tick none to receive the **default set**: every event below except the ones marked *opt-in*, which go only to endpoints that tick them.
@@ -343,7 +351,19 @@ Each delivery is a `POST` with a JSON body:
 }
 ```
 
-`data.approvedBy` is only on `testimonial.approved`. The project includes its settings, as in the REST API:
+`data.approvedBy` is only on `testimonial.approved`. With the `commerce` flag on (the default), `testimonial.approved` also carries **`data.socialDraft`** (INT-08), the testimonial's social post draft for X and LinkedIn ([help/social-drafts.md](help/social-drafts.md)):
+
+```json
+"socialDraft": {
+  "text": "“We get ten testimonials a week now.”\n— Ada Lovelace, CTO at Acme",
+  "url": "https://plaudit.example.com/t/5b0c…",
+  "post": "“We get ten testimonials a week now.”\n— Ada Lovelace, CTO at Acme\n\nhttps://plaudit.example.com/t/5b0c…",
+  "shareUrls": { "x": "https://x.com/intent/tweet?text=…&url=…", "linkedin": "https://www.linkedin.com/sharing/share-offsite/?url=…" },
+  "clip": null
+}
+```
+
+`text` fits one post on X together with `url` (X counts a link as 23 characters). `clip` is the testimonial's newest social clip (M16), `{ renderId, url, width, height }`, when it has one; its `url` is a media address readable with an API key. The field is new, so code that ignores unknown fields is unaffected. The project includes its settings, as in the REST API:
 
 ```json
 "autoApprove": { "enabled": true, "minRating": 4, "includeVideo": false }
@@ -433,6 +453,8 @@ What `widget.js` reads. No key is needed, responses are CORS-enabled (`Access-Co
   Each testimonial has the same fields as the slug feed plus `extra`. The widget's filters, picks and pins are applied on the server before the limit; its filters, picked ids and form id are never sent. With **first name only** on, the surname never leaves the server. A deleted widget answers `{"project": null, "widget": null, "testimonials": [], "aggregate": {"count": 0, "average": null}}`; an unknown id answers 404.
   `widget.css` is the widget's own cleaned CSS (DISP-08, `""` when there is none), which `widget.js` appends inside the shadow root ([`EMBED.md`](EMBED.md#custom-css)).
   `?l=<language>` is the visitor's browser language (`widget.js` sends `navigator.language`). For a widget set to show translations (INBOX-13), each testimonial with a stored translation into that language (or its base language: `fr` for `fr-CA`) has its `text` and `extra.headline` replaced, and `extra.highlights` emptied, since they point into the original words. Other widgets ignore it. Nothing is translated on the fly.
+  **Verified purchase** (INT-07, flag `commerce`): an item whose author's email matched a Stripe purchase has `extra.verifiedPurchase: true`; in a saved widget's feed `extra.verified` then says whether `widget.js` draws the ✓ mark, and `extra.verifiedLabel` (`"Verified purchase"`, or the widget's own wording) what it says.
+  **Sales popup** (`layout: "sales"`): `testimonials` holds the purchases as items with `sale: { line, amount, at }`, where `line` is written on the server in the widget's words ("Priya from Leeds bought Pro plan"), and `amount` and `at` are `null` when the widget hides them; such an item has no text and no other detail, and a hidden name, place or product never leaves the server. Approved testimonials can come in between as short snippets. Cached for 30 seconds (`stale-while-revalidate=30`); no cookies, as for every widget. Purchases are never in the HTML include below.
 - **`GET /api/widget/w_<id>/html`** (`?jsonld=1`): the same widget as escaped HTML for a server-side include ([`EMBED.md`](EMBED.md#seo-html-include)).
 
 Widgets are managed in the dashboard, or through [`/api/v1/projects/{slug}/widgets`](#forms-widgets-walls-campaigns-and-more) (flag `api2`).
@@ -508,7 +530,7 @@ The numbers are read in the dashboard (`/admin/analytics`) or through [the API](
 
 The public form endpoint (`POST /api/projects/<project>/forms/<form>/submissions`, used by the form and its embeds) answers with two extra keys when they apply:
 
-- **`reward`** (FORM-13), when the form gives one: `{ status: "given", title, message, code, url, wheel? }` or `{ status: "sold_out", title, message }` once a unique-code list has run out. `wheel` is `{ labels, chances, won }`: the server spins it, and only the prize won carries a code. The reward never depends on the rating or the words.
+- **`reward`** (FORM-13), when the form gives one: `{ status: "given", title, message, code, url, wheel? }` or `{ status: "sold_out", title, message }` once a unique-code list has run out. A Stripe coupon reward (INT-07) has the person's own promotion code in `code`, or is `{ status: "unavailable", title, message }` when Stripe couldn't make it (the reason is in the audit log). `wheel` is `{ labels, chances, won }`: the server spins it, and only the prize won carries a code. The reward never depends on the rating or the words.
 - **`feedbackOnly: true`** (FORM-12), when the form's low-rating branch stored the submission as private feedback; `withdrawUrl` is then `null`. Such a submission sends `{ rating, lowFeedback, person: { name?, email? }, requestToken?, hiddenFields?, language? }` instead of answers and consent.
 
 A form with neither answers exactly as before.

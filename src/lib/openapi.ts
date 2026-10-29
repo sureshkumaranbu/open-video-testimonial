@@ -325,6 +325,8 @@ export function openApiSpec(serverUrl: string) {
             datePrecision: { type: "string", enum: [...DATE_PRECISIONS], default: "day" },
             language: { type: "string", maxLength: 35 },
             customFields: { type: "object", description: "Values by field key: text, numbers, true/false or null" },
+            socials: { type: "object", description: "x, linkedin, instagram, tiktok: a profile link or handle each", additionalProperties: { type: "string" } },
+            avatarUrl: { type: "string", format: "uri", description: "An https:// photo of the author, fetched in the background (public addresses only)" },
             consent: { const: true, description: "Confirms the author agreed to publication; recorded in the consent ledger" },
             consentScopes: { type: "array", items: { type: "string", enum: [...CONSENT_SCOPES] } },
           },

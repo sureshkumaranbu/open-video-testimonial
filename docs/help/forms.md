@@ -67,7 +67,7 @@ It needs the rating page turned on, and works on step-by-step forms (the classic
 A thank-you for the people who send the form, shown on the thank-you page and in the receipt email (receipts go to personal request links only). Choose:
 
 - **No reward** (the default);
-- **The same for everyone**: one coupon code, a link (a download, a booking page), or **a unique code each** from your own list;
+- **The same for everyone**: one coupon code, a link (a download, a booking page), **a unique code each** from your own list, or **a single-use Stripe promotion code each**, made from your Stripe coupon when they send it ([thank-you-coupons.md](thank-you-coupons.md));
 - **Spin the wheel**: up to 12 prizes, each with a label, an optional code and a chance in percent (they add up to 100%). The wheel shows the real chances, and it's spun on your server, so nobody can pick their prize.
 
 Optionally add a heading and a message, and **Only for testimonials with a video**.

@@ -223,6 +223,13 @@ export const env = {
     return (process.env.AI_MODEL || "").trim();
   },
   /**
+   * INT-07 (M18): where thank-you coupons are created, with each project's own
+   * restricted key. Only tests point it elsewhere (the fixture server).
+   */
+  get stripeApiUrl() {
+    return (process.env.STRIPE_API_URL || "https://api.stripe.com").trim().replace(/\/+$/, "");
+  },
+  /**
    * IMP-07 screenshot OCR: "off" (default), "ai" (the AI client above, as a
    * vision message) or "command" (a local program such as tesseract, run
    * without a shell; `{input}` is the image file, and it prints the text).

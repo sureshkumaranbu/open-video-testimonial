@@ -14,7 +14,9 @@ import { MAX_CUSTOM_CSS } from "./custom-css";
 if (typeof window !== "undefined") z.config({ jitless: true });
 
 /** Same order as WIDGET_LAYOUTS in src/db/schema.ts (a test keeps them equal). */
-export const LAYOUTS = ["grid", "list", "carousel", "slider", "marquee", "featured", "badge", "toast"] as const satisfies readonly WidgetLayout[];
+export const LAYOUTS = ["grid", "list", "carousel", "slider", "marquee", "featured", "badge", "toast", "sales"] as const satisfies readonly WidgetLayout[];
+/** Layouts that need a feature flag: the sales popup (INT-07) comes with `commerce`. */
+export const FLAGGED_LAYOUTS: Partial<Record<WidgetLayout, "commerce">> = { sales: "commerce" };
 export const SELECTION_MODES = ["auto", "manual"] as const satisfies readonly WidgetSelectionMode[];
 export const FEED_SORTS = ["newest", "oldest", "rating", "manual", "random"] as const;
 export const FEED_TYPES = ["any", "text", "video", "image"] as const;
@@ -36,6 +38,7 @@ export const LAYOUT_LABELS: Record<WidgetLayout, { name: string; blurb: string }
   featured: { name: "Single featured", blurb: "One big quote" },
   badge: { name: "Rating badge", blurb: "Average stars and a count" },
   toast: { name: "Floating toast", blurb: "A small card in a corner" },
+  sales: { name: "Sales popup", blurb: "Recent purchases from Stripe, in a corner" },
 };
 
 export const PLACEMENT_LABELS: Record<(typeof PLACEMENTS)[number], string> = {
@@ -144,6 +147,8 @@ export const designSchema = z.object({
   showHighlights: z.boolean().default(true),
   /** A "Verified" mark on testimonials that came in through a Plaudit form. */
   showVerified: z.boolean().default(false),
+  /** INT-07: a "Verified purchase" mark on testimonials whose email matched a Stripe purchase (flag `commerce`). */
+  showVerifiedPurchase: z.boolean().default(true),
   /** Cut longer texts with a "Read more" button; 0 = never. */
   readMore: z.number().int().min(0).max(2000).default(0),
   /** "Ada Lovelace" shows as "Ada" (done on the server, so the surname never leaves it). */
@@ -173,6 +178,20 @@ export const optionsSchema = z.object({
   /** Seconds each toast stays up. */
   toastDuration: z.number().int().min(3).max(60).default(7),
   toastHideOnMobile: z.boolean().default(true),
+  /**
+   * Sales popup (INT-07; it also uses the toast's corner, delay, duration and
+   * phone settings): which details of a purchase show. One that's off never
+   * leaves the server.
+   */
+  salesName: z.boolean().default(true),
+  salesPlace: z.boolean().default(true),
+  salesProduct: z.boolean().default(true),
+  salesAmount: z.boolean().default(false),
+  salesTime: z.boolean().default(true),
+  /** Approved testimonials (short snippets) between the purchases. */
+  salesMix: z.boolean().default(false),
+  /** Only purchases from the last N days (never past the Stripe connection's retention). */
+  salesDays: z.number().int().min(1).max(365).default(30),
   /** Load images and videos only as they scroll into view. */
   lazy: z.boolean().default(true),
 });
@@ -188,6 +207,14 @@ export const labelsSchema = z.object({
   cta: label("Leave a testimonial"),
   empty: label("No testimonials yet."),
   verified: label("Verified"),
+  verifiedPurchase: label("Verified purchase"),
+  /** Sales popup lines: {name}, {place} and {product} are filled in on the server. */
+  salesLine: label("{name} from {place} bought {product}"),
+  salesLineNoPlace: label("{name} bought {product}"),
+  /** {name} when the name is hidden or Stripe had none. */
+  salesSomeone: label("Someone"),
+  /** {product} when it's hidden or unknown: "Priya bought from us". */
+  salesNoProduct: label("from us"),
   transcript: label("Transcript"),
   previous: label("Previous"),
   next: label("Next"),
@@ -280,7 +307,12 @@ export type PublicWidget = {
 
 export type FeedImage = { url: string; alt: string | null };
 
-/** A testimonial in a widget: the frozen public shape plus display extras (still no private field). */
+/**
+ * A testimonial in a widget: the frozen public shape plus display extras
+ * (still no private field). In a sales popup's feed, purchases come as items
+ * with `sale` set: no text, the first name only, and only the details the
+ * widget shows.
+ */
 export type FeedItem = {
   id: string;
   name: string;
@@ -309,13 +341,22 @@ export type FeedItem = {
     datePrecision: "day" | "month" | "year";
     platform: string | null;
     sourceUrl: string | null;
-    /** Sent through one of this project's forms. */
+    /**
+     * Whether to show the ✓ mark: sent through one of this project's forms, or
+     * in a saved widget's feed, also a verified purchase when the widget shows those.
+     */
     verified: boolean;
+    /** INT-07: the email matched a Stripe purchase (flag `commerce`). */
+    verifiedPurchase?: boolean;
+    /** The ✓ mark's words when they aren't the widget's "Verified" (a saved widget's feed only). */
+    verifiedLabel?: string;
     images: FeedImage[];
     companyLogoUrl: string | null;
     /** Highlighted phrases in `text`, as [start, end) offsets. */
     highlights: { start: number; end: number }[];
   };
+  /** INT-07: a purchase in a sales popup: its line ("Priya from Leeds bought Pro plan"), the amount and when (null when hidden). */
+  sale?: { line: string; amount: string | null; at: string | null };
 };
 
 export type FeedAggregate = { count: number; average: number | null };

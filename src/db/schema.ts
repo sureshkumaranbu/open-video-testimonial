@@ -111,7 +111,8 @@ export const HISTORY_ACTIONS = ["created", "edited", "status", "tags", "trashed"
 export type HistoryAction = (typeof HISTORY_ACTIONS)[number];
 export const REDIRECT_KINDS = ["project", "form", "wall", "booster"] as const;
 export type RedirectKind = (typeof REDIRECT_KINDS)[number];
-export const WIDGET_LAYOUTS = ["grid", "list", "carousel", "slider", "marquee", "featured", "badge", "toast"] as const;
+/** sales (M18, INT-07): the sales popup, recent purchases in a corner (flag `commerce`). */
+export const WIDGET_LAYOUTS = ["grid", "list", "carousel", "slider", "marquee", "featured", "badge", "toast", "sales"] as const;
 export type WidgetLayout = (typeof WIDGET_LAYOUTS)[number];
 export const WIDGET_SELECTION_MODES = ["auto", "manual"] as const;
 export type WidgetSelectionMode = (typeof WIDGET_SELECTION_MODES)[number];
@@ -249,6 +250,12 @@ export const testimonials = sqliteTable(
      * video_key; any change of video clears it. Public on the same terms as the MP4.
      */
     hlsKey: text("hls_key"),
+    /**
+     * INT-07 (M18): when this testimonial's email matched a purchase recorded
+     * from the project's Stripe connection ("Verified purchase"). The match is
+     * made on a hash; the purchase itself is deleted after its retention, this mark stays.
+     */
+    verifiedPurchaseAt: integer("verified_purchase_at", { mode: "timestamp_ms" }),
   },
   (t) => [
     index("testimonials_project_status_idx").on(t.projectId, t.status),
@@ -1759,6 +1766,104 @@ export const surveyResponses = sqliteTable(
   ],
 );
 
+/**
+ * INT-07 (M18): a project's own Stripe connection, for the sales popup and
+ * thank-you coupons (flag `commerce`). Stripe calls
+ * /api/hooks/stripe-purchases/<id> after a sale; every delivery must be signed
+ * with `signing_secret`. `restricted_key` is a Stripe restricted key that
+ * may only write promotion codes. Both are stored as entered (they're needed
+ * in full) and never sent back, like the campaign triggers' secrets.
+ */
+export const stripeConnections = sqliteTable(
+  "stripe_connections",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    /** The webhook endpoint's signing secret (whsec_…); empty until it's entered. */
+    signingSecret: text("signing_secret").notNull().default(""),
+    /** rk_… with only "Promotion codes: write"; empty = no thank-you coupons. */
+    restrictedKey: text("restricted_key").notNull().default(""),
+    /** Off: deliveries are answered but nothing is recorded. */
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+    /** Purchases are deleted this many days after they happened. */
+    retentionDays: integer("retention_days").notNull().default(90),
+    /** Mark testimonials whose email matches a purchase as "Verified purchase". */
+    verifyPurchases: integer("verify_purchases", { mode: "boolean" }).notNull().default(true),
+    /** What the popup says was bought when Stripe's event names no product ("" = "from us"). */
+    defaultProduct: text("default_product").notNull().default(""),
+    lastEventAt: integer("last_event_at", { mode: "timestamp_ms" }),
+    lastResult: text("last_result"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex("stripe_connections_project_idx").on(t.projectId)],
+);
+
+/**
+ * INT-07: one purchase from the project's Stripe connection, for the sales
+ * popup and "Verified purchase". Only what the popup can show is kept: the
+ * first name, a city or country, the product and the amount. Never the email
+ * (a keyed hash of it, for matching only), the last name, the full address or
+ * any card detail. Deleted after the connection's retention (90 days by default).
+ */
+export const purchases = sqliteTable(
+  "purchases",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    /** Stripe's event id, so a retried delivery is recorded once. */
+    externalId: text("external_id").notNull(),
+    /** checkout.session.completed or invoice.paid. */
+    eventType: text("event_type").notNull(),
+    firstName: text("first_name"),
+    /** A city, else a country name. */
+    place: text("place"),
+    product: text("product"),
+    /** In the currency's smallest unit (pence, cents), as Stripe sends it. */
+    amount: integer("amount"),
+    currency: text("currency"),
+    /** HMAC-SHA256 of the normalised email with a key derived from SESSION_SECRET; never the email. */
+    emailHash: text("email_hash"),
+    purchasedAt: integer("purchased_at", { mode: "timestamp_ms" }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("purchases_project_external_idx").on(t.projectId, t.externalId),
+    index("purchases_project_time_idx").on(t.projectId, t.purchasedAt),
+    index("purchases_project_email_idx").on(t.projectId, t.emailHash),
+    index("purchases_time_idx").on(t.purchasedAt),
+  ],
+);
+
+/**
+ * INT-08 (M18): an approved testimonial's social post draft for X and
+ * LinkedIn, made from a template on approval and edited in the drawer. The
+ * link to its /t/ page is added when it's shared, so it isn't stored.
+ */
+export const socialDrafts = sqliteTable(
+  "social_drafts",
+  {
+    testimonialId: text("testimonial_id")
+      .primaryKey()
+      .references(() => testimonials.id, { onDelete: "cascade" }),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    text: text("text").notNull(),
+    /** Who last saved it (null = the template). */
+    editedBy: text("edited_by"),
+    /** When "Rewrite with AI" last filled it in. */
+    aiRewrittenAt: integer("ai_rewritten_at", { mode: "timestamp_ms" }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("social_drafts_project_idx").on(t.projectId)],
+);
+
 export type Member = typeof members.$inferSelect;
 export type Project = typeof projects.$inferSelect;
 export type Testimonial = typeof testimonials.$inferSelect;
@@ -1806,3 +1911,6 @@ export type FormVideo = typeof formVideos.$inferSelect;
 export type CaseStudy = typeof caseStudies.$inferSelect;
 export type InsightReport = typeof insightReports.$inferSelect;
 export type SurveyResponse = typeof surveyResponses.$inferSelect;
+export type StripeConnection = typeof stripeConnections.$inferSelect;
+export type Purchase = typeof purchases.$inferSelect;
+export type SocialDraft = typeof socialDrafts.$inferSelect;

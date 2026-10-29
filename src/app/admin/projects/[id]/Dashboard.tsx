@@ -44,6 +44,8 @@ export type AdminTestimonial = {
   tags: string[];
   /** Where an imported review was first posted (google, appstore…). */
   platform?: string | null;
+  /** INT-07: when the email matched a Stripe purchase. */
+  verifiedPurchaseAt?: string | null;
 };
 
 // Hidden and trashed get their own tabs with Inbox v2; until then they show under All.

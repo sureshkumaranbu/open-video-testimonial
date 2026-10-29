@@ -9,7 +9,7 @@ import { ConfirmDialog, EmptyState } from "@/components/admin";
 import { pageName } from "@/components/analytics/InstallStatus";
 import { Icon } from "@/components/Icon";
 import type { WidgetLayout } from "@/db/schema";
-import { LAYOUT_LABELS, LAYOUTS, PLACEMENT_LABELS, PLACEMENTS, placementHint } from "@/lib/widget-config";
+import { FLAGGED_LAYOUTS, LAYOUT_LABELS, LAYOUTS, PLACEMENT_LABELS, PLACEMENTS, placementHint } from "@/lib/widget-config";
 import type { AdminWidget } from "@/lib/widgets";
 import { LayoutThumb } from "./LayoutThumb";
 
@@ -20,7 +20,7 @@ type Props = { projectId: string; initial: AdminWidget[]; stats?: Stats };
 const dateFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
 /** DISP-12 and DISP-15: the widgets list, and a new widget with a layout suggested by where it goes. */
-export function WidgetsList({ projectId, initial, stats }: Props) {
+export function WidgetsList({ projectId, initial, stats, commerce = false }: Props & { commerce?: boolean }) {
   const router = useRouter();
   const [widgets, setWidgets] = useState(initial);
   const [name, setName] = useState("");
@@ -98,7 +98,7 @@ export function WidgetsList({ projectId, initial, stats }: Props) {
                   setTouchedLayout(true);
                 }}
               >
-                {LAYOUTS.map((l) => (
+                {LAYOUTS.filter((l) => !FLAGGED_LAYOUTS[l] || commerce).map((l) => (
                   <option key={l} value={l}>
                     {LAYOUT_LABELS[l].name}
                   </option>

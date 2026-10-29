@@ -23,7 +23,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ slug: string }>
   if (w.deletedAt) return new Response("", { headers: HTML_HEADERS });
   const payload = widgetPayload(project, w, widgetConfig(w));
   const jsonLd = new URL(req.url).searchParams.get("jsonld") === "1";
-  const html = renderWidgetHtml(payload.widget!, payload.project!, payload.testimonials, payload.aggregate, { jsonLd, origin: env.publicUrl });
+  // A sales popup's purchases (INT-07) aren't reviews: never in the HTML or its schema.org data.
+  const items = payload.testimonials.filter((t) => !t.sale);
+  const html = renderWidgetHtml(payload.widget!, payload.project!, items, payload.aggregate, { jsonLd, origin: env.publicUrl });
   return new Response(html, { headers: HTML_HEADERS });
 }
 

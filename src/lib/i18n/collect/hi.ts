@@ -115,6 +115,7 @@ export const hi = {
   rewardCopy: "कोड कॉपी करें",
   rewardOpen: "अपना इनाम खोलें",
   rewardSoldOut: "सभी इनाम दिए जा चुके हैं, फिर भी आपका धन्यवाद।",
+  rewardUnavailable: "आपका कोड अभी नहीं बन सका। टीम को बता दिया गया है, फिर भी आपका धन्यवाद।",
   wheelSpinning: "पहिया घूम रहा है…",
   wheelWon: "आप जीते: {prize}",
   wheelChance: "{chance}% संभावना",

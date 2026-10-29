@@ -338,7 +338,8 @@ describe("per-recipient reward codes (REQ-08)", () => {
 
   it("REQ-08 without {{reward_code}} in the email, each recipient's code is claimed when they respond", async () => {
     const { project, form, c, created } = await campaignWith("Hello {{link}}");
-    expect(campaignEmail(project, c, getRequest(created[1].id)!, "invite").text).not.toContain("C-");
+    // The link's random token can contain "C-" by chance: look for a pool code itself.
+    expect(campaignEmail(project, c, getRequest(created[1].id)!, "invite").text).not.toMatch(/(^|\s)C-\d+\b/);
     expect(poolStats(form.id).claimed).toBe(0);
     const { body } = await send(testimonial(2, { requestToken: requestToken(created[1].id) }));
     expect(body.reward).toMatchObject({ status: "given", code: "C-1" });

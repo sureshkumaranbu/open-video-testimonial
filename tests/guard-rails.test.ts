@@ -62,7 +62,7 @@ describe("docs/plan/ownership.json", () => {
       ].sort(),
     );
     // Phase 2 and 3 milestones (M9 on) gate requirement IDs only; they have no work packages.
-    expect(Object.keys(manifest.milestones)).toEqual(["M1", "M2", "M3", "M4", "M5", "M6", "M7", "M9", "M10", "M11", "M12", "M13", "M14", "M16", "M17"]);
+    expect(Object.keys(manifest.milestones)).toEqual(["M1", "M2", "M3", "M4", "M5", "M6", "M7", "M9", "M10", "M11", "M12", "M13", "M14", "M16", "M17", "M18"]);
   });
 
   it("is consistent, with no file owned by two packages that run at the same time", () => {
@@ -144,7 +144,7 @@ describe("requirement coverage", () => {
     expect(coverage(["FORM-01", "FORM-02"], titles)).toEqual({ "FORM-01": [titles[2]], "FORM-02": [] });
   });
 
-  it("gates each milestone's IDs, and every ID with --all (54 from Phase 1, then M9's REQ-01..07, M10's 8, M11's 6, M12's 10, M13's 6, M14's 9 and M16's 5 new ones)", () => {
+  it("gates each milestone's IDs, and every ID with --all (54 from Phase 1, then M9's REQ-01..07, M10's 8, M11's 6, M12's 10, M13's 6, M14's 9, M16's 5, M17's 4 and M18's 3 new ones)", () => {
     expect(requirementsFor(manifest, "M1")).toEqual(["TEAM-04", "TEAM-05"]);
     expect(requirementsFor(manifest, "M2")).toContain("FORM-18");
     expect(requirementsFor(manifest, "M9")).toEqual(["REQ-01", "REQ-02", "REQ-03", "REQ-04", "REQ-05", "REQ-06", "REQ-07"]);
@@ -156,8 +156,9 @@ describe("requirement coverage", () => {
     expect(requirementsFor(manifest, "M14")).toEqual(["TEAM-01", "TEAM-02", "TEAM-03", "API-01", "API-02", "INT-03", "INT-04", "INT-05", "INT-06", "REQ-07"]);
     expect(requirementsFor(manifest, "M16")).toEqual(["VID-05", "VID-06", "VID-07", "VID-08", "FORM-17"]);
     expect(requirementsFor(manifest, "M17")).toEqual(["SHARE-04", "VOC-01", "NPS-01", "IMP-07"]);
+    expect(requirementsFor(manifest, "M18")).toEqual(["INT-07", "INT-08", "EXT-01"]);
     const all = requirementsFor(manifest, "all");
-    expect(all).toHaveLength(109);
+    expect(all).toHaveLength(112);
     expect(new Set(all).size).toBe(all.length);
     // M15 shipped follow-ups to IDs other milestones gate, so it has no entry of its own.
     expect(() => requirementsFor(manifest, "M15")).toThrow(/Unknown milestone/);
@@ -166,7 +167,7 @@ describe("requirement coverage", () => {
   it("prints the table and passes with --report", () => {
     const run = spawnSync(process.execPath, ["scripts/req-coverage.mjs", "--all", "--report"], { cwd: ROOT, encoding: "utf8" });
     expect(run.status).toBe(0);
-    expect(run.stdout).toMatch(/All milestones: \d+ of 109 requirements covered/);
+    expect(run.stdout).toMatch(/All milestones: \d+ of 112 requirements covered/);
   });
 });
 
@@ -235,5 +236,16 @@ describe("TEAM-01 role guards", () => {
       expect(levels.get(route), route).toBe("editor");
     }
     expect(levels.get("PUT projects/[id]/ai")).toBe("admin");
+    // M18: viewers see the Stripe connection (never its secrets) and read social drafts; editors change drafts,
+    // ask AI to rewrite one and remove a "Verified purchase" mark; the connection and its purchases are admin-only, like webhooks and keys.
+    for (const route of ["GET projects/[id]/stripe", "GET testimonials/[id]/social-draft"]) {
+      expect(levels.get(route), route).toBe("viewer");
+    }
+    for (const route of ["PUT testimonials/[id]/social-draft", "DELETE testimonials/[id]/social-draft", "POST testimonials/[id]/social-draft/rewrite", "PUT testimonials/[id]/verified-purchase"]) {
+      expect(levels.get(route), route).toBe("editor");
+    }
+    for (const route of ["PUT projects/[id]/stripe", "DELETE projects/[id]/stripe", "DELETE projects/[id]/purchases"]) {
+      expect(levels.get(route), route).toBe("admin");
+    }
   });
 });

@@ -14,6 +14,7 @@ import { TranslationsPanel, type TranslationJson } from "./TranslationsPanel";
 import { sourceLabel, type InboxRow } from "./types";
 import { VideoStudio } from "./VideoStudio";
 import { VideoTools, type VideoToolsTestimonial } from "./VideoTools";
+import { SocialPostPanel } from "./SocialPostPanel";
 
 type DetailAnswer = {
   id: string;
@@ -145,6 +146,7 @@ export function DetailDrawer({
   customers = false,
   translations = false,
   video2 = false,
+  commerce = false,
   projectId,
 }: {
   id: string | null;
@@ -164,6 +166,8 @@ export function DetailDrawer({
   translations?: boolean;
   /** VID-05, VID-07 (video2 flag): multiclips and social clips. */
   video2?: boolean;
+  /** INT-07, INT-08 (commerce flag): "Verified purchase" and the Social post panel. */
+  commerce?: boolean;
   projectId?: string;
 }) {
   const [detail, setDetail] = useState<Detail | null>(null);
@@ -291,6 +295,27 @@ export function DetailDrawer({
                 </span>
               )}
               {detail.form && <span className="badge">{detail.form.name}</span>}
+              {commerce && t.verifiedPurchaseAt && (
+                <span className="badge approved" data-testid="verified-purchase-badge" title="Their email matched a purchase from this project's Stripe connection">
+                  Verified purchase
+                  <button
+                    type="button"
+                    className="ghost xsmall"
+                    aria-label="Remove the Verified purchase mark"
+                    onClick={async () => {
+                      try {
+                        await api(`/api/admin/testimonials/${t.id}/verified-purchase`, { method: "PUT", json: { verified: false } });
+                        await load();
+                        onChanged();
+                      } catch (e) {
+                        setError(errorMessage(e));
+                      }
+                    }}
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
               <span className="muted xsmall">Added {timeAgo(t.createdAt)}</span>
             </div>
 
@@ -538,6 +563,8 @@ export function DetailDrawer({
                 </section>
               </>
             )}
+
+            {commerce && !editing && t.status === "approved" && !t.withdrawnAt && <SocialPostPanel key={t.id} testimonialId={t.id} />}
 
             {translations && !editing && (
               <TranslationsPanel

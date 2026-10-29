@@ -3,6 +3,7 @@
 import { ColorField, Segmented, Toggle, worstPair } from "@/components/admin";
 import type { WidgetLayout } from "@/db/schema";
 import {
+  FLAGGED_LAYOUTS,
   LAYOUT_LABELS,
   LAYOUTS,
   PLACEMENT_LABELS,
@@ -45,12 +46,14 @@ function NumberField({ label, value, min, max, onChange, hint, testId }: { label
 
 // ------------------------------------------------------------------ layout
 
-export function LayoutPanel({ draft, update }: PanelProps) {
+export function LayoutPanel({ draft, update, commerce = false }: PanelProps & { commerce?: boolean }) {
   const hint = placementHint(draft.placement);
+  // The sales popup (INT-07) is offered with the commerce flag, or while it's the widget's layout.
+  const layouts = LAYOUTS.filter((l) => !FLAGGED_LAYOUTS[l] || commerce || draft.config.layout === l);
   return (
     <div className="stack">
       <div className="ws-layouts" role="radiogroup" aria-label="Layout">
-        {LAYOUTS.map((l) => (
+        {layouts.map((l) => (
           <button
             key={l}
             type="button"
@@ -127,10 +130,11 @@ const SHOW: { key: keyof WidgetDesign; label: string }[] = [
   { key: "showVideo", label: "Video" },
   { key: "showHighlights", label: "Highlighted phrases" },
   { key: "showVerified", label: "“Verified” mark on form submissions" },
+  { key: "showVerifiedPurchase", label: "“Verified purchase” mark on testimonials from buyers (Stripe)" },
   { key: "firstNameOnly", label: "First name only" },
 ];
 
-export function DesignPanel({ draft, update, accent, translations = false }: PanelProps & { accent: string; translations?: boolean }) {
+export function DesignPanel({ draft, update, accent, translations = false, commerce = false }: PanelProps & { accent: string; translations?: boolean; commerce?: boolean }) {
   const d = draft.config.design;
   const set = (patch: Partial<WidgetDesign>) => setSection(update, "design", patch);
   const targets = contrastTargets(d, accent);
@@ -185,7 +189,7 @@ export function DesignPanel({ draft, update, accent, translations = false }: Pan
       </fieldset>
       <fieldset className="ws-fieldset">
         <legend>Show</legend>
-        {SHOW.map((s) => (
+        {SHOW.filter((s) => s.key !== "showVerifiedPurchase" || commerce).map((s) => (
           <Toggle
             key={s.key}
             label={s.label}
@@ -276,7 +280,32 @@ function CustomCss({ draft, update }: PanelProps) {
 
 // ------------------------------------------------------------------ settings
 
-export function SettingsPanel({ draft, update, forms }: PanelProps & { forms: { id: string; name: string }[] }) {
+/** INT-07: what a sales popup shows of each purchase. Anything off never leaves the server. */
+function SalesOptions({ o, set, projectId }: { o: WidgetOptions; set: (patch: Partial<WidgetOptions>) => void; projectId: string }) {
+  return (
+    <div className="stack" data-testid="sales-options">
+      <p className="ws-hint">
+        Purchases come from this project&apos;s Stripe connection (<a href={`/admin/projects/${projectId}/commerce`}>Commerce</a>). Only the first name, a city
+        or country, the product and the amount are ever kept, and only what you tick here is sent to visitors. The brand colour is the accent on the Design tab.
+      </p>
+      <Toggle label="First name" checked={o.salesName} onChange={(salesName) => set({ salesName })} testId="sales-name" />
+      <Toggle label="City or country" checked={o.salesPlace} onChange={(salesPlace) => set({ salesPlace })} testId="sales-place" />
+      <Toggle label="What they bought" checked={o.salesProduct} onChange={(salesProduct) => set({ salesProduct })} testId="sales-product" />
+      <Toggle label="Amount paid" checked={o.salesAmount} onChange={(salesAmount) => set({ salesAmount })} testId="sales-amount" />
+      <Toggle label="How long ago" checked={o.salesTime} onChange={(salesTime) => set({ salesTime })} testId="sales-time" />
+      <Toggle
+        label="Mix in approved testimonials"
+        hint="Short snippets of the testimonials this widget picks (Testimonials tab), between the purchases."
+        checked={o.salesMix}
+        onChange={(salesMix) => set({ salesMix })}
+        testId="sales-mix"
+      />
+      <NumberField label="Purchases from the last (days)" value={o.salesDays} min={1} max={365} onChange={(salesDays) => set({ salesDays })} />
+    </div>
+  );
+}
+
+export function SettingsPanel({ draft, update, forms, projectId }: PanelProps & { forms: { id: string; name: string }[]; projectId: string }) {
   const o = draft.config.options;
   const layout = draft.config.layout;
   const set = (patch: Partial<WidgetOptions>) => setSection(update, "options", patch);
@@ -332,7 +361,8 @@ export function SettingsPanel({ draft, update, forms }: PanelProps & { forms: { 
             />
           </>
         )}
-        {layout === "toast" && (
+        {layout === "sales" && <SalesOptions o={o} set={set} projectId={projectId} />}
+        {(layout === "toast" || layout === "sales") && (
           <>
             <label>
               Corner
@@ -414,7 +444,7 @@ export function SettingsPanel({ draft, update, forms }: PanelProps & { forms: { 
 
 // ------------------------------------------------------------------ labels
 
-const LABELS: { key: keyof WidgetLabels; label: string }[] = [
+const LABELS: { key: keyof WidgetLabels; label: string; commerce?: boolean }[] = [
   { key: "readMore", label: "Read more" },
   { key: "readLess", label: "Read less" },
   { key: "reviews", label: "“reviews” after the count" },
@@ -422,6 +452,11 @@ const LABELS: { key: keyof WidgetLabels; label: string }[] = [
   { key: "cta", label: "Button" },
   { key: "empty", label: "When there’s nothing to show" },
   { key: "verified", label: "Verified mark" },
+  { key: "verifiedPurchase", label: "Verified purchase mark", commerce: true },
+  { key: "salesLine", label: "Sales popup line ({name}, {place}, {product})", commerce: true },
+  { key: "salesLineNoPlace", label: "Sales popup line without a place", commerce: true },
+  { key: "salesSomeone", label: "Sales popup: when the name is hidden", commerce: true },
+  { key: "salesNoProduct", label: "Sales popup: when the product is hidden", commerce: true },
   { key: "transcript", label: "Transcript" },
   { key: "previous", label: "Previous (arrow button)" },
   { key: "next", label: "Next (arrow button)" },
@@ -430,12 +465,12 @@ const LABELS: { key: keyof WidgetLabels; label: string }[] = [
   { key: "dismiss", label: "Close" },
 ];
 
-export function LabelsPanel({ draft, update }: PanelProps) {
+export function LabelsPanel({ draft, update, commerce = false }: PanelProps & { commerce?: boolean }) {
   const l = draft.config.labels;
   return (
     <div className="stack">
       <p className="ws-hint">The words visitors see. Write them in your site&apos;s language; an empty field goes back to English.</p>
-      {LABELS.map((x) => (
+      {LABELS.filter((x) => !x.commerce || commerce).map((x) => (
         <label key={x.key}>
           {x.label}
           <input

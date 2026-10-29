@@ -52,6 +52,8 @@ export type CardDisplay = {
   showHeadline: boolean;
   showSource: boolean;
   showVerified: boolean;
+  /** INT-07; walls saved before M18 have none, which shows the mark. */
+  showVerifiedPurchase?: boolean;
   date: "absolute" | "relative" | "hidden";
 };
 
@@ -63,6 +65,7 @@ type CardExtra = {
   platform: string | null;
   sourceUrl: string | null;
   verified: boolean;
+  verifiedPurchase?: boolean;
   images: { url: string; alt: string | null }[];
 };
 
@@ -101,6 +104,9 @@ export function TestimonialCard({
   const extra = display ? t.extra : undefined;
   const date = extra ? cardDate(extra.date, extra.datePrecision, display!.date) : "";
   const source = extra && display!.showSource && extra.sourceUrl ? extra.sourceUrl : null;
+  // INT-07: a buyer's testimonial says so, in place of the form's "Verified".
+  const mark =
+    extra && display!.showVerifiedPurchase !== false && extra.verifiedPurchase ? "Verified purchase" : extra && display!.showVerified && extra.verified ? "Verified" : null;
   return (
     <article className={clip ? "testimonial" : "testimonial text-only"} data-testimonial-id={display ? t.id : undefined}>
       {clip && (
@@ -145,11 +151,11 @@ export function TestimonialCard({
         <div>
           <strong>{t.name}</strong>
           {byline && <div className="byline">{byline}</div>}
-          {(date || (extra && display!.showVerified && extra.verified)) && (
+          {(date || mark) && (
             <div className="byline">
               {date && <time dateTime={extra!.date}>{date}</time>}
-              {date && display!.showVerified && extra!.verified ? " · " : null}
-              {display?.showVerified && extra?.verified ? "Verified" : null}
+              {date && mark ? " · " : null}
+              {mark}
             </div>
           )}
         </div>

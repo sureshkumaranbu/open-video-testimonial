@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Plaudit: save testimonials",
+  "short_name": "Plaudit",
+  "version": "0.1.0",
+  "description": "Save a quote from any page, or an X or LinkedIn post, to your own Plaudit inbox as a pending testimonial.",
+  "minimum_chrome_version": "116",
+  "permissions": ["activeTab", "contextMenus", "scripting", "storage"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Save to Plaudit",
+    "default_icon": { "16": "icons/icon-16.png", "32": "icons/icon-32.png", "48": "icons/icon-48.png" }
+  },
+  "options_ui": { "page": "options.html", "open_in_tab": true },
+  "icons": { "16": "icons/icon-16.png", "32": "icons/icon-32.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png" }
+}

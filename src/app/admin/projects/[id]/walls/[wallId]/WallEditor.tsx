@@ -29,6 +29,8 @@ type Props = {
   tags: string[];
   forms: Choice[];
   featured: { id: string; label: string }[];
+  /** INT-07 (commerce flag): the "Verified purchase" mark. */
+  commerce?: boolean;
 };
 
 type Draft = {
@@ -57,7 +59,7 @@ const TYPE_LABELS: Record<(typeof FEED_TYPES)[number], string> = { any: "Any", t
  * Publish on the left, and the live preview (the real WallView with the
  * unsaved config) at desktop or phone width on the right.
  */
-export function WallEditor({ project, initial, origin, tags, forms, featured }: Props) {
+export function WallEditor({ project, initial, origin, tags, forms, featured, commerce = false }: Props) {
   const [wall, setWall] = useState(initial);
   const [draft, setDraft] = useState<Draft>(() => draftOf(initial));
   const [saved, setSaved] = useState(() => JSON.stringify(draftOf(initial)));
@@ -396,6 +398,7 @@ export function WallEditor({ project, initial, origin, tags, forms, featured }: 
                         ["showHeadline", "Headline"],
                         ["showSource", "Link to the original review"],
                         ["showVerified", "“Verified” mark"],
+                        ...(commerce ? ([["showVerifiedPurchase", "“Verified purchase” mark (buyers, from Stripe)"]] as const) : []),
                       ] as const
                     ).map(([k, label]) => (
                       <Toggle key={k} label={label} checked={cfg.display[k]} onChange={(v) => sec("display", { [k]: v })} />

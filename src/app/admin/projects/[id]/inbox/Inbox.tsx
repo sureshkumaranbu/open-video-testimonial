@@ -74,6 +74,7 @@ export function Inbox({
   translations,
   smartSearch = false,
   video2 = false,
+  commerce = false,
   insights,
   initialOpenId,
 }: {
@@ -95,6 +96,8 @@ export function Inbox({
   smartSearch?: boolean;
   /** M16 (video2 flag): multiclips and social clips in the drawer. */
   video2?: boolean;
+  /** M18 (commerce flag): the drawer's "Social post" panel and "Verified purchase" mark. */
+  commerce?: boolean;
   /** M17 (insights flag): the drawer's "Case study", and manual add's Case study tab and screenshot reading (IMP-07, when OCR is on). */
   insights?: { caseStudies: string; ocr: boolean };
   /** Opens this testimonial in the drawer at once (the "Review and approve" link in notifications). */
@@ -443,6 +446,7 @@ export function Inbox({
         customers={customers}
         translations={Boolean(translations)}
         video2={video2}
+        commerce={commerce}
         projectId={project.id}
       />
       <Toast message={toast?.message ?? null} tone={toast?.tone} onDismiss={() => setToast(null)} testId="inbox-toast" />

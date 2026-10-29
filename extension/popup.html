@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Save to Plaudit</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="popup">
+    <main>
+      <h1>Save as a testimonial</h1>
+      <p id="setup" class="muted" hidden>Set your Plaudit address and API key first: <a href="options.html" target="_blank">open the options</a>.</p>
+      <form id="form" hidden>
+        <label>
+          Their words
+          <textarea id="text" required maxlength="5000"></textarea>
+          <span class="hint">Select text on the page before opening this, or type it here.</span>
+        </label>
+        <label>
+          Name
+          <input id="name" type="text" required maxlength="120" />
+          <span id="who" class="hint"></span>
+        </label>
+        <p class="muted">From <a id="source" target="_blank" rel="noopener noreferrer"></a></p>
+        <label class="check">
+          <input id="consent" type="checkbox" required />
+          <span>The author agreed to be quoted. It arrives in your inbox as Pending, for you to approve.</span>
+        </label>
+        <div class="row">
+          <button id="save" type="submit">Save to Plaudit</button>
+          <span id="project" class="muted"></span>
+        </div>
+      </form>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

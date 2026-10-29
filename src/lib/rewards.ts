@@ -92,6 +92,8 @@ export function grantReward(conn: Conn, i: GrantInput): GrantedReward | null {
   }
   if (cfg.kind === "url") return { status: "given", ...words, code: null, url: cfg.url };
   if (cfg.kind === "code") return { status: "given", ...words, code: cfg.code, url: null };
+  // INT-07: made at Stripe once the submission is stored (finishReward), outside this transaction.
+  if (cfg.kind === "stripe") return { status: "given", ...words, code: null, url: null, stripe: { coupon: cfg.stripeCoupon, expiresDays: cfg.stripeExpiresDays } };
   const code = claimCode(conn, i.form.id, i.target);
   return code ? { status: "given", ...words, code, url: null } : soldOut;
 }
@@ -250,6 +252,7 @@ export class RewardError extends Error {
 export function rewardText(reward: GrantedReward, projectName: string): string {
   const title = reward.title || `A thank-you from ${projectName}`;
   if (reward.status === "sold_out") return `${title}\nAll the rewards have been claimed, but thank you all the same.`;
+  if (reward.status === "unavailable") return `${title}\nYour code couldn't be made just now. The team has been told, and thank you all the same.`;
   const won = reward.wheel ? `You won: ${reward.wheel.labels[reward.wheel.won]}` : "";
   return [title, reward.message, won, reward.code ? `Your code: ${reward.code}` : "", reward.url ?? ""].filter(Boolean).join("\n");
 }

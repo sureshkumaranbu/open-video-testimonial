@@ -3,6 +3,8 @@ import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import type { Project, Webhook, WebhookEvent } from "@/db/schema";
 import { projectToApi, toApi } from "./api-shape";
+import { markIfPurchased } from "./commerce/purchases";
+import { approvedDraftPayload } from "./commerce/social";
 import { enqueue } from "./jobs";
 import { fetchPublicText } from "./net-guard";
 import type { TestimonialWithTags } from "./testimonials";
@@ -173,8 +175,18 @@ function queueDelivery(hook: Webhook, event: WebhookEvent, body: object) {
 /** Fans a testimonial's event out to every matching webhook (and listener). Never throws into the caller. */
 export function emitTestimonialEvent(event: WebhookEvent, t: TestimonialWithTags | null | undefined) {
   if (!t) return 0;
+  // M18 (flag commerce): a buyer's new testimonial is marked "Verified purchase" (INT-07),
+  // and an approved one gets its social post draft, also sent as `socialDraft` (INT-08).
+  if (event === "testimonial.created") {
+    try {
+      markIfPurchased(t);
+    } catch (err) {
+      console.error("[webhooks] couldn't check for a purchase:", err);
+    }
+  }
+  const socialDraft = event === "testimonial.approved" ? approvedDraftPayload(t) : null;
   const project = () => getDb().select().from(projects).where(eq(projects.id, t.projectId)).get() ?? null;
-  const data = () => ({ testimonial: toApi(t), ...(event === "testimonial.approved" ? { approvedBy: t.approvedBy } : {}) });
+  const data = () => ({ testimonial: toApi(t), ...(event === "testimonial.approved" ? { approvedBy: t.approvedBy } : {}), ...(socialDraft ? { socialDraft } : {}) });
   return fanOut(event, t.projectId, project, data, { formId: t.formId, testimonial: t });
 }
 

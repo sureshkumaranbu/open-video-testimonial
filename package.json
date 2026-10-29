@@ -19,7 +19,8 @@
     "db:generate": "drizzle-kit generate",
     "db:check": "node scripts/check-migrations.mjs && node scripts/check-schema-drift.mjs",
     "check:ownership": "node scripts/check-ownership.mjs",
-    "check:req": "node scripts/req-coverage.mjs"
+    "check:req": "node scripts/req-coverage.mjs",
+    "build:extension": "node scripts/build-extension.mjs"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "1.1.1",
@@ -38,12 +39,14 @@
   "devDependencies": {
     "@playwright/test": "^1.56.1",
     "@types/better-sqlite3": "^9.6.0",
+    "@types/jsdom": "30.0.0",
     "@types/node": "^22.20.5",
     "@types/nodemailer": "8.0.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/smtp-server": "3.5.13",
     "drizzle-kit": "^0.31.11",
+    "jsdom": "30.1.1",
     "smtp-server": "3.19.16",
     "typescript": "^5.9.3",
     "vitest": "^5.0.5"

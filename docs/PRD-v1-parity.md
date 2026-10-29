@@ -436,6 +436,7 @@ The embed points at the widget ID: `<script src=".../widget.js" data-widget="w_1
 | INT-06 (P1) | `@plaudit/react` npm package (`PlauditWidget`, `PlauditForm`, SSR-friendly) | |
 | INT-07 (P2) | Stripe: auto-collect trigger (REQ-07), sales popup widget (verified purchases), thank-you coupons | |
 | INT-08 (P2) | Social draft on approve (Buffer/Typefully via Zapier template) | |
+| EXT-01 (P2) | Browser extension (Chrome and Firefox, Manifest V3): save a selection, or an X or LinkedIn post with its author, to the inbox as Pending through `/api/v1` | A selection saved from a page is in the inbox |
 
 ---
 
