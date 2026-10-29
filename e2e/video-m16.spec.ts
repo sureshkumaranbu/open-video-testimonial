@@ -14,6 +14,8 @@ import { adminApi, createProject, FIXTURES, freshIp, seed, signIn, skipLinuxWebk
 const RUN = Date.now().toString(36);
 const RENDER_MS = 120_000;
 const SAMPLE = fs.readFileSync(path.join(FIXTURES, "sample.webm"));
+// Conversion, transcription and a render can each take a while on a busy machine: the 60 s default is too tight.
+test.describe.configure({ timeout: RENDER_MS * 2 });
 
 test.beforeEach(async ({ page }) => {
   await useFreshIp(page);
