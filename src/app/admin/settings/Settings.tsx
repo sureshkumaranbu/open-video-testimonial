@@ -144,7 +144,7 @@ function ApiKeys({
         {mcpUrl && (
           <p className="muted small" data-testid="mcp-url">
             AI assistants (Claude, Cursor and other MCP clients) connect to <code>{mcpUrl}</code> with a key as the bearer token. A read-only key can look
-            things up but not send invitations. Setup: docs/help/mcp.md.
+            things up but not change anything or send invitations. Setup: docs/help/mcp.md.
           </p>
         )}
         <form
@@ -290,7 +290,7 @@ function ApiKeys({
                         <td>{g.clientName}</td>
                         <td className="small">{g.memberEmail}</td>
                         <td className="small">
-                          {g.scope === "write" ? "Read and send invitations" : "Read only"}
+                          {g.scope === "write" ? "Read and make changes" : "Read only"}
                           <span className="muted" style={{ display: "block" }}>
                             {g.projectIds ? g.projectIds.map(projectName).join(", ") || "No projects" : "Every project"}
                           </span>

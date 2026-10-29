@@ -249,3 +249,53 @@ describe("TEAM-01 role guards", () => {
     }
   });
 });
+
+describe("API-01 key scopes", () => {
+  it("API-01 every /api/v1 handler needs a key, reads with read and changes with write; L23 and L25's paths also need their feature", () => {
+    const files = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "src/app/api/v1"], { cwd: ROOT, encoding: "utf8" }).split("\n").filter((f) => f.endsWith("/route.ts"));
+    const scopes = new Map<string, string>();
+    const unguarded: string[] = [];
+    for (const file of files) {
+      const src = fs.readFileSync(path.join(ROOT, file), "utf8");
+      const handlers = [...src.matchAll(/export (?:async )?function (GET|POST|PUT|PATCH|DELETE)\b/g)];
+      handlers.forEach((m, i) => {
+        const body = src.slice(m.index, handlers[i + 1]?.index ?? src.length);
+        const route = `${m[1]} ${file.replace("src/app/api/v1/", "").replace("/route.ts", "")}`;
+        const found = /requireApi(?:Key|2|Feature)\(req, "(read|write)"(?:, "(\w+)")?\)/.exec(body);
+        if (found) scopes.set(route, found[2] ? `${found[1]} ${found[2]}` : found[1]);
+        else if (route !== "GET openapi.json") unguarded.push(route);
+      });
+    }
+    expect(unguarded).toEqual([]);
+    for (const [route, scope] of scopes) expect(scope.split(" ")[0], route).toBe(route.startsWith("GET ") ? "read" : "write");
+    const pinned = {
+      "GET projects/[slug]/case-studies": "read insights",
+      "POST projects/[slug]/case-studies": "write insights",
+      "GET case-studies/[id]": "read insights",
+      "PATCH case-studies/[id]": "write insights",
+      "GET projects/[slug]/nps": "read insights",
+      "GET projects/[slug]/survey-responses": "read insights",
+      "GET projects/[slug]/insight-reports": "read insights",
+      "GET insight-reports/[id]": "read insights",
+      "GET testimonials/[id]/social-draft": "read commerce",
+      "PATCH testimonials/[id]/social-draft": "write commerce",
+    };
+    for (const [route, scope] of Object.entries(pinned)) expect(scopes.get(route), route).toBe(scope);
+    // NPS answers and saved reports are read only.
+    for (const route of ["projects/[slug]/nps", "projects/[slug]/survey-responses", "projects/[slug]/insight-reports", "insight-reports/[id]"]) {
+      expect([...scopes.keys()].filter((r) => r.endsWith(` ${route}`)), route).toEqual([`GET ${route}`]);
+    }
+  });
+
+  it("API-01 INT-04 the MCP tools match: L23 and L25's write tools need write access, and each belongs to its feature", async () => {
+    const { TOOLS } = await import("@/lib/mcp");
+    const of = (name: string) => TOOLS.find((t) => t.name === name);
+    for (const name of ["create_invite", "create_case_study", "update_case_study", "update_social_draft"]) expect(of(name)?.write, name).toBe(true);
+    for (const name of ["list_case_studies", "get_case_study", "nps_summary", "list_survey_responses", "list_insight_reports", "get_insight_report", "get_social_draft"]) {
+      expect(of(name), name).toBeDefined();
+      expect(of(name)!.write, name).toBeFalsy();
+    }
+    for (const name of ["list_case_studies", "get_case_study", "create_case_study", "update_case_study", "nps_summary", "list_survey_responses", "list_insight_reports", "get_insight_report"]) expect(of(name)!.flag, name).toBe("insights");
+    for (const name of ["get_social_draft", "update_social_draft"]) expect(of(name)!.flag, name).toBe("commerce");
+  });
+});

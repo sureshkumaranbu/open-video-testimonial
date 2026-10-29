@@ -346,6 +346,7 @@ export function oauthPrincipal(token: string): Principal | null {
   const chosen = grant.allProjects ? null : new Set(db.select().from(oauthGrantProjects).where(eq(oauthGrantProjects.grantId, grant.id)).all().map((r) => r.projectId));
   if (!grant.lastUsedAt || Date.now() - grant.lastUsedAt.getTime() > 60_000) db.update(oauthGrants).set({ lastUsedAt: new Date() }).where(eq(oauthGrants.id, grant.id)).run();
   return {
+    type: "oauth",
     id: grant.id,
     label: grant.memberEmail,
     scope: grant.scope === "write" && roleAtLeast(role, "editor") ? "write" : "read",

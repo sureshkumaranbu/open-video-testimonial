@@ -1,12 +1,16 @@
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
-import type { ApiKey, ApiKeyScope, Campaign, Customer, Feedback, Project, Wall, Webhook, Widget } from "@/db/schema";
+import type { ApiKey, ApiKeyScope, Campaign, Customer, Feedback, Project, SocialDraft, SurveyResponse, Testimonial, Wall, Webhook, Widget } from "@/db/schema";
 import { apiKeyReaches, requireApiKey } from "./api-keys";
 import { CampaignError, campaignToAdmin, type Funnel } from "./campaigns";
+import { CaseStudyError } from "./case-studies";
+import { socialDraftView } from "./commerce/social";
 import { env } from "./env";
-import { featureOn } from "./features";
+import { featureOn, type Feature } from "./features";
 import { FormError } from "./forms";
 import { jsonError } from "./http";
+import { npsGroup } from "./insights/nps";
+import { ReportError } from "./insights/reports";
 import { ProjectError } from "./projects";
 import { mediaUrl } from "./storage";
 import { getProjectBySlug, getProjectById } from "./testimonials";
@@ -14,7 +18,7 @@ import { WallError, wallToAdmin } from "./walls";
 import { parseEvents } from "./webhooks";
 import { WidgetError, widgetSnippets, widgetToAdmin } from "./widgets";
 
-const { customers, feedback } = schema;
+const { customers, feedback, surveyResponses } = schema;
 
 /**
  * Shared pieces of the M14 REST paths (API-01, API-02): forms, widgets,
@@ -34,6 +38,16 @@ export const apiError = (status: number, message: string, extra?: Record<string,
 export function requireApi2(req: Request, need: ApiKeyScope): { key: ApiKey; error?: undefined } | { error: Response; key?: undefined } {
   if (!featureOn("api2")) return { error: apiError(404, "Not found") };
   return requireApiKey(req, need) as { key: ApiKey } | { error: Response };
+}
+
+/**
+ * Like requireApi2, for a path of an M17 or M18 area (L23, L25): case
+ * studies, NPS and saved reports belong to `insights`, social drafts to
+ * `commerce`. A 404 while either flag is off, as the dashboard's pages are.
+ */
+export function requireApiFeature(req: Request, need: ApiKeyScope, flag: Feature): ReturnType<typeof requireApi2> {
+  if (!featureOn(flag)) return { error: apiError(404, "Not found") };
+  return requireApi2(req, need);
 }
 
 /**
@@ -91,9 +105,17 @@ export const MAX_CONFIG_BYTES = 256 * 1024;
 export const MAX_SMALL_BYTES = 16 * 1024;
 export const MAX_RECIPIENTS_BYTES = 1024 * 1024;
 
-/** A lib's refusal (FormError, WidgetError, WallError, CampaignError, ProjectError) as its status; anything else is rethrown. */
+/** A lib's refusal (FormError, WidgetError, WallError, CampaignError, ProjectError, CaseStudyError, ReportError) as its status; anything else is rethrown. */
 export function libError(err: unknown): Response {
-  if (err instanceof FormError || err instanceof WidgetError || err instanceof WallError || err instanceof CampaignError || err instanceof ProjectError) {
+  if (
+    err instanceof FormError ||
+    err instanceof WidgetError ||
+    err instanceof WallError ||
+    err instanceof CampaignError ||
+    err instanceof ProjectError ||
+    err instanceof CaseStudyError ||
+    err instanceof ReportError
+  ) {
     return apiError(err.status, err.message);
   }
   throw err;
@@ -187,6 +209,27 @@ export function feedbackToApi(f: Feedback) {
   };
 }
 
+/** NPS-01: one answer to an NPS question. Private like feedback: never published. */
+export function surveyResponseToApi(r: SurveyResponse) {
+  return {
+    id: r.id,
+    projectId: r.projectId,
+    formId: r.formId,
+    testimonialId: r.testimonialId,
+    questionKey: r.questionKey,
+    score: r.score,
+    category: npsGroup(r.score),
+    comment: r.comment,
+    author: { name: r.authorName, email: r.authorEmail },
+    createdAt: r.createdAt.toISOString(),
+  };
+}
+
+/** INT-08: a testimonial's social post draft, as the drawer shows it. */
+export function socialDraftToApi(t: Pick<Testimonial, "id">, d: SocialDraft) {
+  return { testimonialId: t.id, ...socialDraftView(t, d) };
+}
+
 /** A subscription as the API shows it: the secret only once, when it's made. */
 export function hookToApi(h: Webhook, o: { secret?: boolean } = {}) {
   const project = h.projectId ? getProjectById(h.projectId) : null;
@@ -222,5 +265,14 @@ export function listFeedbackPage(projectId: string, o: { limit: number; offset: 
   const where = and(eq(feedback.projectId, projectId), isNull(feedback.trashedAt));
   const total = db.select({ n: sql<number>`count(*)` }).from(feedback).where(where).get()?.n ?? 0;
   const rows = db.select().from(feedback).where(where).orderBy(desc(feedback.createdAt), asc(feedback.id)).limit(o.limit).offset(o.offset).all();
+  return { rows, total };
+}
+
+/** A project's NPS answers, newest first, optionally of one form. */
+export function listSurveyResponsesPage(projectId: string, o: { limit: number; offset: number; formId?: string | null }) {
+  const db = getDb();
+  const where = and(eq(surveyResponses.projectId, projectId), o.formId ? eq(surveyResponses.formId, o.formId) : undefined);
+  const total = db.select({ n: sql<number>`count(*)` }).from(surveyResponses).where(where).get()?.n ?? 0;
+  const rows = db.select().from(surveyResponses).where(where).orderBy(desc(surveyResponses.createdAt), asc(surveyResponses.id)).limit(o.limit).offset(o.offset).all();
   return { rows, total };
 }
