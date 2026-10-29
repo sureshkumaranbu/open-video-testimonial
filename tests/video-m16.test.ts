@@ -221,7 +221,8 @@ describe("M16 routes need the right role", () => {
 
 // ------------------------------------------------------------------ with ffmpeg
 
-describe.skipIf(!hasFfmpeg())("M16 renders with ffmpeg", () => {
+// Real ffmpeg renders: a CI runner can take well over the 5 s default for a reel.
+describe.skipIf(!hasFfmpeg())("M16 renders with ffmpeg", { timeout: 60_000 }, () => {
   async function finish(id: string) {
     await runDueJobs();
     const r = render(id);
