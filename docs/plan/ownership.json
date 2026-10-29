@@ -104,6 +104,12 @@
       "$comment": "VOC-01 (Voice of Customer), NPS-01 (NPS, feedback and AI surveys) and IMP-07 (screenshot OCR import) are our IDs for PRD rows 64, 65 and 28's OCR; the PRD gives them none. SHARE-04 is the PRD's own.",
       "packages": [],
       "requirements": ["SHARE-04", "VOC-01", "NPS-01", "IMP-07"]
+    },
+    "M18": {
+      "name": "Commerce and reach (Phase 3)",
+      "$comment": "INT-07 (Stripe sales popup, verified purchases, thank-you coupons) and INT-08 (social drafts on approve) are the PRD's own. EXT-01 is our ID for the browser extension (PRD row 33), added to the PRD's P2 table next to INT-08.",
+      "packages": [],
+      "requirements": ["INT-07", "INT-08", "EXT-01"]
     }
   },
   "concurrent": [
