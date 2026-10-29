@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Multiclips, social clips and highlight reels** (feature flag `video2`). In the inbox drawer, join a submission's video answers into one video with a card for each question, and download it or show it as the testimonial's video (VID-05); make 9:16 or 1:1 social clips with word-by-word captions, your colour, logo and a name tag, in four looks of our own (VID-07). **Highlight reels** join the best moments of approved videos, chosen by selecting their words, with title and closing cards and an original synthesised music bed (VID-08). Everything is made in the background with ffmpeg and stays private to your team. See [`docs/help/video.md`](docs/help/video.md#multiclip).
+
+- **Your own welcome and thank-you videos** on forms (`video2`, FORM-17): record or upload in the builder; they play with captions on the live form.
+
+- **Streaming copies** (opt-in, `VIDEO_HLS=true`, VID-06): approved videos also get two or three HLS renditions that Safari streams; other browsers keep the MP4, and the widget script is unchanged. The copy is public only while the video is.
+
+- Migration 0019 adds renders, highlight reels, form videos and `testimonials.hls_key`; nothing existing changes.
+
 - **The setup guide's brand scan runs in the background** (ONB-02): the project is made at once, a progress bar follows the scan (30 seconds at most, `robots.txt` respected, 5 MB and 10 seconds per request, no private addresses), and the logo, colour and site name land on the project even if you move on first; the new form, wall and widgets take the colour. A site that can't be read keeps the default look. Optionally, `BRAND_AI_MODEL` (with `BRAND_AI_API_URL` and `BRAND_AI_API_KEY`) adds a step with your own OpenAI-compatible provider that can suggest the name, colour and testimonials; only what's really on the page is kept, and any provider problem is skipped silently. See [`docs/help/getting-started.md`](docs/help/getting-started.md#what-we-look-for-on-your-site).
 
 - The recorder's end-to-end tests wait for what the page and server do rather than for fixed times, and the playback check no longer depends on whether the browser plays H.264.

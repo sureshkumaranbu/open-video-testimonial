@@ -92,6 +92,12 @@
       "$comment": "API-01 is the /api/v1 CRUD of PRD §19 (forms, widgets, walls, campaigns, tags, customers, feedback) and API-02 its analytics read (L16); the PRD gives §19 no IDs of its own. REQ-07 (auto-collect, M9) gains native Stripe and Shopify triggers here. TEAM-01, TEAM-02 and the REQ-07 triggers came in its second part, after M13 (migration 0017).",
       "packages": [],
       "requirements": ["TEAM-01", "TEAM-02", "TEAM-03", "API-01", "API-02", "INT-03", "INT-04", "INT-05", "INT-06", "REQ-07"]
+    },
+    "M16": {
+      "name": "Video, part 2 (Phase 3)",
+      "$comment": "Phase 3 milestones are one branch and one implementer each, like Phase 2. M15 (leftovers) shipped follow-ups to existing IDs, so it gates none of its own.",
+      "packages": [],
+      "requirements": ["VID-05", "VID-06", "VID-07", "VID-08", "FORM-17"]
     }
   },
   "concurrent": [

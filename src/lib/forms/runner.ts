@@ -5,6 +5,7 @@ import { env } from "@/lib/env";
 import { parseBrand } from "@/lib/projects";
 import { findRequestByToken, markStarted } from "@/lib/requests";
 import { mediaUrl } from "@/lib/storage";
+import { ownerVideosOf } from "@/lib/video/form-videos";
 import { consentWordingFor } from "@/lib/submissions";
 import { designWithBrand } from "./design";
 import { parsePrefill } from "./engine";
@@ -18,7 +19,8 @@ type Query = Record<string, string | string[] | undefined>;
  * the runner: the public form only (no rules), its labels, the consent
  * wording as a stored version, and the link's prefill. A signed request link
  * (?r=) of this project wins over plain parameters, and opening the form with
- * one counts as "started" for that request (M9 tracking).
+ * one counts as "started" for that request (M9 tracking). The owner's own
+ * welcome and thank-you videos come along once converted (FORM-17).
  */
 export function runnerProps(project: Project, form: Form, query: Query): Omit<FormRunnerProps, "embed" | "preview" | "previewPage"> {
   const cfg = parseFormRow(form);
@@ -40,5 +42,6 @@ export function runnerProps(project: Project, form: Form, query: Query): Omit<Fo
     logoUrl: publicForm.logoUrl ?? (project.logoKey ? mediaUrl(project.logoKey) : null),
     accent: project.accentColor,
     limits: { maxVideoBytes: env.maxVideoBytes, maxImageBytes: env.maxImageBytes },
+    ownerVideos: ownerVideosOf(form.id),
   };
 }

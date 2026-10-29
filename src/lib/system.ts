@@ -10,6 +10,7 @@ export async function systemStatus() {
   return {
     ffmpeg: await ffmpegAvailable(),
     transcription: { enabled: transcriptionEnabled(), provider: env.transcribeProvider },
+    hls: env.videoHls,
     email: { mode: emailMode(), from: emailMode() === "off" ? null : env.smtpFrom, warning: fromWarning() },
     storage: { driver: storage.driver, bucket: storage.bucket, ok: storage.ok, error: storage.error },
   };

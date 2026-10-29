@@ -3,7 +3,7 @@ import { getDb, schema } from "@/db";
 import type { MemberRole } from "@/db/schema";
 import { featureOn } from "./features";
 
-const { members, memberProjects, forms, widgets, walls, campaigns, testimonials, boosters, seoSnippets, requests, taskRuns, slugRedirects, answers, importSources } =
+const { members, memberProjects, forms, widgets, walls, campaigns, testimonials, boosters, seoSnippets, requests, taskRuns, slugRedirects, answers, importSources, videoRenders, highlightReels, formVideos } =
   schema;
 
 /**
@@ -87,6 +87,9 @@ const SEGMENTS: Record<string, Lookup> = {
       .innerJoin(testimonials, eq(testimonials.id, answers.testimonialId))
       .where(and(eq(answers.id, id)))
       .get()?.projectId,
+  // M16: a render (multiclip, social clip, reel) and a highlight reel.
+  renders: (id) => getDb().select({ projectId: videoRenders.projectId }).from(videoRenders).where(eq(videoRenders.id, id)).get()?.projectId,
+  reels: (id) => getDb().select({ projectId: highlightReels.projectId }).from(highlightReels).where(eq(highlightReels.id, id)).get()?.projectId,
 };
 
 const ANALYTICS: Record<string, Lookup> = {
@@ -123,12 +126,24 @@ const JOB_OBJECTS: [field: string, look: Lookup][] = [
   ["widgetId", byTable(widgets)],
   ["runId", SEGMENTS.runs],
   ["sourceId", (id) => getDb().select({ projectId: importSources.projectId }).from(importSources).where(eq(importSources.id, id)).get()?.projectId],
+  ["renderId", SEGMENTS.renders],
+  ["reelId", SEGMENTS.reels],
+  [
+    "formVideoId",
+    (id) =>
+      getDb()
+        .select({ projectId: forms.projectId })
+        .from(formVideos)
+        .innerJoin(forms, eq(forms.id, formVideos.formId))
+        .where(eq(formVideos.id, id))
+        .get()?.projectId,
+  ],
 ];
 
 /**
  * L19: the project a background job works on, from its payload (a
- * `projectId`, or the testimonial, answer, request, widget, run or import
- * source it names). Null when it names none (storage clean-up, digests,
+ * `projectId`, or the testimonial, answer, request, widget, run, import
+ * source, render, reel or form video it names). Null when it names none (storage clean-up, digests,
  * webhook deliveries) or the payload isn't readable: such jobs are for
  * admins only.
  */

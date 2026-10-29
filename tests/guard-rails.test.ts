@@ -61,8 +61,8 @@ describe("docs/plan/ownership.json", () => {
         ...range(7, 4),
       ].sort(),
     );
-    // Phase 2 milestones (M9 on) gate requirement IDs only; they have no work packages.
-    expect(Object.keys(manifest.milestones)).toEqual(["M1", "M2", "M3", "M4", "M5", "M6", "M7", "M9", "M10", "M11", "M12", "M13", "M14"]);
+    // Phase 2 and 3 milestones (M9 on) gate requirement IDs only; they have no work packages.
+    expect(Object.keys(manifest.milestones)).toEqual(["M1", "M2", "M3", "M4", "M5", "M6", "M7", "M9", "M10", "M11", "M12", "M13", "M14", "M16"]);
   });
 
   it("is consistent, with no file owned by two packages that run at the same time", () => {
@@ -144,7 +144,7 @@ describe("requirement coverage", () => {
     expect(coverage(["FORM-01", "FORM-02"], titles)).toEqual({ "FORM-01": [titles[2]], "FORM-02": [] });
   });
 
-  it("gates each milestone's IDs, and every ID with --all (54 from Phase 1, then M9's REQ-01..07, M10's 8, M11's 6, M12's 10, M13's 6 and M14's 9 new ones)", () => {
+  it("gates each milestone's IDs, and every ID with --all (54 from Phase 1, then M9's REQ-01..07, M10's 8, M11's 6, M12's 10, M13's 6, M14's 9 and M16's 5 new ones)", () => {
     expect(requirementsFor(manifest, "M1")).toEqual(["TEAM-04", "TEAM-05"]);
     expect(requirementsFor(manifest, "M2")).toContain("FORM-18");
     expect(requirementsFor(manifest, "M9")).toEqual(["REQ-01", "REQ-02", "REQ-03", "REQ-04", "REQ-05", "REQ-06", "REQ-07"]);
@@ -154,16 +154,18 @@ describe("requirement coverage", () => {
     expect(requirementsFor(manifest, "M13")).toEqual(["IMP-02", "IMP-04", "INBOX-11", "INBOX-12", "INBOX-13", "INBOX-14"]);
     // M14 also lists REQ-07 (from M9) for its native Stripe and Shopify triggers; --all counts it once.
     expect(requirementsFor(manifest, "M14")).toEqual(["TEAM-01", "TEAM-02", "TEAM-03", "API-01", "API-02", "INT-03", "INT-04", "INT-05", "INT-06", "REQ-07"]);
+    expect(requirementsFor(manifest, "M16")).toEqual(["VID-05", "VID-06", "VID-07", "VID-08", "FORM-17"]);
     const all = requirementsFor(manifest, "all");
-    expect(all).toHaveLength(100);
+    expect(all).toHaveLength(105);
     expect(new Set(all).size).toBe(all.length);
+    // M15 shipped follow-ups to IDs other milestones gate, so it has no entry of its own.
     expect(() => requirementsFor(manifest, "M15")).toThrow(/Unknown milestone/);
   });
 
   it("prints the table and passes with --report", () => {
     const run = spawnSync(process.execPath, ["scripts/req-coverage.mjs", "--all", "--report"], { cwd: ROOT, encoding: "utf8" });
     expect(run.status).toBe(0);
-    expect(run.stdout).toMatch(/All milestones: \d+ of 100 requirements covered/);
+    expect(run.stdout).toMatch(/All milestones: \d+ of 105 requirements covered/);
   });
 });
 
@@ -194,5 +196,24 @@ describe("TEAM-01 role guards", () => {
     expect(levels.get("PATCH testimonials/[id]")).toBe("editor");
     expect(levels.get("POST projects/[id]/share/render")).toBe("viewer");
     expect(levels.get("GET projects/[id]/testimonials")).toBe("viewer");
+    // M16: viewers may watch renders; making, using, downloading or deleting one needs an editor.
+    for (const route of ["GET testimonials/[id]/renders", "GET renders/[id]", "GET projects/[id]/reels", "GET projects/[id]/reels/candidates", "GET reels/[id]", "GET forms/[id]/videos"]) {
+      expect(levels.get(route), route).toBe("viewer");
+    }
+    for (const route of [
+      "POST testimonials/[id]/multiclip",
+      "PUT testimonials/[id]/multiclip",
+      "POST testimonials/[id]/social-clip",
+      "DELETE renders/[id]",
+      "GET renders/[id]/download",
+      "POST projects/[id]/reels",
+      "PUT reels/[id]",
+      "DELETE reels/[id]",
+      "POST reels/[id]/render",
+      "POST forms/[id]/videos",
+      "DELETE forms/[id]/videos",
+    ]) {
+      expect(levels.get(route), route).toBe("editor");
+    }
   });
 });

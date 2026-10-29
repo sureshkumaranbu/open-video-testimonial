@@ -73,6 +73,7 @@ export function Inbox({
   customers = false,
   translations,
   smartSearch = false,
+  video2 = false,
   initialOpenId,
 }: {
   project: Project;
@@ -91,6 +92,8 @@ export function Inbox({
   translations?: { provider: string | null };
   /** INBOX-14 (aisearch flag): the Smart search switch. */
   smartSearch?: boolean;
+  /** M16 (video2 flag): multiclips and social clips in the drawer. */
+  video2?: boolean;
   /** Opens this testimonial in the drawer at once (the "Review and approve" link in notifications). */
   initialOpenId?: string;
 }) {
@@ -435,6 +438,7 @@ export function Inbox({
         publicPages={publicPages}
         customers={customers}
         translations={Boolean(translations)}
+        video2={video2}
         projectId={project.id}
       />
       <Toast message={toast?.message ?? null} tone={toast?.tone} onDismiss={() => setToast(null)} testId="inbox-toast" />

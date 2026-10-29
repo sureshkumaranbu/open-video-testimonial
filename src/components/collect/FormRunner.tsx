@@ -19,6 +19,7 @@ import {
 import { dirFor, fillLabel, type LabelKey, type Labels } from "@/lib/forms/labels";
 import type { FormPage, PublicForm } from "@/lib/forms/schema";
 import type { GrantedReward } from "@/lib/rewards-config";
+import type { OwnerVideos } from "@/lib/video/form-videos";
 import { createAnswerUploads } from "./answer-uploads";
 import { ConsentStep } from "./ConsentBlock";
 import { clearDraft, hasContent, loadDraft, restoreDraft, saveDraft, toDraft, type FormDraft } from "./draft";
@@ -47,6 +48,8 @@ export type FormRunnerProps = {
   /** The builder's live preview: no camera, nothing is sent, and `previewPage` (an index into form.pages) is shown. */
   preview?: boolean;
   previewPage?: number;
+  /** FORM-17: the owner's own videos on the welcome and thank-you pages. */
+  ownerVideos?: OwnerVideos;
 };
 
 type Done = { withdrawUrl: string | null; thankYou: ThankYouContent; reward: GrantedReward | null; feedbackOnly: boolean };
@@ -345,6 +348,7 @@ export function FormRunner(props: FormRunnerProps) {
         social={done ? state.consent.scopes.includes("social") : true}
         withdrawUrl={done?.withdrawUrl ?? null}
         reward={done?.reward ?? null}
+        video={props.ownerVideos?.thank_you}
       />
     );
   } else if (resume && !preview) {
@@ -368,7 +372,7 @@ export function FormRunner(props: FormRunnerProps) {
         case "rating":
           return <RatingStep page={shown} ctx={ctx} />;
         case "welcome":
-          return <WelcomeStep page={shown} ctx={ctx} />;
+          return <WelcomeStep page={shown} ctx={ctx} video={props.ownerVideos?.welcome} />;
         case "question":
           return <QuestionStep key={shown.key} page={shown} ctx={ctx} />;
         case "feedback":

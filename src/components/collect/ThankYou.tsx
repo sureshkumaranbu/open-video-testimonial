@@ -4,6 +4,8 @@ import { useState } from "react";
 import type { ThankYou as ThankYouContent } from "@/lib/forms/engine";
 import { fillLabel, type Labels } from "@/lib/forms/labels";
 import type { GrantedReward } from "@/lib/rewards-config";
+import type { OwnerVideo as OwnerVideoData } from "@/lib/video/form-videos";
+import { OwnerVideo } from "./OwnerVideo";
 import { RewardReveal } from "./RewardReveal";
 
 type Props = {
@@ -17,6 +19,8 @@ type Props = {
   withdrawUrl?: string | null;
   /** FORM-13: what the server gave for this submission. */
   reward?: GrantedReward | null;
+  /** FORM-17: the owner's own thank-you video. */
+  video?: OwnerVideoData;
 };
 
 const SHARE = [
@@ -26,7 +30,7 @@ const SHARE = [
 ];
 
 /** After sending: thanks, their words to copy or share, the owner's link, and the private withdraw link. */
-export function ThankYou({ content, labels: l, projectName, words, social, withdrawUrl, reward }: Props) {
+export function ThankYou({ content, labels: l, projectName, words, social, withdrawUrl, reward, video }: Props) {
   const [copied, setCopied] = useState<"words" | "link" | null>(null);
   const t = (s: string) => fillLabel(s, { project: projectName });
   const quote = words.trim();
@@ -46,6 +50,7 @@ export function ThankYou({ content, labels: l, projectName, words, social, withd
         </svg>
       </span>
       <h1>{t(content.title || l.thankYouTitle)}</h1>
+      {video && <OwnerVideo video={video} label={t(content.title || l.thankYouTitle)} />}
       <p className="fr-sub">{t(content.message || l.thankYouMessage)}</p>
       {reward && <RewardReveal reward={reward} labels={l} projectName={projectName} />}
       {content.cta && (

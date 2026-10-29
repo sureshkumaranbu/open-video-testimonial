@@ -474,15 +474,25 @@ export function logoInUse(key: string, db: Conn = getDb()): boolean {
  * Refuses the default form (FormError 409). Its testimonials and requests
  * keep their rows (form_id becomes NULL; a request then opens the default
  * form), its form-scoped webhooks and old links go with it, and its logo is
- * deleted unless something else still uses the file.
+ * deleted unless something else still uses the file; so are its own welcome
+ * and thank-you videos (FORM-17).
  */
 export async function deleteForm(id: string): Promise<boolean> {
   const db = getDb();
   const form = db.select().from(forms).where(eq(forms.id, id)).get();
   if (!form) return false;
   if (form.isDefault) throw new FormError(409, "The default form can't be deleted. Make another form the default first.");
+  // FORM-17: its welcome and thank-you videos go with it (the rows cascade, so their files are listed first).
+  const videos = db
+    .select({ a: schema.formVideos.videoKey, b: schema.formVideos.videoOriginalKey, c: schema.formVideos.posterKey })
+    .from(schema.formVideos)
+    .where(eq(schema.formVideos.formId, id))
+    .all()
+    .flatMap((v) => [v.a, v.b, v.c])
+    .filter((k): k is string => Boolean(k));
   db.delete(forms).where(and(eq(forms.id, id), eq(forms.isDefault, false))).run();
   if (form.logoKey && !logoInUse(form.logoKey, db)) await removeFiles([form.logoKey]);
+  if (videos.length) await removeFiles([...new Set(videos)]);
   return true;
 }
 

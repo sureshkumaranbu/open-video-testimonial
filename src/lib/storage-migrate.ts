@@ -59,6 +59,12 @@ export async function localMediaKeys(): Promise<string[]> {
       .catch(() => [] as string[]);
     for (const name of names) if (isMediaKey(`${dir}/${name}`)) keys.push(`${dir}/${name}`);
   }
+  // VID-06: HLS copies keep their files in a folder each.
+  const hls = path.join(/*turbopackIgnore: true*/ env.uploadsDir, "hls");
+  for (const folder of await fs.promises.readdir(/*turbopackIgnore: true*/ hls).catch(() => [] as string[])) {
+    const names = await fs.promises.readdir(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ hls, folder)).catch(() => [] as string[]);
+    for (const name of names) if (isMediaKey(`hls/${folder}/${name}`)) keys.push(`hls/${folder}/${name}`);
+  }
   return keys.sort();
 }
 

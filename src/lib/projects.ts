@@ -5,7 +5,7 @@ import { getDb, schema, type Tx } from "@/db";
 import type { Project, RedirectKind } from "@/db/schema";
 import { recordHistory } from "./history";
 import { deleteObject, removeFiles, saveUpload } from "./storage";
-import { createProject, getProjectById, getProjectBySlug, updateProject } from "./testimonials";
+import { createProject, getProjectById, getProjectBySlug, renderFiles, updateProject } from "./testimonials";
 import { discardUpload } from "./uploads";
 import { brandSchema, firstIssue, slugSchema, tagNameSchema, type Brand } from "./validation";
 
@@ -215,7 +215,7 @@ export function deleteRedirect(id: string): boolean {
 /**
  * Every stored file of the project: its testimonials' own files, their
  * answers' videos and their images, form, wall, booster and project logos,
- * wall covers and customers' photos.
+ * wall covers and customers' photos; M16's renders, HLS copies and form videos.
  */
 export function projectMediaKeys(projectId: string): string[] {
   const rows = getDb().all<{ key: string | null }>(sql`
@@ -235,8 +235,17 @@ export function projectMediaKeys(projectId: string): string[] {
     UNION SELECT key FROM share_assets WHERE project_id = ${projectId}
     UNION SELECT logo_key FROM boosters WHERE project_id = ${projectId}
     UNION SELECT logo_key FROM projects WHERE id = ${projectId}
-    UNION SELECT avatar_key FROM customers WHERE project_id = ${projectId}`);
-  return rows.map((r) => r.key).filter((k): k is string => Boolean(k));
+    UNION SELECT avatar_key FROM customers WHERE project_id = ${projectId}
+    UNION SELECT key FROM video_renders WHERE project_id = ${projectId}
+    UNION SELECT replaced_key FROM video_renders WHERE project_id = ${projectId}
+    UNION SELECT v.video_key FROM form_videos v JOIN forms f ON f.id = v.form_id WHERE f.project_id = ${projectId}
+    UNION SELECT v.video_original_key FROM form_videos v JOIN forms f ON f.id = v.form_id WHERE f.project_id = ${projectId}
+    UNION SELECT v.poster_key FROM form_videos v JOIN forms f ON f.id = v.form_id WHERE f.project_id = ${projectId}`);
+  // M16: an HLS copy is a folder of playlists and segments, listed on its render.
+  const hls = getDb()
+    .all<{ files: string }>(sql`SELECT files FROM video_renders WHERE project_id = ${projectId} AND kind = 'hls'`)
+    .flatMap((r) => renderFiles(r.files));
+  return [...rows.map((r) => r.key), ...hls].filter((k): k is string => Boolean(k));
 }
 
 /** Whether any row (of any project) still points at a file. */
@@ -253,6 +262,8 @@ export function fileInUse(key: string): boolean {
       UNION ALL SELECT 1 FROM walls WHERE logo_key = ${key} OR cover_key = ${key} OR favicon_key = ${key}
       UNION ALL SELECT 1 FROM boosters WHERE logo_key = ${key}
       UNION ALL SELECT 1 FROM share_assets WHERE key = ${key}
+      UNION ALL SELECT 1 FROM video_renders WHERE key = ${key} OR replaced_key = ${key}
+      UNION ALL SELECT 1 FROM form_videos WHERE video_key = ${key} OR video_original_key = ${key} OR poster_key = ${key}
       LIMIT 1`),
   );
 }

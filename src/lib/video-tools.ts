@@ -9,6 +9,7 @@ import { extractPoster, ffmpegAvailable, probe, queueVideoProcessing, trimOf, wa
 import { mimeForKey, newKey, removeFiles, saveUpload, storage } from "./storage";
 import { getTestimonial, stillUsed, updateTestimonial, type TestimonialWithTags } from "./testimonials";
 import { claimUpload, getUpload } from "./uploads";
+import { releaseMulticlip } from "./video/renders";
 
 const { testimonials } = schema;
 
@@ -198,6 +199,8 @@ export async function replaceVideo(id: string, ref: { id: string; token: string 
     { by: o.by },
   );
   await queueVideoProcessing(id);
+  // A multiclip shown as the video (VID-05) is just a multiclip again; the answer it replaced goes too.
+  await releaseMulticlip(id);
   await dropUnused([t.videoKey, t.videoOriginalKey, t.posterKey]);
   return getTestimonial(id)!;
 }

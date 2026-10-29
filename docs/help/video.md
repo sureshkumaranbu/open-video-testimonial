@@ -29,3 +29,39 @@ The poster is the still shown before a video plays, on widgets, walls, the testi
 ## Download
 
 **Original** downloads the file exactly as it was uploaded; **MP4** downloads the converted video (the cut, when trimmed). Downloads need you to be signed in: there is no public link, and they're never cached outside your browser.
+
+## Multiclip
+
+When someone answers more than one question on video, the drawer's **Clips and multiclip** section offers **Make a multiclip**: their answers joined into one video, each after a card with its question in your brand colour (the brand kit's main colour, or the project's accent colour) and your logo. It's made in the background; when it's ready you can watch it, **Download** it, or **Use as the video**. That makes it the testimonial's own video everywhere: it's converted again, the transcript is made again, and the trim and poster start over. The first answer's own file is kept, so **Show the first answer again** puts things back as they were. A multiclip that's in use can't be deleted until you switch back.
+
+Answers to further questions are never public on their own. Using a multiclip as the video makes them part of the public video, so it asks first.
+
+## Social clips
+
+**Social clip** makes a short video for social media from the testimonial's video (the cut, when trimmed; up to three minutes):
+
+- **Shape**: vertical 9:16 (Reels, TikTok, Shorts) or square 1:1, at 1080 pixels wide.
+- **Look**: four of our own. **Studio** fills the frame with a brand-colour name bar along the bottom; **Frame** puts the video on your brand colour with the name and captions underneath; **Bold** shows big captions a few words at a time; **Soft** shows the whole picture over a blurred fill with captions on a dark band.
+- **Captions** are burned in word by word from the testimonial's captions (or its transcript, spread over the video when there are no timed captions), with the word being said highlighted. **Name tag** and **Logo** can be turned off.
+
+The six most recent clips are kept; download them as MP4.
+
+## Highlight reels
+
+**Highlight reels** (a project tab) joins the best moments of your approved videos. Make a reel, then for each clip pick a testimonial and **select the words to keep** in its transcript and press **Use the selected words**; the times are filled in and you can nudge them. Videos without timed captions are cut by their times instead. Add a title card and a closing card (with a line under each), choose landscape, vertical or square, and turn **Background music** and **Captions** on or off. A reel is up to 20 clips of up to two minutes each, and ten minutes in all.
+
+**Render the reel** saves it and makes the MP4 in the background; the last three renders are kept. Reels are saved with the project, so you can change one and render it again. Only approved testimonials whose authors haven't withdrawn can be used; if one stops being approved, the reel says which clip to remove.
+
+The background music is our own: Plaudit synthesises a quiet ambient bed while it renders (see [`docs/CREDITS.md`](../CREDITS.md#highlight-reel-music-vid-08)). No third-party audio is used.
+
+Multiclips, social clips and reels are private: only your team can watch them, and downloading needs the editor role or above. Viewers can watch but not make, use or delete them.
+
+## Your own welcome and thank-you videos
+
+In the form builder, the **Welcome** and **Thank you** pages have **Your video**: record it with the same recorder your customers use, or upload a file. It's converted and, when transcription is set up, captioned, then plays on that page (with captions on by default). Anyone can watch it while the form is live; when the form is paused it's private again. The welcome video shows only when the welcome page is on.
+
+## Streaming (HLS)
+
+With `VIDEO_HLS=true`, every approved video also gets an adaptive-streaming copy: two or three renditions (360p, 540p and 720p, never larger than the video) in four-second pieces with a playlist that lets the player switch with the connection. Widgets, walls and testimonial pages list it before the MP4, so browsers that play HLS themselves (Safari, on Mac, iPhone and iPad) stream it, and every other browser keeps the MP4; the widget script doesn't grow. The copy is public exactly while the MP4 is: once a testimonial is rejected, hidden or withdrawn, its playlist and every piece answer 404. A trim or a new file makes a new copy and deletes the old one. It's off by default because it costs CPU and storage.
+
+These sections follow the `video2` flag; HLS follows `VIDEO_HLS`.

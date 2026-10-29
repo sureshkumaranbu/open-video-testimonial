@@ -6,15 +6,15 @@ The one place that says what is built, what is left and what comes next. Update 
 - **How Phase 1 was built:** [v1-implementation-plan.md](v1-implementation-plan.md) (milestones M1–M7, decisions D1–D24).
 - **Is every requirement tested?** `node scripts/req-coverage.mjs --all` checks that every Phase 1 ID appears in a test title.
 
-Last updated: 2026-10-28 (after M15).
+Last updated: 2026-10-29 (M16, built locally).
 
 ## Where things are
 
 | Item | State |
 |---|---|
-| `main` | Phase 1 (#14), M8 ([#15](https://github.com/sureshkumaranbu/open-video-testimonial/pull/15), b5648a6), M9 ([#16](https://github.com/sureshkumaranbu/open-video-testimonial/pull/16), 68977c5), M10 ([#17](https://github.com/sureshkumaranbu/open-video-testimonial/pull/17), 1927357) M11 ([#18](https://github.com/sureshkumaranbu/open-video-testimonial/pull/18), 2f846b5) M12 ([#19](https://github.com/sureshkumaranbu/open-video-testimonial/pull/19), 7c8d12d) M13 ([#20](https://github.com/sureshkumaranbu/open-video-testimonial/pull/20), 6b449b6) and M14 ([#21](https://github.com/sureshkumaranbu/open-video-testimonial/pull/21)), merged on 2026-10-27 and 2026-10-28 |
-| Open PRs | M15 (`plaudit/m15-leftovers`) |
-| Tests | 1,074 unit tests pass on the M15 branch (8 skipped: the MinIO tests, which run in CI). Requirement coverage: 100 of 100 (Phase 1 and M9–M14). The recorder e2e spec is now deterministic (L13, L17): 45 of 45 with `--repeat-each=3`, also under load, on a Chromium newer than the pinned one. CI runs the pinned Chromium and WebKit. |
+| `main` | Phase 1 (#14), M8 ([#15](https://github.com/sureshkumaranbu/open-video-testimonial/pull/15), b5648a6), M9 ([#16](https://github.com/sureshkumaranbu/open-video-testimonial/pull/16), 68977c5), M10 ([#17](https://github.com/sureshkumaranbu/open-video-testimonial/pull/17), 1927357) M11 ([#18](https://github.com/sureshkumaranbu/open-video-testimonial/pull/18), 2f846b5) M12 ([#19](https://github.com/sureshkumaranbu/open-video-testimonial/pull/19), 7c8d12d) M13 ([#20](https://github.com/sureshkumaranbu/open-video-testimonial/pull/20), 6b449b6) and M14 ([#21](https://github.com/sureshkumaranbu/open-video-testimonial/pull/21)),, M15 ([#22](https://github.com/sureshkumaranbu/open-video-testimonial/pull/22), cf99a1c), merged on 2026-10-27 and 2026-10-28 |
+| Open PRs | M16 (`plaudit/m16-video`) |
+| Tests | 1,089 unit tests pass on the M16 branch (10 skipped, including the MinIO tests, which run in CI). Requirement coverage: 105 of 105 (Phase 1, M9–M14 and M16). New M16 e2e (5) and 13 existing video, form, widget and wall specs (77 tests) pass in Chromium locally; the full Chromium and WebKit suites run in CI |
 | Local demo | `plaudit-v1-demo` in `Development/.claude/launch.json`, http://127.0.0.1:3300 |
 
 ## Phase 1: "Parity core" (P0). Done.
@@ -56,6 +56,8 @@ These are either partly done or need something from Suresh.
 | L18 | Private media for members and keys limited to some projects | **Done** in M15: `/api/media` serves a non-public file only to someone (or a key) that may open one of the projects using it, found with one indexed query; everyone else is unchanged | — |
 | L19 | Job progress (`GET /api/admin/jobs/<id>`) | **Done** in M15: checked against the job's project; a job naming no project is for admins only; anything else is the same 404 as an unknown id | — |
 | L20 | The WordPress plugin, the Zapier app, the n8n and Make templates and `@plaudit/react` are built and tested here but not published, and OAuth for MCP hasn't been tried with the real Claude.ai or ChatGPT connectors | Needs accounts | Your WordPress.org, Zapier, Make, n8n and npm accounts (and the `@plaudit` npm scope) |
+| L21 | Zip export/import doesn't include highlight reels, renders or owner form videos (renders and HLS copies can be made again) | Open (M16 follow-up) | — |
+| L22 | HLS hasn't been played in real Safari on a device, and the social-clip looks were only checked on a test pattern, not a real face | Unverified | An iPhone or Mac with Safari; a real testimonial video |
 
 ## Phase 2: "Growth" (P1). Done in this repo (M8–M14); the cloud items stay in the cloud repo.
 
@@ -78,8 +80,8 @@ Split into milestones by the lead. IDs in *italics* are ours: the PRD lists thes
 
 | Milestone | Scope | IDs | Status |
 |---|---|---|---|
-| M15 Leftovers | L9, L10, L13, L16, L17, L18, L19 | TEAM-05, ONB-02 (follow-ups) | Built and reviewed; PR open |
-| M16 Video, part 2 | Multiclip, HLS, social clips, highlight reels; owner welcome and thank-you videos | VID-05..08, FORM-17 | Planned |
+| M15 Leftovers | L9, L10, L13, L16, L17, L18, L19; importer dates no longer shift a day on servers east of UTC | TEAM-05, ONB-02 (follow-ups) | **Merged** (#22) |
+| M16 Video, part 2 | Multiclip with question cards (drawer, can become the testimonial's video); HLS copies behind `VIDEO_HLS=true` (public on exactly the MP4's terms, so a rejection or withdrawal 404s every segment); social clips 9:16 or 1:1 with word-by-word captions and four looks of our own; highlight reels (Highlight reels tab, in/out from transcript words, cards, an original synthesised music bed, no third-party audio); owner welcome and thank-you videos on forms with captions. Every render is a background job with caps; viewers look, editors make. Flag `video2`; migration 0019 | VID-05..08, FORM-17 | **PR open**. Built locally |
 | M17 Insights and AI | AI case studies (also usable without AI), Voice of Customer reports, NPS and AI surveys, screenshot OCR import | SHARE-04, *VOC-01*, *NPS-01*, *IMP-07* | Planned |
 | M18 Commerce and reach | Stripe sales popup and thank-you gifts, social drafts on approve, browser extension | INT-07, INT-08, *EXT-01* | Planned |
 | M19 Postgres | `DATABASE_URL` alongside SQLite (still the default), same migrations, CI runs the suite against both | TEAM-06 | Planned |
@@ -93,5 +95,5 @@ Every AI feature is bring-your-own and OpenAI-compatible, set through env, off w
 3. Google Places key: bring your own on self-host is assumed (PRD Q3).
 4. Locales for native review (PRD Q5): **default taken:** Tamil and Hindi first.
 5. Classic `/c` form: **default taken:** keep it; it isn't retired.
-6. Not a decision, a to-do: add the new settings to `.env.example` (agents never touch it). M13: `YOUTUBE_API_KEY`, `ETSY_API_KEY`, `TRANSLATE_PROVIDER`, `TRANSLATE_API_URL`, `TRANSLATE_API_KEY`, `TRANSLATE_MODEL`, `EMBEDDINGS_API_URL`, `EMBEDDINGS_API_KEY`, `EMBEDDINGS_MODEL`. M14: `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_LABEL`, `OIDC_SCOPES`, `OIDC_EMAIL_DOMAINS`, `OIDC_TRUST_EMAIL`, `AUDIT_RETENTION_DAYS`. M15: `S3_DIRECT_UPLOADS`, `BRAND_AI_MODEL`, `BRAND_AI_API_URL`, `BRAND_AI_API_KEY`.
+6. Not a decision, a to-do: add the new settings to `.env.example` (agents never touch it). M13: `YOUTUBE_API_KEY`, `ETSY_API_KEY`, `TRANSLATE_PROVIDER`, `TRANSLATE_API_URL`, `TRANSLATE_API_KEY`, `TRANSLATE_MODEL`, `EMBEDDINGS_API_URL`, `EMBEDDINGS_API_KEY`, `EMBEDDINGS_MODEL`. M14: `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_LABEL`, `OIDC_SCOPES`, `OIDC_EMAIL_DOMAINS`, `OIDC_TRUST_EMAIL`, `AUDIT_RETENTION_DAYS`. M16: `VIDEO_HLS`. M15: `S3_DIRECT_UPLOADS`, `BRAND_AI_MODEL`, `BRAND_AI_API_URL`, `BRAND_AI_API_KEY`.
 7. M14's role and MCP choices are kept as they are: OAuth for MCP connectors; editors may send campaigns; viewers may make share images and see analytics but need editor to download a video original; exports need editor.

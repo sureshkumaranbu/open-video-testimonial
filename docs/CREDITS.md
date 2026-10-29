@@ -34,6 +34,12 @@ The names, roles, companies and quotes used on the home page are fictional. Any 
 
 `sample.webm` (ffmpeg `testsrc2` pattern plus a sine tone) and `avatar.png` (ffmpeg `testsrc2` frame) are generated, and MIT like the rest of the repository.
 
+## Highlight reel music (VID-08)
+
+The background music under highlight reels is original: Plaudit synthesises it on your server with ffmpeg's `aevalsrc` from an expression in [`src/lib/video/compose.ts`](../src/lib/video/compose.ts) (`MUSIC_BED`): two soft triads, C major and A minor, crossfading every eight seconds. No recording, sample or third-party audio is used or shipped, so it carries no licence of its own beyond the repository's (MIT).
+
+Burned-in text in renders (captions, cards and name tags) uses only the OFL Geist font below (`public/fonts/og/Geist-Regular.ttf`).
+
 ## Form fonts (`public/fonts/`)
 
 Self-hosted so a form never asks a third party for a font (FORM-08).

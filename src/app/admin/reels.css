@@ -1,0 +1,92 @@
+/* VID-08: the highlight reels page. */
+.rl-layout {
+  display: grid;
+  grid-template-columns: minmax(200px, 260px) 1fr;
+  gap: var(--space-4);
+  align-items: start;
+}
+@media (max-width: 800px) {
+  .rl-layout {
+    grid-template-columns: 1fr;
+  }
+}
+.rl-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.rl-items button {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+}
+.rl-items .rl-current {
+  background: var(--surface-2);
+  font-weight: 600;
+}
+.rl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: var(--space-3);
+}
+.rl-name {
+  flex: 1 1 260px;
+}
+.rl-clips {
+  margin: 0;
+  padding-inline-start: 1.4em;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.rl-clip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.rl-field {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--text-sm, 0.875rem);
+  font-weight: 600;
+}
+.rl-field input,
+.rl-field select {
+  width: 100%;
+  font-weight: 400;
+}
+.rl-time {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm, 0.875rem);
+}
+.rl-time input {
+  width: 6.5em;
+}
+.rl-video {
+  width: 100%;
+  max-height: 320px;
+  border-radius: var(--radius-md);
+  background: var(--stage);
+}
+.rl-words {
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  line-height: 1.7;
+  user-select: text;
+}
+.rl-words .rl-word-in {
+  background: color-mix(in srgb, var(--focus) 22%, transparent);
+  border-radius: 3px;
+}

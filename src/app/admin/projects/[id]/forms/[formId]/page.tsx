@@ -54,6 +54,7 @@ export default async function FormBuilderPage({
             brand: parseBrand(project.brand),
             logoUrl: project.logoKey ? `/api/media/${project.logoKey}` : null,
             translations: featureOn("translations") ? { provider: translationProviderName() } : undefined,
+            video2: featureOn("video2"),
           }}
           initial={JSON.parse(JSON.stringify(formToAdmin(project, form)))}
           limits={{ maxVideoBytes: env.maxVideoBytes, maxImageBytes: env.maxImageBytes }}

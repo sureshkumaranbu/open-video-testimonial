@@ -107,6 +107,26 @@
   white-space: pre-line;
 }
 
+/* FORM-17: the owner's own welcome or thank-you video. */
+.fr-owner-video {
+  margin: 0;
+  width: 100%;
+}
+.fr-owner-video video {
+  display: block;
+  width: 100%;
+  max-height: 60vh;
+  border-radius: var(--radius-md, 12px);
+  background: #000;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+}
+.fr-owner-video-tall video {
+  aspect-ratio: 9 / 16;
+  max-width: 360px;
+  margin-inline: auto;
+}
+
 .fr-bullets {
   margin: 0;
   padding-inline-start: 1.2em;

@@ -73,6 +73,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           customers={featureOn("customers")}
           smartSearch={featureOn("aisearch")}
           translations={featureOn("translations") ? { provider: translationProviderName() } : undefined}
+          video2={featureOn("video2")}
           initialOpenId={open}
         />
       </main>

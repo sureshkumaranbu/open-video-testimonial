@@ -143,6 +143,8 @@ export default defineConfig({
             ALLOWED_EMAIL_DOMAINS: "team.example",
             // Every Phase 1 feature on (also the default since release; set explicitly so a local override can't hide pages).
             PLAUDIT_FEATURES: "all",
+            // VID-06: approved videos also get an HLS copy, listed first in every player's sources.
+            VIDEO_HLS: "true",
             // The fixture server is on a private address; let exactly that origin
             // through the outbound-request guard (the guard itself stays on).
             NET_GUARD_ALLOW: `127.0.0.1:${FIXTURE_PORT}`,

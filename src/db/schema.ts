@@ -234,6 +234,12 @@ export const testimonials = sqliteTable(
      * Its own content is untouched (the other one got copies), so restoring it is safe.
      */
     mergedIntoId: text("merged_into_id").references((): AnySQLiteColumn => testimonials.id, { onDelete: "set null" }),
+    /**
+     * VID-06: the master playlist of the adaptive-streaming copy of the served
+     * MP4 (`hls/<uuid>/master.m3u8`), set only while it matches the current
+     * video_key; any change of video clears it. Public on the same terms as the MP4.
+     */
+    hlsKey: text("hls_key"),
   },
   (t) => [
     index("testimonials_project_status_idx").on(t.projectId, t.status),
@@ -248,6 +254,7 @@ export const testimonials = sqliteTable(
     index("testimonials_company_logo_key_idx").on(t.companyLogoKey),
     index("testimonials_trashed_at_idx").on(t.trashedAt),
     index("testimonials_merged_into_idx").on(t.mergedIntoId),
+    index("testimonials_hls_key_idx").on(t.hlsKey),
     // Import dedupe. NULLs count as distinct, so rows without a platform never clash.
     uniqueIndex("testimonials_platform_review_idx").on(t.projectId, t.platform, t.sourceReviewId),
   ],
@@ -1542,6 +1549,122 @@ export const oauthTokens = sqliteTable(
   (t) => [index("oauth_tokens_grant_idx").on(t.grantId), index("oauth_tokens_expires_idx").on(t.expiresAt)],
 );
 
+// 0019 (M16): video, part 2.
+
+/**
+ * multiclip: a submission's answers stitched into one MP4 with title cards
+ * (VID-05). social: a vertical or square clip with burned-in captions
+ * (VID-07). reel: a highlight reel (VID-08). hls: the adaptive-streaming
+ * copy of a testimonial's video (VID-06).
+ */
+export const RENDER_KINDS = ["multiclip", "social", "reel", "hls"] as const;
+export type RenderKind = (typeof RENDER_KINDS)[number];
+export const RENDER_STATUSES = ["queued", "processing", "ready", "failed"] as const;
+export type RenderStatus = (typeof RENDER_STATUSES)[number];
+
+/**
+ * A video Plaudit made from stored ones, in a background job. The result is
+ * owner-only (D13) unless it becomes a testimonial's video (VID-05) or is
+ * the HLS copy of a public one (VID-06).
+ */
+export const videoRenders = sqliteTable(
+  "video_renders",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    /** The testimonial it was made from (multiclip, social, hls); null for a reel. */
+    testimonialId: text("testimonial_id").references(() => testimonials.id, { onDelete: "cascade" }),
+    reelId: text("reel_id").references((): AnySQLiteColumn => highlightReels.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: RENDER_KINDS }).notNull(),
+    status: text("status", { enum: RENDER_STATUSES }).notNull().default("queued"),
+    /** JSON: what was asked for (look, format, clips…), as validated. */
+    options: text("options").notNull().default("{}"),
+    error: text("error"),
+    /** The MP4, or for hls the master playlist. */
+    key: text("key"),
+    /** JSON array of every stored file (hls: playlists and segments), so they can be deleted. */
+    files: text("files").notNull().default("[]"),
+    /** hls: the MP4 it was made from. */
+    sourceKey: text("source_key"),
+    durationMs: integer("duration_ms"),
+    width: integer("width"),
+    height: integer("height"),
+    sizeBytes: integer("size_bytes"),
+    /** VID-05: this multiclip is the testimonial's video; `replacedKey` is the main answer's own original, put back on undo. */
+    usedAsVideo: integer("used_as_video", { mode: "boolean" }).notNull().default(false),
+    replacedKey: text("replaced_key"),
+    createdBy: text("created_by"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index("video_renders_project_idx").on(t.projectId),
+    index("video_renders_testimonial_idx").on(t.testimonialId),
+    index("video_renders_reel_idx").on(t.reelId),
+    // /api/media looks up which render a file belongs to.
+    index("video_renders_key_idx").on(t.key),
+    index("video_renders_replaced_key_idx").on(t.replacedKey),
+  ],
+);
+
+/** VID-08: a highlight reel, kept per project so it can be changed and rendered again. */
+export const highlightReels = sqliteTable(
+  "highlight_reels",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    /** JSON, src/lib/video/reels.ts reelConfigSchema: clips with in and out points, cards, music, format. */
+    config: text("config").notNull().default("{}"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("highlight_reels_project_idx").on(t.projectId)],
+);
+
+export const FORM_VIDEO_SLOTS = ["welcome", "thank_you"] as const;
+export type FormVideoSlot = (typeof FORM_VIDEO_SLOTS)[number];
+
+/**
+ * FORM-17: the owner's own video on a form's welcome or thank-you page.
+ * Converted and transcribed like a testimonial's; public while the form is live.
+ */
+export const formVideos = sqliteTable(
+  "form_videos",
+  {
+    id: text("id").primaryKey(),
+    formId: text("form_id")
+      .notNull()
+      .references(() => forms.id, { onDelete: "cascade" }),
+    slot: text("slot", { enum: FORM_VIDEO_SLOTS }).notNull(),
+    videoKey: text("video_key"),
+    videoMime: text("video_mime"),
+    videoOriginalKey: text("video_original_key"),
+    posterKey: text("poster_key"),
+    videoDurationMs: integer("video_duration_ms"),
+    videoWidth: integer("video_width"),
+    videoHeight: integer("video_height"),
+    mediaStatus: text("media_status", { enum: MEDIA_STATUSES }).notNull().default("none"),
+    mediaError: text("media_error"),
+    transcript: text("transcript"),
+    captionsVtt: text("captions_vtt"),
+    transcriptStatus: text("transcript_status", { enum: TRANSCRIPT_STATUSES }).notNull().default("none"),
+    transcriptError: text("transcript_error"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("form_videos_form_slot_idx").on(t.formId, t.slot),
+    index("form_videos_video_key_idx").on(t.videoKey),
+    index("form_videos_video_original_key_idx").on(t.videoOriginalKey),
+    index("form_videos_poster_key_idx").on(t.posterKey),
+  ],
+);
+
 export type Member = typeof members.$inferSelect;
 export type Project = typeof projects.$inferSelect;
 export type Testimonial = typeof testimonials.$inferSelect;
@@ -1583,3 +1706,6 @@ export type AuditEntry = typeof auditLog.$inferSelect;
 export type CampaignTrigger = typeof campaignTriggers.$inferSelect;
 export type OAuthClient = typeof oauthClients.$inferSelect;
 export type OAuthGrant = typeof oauthGrants.$inferSelect;
+export type VideoRender = typeof videoRenders.$inferSelect;
+export type HighlightReel = typeof highlightReels.$inferSelect;
+export type FormVideo = typeof formVideos.$inferSelect;

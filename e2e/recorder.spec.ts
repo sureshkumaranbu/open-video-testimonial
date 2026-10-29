@@ -486,10 +486,16 @@ test("the dashboard shows conversion progress, then the poster", async ({ page, 
   await expect(video).toHaveAttribute("preload", "none");
   // L17: what the page promises, whatever this browser decodes: the converted MP4
   // first with its codecs named (so a browser without H.264 skips it unfetched),
-  // then the original upload as the fallback.
-  const sources = await video.locator("source").evaluateAll((els) =>
+  // then the original upload as the fallback. VID-06: the suite runs with
+  // VIDEO_HLS on, so an HLS copy may already be listed before them; only
+  // browsers that play HLS themselves take it.
+  const all = await video.locator("source").evaluateAll((els) =>
     (els as HTMLSourceElement[]).map((s) => ({ src: s.src, type: s.type, canPlay: document.createElement("video").canPlayType(s.type) })),
   );
+  const hls = all.filter((s) => s.type === "application/vnd.apple.mpegurl");
+  expect(hls.length).toBeLessThanOrEqual(1);
+  if (hls.length) expect(all[0]).toBe(hls[0]);
+  const sources = all.filter((s) => !hls.includes(s));
   expect(sources).toHaveLength(2);
   expect(sources[0].src).toMatch(/\/api\/media\/videos\/.+\.mp4$/);
   expect(sources[0].type).toMatch(/^video\/mp4; codecs="avc1\.[0-9A-Fa-f]{6}, mp4a\.40\.2"$/);
@@ -504,6 +510,6 @@ test("the dashboard shows conversion progress, then the poster", async ({ page, 
   // gone straight to the original; one that can may play either (it falls back
   // if decoding fails).
   const playing = await video.evaluate((v: HTMLVideoElement) => v.currentSrc);
-  expect(sources.map((s) => s.src)).toContain(playing);
-  if (sources[0].canPlay === "") expect(playing).toBe(sources[1].src);
+  expect(all.map((s) => s.src)).toContain(playing);
+  if (sources[0].canPlay === "" && !hls.some((s) => s.src === playing)) expect(playing).toBe(sources[1].src);
 });
