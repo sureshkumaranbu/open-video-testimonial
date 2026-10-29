@@ -109,7 +109,7 @@ export function RewardsEditor({
                       placeholder="THANKYOU10"
                       data-testid="reward-stripe-coupon"
                     />
-                    <span className="muted xsmall">In Stripe: Product catalogue → Coupons, then the coupon&apos;s ID. Each person gets their own code for it, usable once.</span>
+                    <span className="muted xsmall">In Stripe: Product catalog → Coupons, then the coupon&apos;s ID. Each person gets their own code for it, usable once.</span>
                   </label>
                   <label>
                     Each code works for (days)

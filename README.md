@@ -65,8 +65,13 @@ More: [settings (API keys and webhooks)](docs/screenshots/settings.png) · [impo
 **Showing**
 
 - A wall of love at `/wall/<slug>`, light or dark, and as many walls as you like with an editor, themes, tag tabs, a call to action and SEO (JSON-LD, link preview images). See [`docs/help/walls.md`](docs/help/walls.md).
-- **Widget studio**: saved widgets in 8 layouts with a live preview and script, iframe, hosted link, React and server-side HTML embeds. See [`docs/help/widgets.md`](docs/help/widgets.md).
+- **Widget studio**: saved widgets in 9 layouts with a live preview and script, iframe, hosted link, React and server-side HTML embeds. See [`docs/help/widgets.md`](docs/help/widgets.md).
 - **Embeds**: one `<script>` tag that renders into Shadow DOM, so your site's CSS can't break it, or an auto-resizing `<iframe>`. Light, dark or auto theme, grid or list, and filter by tag. Videos show posters, play in their own shape, and have captions on by default.
+
+- **Sales popup and "Verified purchase"** (flag `commerce`): connect a project to Stripe and show recent purchases in a small corner popup on your site ("Priya from Leeds bought Pro plan · 2 hours ago"), optionally between approved testimonials. Only the first name, a city or country, the product and the amount are kept, for 90 days; never the email, surname, address or card. Testimonials from buyers are marked **Verified purchase** (matched on a hash of the email). See [`docs/help/sales-popup.md`](docs/help/sales-popup.md).
+- **Thank-you coupons** (`commerce`): a form reward that gives each person their own single-use Stripe promotion code, made with a restricted key that can only write promotion codes. See [`docs/help/thank-you-coupons.md`](docs/help/thank-you-coupons.md).
+- **Social post drafts** (`commerce`): each approved testimonial gets a post for X and LinkedIn in the customer's own words, with share links, copy, and Rewrite with AI; the `testimonial.approved` webhook carries it for Buffer or Typefully through Zapier, Make and n8n. Plaudit never posts for you. See [`docs/help/social-drafts.md`](docs/help/social-drafts.md).
+- **Browser extension** for Chrome and Firefox: save a selection, or an X or LinkedIn post with its author, to the inbox as Pending, through your own API key. See [`docs/help/extension.md`](docs/help/extension.md).
 
 **Understanding**
 
@@ -216,7 +221,7 @@ Every setting is an environment variable, read from `.env` (Node) or `docker-com
 | `S3_PREFIX` | none | A folder inside the bucket for Plaudit's files, such as `plaudit` |
 | `S3_DIRECT_UPLOADS` | `false` | For `s3`: `true` lets browsers send videos straight to the bucket through short-lived presigned URLs instead of through Plaudit. Needs the bucket's CORS set up ([direct uploads](#direct-uploads-to-the-bucket)) |
 | `TRASH_RETENTION_DAYS` | `30` | Days a testimonial stays in the trash before it's deleted for good |
-| `PLAUDIT_FEATURES` | `all` | Which [sections](#turning-sections-off) the dashboard shows: `all`, `none`, or a comma-separated list of `forms`, `inbox2`, `widgets`, `walls`, `importers`, `notifications`, `onboarding`, `campaigns`, `booster`, `analytics`, `share`, `imports2`, `customers`, `translations`, `aisearch`, `api2`, `mcp`, `team2`, `video2` and `insights` |
+| `PLAUDIT_FEATURES` | `all` | Which [sections](#turning-sections-off) the dashboard shows: `all`, `none`, or a comma-separated list of `forms`, `inbox2`, `widgets`, `walls`, `importers`, `notifications`, `onboarding`, `campaigns`, `booster`, `analytics`, `share`, `imports2`, `customers`, `translations`, `aisearch`, `api2`, `mcp`, `team2`, `video2`, `insights` and `commerce` |
 | `AUDIT_RETENTION_DAYS` | `365` | Days the audit log keeps an entry ([team and audit log](docs/help/team.md)) |
 | `ANALYTICS` | on | `off` stops all analytics: nothing is collected or stored, and the analytics pages are hidden. Cookieless either way ([what's collected](docs/help/analytics.md)) |
 | `DIGEST_HOUR_UTC` | `8` | The hour (UTC, 0 to 23) when daily digests, the Monday reminder and the monthly report go out ([notifications](docs/help/notifications.md)) |
@@ -228,6 +233,7 @@ Every setting is an environment variable, read from `.env` (Node) or `docker-com
 | `TRANSLATE_API_URL`, `TRANSLATE_API_KEY`, `TRANSLATE_MODEL` | DeepL Free / OpenAI addresses | The provider's address (required for LibreTranslate), your key (required for DeepL), and the model (required for `openai`) |
 | `EMBEDDINGS_MODEL`, `EMBEDDINGS_API_URL`, `EMBEDDINGS_API_KEY` | unset, OpenAI's address | Smart search with your own OpenAI-compatible `/embeddings` endpoint; off until a model is set. **When it's on, every testimonial's headline, text, transcript and answers are sent to that provider** ([docs/help/inbox.md](docs/help/inbox.md#smart-search)) |
 | `AI_MODEL`, `AI_API_URL`, `AI_API_KEY` | unset, OpenAI's address, unset | Your own OpenAI-compatible `/chat/completions` endpoint for case studies, Voice of Customer themes, written answers to questions, AI surveys and (with `OCR_PROVIDER=ai`) screenshots; off until a model is set, and the key is optional (a local model needs none). **Only what an editor asks about is sent, when they press the button that says so**, and an admin can switch AI off per project ([docs/help/insights.md](docs/help/insights.md#ai)) |
+| `STRIPE_API_URL` | `https://api.stripe.com` | Where thank-you coupons are made ([docs/help/thank-you-coupons.md](docs/help/thank-you-coupons.md)), with each project's own restricted key from its Commerce tab. Only change it to point tests at a stand-in |
 | `OCR_PROVIDER`, `OCR_COMMAND` | `off`, unset | Reading screenshots of reviews: `command` runs a local program such as `tesseract {input} stdout` (no shell; nothing leaves the server), `ai` sends the image to the `AI_*` provider ([docs/help/insights.md](docs/help/insights.md#reading-screenshots)) |
 | `BRAND_AI_MODEL`, `BRAND_AI_API_URL`, `BRAND_AI_API_KEY` | unset, OpenAI's address | An optional AI step for the setup guide's brand scan, with your own OpenAI-compatible `/chat/completions` endpoint; without `BRAND_AI_MODEL` it uses the `AI_*` settings, and it's off when neither has a model. **When it's on, the text of the home page being scanned is sent to that provider**, which may suggest the site name, brand colour and testimonials; only what's really on the page is kept ([docs/help/getting-started.md](docs/help/getting-started.md#what-we-look-for-on-your-site)) |
 
@@ -397,9 +403,10 @@ Forms, the new inbox, the widget studio, walls, importers, notifications, the se
 | `team2` | **Roles and the audit log**: owner, admin, editor and viewer, per-project access for editors and viewers (enforced by the server on every request), API keys for one project, and **Settings → Audit log**. Off, everyone but the owner is an admin with every project and nothing is logged ([`docs/help/team.md`](docs/help/team.md)) |
 | `video2` | **Video, part 2**: in the inbox drawer, a **multiclip** of a submission's video answers with a card for each question (download it, or show it as the testimonial's video) and **social clips** (9:16 or 1:1, word-by-word captions, your colour, logo and a name tag, in four looks); **Highlight reels** of your approved videos, chosen by selecting their words, with title and closing cards and our own background music; and your own **welcome and thank-you videos** on forms ([`docs/help/video.md`](docs/help/video.md)) |
 | `insights` | **Insights** (Voice of Customer, ask a question, NPS, saved reports), **Case studies** with their public pages (`/cs/<id>`) and PDFs, **New survey** and **Add NPS question** in forms, **Case study** and **Read the screenshot** in manual add, and **Import a screenshot** ([`docs/help/insights.md`](docs/help/insights.md)) |
+| `commerce` | **Commerce**: a project's Stripe connection with the **Sales popup** widget layout and **Verified purchase** marks ([`docs/help/sales-popup.md`](docs/help/sales-popup.md)), the **Stripe coupon** reward ([`docs/help/thank-you-coupons.md`](docs/help/thank-you-coupons.md)), and the inbox drawer's **Social post** panel with `socialDraft` on `testimonial.approved` webhooks ([`docs/help/social-drafts.md`](docs/help/social-drafts.md)). Off, the Stripe webhook answers 404 and sales popups show nothing. The browser extension needs only the API, so it works either way |
 | `analytics` | **Analytics**: a dashboard at `/admin/analytics` (a period compared with the one before; new testimonials by source, the review backlog, average rating, widget views, visitors and clicks, form views and completions, wall views and CTA clicks, booster clicks, snippet renders and the invite funnel; sortable tables), panels on each widget, form and wall, and an alert when a widget stops showing on your site. Cookieless: a daily-salted hash instead of cookies, raw events kept 30 days, daily totals kept. `ANALYTICS=off` turns collection off too ([`docs/help/analytics.md`](docs/help/analytics.md)) |
 
-`PLAUDIT_FEATURES=all` (the default) turns on every one. A flag only shows or hides pages: your data, the API and the public pages behave the same either way. The exceptions are `api2`, `mcp` and `team2`, which turn endpoints and checks on and off.
+`PLAUDIT_FEATURES=all` (the default) turns on every one. A flag only shows or hides pages: your data, the API and the public pages behave the same either way. The exceptions are `api2`, `mcp`, `team2` and `commerce`, which turn endpoints and checks on and off.
 
 ## Embedding
 
@@ -477,6 +484,7 @@ npm run typecheck   # TypeScript
 npm test            # Vitest: unit and integration tests (ffmpeg tests are skipped without ffmpeg, real-S3 tests without S3_TEST_ENDPOINT)
 npm run test:e2e    # Playwright: builds and starts the production server, then runs the browser suites in Chromium
 npm run test:all    # both
+npm run build:extension  # the browser extension: dist/extension-chrome.zip and dist/extension-firefox.zip
 ```
 
 The Playwright run starts the server with these settings, so every feature is tested end to end:
@@ -484,6 +492,7 @@ The Playwright run starts the server with these settings, so every feature is te
 - `MAIL_OUTBOX=true`, so the tests can read the emails.
 - A stand-in for whisper.cpp ([`e2e/fixtures/fake-whisper.mjs`](e2e/fixtures/fake-whisper.mjs)), so transcripts run without a model.
 - `PLAUDIT_FEATURES=all`, so every section is tested.
+- `STRIPE_API_URL` pointing at the fixture server, a stand-in for Stripe's promotion codes, so thank-you coupons run without a Stripe account. The extension's test loads `extension/` unpacked into Chromium (it's skipped in WebKit).
 - With `E2E_WEBKIT=1` (after `npx playwright install webkit`), `npx playwright test --project=webkit` runs every spec in WebKit except the ones that record with the camera (`CAMERA_SPECS` in `playwright.config.ts`). CI runs both browsers.
 - A fixture server ([`e2e/fixtures/fixture-server.mjs`](e2e/fixtures/fixture-server.mjs)) that stands in for the outside web. Two test-only settings let the app reach it: `NET_GUARD_ALLOW` lets exact `host:port` origins through the guard on outgoing requests, and `IMPORTER_ORIGINS` sends importers there instead of the real sites. Never set them on a real server.
 

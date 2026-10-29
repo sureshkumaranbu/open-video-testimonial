@@ -37,6 +37,8 @@ Rows that can't take the action are skipped, and the result says why: one whose 
 
 Keys while it's open: **j** next, **k** previous, **a** approve, **h** hide, **Escape** close.
 
+An approved testimonial has a **Social post** panel with a draft for X and LinkedIn ([social-drafts.md](social-drafts.md)), and one from a buyer a **Verified purchase** mark ([sales-popup.md](sales-popup.md#verified-purchase)).
+
 A video testimonial has a **Video** section: trim, poster, replace and download ([video tools](video.md)). **Its page** opens an approved testimonial's own public page, and **Create image** opens it in the [image studio](share.md).
 
 ### Editing

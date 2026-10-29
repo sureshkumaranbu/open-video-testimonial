@@ -12,6 +12,10 @@ How to use each part of the Plaudit dashboard. Every section is on by default; `
 | [Sharing](share.md) | A testimonial's own page with share links, and the image studio for social posts, slides and emails |
 | [Insights, case studies and surveys](insights.md) | Your own AI provider and what it's sent; case studies with a page and PDF; Voice of Customer; asking a question; NPS questions, surveys and AI surveys; saved reports; reading screenshots |
 | [Widgets](widgets.md) | The widget studio: layouts, choosing testimonials, design and every way to embed |
+| [Sales popup and Verified purchase](sales-popup.md) | Connecting Stripe, what's kept of each purchase and for how long, the sales popup widget, and "Verified purchase" on testimonials |
+| [Thank-you coupons](thank-you-coupons.md) | A single-use Stripe promotion code for everyone who sends a form, the restricted key it needs, and what happens when Stripe fails |
+| [Social post drafts](social-drafts.md) | The draft for X and LinkedIn on each approved testimonial, Rewrite with AI, and Zapier, Make and n8n recipes for Buffer and Typefully |
+| [Browser extension](extension.md) | Saving a selection or an X or LinkedIn post to the inbox from Chrome or Firefox, what it can see, and publishing it to the stores |
 | [Walls and SEO](walls.md) | Wall of Love pages, the editor, the main wall, review snippets and search engines |
 | [Review booster](booster.md) | A page of review-site buttons with a QR code to print, the Google review link helper, and click counts |
 | [Campaigns](campaigns.md) | Email campaigns: wording and reminders, recipients, the preview and test send, tracking, "No thanks", and auto-collect from the API, a webhook, Stripe or Shopify |

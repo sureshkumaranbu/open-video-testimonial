@@ -24,6 +24,7 @@ When you make a widget, say where it goes and Plaudit suggests a layout: a ratin
 | Single featured | One testimonial, large |
 | Rating badge | Your average rating and count, linking to your wall of love |
 | Floating toast | A small card in a corner of the page, one testimonial after another; hidden on phones if you like, and gone for the rest of the visit once closed |
+| Sales popup | Recent purchases from your Stripe connection in a corner ("Priya from Leeds bought Pro plan"), optionally between testimonials; with the `commerce` flag ([sales-popup.md](sales-popup.md)) |
 
 Switch layouts at any time: your picks, design and labels stay.
 
