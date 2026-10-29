@@ -1,7 +1,7 @@
 "use client";
 
 import { Toggle } from "@/components/admin";
-import { MAX_QUESTIONS, RESPONSE_MODES, FIELD_TYPES, FORM_CONSENT_SCOPES, type CustomField, type FormPage, type QuestionPage } from "@/lib/forms/schema";
+import { MAX_QUESTIONS, RESPONSE_MODES, FIELD_TYPES, FORM_CONSENT_SCOPES, type CustomField, type FormPage, type NpsPage, type QuestionPage } from "@/lib/forms/schema";
 import type { Draft } from "./Builder";
 import { OwnerVideoPanel, type OwnerVideoPanelProps } from "./OwnerVideoPanel";
 
@@ -15,6 +15,7 @@ const PAGE_NAMES: Record<FormPage["type"], string> = {
   about_company: "About your company",
   review: "Review and send",
   thank_you: "Thank you",
+  nps: "NPS question",
 };
 
 const MODE_NAMES: Record<(typeof RESPONSE_MODES)[number], string> = { video_text: "Video or text", video: "Video only", text: "Text only" };
@@ -35,7 +36,7 @@ const lines = (s: string) => s.split("\n").map((l) => l.trim()).filter(Boolean);
 function freeKey(pages: FormPage[], prefix: string) {
   const used = new Set(
     pages.flatMap((p) => [
-      ...(p.type === "question" || p.type === "feedback" ? [p.key] : []),
+      ...(p.type === "question" || p.type === "feedback" || p.type === "nps" ? [p.key] : []),
       ...(p.type === "about_you" || p.type === "about_company" ? p.custom.map((f) => f.key) : []),
     ]),
   );
@@ -45,6 +46,7 @@ function freeKey(pages: FormPage[], prefix: string) {
 function pageTitle(p: FormPage) {
   if (p.type === "question") return p.title || "Question";
   if (p.type === "feedback") return p.title || PAGE_NAMES.feedback;
+  if (p.type === "nps") return p.title || PAGE_NAMES.nps;
   return PAGE_NAMES[p.type];
 }
 
@@ -59,12 +61,18 @@ export function PageList({
   onSelect,
   onChange,
   editable,
+  nps = false,
+  npsTitle = "How likely are you to recommend us to a friend or colleague?",
 }: {
   pages: FormPage[];
   selected: number;
   onSelect: (i: number) => void;
   onChange: (pages: FormPage[]) => void;
   editable: boolean;
+  /** NPS-01 (insights flag): offer "Add NPS question". */
+  nps?: boolean;
+  /** NPS-01: the title a new NPS question starts with (it names the project). */
+  npsTitle?: string;
 }) {
   const questions = pages.filter((p) => p.type === "question");
   const set = (i: number, page: FormPage) => onChange(pages.map((p, j) => (j === i ? page : p)));
@@ -78,9 +86,16 @@ export function PageList({
     onChange(next);
     onSelect(j);
   };
-  const add = (type: "question" | "feedback") => {
+  const add = (type: "question" | "feedback" | "nps") => {
     const lastQuestion = pages.map((p) => p.type).lastIndexOf("question");
-    const at = lastQuestion + 1;
+    // NPS-01: the NPS question goes before the questions (in a survey, before its testimonial step).
+    const at = type === "nps" ? Math.max(0, pages.findIndex((p) => p.type === "question" || p.type === "feedback")) : lastQuestion + 1;
+    if (type === "nps") {
+      const page: FormPage = { type: "nps", key: freeKey(pages, "nps"), enabled: true, required: true, title: npsTitle, whyTitle: "", offerTestimonial: true, offerTitle: "" };
+      onChange([...pages.slice(0, at), page, ...pages.slice(at)]);
+      onSelect(at);
+      return;
+    }
     const page: FormPage =
       type === "question"
         ? { type: "question", key: freeKey(pages, "q"), enabled: true, primary: false, required: false, title: "Another question", tips: [], mode: "video_text", maxVideoSeconds: 120, allowImages: 0 }
@@ -125,7 +140,7 @@ export function PageList({
                       </button>
                     </>
                   )}
-                  {((isQ && !p.primary) || p.type === "feedback") && (
+                  {((isQ && !p.primary) || p.type === "feedback" || p.type === "nps") && (
                     <button type="button" className="danger small" aria-label={`Remove ${pageTitle(p)}`} onClick={() => remove(i)}>
                       ×
                     </button>
@@ -144,6 +159,11 @@ export function PageList({
           <button type="button" className="secondary small" onClick={() => add("feedback")}>
             Add private question
           </button>
+          {nps && !pages.some((p) => p.type === "nps") && (
+            <button type="button" className="secondary small" onClick={() => add("nps")} data-testid="add-nps">
+              Add NPS question
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -343,16 +363,46 @@ function QuestionEditor({ page, onChange }: { page: QuestionPage; onChange: (p: 
   );
 }
 
+function NpsEditor({ page, onChange, survey }: { page: NpsPage; onChange: (p: FormPage) => void; survey: boolean }) {
+  const set = (patch: Partial<NpsPage>) => onChange({ ...page, ...patch });
+  return (
+    <>
+      <p className="muted small">0 to 10, then “why”. Answers are private and feed the NPS dashboard in Insights.</p>
+      <Text label="Question" value={page.title} onChange={(title) => set({ title })} />
+      <Text label="Subtitle" value={page.subtitle ?? ""} onChange={(subtitle) => set({ subtitle: subtitle || undefined })} max={500} />
+      <Text label="Follow-up question" hint="Leave empty for “What's the main reason for your score?” in the form's language" value={page.whyTitle} onChange={(whyTitle) => set({ whyTitle })} />
+      <Text label="Follow-up placeholder" value={page.whyPlaceholder ?? ""} onChange={(whyPlaceholder) => set({ whyPlaceholder: whyPlaceholder || undefined })} max={200} />
+      <Toggle label="Score required" checked={page.required} onChange={(required) => set({ required })} />
+      {survey && (
+        <fieldset className="fb-fieldset" data-testid="nps-offer-settings">
+          <legend>Promoters (9–10)</legend>
+          <Toggle
+            label="Offer the testimonial step"
+            hint="They choose whether to go on to the question, consent and about-you pages. Nobody else sees them, and nothing becomes a testimonial without that yes."
+            checked={page.offerTestimonial}
+            onChange={(offerTestimonial) => set({ offerTestimonial })}
+          />
+          {page.offerTestimonial && <Text label="The offer" hint="Leave empty for the standard wording" value={page.offerTitle} onChange={(offerTitle) => set({ offerTitle })} />}
+        </fieldset>
+      )}
+      <p className="muted xsmall">Key: {page.key} (in exports and links)</p>
+    </>
+  );
+}
+
 /** The selected page's settings (FORM-02, right-hand panel, Content tab). */
 export function ContentEditor({
   draft,
   index,
   onChange,
   ownerVideo,
+  survey = false,
 }: {
   draft: Draft;
   index: number;
   onChange: (pages: FormPage[]) => void;
+  /** NPS-01: the form is a survey (its NPS question can offer promoters the testimonial step). */
+  survey?: boolean;
   /** FORM-17 (video2 flag): the owner's own video on the welcome and thank-you pages. */
   ownerVideo?: Omit<OwnerVideoPanelProps, "slot">;
 }) {
@@ -397,6 +447,8 @@ export function ContentEditor({
             );
           case "question":
             return <QuestionEditor page={page} onChange={set} />;
+          case "nps":
+            return <NpsEditor page={page} onChange={set} survey={survey} />;
           case "feedback":
             return (
               <>

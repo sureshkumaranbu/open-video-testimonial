@@ -234,6 +234,7 @@ const PAGE_NAMES: Record<PageType, string> = {
   about_company: "About your company",
   review: "Review and send",
   thank_you: "Thank you",
+  nps: "NPS question",
 };
 
 function pageLabel(pg: FormPage): string {

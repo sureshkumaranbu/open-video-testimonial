@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { Form, Project } from "@/db/schema";
-import { FORM_STATUSES } from "@/db/schema";
+import { FORM_KINDS, FORM_STATUSES } from "@/db/schema";
 import { env } from "@/lib/env";
 import { deleteObject, removeFiles, saveUpload } from "@/lib/storage";
 import { FormError, formUrl, getForm, logoInUse, updateForm, type FormStats } from "./index";
@@ -8,6 +8,7 @@ import { isLocale } from "./labels";
 import { parseReward } from "@/lib/rewards-config";
 import { parseFormRow, toPublicForm } from "./schema";
 import { formVideosToAdmin } from "@/lib/video/form-videos";
+import { surveyInputSchema } from "./survey";
 import { TEMPLATE_IDS } from "./templates";
 
 /**
@@ -20,6 +21,9 @@ export const createFormBody = z.object({
   name: z.string().trim().min(1, "Give the form a name").max(120),
   slug: z.string().trim().max(48).optional(),
   template: z.enum(TEMPLATE_IDS).optional(),
+  /** NPS-01: "survey" makes a survey (paused until published) from `survey`'s NPS wording and questions. */
+  kind: z.enum(FORM_KINDS).optional(),
+  survey: surveyInputSchema.optional(),
 });
 
 export const formPatchBody = z
@@ -65,6 +69,7 @@ export function formToAdmin(project: Project, form: Form, stats?: FormStats) {
     name: form.name,
     status: form.status,
     layout: form.layout,
+    kind: form.kind,
     isDefault: form.isDefault,
     language: form.language,
     template: form.template,

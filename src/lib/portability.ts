@@ -9,6 +9,7 @@ import {
   CAMPAIGN_STATUSES,
   DATE_PRECISIONS,
   FEEDBACK_SOURCES,
+  FORM_KINDS,
   FORM_LAYOUTS,
   FORM_STATUSES,
   HISTORY_ACTIONS,
@@ -301,6 +302,7 @@ function exportForms(project: Project) {
         name: f.name,
         status: f.status,
         layout: f.layout,
+        kind: f.kind,
         isDefault: f.isDefault,
         language: f.language,
         template: f.template,
@@ -912,6 +914,8 @@ const formSchema = z.object({
   name: label(120, "Form"),
   status: z.enum(FORM_STATUSES).catch("live"),
   layout: z.enum(FORM_LAYOUTS).catch("steps"),
+  // NPS-01 (M17); older archives have none.
+  kind: z.enum(FORM_KINDS).catch("testimonial"),
   isDefault: z.boolean().catch(false),
   language: z.string().trim().min(1).max(16).catch("en"),
   template: textOrNull(40),
@@ -1362,6 +1366,8 @@ function importForms(tx: Tx, projectId: string, list: FormEntry[], file: (ref: s
       name: f.name,
       status: f.status,
       layout: f.layout,
+      // A survey can't be the default form.
+      kind: isDefault ? ("testimonial" as const) : f.kind,
       configVersion: 1,
       ...configColumns(cfg),
       reward: JSON.stringify(f.reward),

@@ -145,6 +145,15 @@ export default defineConfig({
             PLAUDIT_FEATURES: "all",
             // VID-06: approved videos also get an HLS copy, listed first in every player's sources.
             VIDEO_HLS: "true",
+            // M17: the shared AI client talks to the fixture server, a stand-in OpenAI-compatible
+            // provider that answers what a spec sets up (fixtureRespond on /ai/v1/chat/completions) and
+            // otherwise nothing usable, so the brand scan and every AI step fall back. Specs switch AI off
+            // per project for the non-AI paths. No real provider is ever called.
+            AI_API_URL: `${FIXTURE_ORIGIN}/ai/v1`,
+            AI_MODEL: "e2e-stand-in",
+            // IMP-07: a stand-in for tesseract (no shell; prints a review screenshot's text).
+            OCR_PROVIDER: "command",
+            OCR_COMMAND: `"${process.execPath}" "${path.resolve(__dirname, "e2e/fixtures/fake-tesseract.mjs")}" {input}`,
             // The fixture server is on a private address; let exactly that origin
             // through the outbound-request guard (the guard itself stays on).
             NET_GUARD_ALLOW: `127.0.0.1:${FIXTURE_PORT}`,

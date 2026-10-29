@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { and, asc, count, desc, eq, ne, or } from "drizzle-orm";
 import { z } from "zod";
 import { getDb, schema, type Db, type Tx } from "@/db";
-import { FORM_STATUSES, type Form, type FormStatus, type Project, type Testimonial } from "@/db/schema";
+import { FORM_STATUSES, type Form, type FormKind, type FormStatus, type Project, type Testimonial } from "@/db/schema";
 import { rewardConfigSchema } from "@/lib/rewards-config";
 import { removeFiles } from "@/lib/storage";
 import { firstIssue, slugSchema } from "@/lib/validation";
@@ -309,7 +309,7 @@ export function formUrl(project: Pick<Project, "slug">, form: Pick<Form, "slug" 
  */
 export function createForm(
   projectId: string,
-  i: { name: string; slug?: string; template?: string; config?: Partial<ConfigParts> },
+  i: { name: string; slug?: string; template?: string; config?: Partial<ConfigParts>; kind?: FormKind },
 ): Form {
   const project = projectRow(getDb(), projectId);
   if (!project) throw new FormError(404, "Project not found");
@@ -335,8 +335,10 @@ export function createForm(
         projectId,
         slug: slug ?? freeSlug(tx, projectId, slugify(name)),
         name,
-        status: "live",
+        // NPS-01: a new survey waits, paused, until the owner has checked its questions.
+        status: i.kind === "survey" ? "paused" : "live",
         layout: "steps",
+        kind: i.kind ?? "testimonial",
         isDefault: false,
         configVersion: 1,
         ...configColumns(cfg),
@@ -440,6 +442,7 @@ export function duplicateForm(id: string): Form | null {
         name: `${src.name.slice(0, NAME_MAX - 7)} (copy)`,
         status: src.status,
         layout: "steps",
+        kind: src.kind,
         isDefault: false,
         configVersion: 1,
         pages: src.pages,
@@ -503,6 +506,8 @@ export function setDefaultForm(projectId: string, formId: string): void {
     const row = tx.select().from(forms).where(and(eq(forms.id, formId), eq(forms.projectId, projectId))).get();
     if (!project || !row) throw notFound();
     if (row.isDefault) return;
+    // NPS-01: the default form is the project's testimonial form (its /c page and columns follow it).
+    if (row.kind === "survey") throw new FormError(409, "A survey can't be the default form. Choose a testimonial form.");
     // The old default keeps the config it had, filled in if it never was.
     const old = defaultRow(tx, projectId);
     if (old) hydrate(old, tx, project);

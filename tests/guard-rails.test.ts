@@ -62,7 +62,7 @@ describe("docs/plan/ownership.json", () => {
       ].sort(),
     );
     // Phase 2 and 3 milestones (M9 on) gate requirement IDs only; they have no work packages.
-    expect(Object.keys(manifest.milestones)).toEqual(["M1", "M2", "M3", "M4", "M5", "M6", "M7", "M9", "M10", "M11", "M12", "M13", "M14", "M16"]);
+    expect(Object.keys(manifest.milestones)).toEqual(["M1", "M2", "M3", "M4", "M5", "M6", "M7", "M9", "M10", "M11", "M12", "M13", "M14", "M16", "M17"]);
   });
 
   it("is consistent, with no file owned by two packages that run at the same time", () => {
@@ -155,8 +155,9 @@ describe("requirement coverage", () => {
     // M14 also lists REQ-07 (from M9) for its native Stripe and Shopify triggers; --all counts it once.
     expect(requirementsFor(manifest, "M14")).toEqual(["TEAM-01", "TEAM-02", "TEAM-03", "API-01", "API-02", "INT-03", "INT-04", "INT-05", "INT-06", "REQ-07"]);
     expect(requirementsFor(manifest, "M16")).toEqual(["VID-05", "VID-06", "VID-07", "VID-08", "FORM-17"]);
+    expect(requirementsFor(manifest, "M17")).toEqual(["SHARE-04", "VOC-01", "NPS-01", "IMP-07"]);
     const all = requirementsFor(manifest, "all");
-    expect(all).toHaveLength(105);
+    expect(all).toHaveLength(109);
     expect(new Set(all).size).toBe(all.length);
     // M15 shipped follow-ups to IDs other milestones gate, so it has no entry of its own.
     expect(() => requirementsFor(manifest, "M15")).toThrow(/Unknown milestone/);
@@ -165,7 +166,7 @@ describe("requirement coverage", () => {
   it("prints the table and passes with --report", () => {
     const run = spawnSync(process.execPath, ["scripts/req-coverage.mjs", "--all", "--report"], { cwd: ROOT, encoding: "utf8" });
     expect(run.status).toBe(0);
-    expect(run.stdout).toMatch(/All milestones: \d+ of 105 requirements covered/);
+    expect(run.stdout).toMatch(/All milestones: \d+ of 109 requirements covered/);
   });
 });
 
@@ -215,5 +216,24 @@ describe("TEAM-01 role guards", () => {
     ]) {
       expect(levels.get(route), route).toBe("editor");
     }
+    // M17: viewers read case studies, insights, NPS and reports; making, changing, sending anything to the AI provider, OCR and CSV exports need an editor; the project's AI switch an admin.
+    for (const route of ["GET projects/[id]/case-studies", "GET case-studies/[id]", "GET case-studies/[id]/pdf", "GET projects/[id]/insights", "POST projects/[id]/insights/ask", "GET projects/[id]/nps", "GET projects/[id]/insight-reports", "GET insight-reports/[id]"]) {
+      expect(levels.get(route), route).toBe("viewer");
+    }
+    for (const route of [
+      "POST projects/[id]/case-studies",
+      "PUT case-studies/[id]",
+      "DELETE case-studies/[id]",
+      "POST case-studies/[id]/draft",
+      "POST projects/[id]/insights/themes",
+      "POST projects/[id]/insight-reports",
+      "DELETE insight-reports/[id]",
+      "GET insight-reports/[id]/csv",
+      "POST projects/[id]/survey-draft",
+      "POST projects/[id]/ocr",
+    ]) {
+      expect(levels.get(route), route).toBe("editor");
+    }
+    expect(levels.get("PUT projects/[id]/ai")).toBe("admin");
   });
 });

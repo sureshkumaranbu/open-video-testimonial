@@ -3,6 +3,7 @@ import { env } from "@/lib/env";
 import { featureOn } from "@/lib/features";
 import { formUrl, getDefaultForm } from "@/lib/forms";
 import { getInboxPrefs, parseInboxParams } from "@/lib/inbox";
+import { ocrForProject } from "@/lib/ocr";
 import { checklistState } from "@/lib/onboarding";
 import { requireAdminPage } from "@/lib/server-session";
 import { systemStatus } from "@/lib/system";
@@ -74,6 +75,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           smartSearch={featureOn("aisearch")}
           translations={featureOn("translations") ? { provider: translationProviderName() } : undefined}
           video2={featureOn("video2")}
+          insights={featureOn("insights") ? { caseStudies: `/admin/projects/${project.id}/case-studies`, ocr: ocrForProject(project) } : undefined}
           initialOpenId={open}
         />
       </main>

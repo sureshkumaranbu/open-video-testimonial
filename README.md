@@ -68,6 +68,10 @@ More: [settings (API keys and webhooks)](docs/screenshots/settings.png) · [impo
 - **Widget studio**: saved widgets in 8 layouts with a live preview and script, iframe, hosted link, React and server-side HTML embeds. See [`docs/help/widgets.md`](docs/help/widgets.md).
 - **Embeds**: one `<script>` tag that renders into Shadow DOM, so your site's CSS can't break it, or an auto-resizing `<iframe>`. Light, dark or auto theme, grid or list, and filter by tag. Videos show posters, play in their own shape, and have captions on by default.
 
+**Understanding**
+
+- **Insights** (flag `insights`): Voice of Customer over any period and tag (the rating and sentiment breakdown, the phrases customers share, what they love and what to improve), **ask a question** of your testimonials, an **NPS** dashboard, and saved reports as CSV. **NPS questions and surveys** where only promoters who say yes go on to write a testimonial. **Case studies** from a testimonial, with a public page and a PDF. **Screenshot reading** (OCR) for praise that arrives as an image. All of it works without AI; with your own provider (`AI_MODEL`), buttons draft case studies and surveys, find themes and answer questions, and only what you ask about is sent. See [`docs/help/insights.md`](docs/help/insights.md).
+
 **Getting started**
 
 - **A setup guide** at `/admin/welcome`: name your project, give your website and say what you sell. Plaudit reads your home page for your logo, brand colour and any testimonials already on it (schema.org reviews and quote blocks with a name), imports the ones you pick as approved, and makes a step-by-step form, a Wall of Love and two widgets in your colours. A **Get started** checklist on the project follows what's left.
@@ -90,7 +94,7 @@ More: [settings (API keys and webhooks)](docs/screenshots/settings.png) · [impo
 **Running**
 
 - SQLite plus local disk, one Docker volume, and `docker compose up`.
-- No telemetry and no outside calls, except the ones you configure: your SMTP server, your transcription, translation and embeddings services, your webhooks, review sites you import from, and media URLs in CSVs you import.
+- No telemetry and no outside calls, except the ones you configure: your SMTP server, your transcription, translation, embeddings and AI services, your webhooks, review sites you import from, and media URLs in CSVs you import.
 
 ## Quick start with Docker
 
@@ -212,7 +216,7 @@ Every setting is an environment variable, read from `.env` (Node) or `docker-com
 | `S3_PREFIX` | none | A folder inside the bucket for Plaudit's files, such as `plaudit` |
 | `S3_DIRECT_UPLOADS` | `false` | For `s3`: `true` lets browsers send videos straight to the bucket through short-lived presigned URLs instead of through Plaudit. Needs the bucket's CORS set up ([direct uploads](#direct-uploads-to-the-bucket)) |
 | `TRASH_RETENTION_DAYS` | `30` | Days a testimonial stays in the trash before it's deleted for good |
-| `PLAUDIT_FEATURES` | `all` | Which [sections](#turning-sections-off) the dashboard shows: `all`, `none`, or a comma-separated list of `forms`, `inbox2`, `widgets`, `walls`, `importers`, `notifications`, `onboarding`, `campaigns`, `booster`, `analytics`, `share`, `imports2`, `customers`, `translations`, `aisearch`, `api2`, `mcp`, `team2` and `video2` |
+| `PLAUDIT_FEATURES` | `all` | Which [sections](#turning-sections-off) the dashboard shows: `all`, `none`, or a comma-separated list of `forms`, `inbox2`, `widgets`, `walls`, `importers`, `notifications`, `onboarding`, `campaigns`, `booster`, `analytics`, `share`, `imports2`, `customers`, `translations`, `aisearch`, `api2`, `mcp`, `team2`, `video2` and `insights` |
 | `AUDIT_RETENTION_DAYS` | `365` | Days the audit log keeps an entry ([team and audit log](docs/help/team.md)) |
 | `ANALYTICS` | on | `off` stops all analytics: nothing is collected or stored, and the analytics pages are hidden. Cookieless either way ([what's collected](docs/help/analytics.md)) |
 | `DIGEST_HOUR_UTC` | `8` | The hour (UTC, 0 to 23) when daily digests, the Monday reminder and the monthly report go out ([notifications](docs/help/notifications.md)) |
@@ -223,7 +227,9 @@ Every setting is an environment variable, read from `.env` (Node) or `docker-com
 | `TRANSLATE_PROVIDER` | `off` | Machine translation with your own provider: `deepl`, `libretranslate` or `openai` (any OpenAI-compatible `/chat/completions` endpoint). Testimonial text is sent to it only when you ask for a translation, a form translates on arrival, or you use bulk Translate ([docs/help/inbox.md](docs/help/inbox.md#translations)) |
 | `TRANSLATE_API_URL`, `TRANSLATE_API_KEY`, `TRANSLATE_MODEL` | DeepL Free / OpenAI addresses | The provider's address (required for LibreTranslate), your key (required for DeepL), and the model (required for `openai`) |
 | `EMBEDDINGS_MODEL`, `EMBEDDINGS_API_URL`, `EMBEDDINGS_API_KEY` | unset, OpenAI's address | Smart search with your own OpenAI-compatible `/embeddings` endpoint; off until a model is set. **When it's on, every testimonial's headline, text, transcript and answers are sent to that provider** ([docs/help/inbox.md](docs/help/inbox.md#smart-search)) |
-| `BRAND_AI_MODEL`, `BRAND_AI_API_URL`, `BRAND_AI_API_KEY` | unset, OpenAI's address | An optional AI step for the setup guide's brand scan, with your own OpenAI-compatible `/chat/completions` endpoint; off until a model is set. **When it's on, the text of the home page being scanned is sent to that provider**, which may suggest the site name, brand colour and testimonials; only what's really on the page is kept ([docs/help/getting-started.md](docs/help/getting-started.md#what-we-look-for-on-your-site)) |
+| `AI_MODEL`, `AI_API_URL`, `AI_API_KEY` | unset, OpenAI's address, unset | Your own OpenAI-compatible `/chat/completions` endpoint for case studies, Voice of Customer themes, written answers to questions, AI surveys and (with `OCR_PROVIDER=ai`) screenshots; off until a model is set, and the key is optional (a local model needs none). **Only what an editor asks about is sent, when they press the button that says so**, and an admin can switch AI off per project ([docs/help/insights.md](docs/help/insights.md#ai)) |
+| `OCR_PROVIDER`, `OCR_COMMAND` | `off`, unset | Reading screenshots of reviews: `command` runs a local program such as `tesseract {input} stdout` (no shell; nothing leaves the server), `ai` sends the image to the `AI_*` provider ([docs/help/insights.md](docs/help/insights.md#reading-screenshots)) |
+| `BRAND_AI_MODEL`, `BRAND_AI_API_URL`, `BRAND_AI_API_KEY` | unset, OpenAI's address | An optional AI step for the setup guide's brand scan, with your own OpenAI-compatible `/chat/completions` endpoint; without `BRAND_AI_MODEL` it uses the `AI_*` settings, and it's off when neither has a model. **When it's on, the text of the home page being scanned is sent to that provider**, which may suggest the site name, brand colour and testimonials; only what's really on the page is kept ([docs/help/getting-started.md](docs/help/getting-started.md#what-we-look-for-on-your-site)) |
 
 ## Optional features
 
@@ -368,7 +374,7 @@ AI assistants connect to the MCP server at `/mcp` with a key ([`docs/help/mcp.md
 
 ### Turning sections off
 
-Forms, the new inbox, the widget studio, walls, importers, notifications, the setup guide, campaigns, the review booster, analytics, the image studio, the M13 import sources and auto-sync, customer records, translations and smart search are all on. To hide some (while your team gets used to the rest, say), list only the ones you want in `PLAUDIT_FEATURES` and restart, or set it to `none`:
+Forms, the new inbox, the widget studio, walls, importers, notifications, the setup guide, campaigns, the review booster, analytics, the image studio, the M13 import sources and auto-sync, customer records, translations, smart search, the M16 video tools and Insights are all on. To hide some (while your team gets used to the rest, say), list only the ones you want in `PLAUDIT_FEATURES` and restart, or set it to `none`:
 
 | Flag | What it shows |
 |---|---|
@@ -390,6 +396,7 @@ Forms, the new inbox, the widget studio, walls, importers, notifications, the se
 | `mcp` | **MCP server** at `/mcp` for AI assistants, with sign-in (OAuth 2.1: metadata, client registration, a consent page) or an API key, and the connected assistants under **Settings › API keys**. Off, `/mcp` and the OAuth endpoints answer 404 ([`docs/help/mcp.md`](docs/help/mcp.md)) |
 | `team2` | **Roles and the audit log**: owner, admin, editor and viewer, per-project access for editors and viewers (enforced by the server on every request), API keys for one project, and **Settings → Audit log**. Off, everyone but the owner is an admin with every project and nothing is logged ([`docs/help/team.md`](docs/help/team.md)) |
 | `video2` | **Video, part 2**: in the inbox drawer, a **multiclip** of a submission's video answers with a card for each question (download it, or show it as the testimonial's video) and **social clips** (9:16 or 1:1, word-by-word captions, your colour, logo and a name tag, in four looks); **Highlight reels** of your approved videos, chosen by selecting their words, with title and closing cards and our own background music; and your own **welcome and thank-you videos** on forms ([`docs/help/video.md`](docs/help/video.md)) |
+| `insights` | **Insights** (Voice of Customer, ask a question, NPS, saved reports), **Case studies** with their public pages (`/cs/<id>`) and PDFs, **New survey** and **Add NPS question** in forms, **Case study** and **Read the screenshot** in manual add, and **Import a screenshot** ([`docs/help/insights.md`](docs/help/insights.md)) |
 | `analytics` | **Analytics**: a dashboard at `/admin/analytics` (a period compared with the one before; new testimonials by source, the review backlog, average rating, widget views, visitors and clicks, form views and completions, wall views and CTA clicks, booster clicks, snippet renders and the invite funnel; sortable tables), panels on each widget, form and wall, and an alert when a widget stops showing on your site. Cookieless: a daily-salted hash instead of cookies, raw events kept 30 days, daily totals kept. `ANALYTICS=off` turns collection off too ([`docs/help/analytics.md`](docs/help/analytics.md)) |
 
 `PLAUDIT_FEATURES=all` (the default) turns on every one. A flag only shows or hides pages: your data, the API and the public pages behave the same either way. The exceptions are `api2`, `mcp` and `team2`, which turn endpoints and checks on and off.

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Form, FormLayout, FormStatus } from "@/db/schema";
+import type { Form, FormKind, FormLayout, FormStatus } from "@/db/schema";
 
 /**
  * The shape of a form's config, stored as JSON in the forms row (pages,
@@ -14,7 +14,7 @@ import type { Form, FormLayout, FormStatus } from "@/db/schema";
 // pages' Content Security Policy reports as a violation: run without it there.
 if (typeof window !== "undefined") z.config({ jitless: true });
 
-export const PAGE_TYPES = ["rating", "welcome", "question", "feedback", "consent", "about_you", "about_company", "review", "thank_you"] as const;
+export const PAGE_TYPES = ["rating", "welcome", "question", "feedback", "consent", "about_you", "about_company", "review", "thank_you", "nps"] as const;
 export type PageType = (typeof PAGE_TYPES)[number];
 /** How a question may be answered. */
 export const RESPONSE_MODES = ["video_text", "video", "text"] as const;
@@ -99,6 +99,27 @@ const feedbackPage = z.object({
   placeholder: copy(200).optional(),
 });
 
+/**
+ * NPS-01: "How likely are you to recommend us?" 0–10, then an optional
+ * "why". The answer is private (survey_responses, the NPS dashboard). In a
+ * survey form, a promoter (9–10) may be offered the testimonial step.
+ */
+const npsPage = z.object({
+  type: z.literal("nps"),
+  key: fieldKeySchema,
+  enabled: z.boolean().default(true),
+  required: z.boolean().default(true),
+  title: z.string().trim().min(1).max(300),
+  subtitle: copy(500).optional(),
+  /** The follow-up; empty = the language's default ("What's the main reason for your score?"). */
+  whyTitle: copy(300).default(""),
+  whyPlaceholder: copy(200).optional(),
+  /** Survey forms only: offer promoters (9–10) the testimonial step after this. */
+  offerTestimonial: z.boolean().default(true),
+  /** The offer's wording; empty = the language's default. */
+  offerTitle: copy(300).default(""),
+});
+
 const consentPage = z.object({
   type: z.literal("consent"),
   /** Empty means the default wording. `{project}` is replaced. */
@@ -162,9 +183,11 @@ export const formPageSchema = z.discriminatedUnion("type", [
   aboutCompanyPage,
   reviewPage,
   thankYouPage,
+  npsPage,
 ]);
 export type FormPage = z.infer<typeof formPageSchema>;
 export type QuestionPage = Extract<FormPage, { type: "question" }>;
+export type NpsPage = Extract<FormPage, { type: "nps" }>;
 
 export const MAX_QUESTIONS = 10;
 
@@ -178,8 +201,9 @@ export const formPagesSchema = z
     if (primary.length !== 1) ctx.addIssue({ code: "custom", message: "A form needs exactly one main question" });
     else if (!primary[0].enabled) ctx.addIssue({ code: "custom", message: "The main question can't be turned off" });
     if (questions.length > MAX_QUESTIONS) ctx.addIssue({ code: "custom", message: `A form can have at most ${MAX_QUESTIONS} questions` });
+    if (pages.filter((p) => p.type === "nps").length > 1) ctx.addIssue({ code: "custom", message: "A form can have one NPS question" });
     const keys = pages.flatMap((p) => [
-      ...(p.type === "question" || p.type === "feedback" ? [p.key] : []),
+      ...(p.type === "question" || p.type === "feedback" || p.type === "nps" ? [p.key] : []),
       ...(p.type === "about_you" || p.type === "about_company" ? p.custom.map((f) => f.key) : []),
     ]);
     const dupe = keys.find((k, i) => keys.indexOf(k) !== i);
@@ -298,6 +322,8 @@ export type PublicForm = {
   name: string;
   status: FormStatus;
   layout: FormLayout;
+  /** NPS-01: a survey makes a testimonial only when a promoter opts in. Left out = "testimonial". */
+  kind?: FormKind;
   language: string;
   logoUrl: string | null;
   pages: FormPage[];
@@ -401,6 +427,7 @@ export function toPublicForm(row: Form, cfg: FormConfig): PublicForm {
     name: row.name,
     status: row.status,
     layout: cfg.layout,
+    kind: row.kind ?? "testimonial",
     language: row.language,
     // Same URL as mediaUrl() in storage.ts, which this client-safe file can't import.
     logoUrl: row.logoKey ? `/api/media/${row.logoKey}` : null,

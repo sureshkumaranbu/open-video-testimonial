@@ -57,6 +57,12 @@ export const projects = sqliteTable("projects", {
   brand: text("brand").notNull().default("{}"),
   /** Onboarding answers + checklist state {steps:{collect,widget,install,share}, dismissedAt}. */
   onboarding: text("onboarding").notNull().default("{}"),
+  /**
+   * M17: whether the server's AI provider (AI_MODEL) may be used for this
+   * project's case studies, insights, surveys and OCR. Off keeps every one of
+   * its testimonials away from the provider; the features fall back to their non-AI forms.
+   */
+  aiEnabled: integer("ai_enabled", { mode: "boolean" }).notNull().default(true),
 }, (t) => [
   // /api/media checks project logos on every request.
   index("projects_logo_key_idx").on(t.logoKey),
@@ -91,8 +97,11 @@ export type FormStatus = (typeof FORM_STATUSES)[number];
 /** classic: today's one-page /c form (CollectForm). steps: the step-by-step runner at /f. */
 export const FORM_LAYOUTS = ["classic", "steps"] as const;
 export type FormLayout = (typeof FORM_LAYOUTS)[number];
-/** low-rating arrives with FORM-12 (P1). */
-export const FEEDBACK_SOURCES = ["private-question", "low-rating"] as const;
+/** NPS-01: a survey collects answers and an NPS score, and makes a testimonial only when a promoter opts in. */
+export const FORM_KINDS = ["testimonial", "survey"] as const;
+export type FormKind = (typeof FORM_KINDS)[number];
+/** low-rating arrives with FORM-12 (P1); survey (NPS-01) is a survey's private question answered without a testimonial. */
+export const FEEDBACK_SOURCES = ["private-question", "low-rating", "survey"] as const;
 export type FeedbackSource = (typeof FEEDBACK_SOURCES)[number];
 export const HISTORY_ACTORS = ["owner", "api", "auto", "import", "customer", "system"] as const;
 export type HistoryActor = (typeof HISTORY_ACTORS)[number];
@@ -677,6 +686,8 @@ export const forms = sqliteTable(
     name: text("name").notNull(),
     status: text("status", { enum: FORM_STATUSES }).notNull().default("live"),
     layout: text("layout", { enum: FORM_LAYOUTS }).notNull().default("steps"),
+    /** NPS-01 (M17). */
+    kind: text("kind", { enum: FORM_KINDS }).notNull().default("testimonial"),
     isDefault: integer("is_default", { mode: "boolean" }).notNull().default(false),
     /** 0 = row created by migration 0009; pages/settings are filled from the project columns on first use. */
     configVersion: integer("config_version").notNull().default(1),
@@ -1665,6 +1676,89 @@ export const formVideos = sqliteTable(
   ],
 );
 
+export const CASE_STUDY_STATUSES = ["draft", "published"] as const;
+export type CaseStudyStatus = (typeof CASE_STUDY_STATUSES)[number];
+
+/**
+ * SHARE-04: a case study made from one testimonial. Its public page and PDF
+ * exist only while it's published and the testimonial may have a public page
+ * (approved, not withdrawn, public consent), like /t/.
+ */
+export const caseStudies = sqliteTable(
+  "case_studies",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    testimonialId: text("testimonial_id")
+      .notNull()
+      .references(() => testimonials.id, { onDelete: "cascade" }),
+    status: text("status", { enum: CASE_STUDY_STATUSES }).notNull().default("draft"),
+    title: text("title").notNull(),
+    /** JSON, src/lib/case-studies.ts caseStudyContentSchema: challenge, solution, result, pull quote, metrics. */
+    content: text("content").notNull().default("{}"),
+    /** When "Draft with AI" last filled it in (null = written by hand or from the template). */
+    aiDraftedAt: integer("ai_drafted_at", { mode: "timestamp_ms" }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("case_studies_project_idx").on(t.projectId, t.updatedAt), index("case_studies_testimonial_idx").on(t.testimonialId)],
+);
+
+export const INSIGHT_REPORT_KINDS = ["voc", "ask", "nps"] as const;
+export type InsightReportKind = (typeof INSIGHT_REPORT_KINDS)[number];
+
+/** VOC-01: a saved Voice of Customer, ask-a-question or NPS report: what was asked and what came back, as it was then. */
+export const insightReports = sqliteTable(
+  "insight_reports",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: INSIGHT_REPORT_KINDS }).notNull(),
+    name: text("name").notNull(),
+    /** JSON: the date range, tags, source and question. */
+    params: text("params").notNull().default("{}"),
+    /** JSON: the report as shown (themes, phrases, breakdown, answer and citations). */
+    result: text("result").notNull().default("{}"),
+    createdBy: text("created_by"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("insight_reports_project_idx").on(t.projectId, t.createdAt)],
+);
+
+/**
+ * NPS-01: one answer to a form's NPS question (0–10 and why). A promoter who
+ * opted in to the testimonial step has its testimonial linked; everyone
+ * else's answer stays private here.
+ */
+export const surveyResponses = sqliteTable(
+  "survey_responses",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    formId: text("form_id").references(() => forms.id, { onDelete: "set null" }),
+    testimonialId: text("testimonial_id").references(() => testimonials.id, { onDelete: "set null" }),
+    questionKey: text("question_key").notNull(),
+    score: integer("score").notNull(),
+    /** The follow-up "why". Private. */
+    comment: text("comment"),
+    authorName: text("author_name"),
+    /** Private. */
+    authorEmail: text("author_email"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("survey_responses_project_created_idx").on(t.projectId, t.createdAt),
+    index("survey_responses_form_idx").on(t.formId),
+    index("survey_responses_testimonial_idx").on(t.testimonialId),
+  ],
+);
+
 export type Member = typeof members.$inferSelect;
 export type Project = typeof projects.$inferSelect;
 export type Testimonial = typeof testimonials.$inferSelect;
@@ -1709,3 +1803,6 @@ export type OAuthGrant = typeof oauthGrants.$inferSelect;
 export type VideoRender = typeof videoRenders.$inferSelect;
 export type HighlightReel = typeof highlightReels.$inferSelect;
 export type FormVideo = typeof formVideos.$inferSelect;
+export type CaseStudy = typeof caseStudies.$inferSelect;
+export type InsightReport = typeof insightReports.$inferSelect;
+export type SurveyResponse = typeof surveyResponses.$inferSelect;

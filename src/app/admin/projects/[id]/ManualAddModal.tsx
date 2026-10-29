@@ -4,9 +4,11 @@ import { useRef, useState } from "react";
 import { api, errorMessage } from "@/app/admin/api";
 import { Modal, Segmented } from "@/components/admin";
 import { Icon } from "@/components/Icon";
+import { OCR_HELP_URL } from "@/lib/insights/links";
 import { ResumableUpload } from "@/lib/resumable-upload";
 
-type Kind = "text" | "video" | "image";
+type Kind = "text" | "video" | "image" | "case_study";
+type OcrRead = { text: string; name: string | null; date: string | null; provider: string };
 
 const PLATFORMS = [
   ["", "Not posted anywhere else"],
@@ -63,24 +65,43 @@ const orUndefined = (s: string) => (s.trim() ? s.trim() : undefined);
 
 /**
  * Adding a testimonial by hand (PRD §8.1): text, a video file (which goes
- * through the usual processing) or a screenshot of a review. The button and
- * its dialog; `onAdded` reloads the inbox.
+ * through the usual processing), a screenshot of a review, or (insights
+ * flag) a case study, which adds the testimonial and opens the case-study
+ * editor (SHARE-04). With OCR on (IMP-07), the Image tab can read the
+ * screenshot into the fields; the owner checks them before adding, and the
+ * image is kept as the screenshot. The button and its dialog; `onAdded`
+ * reloads the inbox.
  */
 export function ManualAddModal({
   projectId,
   onAdded,
   prefill,
   customerId,
+  caseStudy = false,
+  ocr,
+  initialKind = "text",
+  openLabel = "Add testimonial",
+  openTestId = "manual-add-open",
 }: {
   projectId: string;
   onAdded: () => void;
   /** INBOX-12: a customer's profile opens it with their details filled in, and links the new testimonial to them. */
   prefill?: Partial<Pick<Fields, "name" | "title" | "company" | "email" | "authorWebsite">>;
   customerId?: string;
+  /** SHARE-04: offer the Case study tab. */
+  caseStudy?: boolean;
+  /** IMP-07 (insights flag): true when OCR is on for this project ("Read the screenshot"), false to say how to turn it on; left out, nothing is shown. */
+  ocr?: boolean;
+  /** The tab it opens on (the import page opens it on Image). */
+  initialKind?: Kind;
+  openLabel?: string;
+  openTestId?: string;
 }) {
   const start: Fields = { ...EMPTY, ...prefill };
   const [open, setOpen] = useState(false);
-  const [kind, setKind] = useState<Kind>("text");
+  const [kind, setKind] = useState<Kind>(initialKind);
+  const [reading, setReading] = useState(false);
+  const [read, setRead] = useState<OcrRead | null>(null);
   const [f, setF] = useState<Fields>(start);
   const [avatar, setAvatar] = useState<File | null>(null);
   const [logo, setLogo] = useState<File | null>(null);
@@ -95,7 +116,8 @@ export function ManualAddModal({
 
   function reset() {
     setF(start);
-    setKind("text");
+    setKind(initialKind);
+    setRead(null);
     setAvatar(null);
     setLogo(null);
     setImages([]);
@@ -113,7 +135,7 @@ export function ManualAddModal({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!f.name.trim()) return setError("Add the person's name.");
-    if (kind === "text" && !f.text.trim()) return setError("Add the testimonial's text.");
+    if ((kind === "text" || kind === "case_study") && !f.text.trim()) return setError("Add the testimonial's text.");
     if (kind === "video" && !video) return setError("Choose the video file.");
     if (kind === "image" && !images.length) return setError("Attach the screenshot or image.");
     setSaving(true);
@@ -153,10 +175,12 @@ export function ManualAddModal({
       if (avatar) body.set("avatar", avatar);
       if (logo) body.set("companyLogo", logo);
       for (const img of images) body.append("images", img);
-      await api(`/api/admin/projects/${projectId}/testimonials/manual`, { method: "POST", body });
+      const added = await api<{ caseStudy?: { id: string } }>(`/api/admin/projects/${projectId}/testimonials/manual`, { method: "POST", body });
       reset();
       setOpen(false);
-      onAdded();
+      // SHARE-04: straight on to the case study's editor.
+      if (added.caseStudy) window.location.assign(`/admin/projects/${projectId}/case-studies/${added.caseStudy.id}`);
+      else onAdded();
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -165,11 +189,29 @@ export function ManualAddModal({
     }
   }
 
+  /** IMP-07: reads the first image and fills what it found; nothing is saved until "Add testimonial". */
+  async function readScreenshot() {
+    if (!images[0]) return;
+    setReading(true);
+    setError(null);
+    try {
+      const body = new FormData();
+      body.set("image", images[0]);
+      const { read: r } = await api<{ read: OcrRead }>(`/api/admin/projects/${projectId}/ocr`, { method: "POST", body });
+      setRead(r);
+      setF((x) => ({ ...x, text: r.text || x.text, name: x.name.trim() ? x.name : (r.name ?? ""), sourceDate: x.sourceDate || (r.date ?? "") }));
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setReading(false);
+    }
+  }
+
   return (
     <>
-      <button type="button" className="small" onClick={() => setOpen(true)} data-testid="manual-add-open">
+      <button type="button" className="small" onClick={() => setOpen(true)} data-testid={openTestId}>
         <Icon name="plus" />
-        Add testimonial
+        {openLabel}
       </button>
       <Modal
         open={open}
@@ -197,6 +239,7 @@ export function ManualAddModal({
               { value: "text", label: "Text" },
               { value: "video", label: "Video" },
               { value: "image", label: "Image" },
+              ...(caseStudy ? [{ value: "case_study", label: "Case study" }] : []),
             ]}
             value={kind}
             onChange={(v) => setKind(v as Kind)}
@@ -239,8 +282,13 @@ export function ManualAddModal({
             Headline
             <input type="text" value={f.headline} onChange={set("headline")} maxLength={200} />
           </label>
+          {kind === "case_study" && (
+            <p className="muted small" data-testid="manual-case-study-note">
+              Add what the customer said; after adding, the case study editor opens with a template made from it (and Draft with AI, when it&apos;s on).
+            </p>
+          )}
           <label>
-            {kind === "text" ? "Testimonial text" : "Testimonial text (optional)"}
+            {kind === "text" || kind === "case_study" ? "Testimonial text" : "Testimonial text (optional)"}
             <textarea value={f.text} onChange={set("text")} rows={4} maxLength={5000} />
           </label>
           {kind === "video" && (
@@ -263,6 +311,32 @@ export function ManualAddModal({
               data-testid="manual-images"
             />
           </label>
+          {kind === "image" && ocr !== undefined && (
+            <div className="stack" style={{ gap: "var(--space-1)" }}>
+              {ocr ? (
+                <div className="row" style={{ gap: "var(--space-2)", flexWrap: "wrap", alignItems: "center" }}>
+                  <button type="button" className="secondary small" onClick={() => void readScreenshot()} disabled={!images.length || reading} data-testid="manual-ocr">
+                    <Icon name="sparkle" />
+                    {reading ? "Reading…" : "Read the screenshot"}
+                  </button>
+                  <span className="muted small">Fills the text, name and date from the first image. Check them before adding.</span>
+                </div>
+              ) : (
+                <span className="muted small" data-testid="manual-ocr-off">
+                  Reading the text out of a screenshot needs OCR on this server (
+                  <a href={OCR_HELP_URL} target="_blank" rel="noopener">
+                    how to set it up
+                  </a>
+                  ).
+                </span>
+              )}
+              {read && (
+                <p className="small" role="status" data-testid="manual-ocr-done">
+                  Read the screenshot{read.name ? `: found ${read.name}` : ""}{read.date ? `, ${read.date}` : ""}. Check the text below; the image is kept with the testimonial.
+                </p>
+              )}
+            </div>
+          )}
           <div className="ib-edit-grid">
             <label>
               Photo of the person

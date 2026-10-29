@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **Case studies** (feature flag `insights`, SHARE-04): turn a testimonial into a customer story with a title, the challenge, the solution, the result, a pull quote and up to four numbers, in an editor with a live preview. It starts as a template made from the testimonial; with your own AI provider, **Draft with AI** fills it from the customer's own words and drops any quote or number they didn't say. Published case studies have a page at `/cs/<id>` and a PDF (drawn on your server with pdf-lib in Geist), both only while the testimonial is approved, not withdrawn and public. From the inbox drawer, the Case studies page, or **Add testimonial → Case study**. See [`docs/help/insights.md`](docs/help/insights.md#case-studies).
+
+- **Insights** (`insights`, VOC-01): Voice of Customer over a period and a tag: the rating and sentiment breakdown, the phrases most testimonials share, what they love and what to improve, counted from the inbox's own search index without AI; with AI, themes that cite their testimonials. **Ask a question** finds the testimonials that answer it (smart search when it's on) and, with AI, a short answer citing them. Reports can be saved and downloaded as CSV.
+
+- **NPS questions and surveys** (`insights`, NPS-01): an NPS question (0–10 and why) for any form, and **New survey**, where everyone's answers stay private and only promoters (9–10) who say yes go on to write a testimonial. Surveys start paused; with AI, **Draft with AI** writes the questions from your goal. An **NPS dashboard** with the score, the three groups, a trend and the comments.
+
+- **Reading screenshots** (`insights`, IMP-07): **Add testimonial → Image** and **Import a screenshot** read the quote, name and date out of a screenshot with `OCR_PROVIDER=command` (tesseract or another local program, no shell) or `ai`; you check the fields, and the image is kept as the screenshot.
+
+- **One AI setting for everything** (`AI_MODEL`, `AI_API_URL`, `AI_API_KEY`): any OpenAI-compatible `/chat/completions` endpoint, including a local model without a key. Nothing is sent until an editor presses a button that says so, only what that button needs (never emails or private fields), and an admin can switch AI off for a project. Every answer is checked before it's used, every request is in the audit log, and **Settings → This server** shows AI and OCR. The brand scan keeps using `BRAND_AI_*` when those are set, and `AI_*` otherwise.
+
+- Migration 0020 adds case studies, saved insight reports and survey answers, `forms.kind`, `projects.ai_enabled` (on) and a read-only view of the search index's words; nothing existing changes. Zip exports carry a form's kind; case studies, reports and survey answers aren't in them yet.
+
 - **Multiclips, social clips and highlight reels** (feature flag `video2`). In the inbox drawer, join a submission's video answers into one video with a card for each question, and download it or show it as the testimonial's video (VID-05); make 9:16 or 1:1 social clips with word-by-word captions, your colour, logo and a name tag, in four looks of our own (VID-07). **Highlight reels** join the best moments of approved videos, chosen by selecting their words, with title and closing cards and an original synthesised music bed (VID-08). Everything is made in the background with ffmpeg and stays private to your team. See [`docs/help/video.md`](docs/help/video.md#multiclip).
 
 - **Your own welcome and thank-you videos** on forms (`video2`, FORM-17): record or upload in the builder; they play with captions on the live form.

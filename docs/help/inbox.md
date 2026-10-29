@@ -65,6 +65,8 @@ Testimonials are deleted for good after 30 days in the trash (`TRASH_RETENTION_D
 
 **Add testimonial** is for praise you received somewhere else: an email, a call, a post or a review. Choose **Text**, **Video** (the file is converted and transcribed like any other) or **Image** (a screenshot), then add the person's details, photo and company logo, up to 5 images, where and when it was posted, tags and the status. It's **approved** unless you choose otherwise, no webhooks are sent and auto-approve doesn't apply. The consent record notes that consent was collected outside Plaudit, so keep your own record of it.
 
+With the `insights` flag on: **Image** can **Read the screenshot** when OCR is set up, filling the text, name and date for you to check (the image is kept as the screenshot), and **Case study** adds the testimonial and opens a case study made from it. The drawer has **Case study** too. See [Insights, case studies and surveys](insights.md).
+
 ## Possible duplicates and merging
 
 With the `customers` section on, the inbox spots testimonials that are probably the same person saying something twice: the same customer or email address, or the same name with very similar words. (Imports never duplicate a review; this is for someone who sent two, or one you added by hand after they sent theirs.) Turn on **Possible duplicates** in Filters to see only those, and the drawer says **Possible duplicate of …** on each.

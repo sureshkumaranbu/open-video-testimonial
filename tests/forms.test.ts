@@ -426,7 +426,7 @@ describe("toPublicForm", () => {
     expect(pub.logoUrl).toBe("/api/media/images/11111111-1111-4111-8111-111111111111.png");
     expect(page(pub, "about_you").custom[0].options).toEqual([{ label: "Enterprise" }, { label: "Free" }]);
     expect(JSON.stringify(pub)).not.toMatch(/enterprise"|secret|autoApprove|confirmationEmail/);
-    expect(Object.keys(pub).sort()).toEqual(["design", "id", "labels", "language", "layout", "logoUrl", "name", "pages", "settings", "slug", "status"]);
+    expect(Object.keys(pub).sort()).toEqual(["design", "id", "kind", "labels", "language", "layout", "logoUrl", "name", "pages", "settings", "slug", "status"]);
   });
 });
 

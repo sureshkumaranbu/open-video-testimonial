@@ -98,6 +98,12 @@
       "$comment": "Phase 3 milestones are one branch and one implementer each, like Phase 2. M15 (leftovers) shipped follow-ups to existing IDs, so it gates none of its own.",
       "packages": [],
       "requirements": ["VID-05", "VID-06", "VID-07", "VID-08", "FORM-17"]
+    },
+    "M17": {
+      "name": "Insights and AI (Phase 3)",
+      "$comment": "VOC-01 (Voice of Customer), NPS-01 (NPS, feedback and AI surveys) and IMP-07 (screenshot OCR import) are our IDs for PRD rows 64, 65 and 28's OCR; the PRD gives them none. SHARE-04 is the PRD's own.",
+      "packages": [],
+      "requirements": ["SHARE-04", "VOC-01", "NPS-01", "IMP-07"]
     }
   },
   "concurrent": [

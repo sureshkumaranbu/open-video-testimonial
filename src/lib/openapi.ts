@@ -850,7 +850,7 @@ function api2Schemas() {
         formId: nullable("string"),
         customerId: nullable("string"),
         testimonialId: nullable("string"),
-        source: { type: "string", enum: ["private-question", "low-rating"] },
+        source: { type: "string", enum: ["private-question", "low-rating", "survey"] },
         rating: nullable("integer"),
         text: str,
         author: { type: "object", properties: { name: nullable("string"), email: nullable("string") } },

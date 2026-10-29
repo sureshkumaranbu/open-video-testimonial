@@ -3,7 +3,7 @@ import { getDb, schema } from "@/db";
 import type { MemberRole } from "@/db/schema";
 import { featureOn } from "./features";
 
-const { members, memberProjects, forms, widgets, walls, campaigns, testimonials, boosters, seoSnippets, requests, taskRuns, slugRedirects, answers, importSources, videoRenders, highlightReels, formVideos } =
+const { members, memberProjects, forms, widgets, walls, campaigns, testimonials, boosters, seoSnippets, requests, taskRuns, slugRedirects, answers, importSources, videoRenders, highlightReels, formVideos, caseStudies, insightReports } =
   schema;
 
 /**
@@ -90,6 +90,9 @@ const SEGMENTS: Record<string, Lookup> = {
   // M16: a render (multiclip, social clip, reel) and a highlight reel.
   renders: (id) => getDb().select({ projectId: videoRenders.projectId }).from(videoRenders).where(eq(videoRenders.id, id)).get()?.projectId,
   reels: (id) => getDb().select({ projectId: highlightReels.projectId }).from(highlightReels).where(eq(highlightReels.id, id)).get()?.projectId,
+  // M17: a case study and a saved insights report.
+  "case-studies": (id) => getDb().select({ projectId: caseStudies.projectId }).from(caseStudies).where(eq(caseStudies.id, id)).get()?.projectId,
+  "insight-reports": (id) => getDb().select({ projectId: insightReports.projectId }).from(insightReports).where(eq(insightReports.id, id)).get()?.projectId,
 };
 
 const ANALYTICS: Record<string, Lookup> = {
