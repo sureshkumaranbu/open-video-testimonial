@@ -3,7 +3,7 @@ import { getDb, schema } from "@/db";
 import type { MemberRole } from "@/db/schema";
 import { featureOn } from "./features";
 
-const { members, memberProjects, forms, widgets, walls, campaigns, testimonials, boosters, seoSnippets, requests, taskRuns, slugRedirects, answers, importSources, videoRenders, highlightReels, formVideos, caseStudies, insightReports } =
+const { members, memberProjects, forms, widgets, walls, campaigns, testimonials, boosters, seoSnippets, requests, taskRuns, slugRedirects, answers, importSources, videoRenders, highlightReels, formVideos, caseStudies, insightReports, shareAssets, shareTemplates } =
   schema;
 
 /**
@@ -93,7 +93,13 @@ const SEGMENTS: Record<string, Lookup> = {
   // M17: a case study and a saved insights report.
   "case-studies": (id) => getDb().select({ projectId: caseStudies.projectId }).from(caseStudies).where(eq(caseStudies.id, id)).get()?.projectId,
   "insight-reports": (id) => getDb().select({ projectId: insightReports.projectId }).from(insightReports).where(eq(insightReports.id, id)).get()?.projectId,
+  // The image studio's uploads and saved templates.
+  "share-assets": (id) => getDb().select({ projectId: shareAssets.projectId }).from(shareAssets).where(eq(shareAssets.id, id)).get()?.projectId,
+  "share-templates": (id) => getDb().select({ projectId: shareTemplates.projectId }).from(shareTemplates).where(eq(shareTemplates.id, id)).get()?.projectId,
 };
+
+/** The /api/admin/<segment>/<id> segments whose object's project is checked (tests/guard-rails.test.ts). */
+export const PROJECT_SEGMENTS = Object.keys(SEGMENTS);
 
 const ANALYTICS: Record<string, Lookup> = {
   widget: byTable(widgets),
