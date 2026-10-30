@@ -5,7 +5,7 @@ import { api } from "@/app/admin/api";
 import { EmptyState } from "@/components/admin";
 import type { AnalyticsObject } from "@/db/schema";
 import type { ObjectReport } from "@/lib/analytics/report";
-import { BarList, fmt, LineChart, Tile } from "./charts";
+import { BarList, fmt, LineChart, shortDay, Tile } from "./charts";
 import { presetRange, RangePicker, type Range } from "./RangePicker";
 import { pageName } from "./InstallStatus";
 
@@ -146,15 +146,22 @@ export function ObjectAnalytics({ type, id, heading = "Analytics" }: { type: Ana
               <div className="an-card">
                 <h3>Where people stop</h3>
                 {r.funnel.pages.length ? (
-                  <BarList
-                    label="Visitors who reached each page"
-                    testId="form-dropoff"
-                    unit="visitors"
-                    items={[
-                      ...r.funnel.pages.map((pg) => ({ key: String(pg.index), label: pg.label, value: pg.visitors })),
-                      { key: "sent", label: "Sent", value: r.funnel.completions },
-                    ]}
-                  />
+                  <>
+                    <BarList
+                      label="Visitors who reached each page"
+                      testId="form-dropoff"
+                      unit="visitors"
+                      items={[
+                        ...r.funnel.pages.map((pg) => ({ key: pg.key, label: pg.label, value: pg.visitors })),
+                        { key: "sent", label: "Sent", value: r.funnel.completions },
+                      ]}
+                    />
+                    {r.funnel.byPositionUntil && (
+                      <p className="muted small" data-testid="form-dropoff-note">
+                        Counts up to {shortDay(r.funnel.byPositionUntil)} were kept by page position, so if you added, moved or removed pages since, they may sit on the wrong page.
+                      </p>
+                    )}
+                  </>
                 ) : (
                   <p className="muted small">The classic page is a single page, so it counts views and completions only.</p>
                 )}

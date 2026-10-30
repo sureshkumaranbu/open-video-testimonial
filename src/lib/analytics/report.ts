@@ -3,7 +3,7 @@ import { getDb, schema } from "@/db";
 import type { AnalyticsMetric, AnalyticsObject, Widget } from "@/db/schema";
 import { funnelOf } from "../campaigns";
 import { pageEnabled } from "../forms/engine";
-import { type FormPage, type PageType, parseFormRow } from "../forms/schema";
+import { derivedPageId, type FormPage, LOW_RATING_STEP, type PageType, parseFormRow } from "../forms/schema";
 import { aggregateRaw, installStatus, OTHER_DIM, type InstallStatus, type TotalRow } from "./rollup";
 import { RETENTION_DAYS, utcDay } from "./collect";
 
@@ -198,21 +198,31 @@ export function objectReport(type: AnalyticsObject, id: string, projectId: strin
     },
     topPages: type === "widget" ? topDims(rows, "view") : [],
     sites: type === "snippet" ? topDims(rows, "render") : [],
-    funnel: null as null | { pages: { index: number; label: string; visitors: number }[]; completions: number; rating: { average: number | null; count: number }; previousRating: { average: number | null; count: number } },
+    funnel: null as null | {
+      pages: { index: number; key: string; label: string; visitors: number }[];
+      completions: number;
+      rating: { average: number | null; count: number };
+      previousRating: { average: number | null; count: number };
+      /** B-06: the last day in the range counted by page position (before page keys), or null. */
+      byPositionUntil: string | null;
+    },
     install: null as InstallStatus | null,
   };
   if (type === "form") {
     const form = getDb().select().from(forms).where(eq(forms.id, id)).get();
-    const steps = new Map(topDims(rows, "step", 100).map((d) => [d.dim, d.uniques]));
+    const steps = new Map(topDims(rows, "step", 1000).map((d) => [d.dim, d.uniques]));
     const cfg = form && form.layout === "steps" ? parseFormRow(form) : null;
-    // Indexes into form.pages, as the runner sends them; the low-rating step comes after them all.
-    const pages = (cfg?.pages ?? []).flatMap((pg, i) => (pg.type !== "thank_you" && pageEnabled(pg) ? [{ index: i, label: pageLabel(pg) }] : []));
-    if (cfg?.settings.lowRating?.enabled) pages.push({ index: cfg.pages.length, label: "Private feedback (low ratings)" });
+    // B-06: counted by each page's stable key; the low-rating step comes after the pages. Counts from
+    // before page keys were by index into form.pages ("0", "1"…) and are added to the page now at that index.
+    const pages = (cfg?.pages ?? []).flatMap((pg, i) => (pg.type !== "thank_you" && pageEnabled(pg) ? [{ index: i, key: pg.id ?? derivedPageId(pg), label: pageLabel(pg) }] : []));
+    if (cfg?.settings.lowRating?.enabled) pages.push({ index: cfg.pages.length, key: LOW_RATING_STEP, label: "Private feedback (low ratings)" });
+    const byPosition = rows.filter((r) => r.metric === "step" && /^\d+$/.test(r.dim)).map((r) => r.day);
     out.funnel = {
-      pages: pages.map((pg, i) => ({ ...pg, label: `${i + 1}. ${pg.label}`, visitors: steps.get(String(pg.index)) ?? 0 })),
+      pages: pages.map((pg, i) => ({ ...pg, label: `${i + 1}. ${pg.label}`, visitors: (steps.get(pg.key) ?? 0) + (steps.get(String(pg.index)) ?? 0) })),
       completions: out.current.completions,
       rating: formRating(id, p),
       previousRating: formRating(id, prev),
+      byPositionUntil: byPosition.length ? byPosition.sort().at(-1)! : null,
     };
   }
   if (type === "widget") {

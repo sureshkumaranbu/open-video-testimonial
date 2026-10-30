@@ -34,6 +34,16 @@ export const fieldKeySchema = z
   .max(40)
   .regex(/^[a-z][a-z0-9_]*$/, "Use lowercase letters, numbers and underscores, starting with a letter");
 
+/**
+ * B-06: a page's stable key, kept in its config so it survives pages being
+ * added, moved and removed (the drop-off chart counts by it). Pages without
+ * one get it on read and on save (withPageIds).
+ */
+const pageIdSchema = z
+  .string()
+  .regex(/^[a-z][a-z0-9_:-]{0,60}$/)
+  .optional();
+
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 const copy = (max: number) => z.string().max(max);
 
@@ -56,6 +66,7 @@ const detail = (enabled: boolean) => z.object({ enabled: z.boolean(), required: 
 
 const ratingPage = z.object({
   type: z.literal("rating"),
+  id: pageIdSchema,
   enabled: z.boolean().default(true),
   required: z.boolean().default(false),
   title: copy(300).default(""),
@@ -64,6 +75,7 @@ const ratingPage = z.object({
 
 const welcomePage = z.object({
   type: z.literal("welcome"),
+  id: pageIdSchema,
   enabled: z.boolean().default(false),
   title: copy(300).default(""),
   message: copy(2000).default(""),
@@ -73,6 +85,7 @@ const welcomePage = z.object({
 
 const questionPage = z.object({
   type: z.literal("question"),
+  id: pageIdSchema,
   key: fieldKeySchema,
   enabled: z.boolean().default(true),
   /** The answer stored on the testimonial itself (text / video); exactly one per form. */
@@ -91,6 +104,7 @@ const questionPage = z.object({
 /** A private question: its answer goes to the feedback list, never onto the testimonial. */
 const feedbackPage = z.object({
   type: z.literal("feedback"),
+  id: pageIdSchema,
   key: fieldKeySchema,
   enabled: z.boolean().default(true),
   required: z.boolean().default(false),
@@ -106,6 +120,7 @@ const feedbackPage = z.object({
  */
 const npsPage = z.object({
   type: z.literal("nps"),
+  id: pageIdSchema,
   key: fieldKeySchema,
   enabled: z.boolean().default(true),
   required: z.boolean().default(true),
@@ -122,6 +137,7 @@ const npsPage = z.object({
 
 const consentPage = z.object({
   type: z.literal("consent"),
+  id: pageIdSchema,
   /** Empty means the default wording. `{project}` is replaced. */
   text: copy(1000).default(""),
   /** Optional extras offered beside the required box. */
@@ -132,6 +148,7 @@ const consentPage = z.object({
 
 const aboutYouPage = z.object({
   type: z.literal("about_you"),
+  id: pageIdSchema,
   /** The name is always asked for and required. */
   fields: z
     .object({
@@ -149,6 +166,7 @@ const aboutYouPage = z.object({
 
 const aboutCompanyPage = z.object({
   type: z.literal("about_company"),
+  id: pageIdSchema,
   enabled: z.boolean().default(false),
   fields: z.object({ company: detail(true), website: detail(true), logo: detail(true) }).prefault({}),
   custom: z.array(customFieldSchema).max(20).default([]),
@@ -156,12 +174,14 @@ const aboutCompanyPage = z.object({
 
 const reviewPage = z.object({
   type: z.literal("review"),
+  id: pageIdSchema,
   enabled: z.boolean().default(false),
   title: copy(300).default(""),
 });
 
 const thankYouPage = z.object({
   type: z.literal("thank_you"),
+  id: pageIdSchema,
   title: copy(300).default(""),
   message: copy(2000).default(""),
   cta: z.object({ label: z.string().trim().min(1).max(80), url: z.url({ protocol: /^https?$/ }).max(2000) }).optional(),
@@ -190,6 +210,30 @@ export type QuestionPage = Extract<FormPage, { type: "question" }>;
 export type NpsPage = Extract<FormPage, { type: "nps" }>;
 
 export const MAX_QUESTIONS = 10;
+
+/** The drop-off chart's key for the low-rating private feedback step, which isn't one of the pages (B-06). */
+export const LOW_RATING_STEP = "low_rating";
+
+/** The key a page gets when it has none: its type, plus its own key for questions (B-06). */
+export function derivedPageId(page: { type: PageType; key?: string }): string {
+  return page.key && (page.type === "question" || page.type === "feedback" || page.type === "nps") ? `${page.type}:${page.key}` : page.type;
+}
+
+/** Keeps every page's key and gives the pages without one (or with a repeated one) a new, unique key (B-06). */
+export function withPageIds<T extends { type: PageType; key?: string; id?: string }>(pages: T[]): (T & { id: string })[] {
+  const seen = new Set<string>();
+  const kept = pages.map((p) => (p.id && !seen.has(p.id) ? (seen.add(p.id), p.id) : null));
+  return pages.map((p, i) => {
+    let id = kept[i];
+    if (!id) {
+      const base = derivedPageId(p);
+      id = base;
+      for (let n = 2; seen.has(id); n++) id = `${base}-${n}`;
+      seen.add(id);
+    }
+    return { ...p, id };
+  });
+}
 
 /** Exactly one primary question (always on), at most 10 questions, unique keys, one consent and one thank-you page. */
 export const formPagesSchema = z
@@ -383,14 +427,14 @@ function parseObject<S extends z.ZodObject>(schema: S, raw: string, report: (wha
 function parsePages(raw: string, report: (what: string) => void): FormPage[] {
   const value = readJson(raw);
   const full = formPagesSchema.safeParse(value);
-  if (full.success) return full.data;
+  if (full.success) return withPageIds(full.data);
   report("pages");
   const pages = (Array.isArray(value) ? value : []).flatMap((p) => {
     const page = formPageSchema.safeParse(p);
     return page.success ? [page.data] : [];
   });
   const kept = formPagesSchema.safeParse(pages);
-  return kept.success ? kept.data : defaultPages();
+  return withPageIds(kept.success ? kept.data : defaultPages());
 }
 
 /**

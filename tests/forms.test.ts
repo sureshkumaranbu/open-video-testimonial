@@ -40,6 +40,7 @@ import {
   type FormConfig,
   type FormPage,
   type QuestionPage,
+  withPageIds,
 } from "@/lib/forms/schema";
 import { createRequests } from "@/lib/requests";
 import { resolveKey, saveUpload } from "@/lib/storage";
@@ -156,7 +157,7 @@ describe("formConfigFromProject", () => {
       mode: "video",
       maxVideoSeconds: 90,
     });
-    expect(page(cfg, "consent")).toEqual({ type: "consent", text: "I agree {project} may quote me.", scopes: ["social"], allowPrivate: false });
+    expect(page(cfg, "consent")).toEqual({ type: "consent", id: "consent", text: "I agree {project} may quote me.", scopes: ["social"], allowPrivate: false });
     const about = page(cfg, "about_you");
     expect(about.custom).toEqual([]);
     expect(Object.fromEntries(Object.entries(about.fields).map(([k, f]) => [k, f.enabled]))).toEqual({
@@ -659,7 +660,7 @@ describe("other forms", () => {
       config: { pages, settings: { ...base.settings, autoApprove: { mode: "all", minRating: 1, includeVideo: false, since: SINCE } } },
     });
     const cfg = cfgOf(form);
-    expect(cfg.pages).toEqual(pages);
+    expect(cfg.pages).toEqual(withPageIds(pages)); // B-06: the new question gets its key on save
     expect(cfg.settings.autoApprove.since!.getTime()).toBeGreaterThan(SINCE.getTime());
     expect(() => createForm(project.id, { name: "Bad", config: { pages: [] } })).toThrow(FormError);
     expect(() => createForm(project.id, { name: "  " })).toThrow(/name/);

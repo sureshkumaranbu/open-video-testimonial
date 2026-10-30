@@ -18,7 +18,7 @@ import {
   type ThankYou as ThankYouContent,
 } from "@/lib/forms/engine";
 import { dirFor, fillLabel, type LabelKey, type Labels } from "@/lib/forms/labels";
-import type { FormPage, PublicForm } from "@/lib/forms/schema";
+import { derivedPageId, type FormPage, LOW_RATING_STEP, type PublicForm } from "@/lib/forms/schema";
 import type { GrantedReward } from "@/lib/rewards-config";
 import type { OwnerVideos } from "@/lib/video/form-videos";
 import { createAnswerUploads } from "./answer-uploads";
@@ -168,20 +168,20 @@ export function FormRunner(props: FormRunnerProps) {
   // FORM-15: a view per page load, then each page the first time it's reached (by its index in
   // form.pages; the low-rating step comes after them all), and a start on reaching the second.
   // Cookieless (docs/help/analytics.md); the server counts the completion when the form is sent.
-  const reached = useRef<Set<number> | null>(null);
+  const reached = useRef<Set<string> | null>(null);
   useEffect(() => {
     if (preview || !shown || done || resume) return;
     if (!reached.current) {
       reached.current = new Set();
       beacon({ t: "form", id: form.id, k: "view" });
     }
-    const at = form.pages.indexOf(shown);
-    const index = at === -1 ? form.pages.length : at;
-    if (reached.current.has(index)) return;
-    reached.current.add(index);
-    beacon({ t: "form", id: form.id, k: "step", s: index });
-    if (atStep > 0 && !reached.current.has(-1)) {
-      reached.current.add(-1);
+    // B-06: the page's stable key, so editing the form later doesn't move its count.
+    const key = form.pages.includes(shown) ? (shown.id ?? derivedPageId(shown)) : LOW_RATING_STEP;
+    if (reached.current.has(key)) return;
+    reached.current.add(key);
+    beacon({ t: "form", id: form.id, k: "step", p: key });
+    if (atStep > 0 && !reached.current.has("")) {
+      reached.current.add("");
       beacon({ t: "form", id: form.id, k: "start" });
     }
   }, [preview, shown, done, resume, atStep, form.id, form.pages]);

@@ -4,6 +4,7 @@ import {
   formDesignSchema,
   formLabelsSchema,
   formPagesSchema,
+  withPageIds,
   formSettingsSchema,
   type AutoApproveRule,
   type FormConfig,
@@ -98,7 +99,7 @@ export function formConfigFromProject(p: Project): FormConfig {
   return {
     v: 1,
     layout: "classic",
-    pages: formPagesSchema.parse([
+    pages: withPageIds(formPagesSchema.parse([
       { type: "rating", enabled: true, required: false },
       { type: "welcome", enabled: false },
       {
@@ -116,7 +117,7 @@ export function formConfigFromProject(p: Project): FormConfig {
       { type: "about_you", fields: CLASSIC_ABOUT_YOU, custom: [] },
       { type: "review", enabled: false },
       { type: "thank_you", message: clip(p.thankYouMessage, MESSAGE_MAX) },
-    ]),
+    ])),
     design: formDesignSchema.parse(HEX.test(p.accentColor) ? { primary: p.accentColor } : {}),
     labels: formLabelsSchema.parse({}),
     settings: formSettingsSchema.parse({

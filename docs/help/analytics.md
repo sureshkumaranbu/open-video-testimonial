@@ -21,7 +21,7 @@ This page also explains exactly what is collected and what isn't. You're welcome
 
 **A widget** shows where it's live ("Live on example.com/pricing", and the other pages it was seen on in the last 7 days), views, visitors, clicks by kind, its top pages and the comparison with the period before. The widget list says the same in a line under each name.
 
-**A form** shows views, visitors, starts (someone moved past the first page), completions and the completion rate, the average rating, and **where people stop**: how many visitors reached each page, then how many sent it. The classic one-page form counts views and completions only.
+**A form** shows views, visitors, starts (someone moved past the first page), completions and the completion rate, the average rating, and **where people stop**: how many visitors reached each page, then how many sent it. Each page is counted by a key of its own, so adding, moving or removing pages later keeps every page's count on it. Counts from before Plaudit kept those keys (October 2026) were kept by page position; when the period includes some, a note under the chart says so. The classic one-page form counts views and completions only.
 
 **A wall** shows views, visitors, clicks on its call to action buttons (the hero button and the one between cards) and clicks on its other links (logo, header links, original reviews).
 
