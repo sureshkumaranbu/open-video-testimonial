@@ -1,4 +1,5 @@
 import { boosterDocument, boosterPath, getBoosterBySlug, viewOf } from "@/lib/boosters";
+import { featureOn } from "@/lib/features";
 import { findProjectBySlugOrAlias } from "@/lib/projects";
 import { absoluteUrl } from "@/lib/walls";
 
@@ -17,7 +18,8 @@ const NOT_FOUND = `<!doctype html><html lang="en"><head><meta charset="utf-8"><m
  */
 export async function GET(req: Request, ctx: Ctx) {
   const { project: projectSlug, booster: boosterSlug } = await ctx.params;
-  const found = findProjectBySlugOrAlias(projectSlug);
+  // B-04: with the booster flag off, booster pages are a 404 like a draft.
+  const found = featureOn("booster") ? findProjectBySlugOrAlias(projectSlug) : null;
   const hit = found ? getBoosterBySlug(found.project.id, boosterSlug) : null;
   if (!found || !hit || !hit.booster.published) {
     return new Response(NOT_FOUND, { status: 404, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });

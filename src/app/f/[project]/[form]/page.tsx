@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { featureOn } from "@/lib/features";
 import { notFound, permanentRedirect } from "next/navigation";
 import { recordPageView } from "@/lib/analytics";
 import { FormRunner } from "@/components/collect/FormRunner";
@@ -16,6 +17,8 @@ type Props = {
 };
 
 function resolve(projectSlug: string, formSlug: string) {
+  // B-04: with the forms flag off, form pages are a 404 (the classic /c/ page stays).
+  if (!featureOn("forms")) return null;
   const found = findProjectBySlugOrAlias(projectSlug);
   const form = found ? getFormBySlug(found.project.id, formSlug) : null;
   return found && form ? { ...found, ...form } : null;
