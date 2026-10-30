@@ -501,7 +501,7 @@ test.describe("home page", () => {
   test("screenshots", async ({ page }) => {
     test.skip(!SHOTS, "only when UPDATE_SCREENSHOTS is set");
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.goto("/");
+    await page.goto("/?theme=violet"); // the default brand, whatever the suite runs with
     await page.waitForTimeout(1400);
     await shot(page, "home-desktop");
     const height = await page.evaluate(() => document.documentElement.scrollHeight);
@@ -514,7 +514,7 @@ test.describe("home page", () => {
     await page.waitForTimeout(400);
     await shot(page, "home-full", true);
     await page.setViewportSize({ width: 375, height: 812 });
-    await page.goto("/");
+    await page.goto("/?theme=violet"); // the default brand, whatever the suite runs with
     await page.waitForTimeout(1400);
     await shot(page, "home-mobile");
   });
