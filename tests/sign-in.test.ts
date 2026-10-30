@@ -1,8 +1,9 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { createLocalJWKSet, exportJWK, generateKeyPair, importSPKI, jwtVerify, SignJWT, decodeProtectedHeader } from "jose";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST as passwordLogin } from "@/app/api/admin/login/route";
+import { POST as logoutRoute } from "@/app/api/admin/logout/route";
 import { DELETE as removeRoute } from "@/app/api/admin/team/[id]/route";
 import { GET as teamList, POST as inviteRoute } from "@/app/api/admin/team/route";
 import { GET as start } from "@/app/api/auth/[provider]/route";
@@ -210,6 +211,67 @@ describe("who can sign in", () => {
       new Request("http://localhost/api/admin/login", { method: "POST", body: JSON.stringify({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD }) }),
     );
     expect(res.status).toBe(403);
+  });
+});
+
+describe("signing out (B-05)", () => {
+  const signIn = async () => {
+    const res = await passwordLogin(
+      new Request("http://localhost:3000/api/admin/login", {
+        method: "POST",
+        body: JSON.stringify({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD }),
+        headers: { ...ORIGIN, "content-type": "application/json", "x-forwarded-for": "198.51.100.9" },
+      }),
+    );
+    expect(res.status).toBe(200);
+    return `${sessionCookieName()}=${cookieOf(res, sessionCookieName())}`;
+  };
+  const signOut = (cookie: string) => logoutRoute(new Request("http://localhost:3000/api/admin/logout", { method: "POST", headers: { ...ORIGIN, cookie } }));
+  afterEach(() => vi.restoreAllMocks());
+
+  it("signing out ends every session of that person, including a copied cookie, and only theirs (B-05)", async () => {
+    process.env.ADMIN_EMAILS = "ada@example.com";
+    recordSignIn("ada@example.com");
+    const laptop = await signIn();
+    const phone = await signIn();
+    const ada = `${sessionCookieName()}=${createSessionToken("ada@example.com")}`;
+    expect(asSession(laptop)?.email).toBe(ADMIN_EMAIL);
+    const res = await signOut(laptop);
+    expect(res.status).toBe(200);
+    expect(res.headers.getSetCookie().join()).toContain("Max-Age=0");
+    expect(asSession(laptop)).toBeNull();
+    expect(asSession(phone)).toBeNull();
+    expect(asSession(ada)?.email).toBe("ada@example.com");
+    // Signing in again works straight away.
+    expect(asSession(await signIn())?.email).toBe(ADMIN_EMAIL);
+  });
+
+  it("a session made in the same millisecond as the sign-out ends with it; one made after it works (B-05)", async () => {
+    const t = Date.parse("2026-10-30T12:00:00.000Z");
+    vi.spyOn(Date, "now").mockReturnValue(t);
+    const before = `${sessionCookieName()}=${createSessionToken(ADMIN_EMAIL, "password", t)}`;
+    await signOut(before);
+    expect(asSession(before)).toBeNull();
+    const after = `${sessionCookieName()}=${createSessionToken(ADMIN_EMAIL, "password", t)}`;
+    expect(asSession(after)?.email).toBe(ADMIN_EMAIL);
+  });
+
+  it("someone removed and invited again doesn't get their old sessions back (B-05)", async () => {
+    const add = () => inviteRoute(new Request("http://localhost/api/admin/team", { method: "POST", body: JSON.stringify({ email: "bo@example.com" }), headers: { ...adminHeaders(), "content-type": "application/json" } }));
+    expect((await add()).status).toBe(201);
+    recordSignIn("bo@example.com");
+    const old = `${sessionCookieName()}=${createSessionToken("bo@example.com", "email", Date.now() - 1000)}`;
+    expect(asSession(old)?.email).toBe("bo@example.com");
+    const id = getDb().select().from(schema.members).all().find((m) => m.email === "bo@example.com")!.id;
+    expect((await removeRoute(new Request(`http://localhost/api/admin/team/${id}`, { method: "DELETE", headers: adminHeaders() }), params({ id }))).status).toBe(200);
+    expect((await add()).status).toBe(201);
+    expect(asSession(old)).toBeNull();
+  });
+
+  it("signing out without a session changes nothing (B-05)", async () => {
+    const cookie = await signIn();
+    expect((await signOut("")).status).toBe(200);
+    expect(asSession(cookie)?.email).toBe(ADMIN_EMAIL);
   });
 });
 

@@ -64,6 +64,7 @@ The behaviour is informed by the clean-room study in [`research/senja-teardown.m
 
 - **Sign-in**: a single owner, whose credentials come from `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
   - The session cookie is HMAC-signed, `HttpOnly` and `SameSite=Lax`, and expires after 7 days. It is `Secure` when `COOKIE_SECURE=true`.
+  - Signing out ends every session of that person, not just this browser's: sessions issued before their last sign-out stop working (B-05). **Settings › Your sessions** has a **Sign out everywhere** button that does the same.
   - Login attempts are rate-limited.
   - Mutating requests are checked against the Origin header (CSRF defence).
 - **Projects**: list them with pending and approved counts, and create new ones (name and slug).

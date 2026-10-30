@@ -18,6 +18,7 @@ The sign-in page shows only the methods that are set up. **Settings → This ser
 - [Google](#google)
 - [Apple](#apple)
 - [Single sign-on (OIDC)](#single-sign-on-oidc)
+- [Signing out](#signing-out)
 - [Turning the password off](#turning-the-password-off)
 - [Trying it on your own computer](#trying-it-on-your-own-computer)
 - [Troubleshooting](#troubleshooting)
@@ -180,6 +181,10 @@ How it works: the same flow as Google. Each sign-in has a random state, nonce an
 **Who may sign in doesn't change.** The provider only says who someone is; [the rules above](#who-can-sign-in) still decide whether they get in: the owner, invited people, `ADMIN_EMAILS` and `ALLOWED_EMAIL_DOMAINS`. `OIDC_EMAIL_DOMAINS` is an extra check on top: addresses at other domains are refused from this provider even if they were invited.
 
 **Verified addresses.** Plaudit needs the id_token to say `email_verified: true`, so nobody can claim an address that isn't theirs. Microsoft Entra ID usually leaves that claim out; if every address in your directory is one your organisation controls, set `OIDC_TRUST_EMAIL=true` to accept tokens without it. A token that says `email_verified: false` is refused either way.
+
+## Signing out
+
+**Sign out** ends your session in every browser and on every device, not just the one you're using, so a copied cookie stops working too. **Settings → Your sessions → Sign out everywhere** does the same. You can sign in again straight away. API keys and assistants connected with OAuth keep working; revoke those in Settings.
 
 ## Turning the password off
 

@@ -72,6 +72,24 @@ export function recordSignIn(email: string, name?: string | null) {
     .run();
 }
 
+/**
+ * B-05: ends every session this person has (Sign out, Sign out everywhere).
+ * Sessions issued at or before `at` stop working; signing in again works at once.
+ */
+export function signOutEverywhere(email: string, at = new Date()) {
+  const e = normalizeEmail(email);
+  getDb()
+    .insert(schema.members)
+    .values({ id: crypto.randomUUID(), email: e, role: "admin", signedOutAt: at })
+    .onConflictDoUpdate({ target: schema.members.email, set: { signedOutAt: at } })
+    .run();
+}
+
+/** When this person last signed out everywhere, in ms, or 0. */
+export function signedOutAt(email: string): number {
+  return getMember(email)?.signedOutAt?.getTime() ?? 0;
+}
+
 export class TeamError extends Error {}
 
 /** The roles the owner can give (TEAM-01). */
@@ -90,8 +108,9 @@ export function inviteMember(email: string, invitedBy: string, o: { role?: Assig
   // A leftover row (from before they left ADMIN_EMAILS) becomes the invitation.
   const row = getDb()
     .insert(schema.members)
-    .values({ id: crypto.randomUUID(), email: e, role, invitedBy: normalizeEmail(invitedBy) })
-    .onConflictDoUpdate({ target: schema.members.email, set: { invitedBy: normalizeEmail(invitedBy), activatedAt: null, role } })
+    // B-05: sessions from before the invitation (someone removed and invited again) stay ended.
+    .values({ id: crypto.randomUUID(), email: e, role, invitedBy: normalizeEmail(invitedBy), signedOutAt: new Date() })
+    .onConflictDoUpdate({ target: schema.members.email, set: { invitedBy: normalizeEmail(invitedBy), activatedAt: null, role, signedOutAt: new Date() } })
     .returning()
     .get();
   setMemberProjects(row.id, role === "admin" ? null : (o.projectIds ?? null));

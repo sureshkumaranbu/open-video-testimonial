@@ -640,6 +640,8 @@ export const members = sqliteTable("members", {
   lastSignInAt: integer("last_sign_in_at", { mode: "timestamp_ms" }),
   /** 0017 (TEAM-01): false limits an editor or viewer to the projects in member_projects. */
   allProjects: integer("all_projects", { mode: "boolean" }).notNull().default(true),
+  /** 0023 (B-05): signing out ends every session issued at or before this moment. */
+  signedOutAt: integer("signed_out_at", { mode: "timestamp_ms" }),
 });
 
 export const LOGIN_TOKEN_PURPOSES = ["sign-in", "invite"] as const;

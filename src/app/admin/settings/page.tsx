@@ -10,6 +10,7 @@ import { signInMethods } from "@/lib/sign-in";
 import { systemStatus } from "@/lib/system";
 import { listForms } from "@/lib/forms";
 import { listProjects } from "@/lib/testimonials";
+import { SignOutEverywhereButton } from "../AdminForms";
 import { AppBar } from "../AppBar";
 import { EmailTest } from "./EmailTest";
 import { Notifications } from "./Notifications";
@@ -137,6 +138,23 @@ export default async function SettingsPage() {
         )}
 
         {featureOn("notifications") && <Notifications email={session.email} projects={projects} widgetAlerts={analyticsUi()} channels={isAdmin} />}
+
+        <section className="panel" aria-labelledby="sessions-h" data-testid="sessions">
+          <div className="panel-head">
+            <h2 id="sessions-h" style={{ fontSize: "var(--text-base)" }}>
+              Your sessions
+            </h2>
+          </div>
+          <div className="panel-body stack">
+            <p className="muted">
+              Signed in as {session.email}. Signing out, here or with Sign out at the top, ends your session in every browser and on every device. API keys keep
+              working.
+            </p>
+            <div>
+              <SignOutEverywhereButton />
+            </div>
+          </div>
+        </section>
 
         {isAdmin && (
           <Settings

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { E2E_ADMIN } from "../playwright.config";
-import { freshIp, signIn, useFreshIp } from "./helpers";
+import { adminApi, freshIp, signIn, useFreshIp } from "./helpers";
 
 /**
  * Signing in with an emailed link, Google and Apple, and inviting people from
@@ -175,4 +175,19 @@ test("the owner invites someone, who accepts by link; removing them signs them o
   await them.page.goto("/admin");
   await expect(them.page).toHaveURL(/\/admin\/login/);
   await them.context.close();
+});
+
+test("Sign out everywhere in Settings ends the owner's other sessions too, and signing in again works (B-05)", async ({ page, baseURL }) => {
+  const other = await adminApi(baseURL!);
+  expect((await other.get("/api/admin/projects")).status()).toBe(200);
+  await signIn(page);
+  await page.goto("/admin/settings");
+  const sessions = page.getByTestId("sessions");
+  await expect(sessions).toContainText(`Signed in as ${E2E_ADMIN.email}`);
+  await sessions.getByRole("button", { name: "Sign out everywhere" }).click();
+  await expect(page).toHaveURL(/\/admin\/login$/);
+  expect((await other.get("/api/admin/projects")).status()).toBe(401);
+  await signIn(page);
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await other.dispose();
 });

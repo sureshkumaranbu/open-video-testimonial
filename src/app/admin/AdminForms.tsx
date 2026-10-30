@@ -21,6 +21,23 @@ export function LogoutButton() {
   );
 }
 
+/** B-05: ends every session this person has, this one included (the same as Sign out). */
+export function SignOutEverywhereButton() {
+  return (
+    <button
+      type="button"
+      className="secondary small"
+      data-testid="sign-out-everywhere"
+      onClick={async () => {
+        await fetch("/api/admin/logout", { method: "POST" });
+        window.location.href = "/admin/login";
+      }}
+    >
+      Sign out everywhere
+    </button>
+  );
+}
+
 function slugify(s: string) {
   return s
     .toLowerCase()
