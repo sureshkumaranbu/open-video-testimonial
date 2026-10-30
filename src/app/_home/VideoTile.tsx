@@ -28,7 +28,6 @@ export function VideoTile({
   eager?: boolean;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
-  const [armed, setArmed] = useState(false);
   const [state, setState] = useState<State>("idle");
   const hoverable = useRef(false);
   const label = `${video.name}'s sample video testimonial`;
@@ -39,45 +38,28 @@ export function VideoTile({
       !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }, []);
 
-  // Runs after the <video> exists (it's only rendered once armed).
-  const pending = useRef<null | "preview" | "play">(null);
-  useEffect(() => {
-    const v = ref.current;
-    if (!v || !pending.current) return;
-    const want = pending.current;
-    pending.current = null;
-    if (want === "preview") startPreview(v);
-    else startPlay(v);
-  });
+  /**
+   * The <video> is in the page from the start but has no source, so nothing
+   * downloads. The first hover or click gives it one, synchronously, so
+   * play() still counts as the visitor's own action (Safari needs that for sound).
+   */
+  function arm(v: HTMLVideoElement) {
+    if (v.getAttribute("src")) return;
+    const source = video.sources.find((s) => v.canPlayType(s.type)) ?? video.sources[video.sources.length - 1];
+    v.src = source.src;
+  }
 
-  function startPreview(v: HTMLVideoElement) {
+  function onEnter() {
+    const v = ref.current;
+    if (!hoverable.current || state !== "idle" || !v) return;
+    arm(v);
     v.muted = true;
     v.loop = true;
     void v.play().then(
       () => setState((s) => (s === "idle" || s === "preview" ? "preview" : s)),
       () => undefined,
     );
-  }
-
-  function startPlay(v: HTMLVideoElement) {
-    v.loop = false;
-    v.muted = false;
-    if (state === "idle" || state === "preview" || state === "ended") v.currentTime = 0;
-    for (const t of Array.from(v.textTracks)) t.mode = "showing";
-    setState("playing");
-    void v.play().catch(() => {
-      // Autoplay rules can refuse sound; fall back to a muted start.
-      v.muted = true;
-      void v.play().catch(() => setState("paused"));
-    });
-  }
-
-  function onEnter() {
-    if (!hoverable.current || state !== "idle") return;
-    if (!armed) {
-      pending.current = "preview";
-      setArmed(true);
-    } else if (ref.current) startPreview(ref.current);
+    setState("preview");
   }
 
   function onLeave() {
@@ -89,17 +71,23 @@ export function VideoTile({
 
   function onClick() {
     const v = ref.current;
+    if (!v) return;
     if (state === "playing") {
-      v?.pause();
+      v.pause();
       setState("paused");
       return;
     }
-    if (!armed || !v) {
-      pending.current = "play";
-      setArmed(true);
-      return;
-    }
-    startPlay(v);
+    arm(v);
+    v.loop = false;
+    v.muted = false;
+    if (state !== "paused") v.currentTime = 0;
+    for (const t of Array.from(v.textTracks)) t.mode = "showing";
+    setState("playing");
+    void v.play().catch(() => {
+      // Autoplay rules can refuse sound; fall back to a muted start.
+      v.muted = true;
+      void v.play().catch(() => setState("paused"));
+    });
   }
 
   const showVideo = state !== "idle";
@@ -129,30 +117,24 @@ export function VideoTile({
         className="absolute inset-0 size-full object-cover"
         style={{ objectPosition: focus }}
       />
-      {armed && (
-        <video
-          ref={ref}
-          poster={video.poster}
-          preload="none"
-          muted
-          playsInline
-          width={video.width}
-          height={video.height}
-          aria-label={label}
-          onEnded={() => setState("ended")}
-          onPause={() => setState((s) => (s === "playing" ? "paused" : s))}
-          className={cn(
-            "absolute inset-0 size-full object-cover transition-opacity duration-500 ease-out",
-            showVideo ? "opacity-100" : "opacity-0",
-          )}
-          style={{ objectPosition: focus }}
-        >
-          {video.sources.map((s) => (
-            <source key={s.src} src={s.src} type={s.type} />
-          ))}
-          {video.captions && <track kind="captions" src={video.captions} srcLang="en" label="English" default />}
-        </video>
-      )}
+      <video
+        ref={ref}
+        preload="none"
+        muted
+        playsInline
+        width={video.width}
+        height={video.height}
+        aria-hidden
+        onEnded={() => setState("ended")}
+        onPause={() => setState((s) => (s === "playing" ? "paused" : s))}
+        className={cn(
+          "absolute inset-0 size-full object-cover transition-opacity duration-500 ease-out",
+          showVideo ? "opacity-100" : "opacity-0",
+        )}
+        style={{ objectPosition: focus }}
+      >
+        {video.captions && <track kind="captions" src={video.captions} srcLang="en" label="English" default />}
+      </video>
 
       <button
         type="button"

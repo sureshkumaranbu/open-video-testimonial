@@ -168,7 +168,12 @@ test.describe("home page", () => {
       await expect(poster).toHaveAttribute("src", /\/samples\/\w+\.jpg$/);
       await expect(poster).toHaveAttribute("width", "960");
       await expect(poster).toHaveAttribute("height", "600");
-      await expect(tile.locator("video")).toHaveCount(0);
+      // The player is there, but with no source yet: nothing to download.
+      expect(await tile.locator("video").evaluate((v: HTMLVideoElement) => [v.getAttribute("src"), v.preload, v.autoplay])).toEqual([
+        null,
+        "none",
+        false,
+      ]);
     }
     await page.waitForTimeout(800);
     expect(loaded.filter((f) => VIDEO_FILE.test(f))).toEqual([]);
@@ -177,8 +182,7 @@ test.describe("home page", () => {
     const first = tiles.first();
     await first.hover();
     const video = first.locator("video");
-    await expect(video).toHaveCount(1);
-    expect(await video.evaluate((v: HTMLVideoElement) => [v.preload, v.autoplay])).toEqual(["none", false]);
+    await expect(video).toHaveAttribute("src", /\/samples\/maya\.(webm|mp4)$/);
     await expect(first).toHaveAttribute("data-state", "preview", { timeout: 15_000 });
     expect(await video.evaluate((v: HTMLVideoElement) => [v.muted, v.loop])).toEqual([true, true]);
     await page.mouse.move(0, 0);
@@ -408,7 +412,7 @@ test.describe("home page", () => {
     const tile = page.getByTestId("video-tile").first();
     await tile.hover();
     await page.waitForTimeout(600);
-    await expect(tile.locator("video")).toHaveCount(0);
+    expect(await tile.locator("video").getAttribute("src")).toBeNull();
     expect(loaded.filter((f) => VIDEO_FILE.test(f))).toEqual([]);
     await tile.getByRole("button", { name: /^Play / }).click();
     await expect(tile).toHaveAttribute("data-state", "playing");
