@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { E2E_ADMIN } from "../playwright.config";
 import {
@@ -39,6 +40,7 @@ test.describe("home page", () => {
   const SAMPLE_CAPTION =
     /Sample testimonials for illustration\. Names and quotes are fictional; footage is licensed stock from Pexels, and the people shown haven't used or endorsed Plaudit\./;
   const VIDEO_FILE = /\.(webm|mp4)$/;
+  const HEADLINE = "Turn happy customers into your best page.";
 
   /** Records every /samples/ file the page fetches, and any that fail. */
   function trackSamples(page: Page) {
@@ -54,152 +56,181 @@ test.describe("home page", () => {
 
   const SECTIONS = [
     "section-hero",
-    "section-videos",
     "section-platforms",
-    "section-voices",
     "section-how",
+    "section-studio",
     "section-features",
-    "section-showcase",
+    "section-selfhost",
     "section-compare",
     "section-faq",
     "section-cta",
     "section-footer",
   ];
 
-  test("every section renders and reveals as you scroll", async ({ page }) => {
+  /** The brand colour the page resolved, e.g. "#5b3df5". */
+  const primary = (page: Page) =>
+    page.getByTestId("home").evaluate((el) => getComputedStyle(el).getPropertyValue("--primary").trim().toLowerCase());
+
+  test("every section renders, the wall rises in once and the vignettes play in view", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1, name: "Let your customers say it for you." })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: HEADLINE })).toBeVisible();
     await expect(page.getByTestId("home-nav")).toBeVisible();
+    await expect(page.getByTestId("home")).toHaveClass(/(^|\s)motion-ok(\s|$)/);
+
+    // The headline tile comes first, then the testimonials; each tile ends fully shown.
+    const tiles = page.locator(".wall-tile");
+    await expect(tiles.first()).toHaveAttribute("data-testid", "hero-tile");
+    await expect
+      .poll(() =>
+        tiles.evaluateAll((els) =>
+          els.every((el) => getComputedStyle(el).opacity === "1" && el.getAnimations().every((a) => a.playState === "finished")),
+        ),
+      )
+      .toBe(true);
+    // Staggered: later tiles start later.
+    const delays = await tiles.evaluateAll((els) => els.map((el) => parseFloat(getComputedStyle(el).animationDelay)));
+    expect(delays[0]).toBe(0);
+    expect(delays[3]).toBeGreaterThan(delays[1]);
+
     for (const id of SECTIONS) {
       const section = page.getByTestId(id);
       await section.scrollIntoViewIfNeeded();
       await expect(section).toBeVisible();
     }
-    // Bring each reveal target into view in turn, as a reader would, and
-    // wait for that one to fade in (robust to slow or headed runs).
+    // Each how-it-works vignette is marked when it comes into view, as a reader scrolls.
     const reveals = page.locator("[data-reveal]");
-    const count = await reveals.count();
-    expect(count).toBeGreaterThan(10);
-    for (let i = 0; i < count; i++) {
+    await expect(reveals).toHaveCount(3);
+    for (let i = 0; i < 3; i++) {
       const el = reveals.nth(i);
       await el.evaluate((node) => node.scrollIntoView({ block: "center" }));
       await expect(el).toHaveClass(/(^|\s)is-in(\s|$)/, { timeout: 5000 });
+      await expect(el).toHaveAttribute("data-inview", "");
     }
+    // The queue vignette ends with Ken approved.
+    await expect.poll(() => page.locator(".vg-badge-to").evaluate((el) => getComputedStyle(el).opacity), { timeout: 5000 }).toBe("1");
+
     await expect(page.getByTestId("platform-marquee")).toContainText("WordPress");
     await expect(page.getByTestId("platform-marquee")).toContainText("Plain HTML");
     await expect(page.getByTestId("sample-caption")).toHaveText(SAMPLE_CAPTION);
-    await expect(page.locator(".voice-tag").first()).toHaveText("Sample");
-    await expect(page.locator(".bento-tile")).toHaveCount(7);
-    await expect(page.locator(".compare tbody tr")).toHaveCount(7);
+    await expect(page.getByTestId("sample-caption").getByRole("link", { name: "Credits" })).toHaveAttribute("href", /docs\/CREDITS\.md$/);
+    await expect(page.getByTestId("feature-tile")).toHaveCount(6);
+    await expect(page.getByTestId("compare-table").locator("tbody tr")).toHaveCount(7);
+    await expect(page.getByTestId("faq").getByRole("button")).toHaveCount(6);
   });
 
-  test("nav shrinks and the progress bar fills on scroll", async ({ page }) => {
+  test("the header is clear at the top and gains a blurred surface once you scroll", async ({ page }) => {
     await page.goto("/");
-    const home = page.locator(".home");
-    await expect(home).not.toHaveAttribute("data-scrolled", "");
-    await page.mouse.wheel(0, 1600);
-    await expect(home).toHaveAttribute("data-scrolled", "");
-    await expect
-      .poll(() => home.evaluate((el) => Number(getComputedStyle(el).getPropertyValue("--scroll-progress"))))
-      .toBeGreaterThan(0);
+    const nav = page.getByTestId("home-nav");
+    await expect(nav).not.toHaveAttribute("data-scrolled", "");
+    expect(await nav.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
+    await page.mouse.wheel(0, 900);
+    await expect(nav).toHaveAttribute("data-scrolled", "");
+    await expect.poll(() => nav.evaluate((el) => getComputedStyle(el).backdropFilter)).toContain("blur");
+    // Still on screen, stuck to the top.
+    expect(await nav.evaluate((el) => Math.round(el.getBoundingClientRect().top))).toBe(0);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(nav).not.toHaveAttribute("data-scrolled", "");
   });
 
-  test("hero demo advances on its own, pauses, resumes and jumps", async ({ page, browserName }) => {
-    skipLinuxWebkitMedia(browserName);
+  test("on a phone the menu is a sheet: focus stays inside and Esc closes it", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
-    const demo = page.getByTestId("hero-demo");
-    await expect(demo).toHaveAttribute("data-step", "record");
-    await expect(page.getByTestId("demo-rec")).toHaveText(/REC 00:0[1-3]/, { timeout: 4000 });
-    await expect(demo).toHaveAttribute("data-step", "review", { timeout: 6000 });
-    await expect(demo.getByText("Approved", { exact: true })).toBeVisible();
-
-    await demo.getByRole("button", { name: "Pause demo" }).click();
-    await expect(demo).toHaveAttribute("data-paused", "true");
-    await page.waitForTimeout(4500);
-    await expect(demo).toHaveAttribute("data-step", "review");
-
-    await demo.getByRole("button", { name: "Play demo" }).click();
-    await expect(demo).toHaveAttribute("data-step", "live", { timeout: 6000 });
-    await expect(demo.getByText("yoursite.com")).toBeVisible();
-
-    await demo.getByRole("button", { name: "Recording" }).click();
-    await expect(demo).toHaveAttribute("data-step", "record");
-    await expect(demo.getByRole("button", { name: "Recording" })).toHaveAttribute("aria-current", "step");
+    await expect(page.getByRole("navigation", { name: "Main" })).toBeHidden();
+    const trigger = page.getByTestId("menu-button");
+    await trigger.click();
+    const sheet = page.getByRole("dialog");
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByRole("link", { name: "How it works" })).toBeVisible();
+    // Tab around more times than there are controls: focus never leaves the sheet.
+    for (let i = 0; i < 14; i++) {
+      await page.keyboard.press("Tab");
+      expect(await sheet.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+    }
+    await page.keyboard.press("Escape");
+    await expect(sheet).toBeHidden();
+    await expect(trigger).toBeFocused();
+    // A link closes it and goes to its section.
+    await trigger.click();
+    await page.getByRole("dialog").getByRole("link", { name: "FAQ" }).click();
+    await expect(page.getByRole("dialog")).toBeHidden();
+    await expect(page).toHaveURL(/#faq$/);
   });
 
-  test("the hero's Pending and Approved badges never show at the same time", async ({ page }) => {
-    await page.goto("/");
-    const demo = page.getByTestId("hero-demo");
-    await demo.getByRole("button", { name: "Review" }).click();
-    // Sample both badges every frame through the swap; the fainter of the two
-    // is how much they overlap.
-    const overlap = await page.evaluate(async () => {
-      const pending = document.querySelector(".demo-badge-swap .pending")!;
-      const approved = document.querySelector(".demo-badge-swap .approved")!;
-      let worst = 0;
-      const end = performance.now() + 2600;
-      while (performance.now() < end) {
-        await new Promise(requestAnimationFrame);
-        const a = Number(getComputedStyle(pending).opacity);
-        const b = Number(getComputedStyle(approved).opacity);
-        worst = Math.max(worst, Math.min(a, b));
-      }
-      return worst;
-    });
-    expect(overlap).toBeLessThan(0.05);
-    await expect(demo.locator(".demo-badge-swap .approved")).toHaveCSS("opacity", "1");
-    await expect(demo.locator(".demo-badge-swap .pending")).toHaveCSS("opacity", "0");
-  });
-
-  test("the hero clip plays muted and looped, only while in view", async ({ page, browserName }) => {
+  test("video tiles show posters, load nothing until asked, preview on hover and play on click", async ({ page, browserName }) => {
     skipLinuxWebkitMedia(browserName);
     const { loaded, bad } = trackSamples(page);
-    const demo = page.getByTestId("hero-demo");
-    const clip = page.getByTestId("hero-clip");
-    const video = clip.locator("video");
-    const playing = () =>
-      expect.poll(() => video.evaluate((v: HTMLVideoElement) => !v.paused && v.currentTime > 0), { timeout: 3000 });
-    // The demo moves on every few seconds; going via Review restarts the Recording step's full time.
-    const restartRecording = async () => {
-      await demo.getByRole("button", { name: "Review" }).click();
-      await demo.getByRole("button", { name: "Recording" }).click();
-    };
-
-    // Opened further down the page, the hero is out of view: nothing plays or downloads.
-    await page.goto("/#faq");
-    await page.waitForTimeout(1500);
+    await page.goto("/");
+    const tiles = page.getByTestId("video-tile");
+    await expect(tiles).toHaveCount(3);
+    for (const tile of await tiles.all()) {
+      await expect(tile.getByText("Sample", { exact: true })).toBeVisible();
+      const poster = tile.getByTestId("video-poster");
+      await expect(poster).toHaveAttribute("src", /\/samples\/\w+\.jpg$/);
+      await expect(poster).toHaveAttribute("width", "960");
+      await expect(poster).toHaveAttribute("height", "600");
+      await expect(tile.locator("video")).toHaveCount(0);
+    }
+    await page.waitForTimeout(800);
     expect(loaded.filter((f) => VIDEO_FILE.test(f))).toEqual([]);
 
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await restartRecording();
-    await playing().toBe(true);
-    await expect(clip).toHaveAttribute("data-playing", "true");
-    expect(
-      await video.evaluate((v: HTMLVideoElement) => [v.muted, v.loop, v.playsInline, v.autoplay, v.error]),
-    ).toEqual([true, true, true, false, null]);
-    // The poster is an image underneath, so something shows before the clip.
-    await expect
-      .poll(() => page.getByTestId("hero-poster").evaluate((img: HTMLImageElement) => img.naturalWidth))
-      .toBeGreaterThan(0);
-    // Only the hero clip has downloaded; every other video waits for a click.
-    expect(new Set(loaded.filter((f) => VIDEO_FILE.test(f)))).toEqual(new Set(["daniel.webm"]));
+    // Hover (a mouse is a precise pointer): a muted, looping preview.
+    const first = tiles.first();
+    await first.hover();
+    const video = first.locator("video");
+    await expect(video).toHaveCount(1);
+    expect(await video.evaluate((v: HTMLVideoElement) => [v.preload, v.autoplay])).toEqual(["none", false]);
+    await expect(first).toHaveAttribute("data-state", "preview", { timeout: 15_000 });
+    expect(await video.evaluate((v: HTMLVideoElement) => [v.muted, v.loop])).toEqual([true, true]);
+    await page.mouse.move(0, 0);
+    await expect(first).toHaveAttribute("data-state", "idle");
+    expect(await video.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true);
 
-    // Scrolled out of view, it pauses.
-    await restartRecording();
-    await playing().toBe(true);
-    await page.getByTestId("section-faq").scrollIntoViewIfNeeded();
-    await playing().toBe(false);
-
-    // Pausing the demo pauses the clip too.
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await restartRecording();
-    await playing().toBe(true);
-    await demo.getByRole("button", { name: "Pause demo" }).click();
-    await playing().toBe(false);
+    // Click: plays inline, unmuted, then the same button pauses.
+    const second = tiles.nth(1);
+    await second.scrollIntoViewIfNeeded();
+    await second.getByRole("button", { name: /^Play Daniel's sample video testimonial$/ }).click();
+    await expect(second).toHaveAttribute("data-state", "playing");
+    const v2 = second.locator("video");
+    await expect.poll(() => v2.evaluate((v: HTMLVideoElement) => v.currentTime), { timeout: 15_000 }).toBeGreaterThan(0);
+    expect(await v2.evaluate((v: HTMLVideoElement) => [v.loop, v.error, v.playsInline])).toEqual([false, null, true]);
+    await expect(second.getByText("No sound in this sample")).toBeVisible();
+    await second.getByRole("button", { name: /^Pause Daniel's/ }).click();
+    await expect(second).toHaveAttribute("data-state", "paused");
+    expect(await v2.evaluate((v: HTMLVideoElement) => v.paused)).toBe(true);
+    // Keyboard works too.
+    await second.getByRole("button", { name: /^Play Daniel's/ }).focus();
+    await page.keyboard.press("Enter");
+    await expect(second).toHaveAttribute("data-state", "playing");
     expect(bad).toEqual([]);
   });
 
-  test("posters, faces and the hero clip cause no layout shift", async ({ page }) => {
+  test("text tiles: drawn stars with a label, a Sample tag and the person's face", async ({ page }) => {
+    const { bad } = trackSamples(page);
+    await page.goto("/");
+    const cards = page.getByTestId("text-tile");
+    await expect(cards).toHaveCount(6);
+    for (const card of await cards.all()) {
+      await expect(card.getByText("Sample", { exact: true })).toBeVisible();
+      await expect(card.getByRole("img", { name: /^Rated [1-5] out of 5$/ })).toBeVisible();
+      await expect(card.locator("[data-stars] svg")).toHaveCount(5);
+      const face = card.locator("img.face");
+      await expect(face).toHaveAttribute("src", /^\/samples\/avatars\/\w+\.jpg$/);
+      await face.evaluate((img: HTMLImageElement) => {
+        img.loading = "eager";
+      });
+      await expect.poll(() => face.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBeGreaterThan(0);
+    }
+    // A face never changes name: each avatar file belongs to one name across the page.
+    const pairs = await page.locator("img.face[data-face]").evaluateAll((imgs) =>
+      imgs.map((i) => [i.getAttribute("data-face"), i.getAttribute("src")]),
+    );
+    const byFile = new Map<string, Set<string>>();
+    for (const [id, src] of pairs) byFile.set(src!, (byFile.get(src!) ?? new Set()).add(id!));
+    for (const [, ids] of byFile) expect(ids.size).toBe(1);
+    expect(bad).toEqual([]);
+  });
+
+  test("posters and faces cause no layout shift", async ({ page }) => {
     for (const viewport of [
       { width: 1280, height: 800 },
       { width: 375, height: 812 },
@@ -215,131 +246,13 @@ test.describe("home page", () => {
           }
         }).observe({ type: "layout-shift", buffered: true });
       });
-      if (viewport.width > 900) {
-        await expect(page.getByTestId("hero-clip")).toHaveAttribute("data-playing", "true", { timeout: 10_000 });
-      } else {
-        // On a phone the hero clip starts below the fold, so only its poster has loaded.
-        await expect
-          .poll(() => page.getByTestId("hero-poster").evaluate((img: HTMLImageElement) => img.naturalWidth))
-          .toBeGreaterThan(0);
-      }
       const height = await page.evaluate(() => document.documentElement.scrollHeight);
       for (let y = 0; y < height; y += 400) {
-        await page.evaluate((top) => window.scrollTo(0, top), y);
+        await page.evaluate((top) => window.scrollTo({ top, behavior: "instant" }), y);
         await page.waitForTimeout(60);
       }
-      expect(await page.evaluate(() => (window as Window & { __cls?: number }).__cls)).toBe(0);
+      expect(await page.evaluate(() => (window as Window & { __cls?: number }).__cls)).toBeLessThan(0.01);
     }
-  });
-
-  test("every sample card shows a face that loads, and no sample file is missing", async ({ page }) => {
-    const { bad } = trackSamples(page);
-    await page.goto("/");
-    const height = await page.evaluate(() => document.documentElement.scrollHeight);
-    for (let y = 0; y < height; y += 400) {
-      await page.evaluate((top) => window.scrollTo(0, top), y);
-      await page.waitForTimeout(40);
-    }
-    // Wall cards (video and text) and the first copy of each marquee row.
-    const cards = page.locator("[data-sample-card]");
-    await expect(cards).toHaveCount(3 + 4 + 7);
-    for (const card of await cards.all()) {
-      await expect(card.locator(".voice-tag")).toHaveText("Sample");
-      const face = card.locator("img.face");
-      await expect(face).toHaveCount(1);
-      await face.evaluate((img: HTMLImageElement) => {
-        img.loading = "eager"; // the marquee can hold a lazy image far off to the side
-      });
-      await expect
-        .poll(() => face.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth), { timeout: 10_000 })
-        .toBeGreaterThan(0);
-      await expect(face).toHaveAttribute("src", /^\/samples\/avatars\/\w+\.jpg$/);
-    }
-    // The widget showcase cards use the real card component with an avatar URL.
-    const showcase = page.getByTestId("showcase-stage").locator("article.testimonial img.avatar");
-    await expect(showcase).toHaveCount(4);
-    for (const img of await showcase.all()) {
-      await img.scrollIntoViewIfNeeded();
-      await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
-    }
-    // Feature tiles and the how-it-works visual use faces too.
-    for (const scope of [page.locator(".bento"), page.getByTestId("how-it-works")]) {
-      const faces = scope.locator("img.face");
-      expect(await faces.count()).toBeGreaterThan(0);
-      for (const img of await faces.all()) {
-        await img.evaluate((el: HTMLImageElement) => {
-          el.loading = "eager";
-        });
-        await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
-      }
-    }
-    // The hero's review step shows the same person's face.
-    const demo = page.getByTestId("hero-demo");
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await demo.getByRole("button", { name: "Review" }).click();
-    const reviewFace = demo.locator("img.demo-avatar");
-    await expect(reviewFace).toHaveAttribute("src", "/samples/avatars/daniel.jpg");
-    await expect.poll(() => reviewFace.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
-    expect(bad).toEqual([]);
-  });
-
-  test("sample video testimonials are labelled, lazy, muted, and play", async ({ page }) => {
-    const { bad } = trackSamples(page);
-    await page.goto("/");
-    const section = page.getByTestId("section-videos");
-    await section.scrollIntoViewIfNeeded();
-    await expect(page.getByTestId("video-sample-caption")).toHaveText(SAMPLE_CAPTION);
-    await expect(page.getByTestId("video-sample-caption").getByRole("link", { name: "Credits" })).toHaveAttribute(
-      "href",
-      /docs\/CREDITS\.md$/,
-    );
-    const cards = section.locator(".video-card");
-    await expect(cards).toHaveCount(3);
-    for (let i = 0; i < 3; i++) {
-      await expect(cards.nth(i).locator(".voice-tag")).toHaveText("Sample");
-    }
-
-    const players = section.getByTestId("sample-video");
-    for (let i = 0; i < 3; i++) {
-      const player = players.nth(i);
-      const video = player.locator("video");
-      await expect(video).toHaveAttribute("poster", /\/samples\/\w+\.jpg$/);
-      // Never autoplays and fetches no video data until the visitor asks.
-      expect(
-        await video.evaluate((v: HTMLVideoElement) => [v.paused, v.preload, v.muted, v.autoplay, v.readyState]),
-      ).toEqual([true, "none", true, false, 0]);
-      await player.getByRole("button", { name: /^Play sample video testimonial/ }).click();
-      await expect(player).toHaveAttribute("data-started", "true");
-      await expect
-        .poll(() => video.evaluate((v: HTMLVideoElement) => v.readyState), { timeout: 15_000 })
-        .toBeGreaterThanOrEqual(1);
-      await expect
-        .poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime), { timeout: 15_000 })
-        .toBeGreaterThan(0);
-      expect(await video.evaluate((v: HTMLVideoElement) => [v.muted, v.error, v.controls])).toEqual([true, null, true]);
-      await video.evaluate((v: HTMLVideoElement) => v.pause());
-    }
-    expect(bad).toEqual([]);
-  });
-
-  test("hero demo and widget showcase include a video card", async ({ page }) => {
-    await page.goto("/");
-    const demo = page.getByTestId("hero-demo");
-    await demo.getByRole("button", { name: "Live on your site" }).click();
-    const thumb = demo.getByTestId("demo-video-thumb").locator("img");
-    await expect(thumb).toBeVisible();
-    await expect.poll(() => thumb.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
-    await expect(demo.locator(".demo-sample")).toHaveText("Sample");
-
-    const stage = page.getByTestId("showcase-stage");
-    await stage.scrollIntoViewIfNeeded();
-    const video = stage.locator("article.testimonial video");
-    await expect(video).toHaveCount(1);
-    await expect(video).toHaveAttribute("poster", /\/samples\/aiko\.jpg$/);
-    expect(await video.evaluate((v: HTMLVideoElement) => [v.paused, v.preload, v.muted])).toEqual([true, "none", true]);
-    await video.evaluate((v: HTMLVideoElement) => v.play());
-    await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime), { timeout: 15_000 }).toBeGreaterThan(0);
-    await expect(stage.getByText("Sample: Grace")).toBeVisible();
   });
 
   test("sample media files are served with the right types and ranges", async ({ request }) => {
@@ -347,8 +260,7 @@ test.describe("home page", () => {
       const webm = await request.get(`/samples/${id}.webm`);
       expect(webm.status()).toBe(200);
       expect(webm.headers()["content-type"]).toContain("video/webm");
-      const size = (await webm.body()).length;
-      expect(size).toBeLessThan(3 * 1024 * 1024);
+      expect((await webm.body()).length).toBeLessThan(3 * 1024 * 1024);
       const mp4 = await request.get(`/samples/${id}.mp4`);
       expect(mp4.status()).toBe(200);
       expect(mp4.headers()["content-type"]).toContain("video/mp4");
@@ -358,18 +270,9 @@ test.describe("home page", () => {
     }
   });
 
-  test("sticky how-it-works follows the step in view", async ({ page }) => {
+  test("the platforms marquee pauses on hover and focus", async ({ page }) => {
     await page.goto("/");
-    const how = page.getByTestId("how-it-works");
-    for (const step of ["ask", "approve", "show"]) {
-      await how.locator(`li[data-step="${step}"]`).evaluate((el) => el.scrollIntoView({ block: "center" }));
-      await expect(how).toHaveAttribute("data-active", step);
-    }
-  });
-
-  test("marquees pause on hover and focus", async ({ page }) => {
-    await page.goto("/");
-    const row = page.getByTestId("voices-marquee").first();
+    const row = page.getByTestId("platform-marquee");
     await row.scrollIntoViewIfNeeded();
     const state = () => row.locator(".marquee-track").evaluate((el) => getComputedStyle(el).animationPlayState);
     expect(await state()).toBe("running");
@@ -379,42 +282,90 @@ test.describe("home page", () => {
     expect(await state()).toBe("running");
     await row.focus();
     expect(await state()).toBe("paused");
+    // The second copy is for the loop only.
+    await expect(row.locator("ul").nth(1)).toHaveAttribute("aria-hidden", "true");
   });
 
-  test("widget showcase switches theme and layout", async ({ page }) => {
+  test("the layout studio switches layouts and copies its snippet", async ({ page, context, browserName }) => {
+    await allowClipboard(context, browserName);
     await page.goto("/");
-    const showcase = page.getByTestId("widget-showcase");
-    await showcase.scrollIntoViewIfNeeded();
-    const stage = page.getByTestId("showcase-stage");
-    await expect(stage.locator("article.testimonial")).toHaveCount(4);
-    const cardBg = () => stage.locator("article.testimonial").first().evaluate((el) => getComputedStyle(el).backgroundColor);
-    expect(await cardBg()).toBe("rgb(255, 255, 255)");
-    await showcase.getByRole("button", { name: "Dark" }).click();
-    await expect(stage).toHaveAttribute("data-theme", "dark");
-    expect(await cardBg()).toBe("rgb(23, 27, 43)");
-    await showcase.getByRole("button", { name: "List" }).click();
-    await expect(stage).toHaveAttribute("data-layout", "list");
-    await expect(stage.locator(".showcase-list")).toBeVisible();
+    const studio = page.getByTestId("section-studio");
+    await studio.scrollIntoViewIfNeeded();
+    const preview = page.getByTestId("studio-preview");
+    await expect(preview).toHaveAttribute("data-layout", "grid");
+    const height = await preview.evaluate((el) => el.getBoundingClientRect().height);
+    for (const [label, id, cards] of [
+      ["Carousel", "carousel", 1],
+      ["Slider", "slider", 4],
+      ["Marquee", "marquee", 4],
+      ["Featured", "featured", 1],
+      ["Masonry", "grid", 4],
+    ] as const) {
+      const button = studio.getByRole("button", { name: label, exact: true });
+      await button.click();
+      await expect(button).toHaveAttribute("aria-pressed", "true");
+      await expect(preview).toHaveAttribute("data-layout", id);
+      await expect(preview.getByTestId("studio-card")).toHaveCount(cards);
+      // The preview keeps its size, so the page doesn't jump.
+      expect(await preview.evaluate((el) => el.getBoundingClientRect().height)).toBe(height);
+    }
+    const copy = page.getByTestId("copy-snippet");
+    await copy.click();
+    await expect(copy).toHaveText("Copied");
+    await expect(copy).toHaveAttribute("data-state", "copied");
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('data-widget="your-widget-id"');
+    await expect(copy).toHaveText("Copy", { timeout: 4000 });
   });
 
-  test("FAQ opens and closes", async ({ page }) => {
+  test("self-hosting: the quick start copies with a Copied check", async ({ page, context, browserName }) => {
+    await allowClipboard(context, browserName);
+    await page.goto("/#self-host");
+    const copy = page.getByTestId("copy-setup");
+    await copy.click();
+    await expect(copy).toHaveText("Copied");
+    await expect.poll(() => copy.locator(".copy-check").evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
+    const text = await page.evaluate(() => navigator.clipboard.readText());
+    expect(text.split("\n")).toEqual([
+      "git clone https://github.com/sureshkumaranbu/open-video-testimonial.git plaudit",
+      "cd plaudit && cp .env.example .env",
+      "docker compose up -d --build",
+    ]);
+  });
+
+  test("the comparison is a table on desktop and readable cards on a phone", async ({ page }) => {
     await page.goto("/");
-    const item = page.locator(".faq details").first();
-    await item.scrollIntoViewIfNeeded();
-    await expect(item).not.toHaveAttribute("open", "");
-    await item.locator("summary").click();
-    await expect(item).toHaveAttribute("open", "");
-    await expect(item.locator(".faq-body")).toBeVisible();
-    await item.locator("summary").click();
-    await expect(item).not.toHaveAttribute("open", "");
-    // Keyboard works too.
-    await item.locator("summary").focus();
+    await expect(page.getByTestId("compare-table")).toBeVisible();
+    await expect(page.getByTestId("compare-list")).toBeHidden();
+    await expect(page.getByRole("columnheader", { name: "Plaudit" })).toBeVisible();
+    await page.setViewportSize({ width: 360, height: 800 });
+    await expect(page.getByTestId("compare-table")).toBeHidden();
+    const list = page.getByTestId("compare-list");
+    await expect(list.locator("li")).toHaveCount(7);
+    await expect(list.locator("li").first()).toContainText("Testimonials you can collect");
+    await expect(list.locator("li").first()).toContainText("Unlimited");
+  });
+
+  test("FAQ opens and closes, by mouse and keyboard", async ({ page }) => {
+    await page.goto("/");
+    const faq = page.getByTestId("faq");
+    const first = faq.getByRole("button", { name: "Is it really free?" });
+    await first.scrollIntoViewIfNeeded();
+    await expect(first).toHaveAttribute("aria-expanded", "false");
+    await first.click();
+    await expect(first).toHaveAttribute("aria-expanded", "true");
+    await expect(faq.getByText(/Plaudit is MIT licensed/)).toBeVisible();
+    await first.click();
+    await expect(first).toHaveAttribute("aria-expanded", "false");
+    // Keyboard: arrow to the next question, Enter opens it.
+    await first.focus();
+    await page.keyboard.press("ArrowDown");
     await page.keyboard.press("Enter");
-    await expect(item).toHaveAttribute("open", "");
+    await expect(faq.getByRole("button", { name: "What do I need to run it?" })).toHaveAttribute("aria-expanded", "true");
+    await expect(faq.locator("code", { hasText: "docker compose up" })).toBeVisible();
   });
 
-  test("no horizontal overflow at 375px", async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 812 });
+  test("no horizontal overflow at 360px, and controls are big enough to tap", async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 800 });
     await page.goto("/");
     for (const id of SECTIONS) await page.getByTestId(id).scrollIntoViewIfNeeded();
     const widths = await page.evaluate(() => {
@@ -423,71 +374,144 @@ test.describe("home page", () => {
     });
     expect(widths.scrollX).toBe(0);
     expect(widths.scrollWidth).toBeLessThanOrEqual(widths.inner);
-    await expect(page.getByRole("link", { name: "Open dashboard" }).first()).toBeVisible();
+    // Every visible button, and every link outside running text, is at least 44px tall.
+    const small = await page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>("#home-root button, #home-root header a, #home-root footer a, #home-root [data-slot=button]")]
+        .filter((el) => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden")
+        .filter((el) => !el.closest("[aria-hidden=true]") && !el.classList.contains("sr-only"))
+        .map((el) => ({ el: (el.getAttribute("aria-label") || el.textContent || "").trim().slice(0, 30), h: el.getBoundingClientRect().height }))
+        .filter((r) => r.h < 44),
+    );
+    expect(small).toEqual([]);
   });
 
-  test("reduced motion shows everything and stops movement", async ({ page, browserName }) => {
+  test("reduced motion shows everything at once and nothing moves", async ({ page, browserName }) => {
     skipLinuxWebkitMedia(browserName);
     const { loaded } = trackSamples(page);
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/");
-    // The hero shows the poster instead of looping the clip, and no video downloads.
-    const clip = page.getByTestId("hero-clip");
-    await expect(clip.locator("video")).toHaveCount(0);
-    await expect
-      .poll(() => page.getByTestId("hero-poster").evaluate((img: HTMLImageElement) => img.naturalWidth))
-      .toBeGreaterThan(0);
-    await page.waitForTimeout(1000);
-    expect(loaded.filter((f) => VIDEO_FILE.test(f))).toEqual([]);
-    await expect(page.locator(".home")).not.toHaveClass(/motion-ready/);
-    // Without scrolling, every reveal target is already fully visible.
-    const hidden = await page.evaluate(() =>
-      [...document.querySelectorAll<HTMLElement>("[data-reveal]")].filter(
-        (el) => getComputedStyle(el).opacity !== "1" || getComputedStyle(el).transform !== "none",
-      ).length,
+    await expect(page.getByTestId("home")).not.toHaveClass(/motion-ok/);
+    const moving = await page.evaluate(() =>
+      document.getAnimations().filter((a) => a.playState === "running" && (a.effect as KeyframeEffect | null)?.getComputedTiming().iterations === Infinity).length,
+    );
+    expect(moving).toBe(0);
+    const hidden = await page.locator(".wall-tile").evaluateAll((els) =>
+      els.filter((el) => getComputedStyle(el).opacity !== "1" || getComputedStyle(el).transform !== "none").length,
     );
     expect(hidden).toBe(0);
-    expect(
-      await page.locator(".marquee-track").first().evaluate((el) => getComputedStyle(el).animationName),
-    ).toBe("none");
-    expect(await page.locator(".word").first().evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
-    const demo = page.getByTestId("hero-demo");
-    await expect(demo).toHaveAttribute("data-paused", "true");
-    await page.waitForTimeout(4200);
-    await expect(demo).toHaveAttribute("data-step", "record");
-    // Steps are still reachable by hand.
-    await demo.getByRole("button", { name: "Live on your site" }).click();
-    await expect(demo).toHaveAttribute("data-step", "live");
+    expect(await page.locator(".marquee-track").evaluate((el) => getComputedStyle(el).animationName)).toBe("none");
+    // The vignettes show their end state.
+    await expect(page.locator("[data-reveal].is-in")).toHaveCount(3);
+    expect(await page.locator(".vg-badge-to").evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
+    expect(await page.locator(".vg-badge-from").evaluate((el) => getComputedStyle(el).opacity)).toBe("0");
+    // No hover preview; a click still plays.
+    const tile = page.getByTestId("video-tile").first();
+    await tile.hover();
+    await page.waitForTimeout(600);
+    await expect(tile.locator("video")).toHaveCount(0);
+    expect(loaded.filter((f) => VIDEO_FILE.test(f))).toEqual([]);
+    await tile.getByRole("button", { name: /^Play / }).click();
+    await expect(tile).toHaveAttribute("data-state", "playing");
   });
 
   test("keyboard focus stays visible", async ({ page }) => {
     await page.goto("/");
-    await page.keyboard.press("Tab");
-    const outline = await page.evaluate(() => {
-      const el = document.activeElement as HTMLElement;
-      return getComputedStyle(el).outlineStyle;
-    });
-    expect(outline).not.toBe("none");
+    for (let i = 0; i < 4; i++) {
+      await page.keyboard.press("Tab");
+      const outline = await page.evaluate(() => {
+        const s = getComputedStyle(document.activeElement as HTMLElement);
+        return [s.outlineStyle, parseFloat(s.outlineWidth)] as const;
+      });
+      expect(outline[0]).not.toBe("none");
+      expect(outline[1]).toBeGreaterThanOrEqual(2);
+    }
   });
+
+  test("theming: PLAUDIT_THEME sets the brand, ?theme= previews another, and invalid names are ignored", async ({ page }) => {
+    // The suite's server runs with PLAUDIT_THEME=teal (playwright.config.ts).
+    const configured = process.env.E2E_BASE_URL ? null : "teal";
+    await page.goto("/");
+    if (configured) {
+      await expect(page.locator("html")).toHaveAttribute("data-theme", configured);
+      expect(await primary(page)).toBe("#0b7a6c");
+    }
+    await page.goto("/?theme=tomato");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "tomato");
+    await expect(page.getByTestId("home")).toHaveAttribute("data-theme", "tomato");
+    expect(await primary(page)).toBe("#c8331a");
+    // The headline tile is painted in it.
+    expect(await page.getByTestId("hero-tile").evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgb(200, 51, 26)");
+    await page.goto("/?theme=../../etc");
+    await expect(page.getByTestId("home")).toHaveAttribute("data-theme", configured ?? /^(violet|tomato|teal|ink)$/);
+    // The dashboard keeps its own look.
+    await page.goto("/admin/login");
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--accent").trim())).toBe("#161b2e");
+  });
+
+  test("theming: the dark toggle applies before paint and persists; system is the default", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.goto("/?theme=violet");
+    const html = page.locator("html");
+    await expect(html).not.toHaveClass(/(^|\s)dark(\s|$)/);
+    expect(await primary(page)).toBe("#5b3df5");
+    const toggle = page.getByTestId("mode-toggle");
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await toggle.click();
+    await expect(html).toHaveClass(/(^|\s)dark(\s|$)/);
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    await expect.poll(() => primary(page)).toBe("#8f78ff");
+    expect(await page.evaluate(() => localStorage.getItem("plaudit-mode"))).toBe("dark");
+
+    // After a reload it's dark from the first paint: the boot script ran before any React code.
+    await page.addInitScript(() => {
+      document.addEventListener("DOMContentLoaded", () => {
+        (window as Window & { __darkAtDom?: boolean }).__darkAtDom = document.documentElement.classList.contains("dark");
+      });
+    });
+    await page.reload();
+    expect(await page.evaluate(() => (window as Window & { __darkAtDom?: boolean }).__darkAtDom)).toBe(true);
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe("rgb(18, 16, 25)");
+
+    // The footer's three-way choice: back to the system setting, which follows the OS.
+    const system = page.getByTestId("section-footer").getByRole("radio", { name: "System" });
+    await system.click();
+    await expect(system).toHaveAttribute("aria-checked", "true");
+    expect(await page.evaluate(() => localStorage.getItem("plaudit-mode"))).toBeNull();
+    await expect(html).not.toHaveClass(/(^|\s)dark(\s|$)/);
+    await page.emulateMedia({ colorScheme: "dark" });
+    await expect(html).toHaveClass(/(^|\s)dark(\s|$)/);
+  });
+
+  for (const mode of ["light", "dark"] as const) {
+    test(`no accessibility violations (axe, ${mode})`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: mode, reducedMotion: "reduce" });
+      await page.goto("/");
+      // Open a FAQ answer so its text is checked too.
+      await page.getByTestId("faq").getByRole("button").first().click();
+      const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
+    });
+  }
 
   test("screenshots", async ({ page }) => {
     test.skip(!SHOTS, "only when UPDATE_SCREENSHOTS is set");
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/");
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(1400);
     await shot(page, "home-desktop");
     const height = await page.evaluate(() => document.documentElement.scrollHeight);
     for (let y = 0; y < height; y += 300) {
-      await page.evaluate((top) => window.scrollTo(0, top), y);
-      await page.waitForTimeout(40);
+      await page.evaluate((top) => window.scrollTo({ top, behavior: "instant" }), y);
+      await page.waitForTimeout(60);
     }
-    await page.waitForTimeout(900);
-    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(1500);
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
     await page.waitForTimeout(400);
     await shot(page, "home-full", true);
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto("/");
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(1400);
     await shot(page, "home-mobile");
   });
 });

@@ -141,6 +141,8 @@ export default defineConfig({
             OIDC_LABEL: "Acme SSO",
             // Lets the team spec sign in people other than the owner.
             ALLOWED_EMAIL_DOMAINS: "team.example",
+            // A brand theme other than the default, so the home page's PLAUDIT_THEME test sees it applied.
+            PLAUDIT_THEME: "teal",
             // Every Phase 1 feature on (also the default since release; set explicitly so a local override can't hide pages).
             PLAUDIT_FEATURES: "all",
             // VID-06: approved videos also get an HLS copy, listed first in every player's sources.

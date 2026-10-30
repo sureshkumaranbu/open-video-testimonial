@@ -61,7 +61,11 @@ test("no page breaks its own Content Security Policy", async ({ page, baseURL })
   const violations = await watchCsp(page);
 
   await page.goto("/");
-  await expect(page.getByTestId("hero-demo")).toBeVisible();
+  await expect(page.getByTestId("hero-tile")).toBeVisible();
+  // The inline boot script ran (public pages allow inline scripts) and a sample video plays.
+  await expect(page.getByTestId("home")).toHaveClass(/motion-ok/);
+  await page.getByTestId("video-tile").first().getByRole("button").click();
+  await expect(page.getByTestId("video-tile").first()).toHaveAttribute("data-state", /playing|paused/);
   expect(await violations(), "home").toEqual([]);
 
   await page.goto(`/c/${p.slug}`);
