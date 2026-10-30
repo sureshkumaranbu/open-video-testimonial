@@ -53,7 +53,7 @@ describe("admin auth", () => {
 
   it("rejects tampered and expired session tokens", () => {
     const token = createSessionToken(ADMIN_EMAIL);
-    expect(verifySessionToken(token)).toEqual({ email: ADMIN_EMAIL });
+    expect(verifySessionToken(token)).toEqual({ email: ADMIN_EMAIL, issuedAt: expect.any(Number) });
     const [payload, sig] = token.split(".");
     const forged = Buffer.from(JSON.stringify({ sub: "x", exp: Date.now() + 1e9 })).toString("base64url");
     expect(verifySessionToken(`${forged}.${sig}`)).toBeNull();
