@@ -19,7 +19,7 @@ PLAUDIT_THEME=tomato
 | `teal` | `#0b7a6c` | `#2fd1bd` |
 | `ink` | `#1b1530` | `#f1eefc` |
 
-An unknown name falls back to `violet`. The server puts the theme on `<html data-theme="…">`.
+An unknown name falls back to `violet`. The server puts the theme on `<html data-brand="…">`. (It isn't `data-theme`: across the app that attribute already means light or dark, on walls, embeds, forms and widget snippets.)
 
 To try a theme without changing the setting, add `?theme=<name>` to the home page's address, for example `/?theme=teal`. Only the names above are accepted; anything else is ignored.
 
@@ -29,7 +29,7 @@ Visitors choose light, dark or "system" (the default, which follows their device
 
 ## Add a theme
 
-1. In `src/app/theme.css`, copy one of the `[data-theme="…"]` blocks and give it a new name. A theme sets only the brand tokens: `--primary`, `--primary-foreground` (text on the primary colour) and `--ring` (focus rings), with the dark values in the nested `&:is(.dark, .dark *)` block.
+1. In `src/app/theme.css`, copy one of the `[data-brand="…"]` blocks and give it a new name. A theme sets only the brand tokens: `--primary`, `--primary-foreground` (text on the primary colour) and `--ring` (focus rings), with the dark values in the nested `&:is(.dark, .dark *)` block.
 2. Add the name to `THEMES` in `src/lib/themes.ts`, which validates `PLAUDIT_THEME` and `?theme=`.
 3. Check contrast: body text on `--primary` and `--primary` on the page background must both reach 4.5:1, in light and dark. The home page's axe test (`e2e/coverage.spec.ts`) checks the theme the suite runs with; preview yours with `?theme=` and an accessibility checker.
 

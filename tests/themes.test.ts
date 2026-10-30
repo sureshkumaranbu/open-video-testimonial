@@ -26,7 +26,7 @@ describe("brand themes", () => {
     expect(previewTheme("tomato", "teal")).toBe("tomato");
     expect(previewTheme(["ink", "violet"], "teal")).toBe("ink");
     expect(previewTheme(undefined, "teal")).toBe("teal");
-    expect(previewTheme("dark", "teal")).toBe("teal"); // globals.css's data-theme="dark" is not a brand
+    expect(previewTheme("dark", "teal")).toBe("teal"); // "dark" is a mode, not a brand
     expect(previewTheme('"><script>', "violet")).toBe("violet");
     expect(isTheme("constructor")).toBe(false);
     expect(themeOr(42)).toBe("violet");
@@ -35,7 +35,7 @@ describe("brand themes", () => {
   it("every theme has exactly one block in theme.css, with a dark variant", () => {
     const css = fs.readFileSync(path.join(__dirname, "..", "src", "app", "theme.css"), "utf8");
     for (const name of THEMES) {
-      const blocks = css.split(`[data-theme="${name}"] {`);
+      const blocks = css.split(`[data-brand="${name}"] {`);
       expect(blocks, name).toHaveLength(2);
       const block = blocks[1].slice(0, blocks[1].indexOf("\n}\n"));
       expect(block, name).toMatch(/--primary:/);

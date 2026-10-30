@@ -39,7 +39,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ t
     <div
       id="home-root"
       className={`ui-home ${display.variable}`}
-      data-theme={theme}
+      data-brand={theme}
       data-testid="home"
       suppressHydrationWarning
     >

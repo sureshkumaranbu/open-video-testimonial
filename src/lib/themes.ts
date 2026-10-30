@@ -1,6 +1,6 @@
 /**
  * Brand themes for the public pages (docs/THEMING.md). Each name here has one
- * `[data-theme="<name>"]` block in src/app/theme.css; adding a theme means
+ * `[data-brand="<name>"]` block in src/app/theme.css; adding a theme means
  * adding that block and its name to this list. Safe to import on the client.
  */
 export const THEMES = ["violet", "tomato", "teal", "ink"] as const;

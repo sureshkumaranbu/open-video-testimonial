@@ -436,17 +436,17 @@ test.describe("home page", () => {
     const configured = process.env.E2E_BASE_URL ? null : "teal";
     await page.goto("/");
     if (configured) {
-      await expect(page.locator("html")).toHaveAttribute("data-theme", configured);
+      await expect(page.locator("html")).toHaveAttribute("data-brand", configured);
       expect(await primary(page)).toBe("#0b7a6c");
     }
     await page.goto("/?theme=tomato");
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "tomato");
-    await expect(page.getByTestId("home")).toHaveAttribute("data-theme", "tomato");
+    await expect(page.locator("html")).toHaveAttribute("data-brand", "tomato");
+    await expect(page.getByTestId("home")).toHaveAttribute("data-brand", "tomato");
     expect(await primary(page)).toBe("#c8331a");
     // The headline tile is painted in it.
     expect(await page.getByTestId("hero-tile").evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgb(200, 51, 26)");
     await page.goto("/?theme=../../etc");
-    await expect(page.getByTestId("home")).toHaveAttribute("data-theme", configured ?? /^(violet|tomato|teal|ink)$/);
+    await expect(page.getByTestId("home")).toHaveAttribute("data-brand", configured ?? /^(violet|tomato|teal|ink)$/);
     // The dashboard keeps its own look.
     await page.goto("/admin/login");
     expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--accent").trim())).toBe("#161b2e");

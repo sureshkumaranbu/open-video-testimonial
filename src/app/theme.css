@@ -205,11 +205,13 @@
 }
 
 /*
- * Brand themes. One block each, light first, dark nested. The name goes in
+ * Brand themes, keyed by data-brand (data-theme already means light/dark
+ * across the app: walls, embeds, forms, widget snippets). One block each,
+ * light first, dark nested. The name goes in
  * src/lib/themes.ts too. Body text on --primary must keep 4.5:1 contrast
  * with --primary-foreground, and --primary on --background likewise.
  */
-[data-theme="violet"] {
+[data-brand="violet"] {
   --primary: #5b3df5;
   --primary-foreground: #ffffff;
   --ring: #5b3df5;
@@ -220,7 +222,7 @@
   }
 }
 
-[data-theme="tomato"] {
+[data-brand="tomato"] {
   --primary: #c8331a;
   --primary-foreground: #ffffff;
   --ring: #c8331a;
@@ -231,7 +233,7 @@
   }
 }
 
-[data-theme="teal"] {
+[data-brand="teal"] {
   --primary: #0b7a6c;
   --primary-foreground: #ffffff;
   --ring: #0b7a6c;
@@ -242,7 +244,7 @@
   }
 }
 
-[data-theme="ink"] {
+[data-brand="ink"] {
   --primary: #1b1530;
   --primary-foreground: #ffffff;
   --ring: #5b3df5;

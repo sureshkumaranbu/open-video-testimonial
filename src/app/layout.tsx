@@ -21,8 +21,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    // data-theme: the brand theme (PLAUDIT_THEME). The home page's boot script may also set `dark` and a preview theme here before paint.
-    <html lang="en" className={`${ui.variable} ${voice.variable}`} data-theme={env.theme} suppressHydrationWarning>
+    // data-brand: the brand theme (PLAUDIT_THEME; docs/THEMING.md). The home page's boot script may also set `dark` and a
+    // preview brand here before paint. (data-theme stays what it is elsewhere in the app: light or dark.)
+    <html lang="en" className={`${ui.variable} ${voice.variable}`} data-brand={env.theme} suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );

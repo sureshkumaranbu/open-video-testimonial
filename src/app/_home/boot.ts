@@ -10,6 +10,6 @@ import { MODE_KEY, type ThemeName } from "@/lib/themes";
  */
 export function bootScript(preview: ThemeName | null) {
   return `(function(){var d=document.documentElement;try{${
-    preview ? `d.setAttribute("data-theme",${JSON.stringify(preview)});` : ""
+    preview ? `d.setAttribute("data-brand",${JSON.stringify(preview)});` : ""
   }var m=null;try{m=localStorage.getItem(${JSON.stringify(MODE_KEY)})}catch(e){}var k=m==="dark"||(m!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);d.classList.toggle("dark",k);d.style.colorScheme=k?"dark":"light";if(!matchMedia("(prefers-reduced-motion: reduce)").matches&&"IntersectionObserver" in window){document.currentScript.parentElement.classList.add("motion-ok")}}catch(e){}})();`;
 }
