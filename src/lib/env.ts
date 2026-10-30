@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { themeOr, type ThemeName } from "./themes";
 
 const list = (value: string | undefined) =>
   (value || "")
@@ -290,6 +291,14 @@ export const env = {
   },
   get jobsPollMs() {
     return Math.max(Number(process.env.JOBS_POLL_MS || 2000), 100);
+  },
+
+  /**
+   * Brand theme for the public pages: "violet" (default), "tomato", "teal" or
+   * "ink" (src/lib/themes.ts, docs/THEMING.md). Anything else falls back to the default.
+   */
+  get theme(): ThemeName {
+    return themeOr(process.env.PLAUDIT_THEME);
   },
 
   // ------------------------------------------------------------- Phase 1

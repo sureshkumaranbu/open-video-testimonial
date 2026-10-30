@@ -1,0 +1,261 @@
+/*
+ * Plaudit's theme: Tailwind CSS v4 and the shadcn/ui tokens. How to pick,
+ * add or change a theme: docs/THEMING.md.
+ *
+ * Loaded on every page, so it must never change the dashboard:
+ * - No preflight. Tailwind's utilities are generated only from the files
+ *   listed with @source, and every one is scoped to themed pages
+ *   (`:where(.ui-home) .flex`), so the dashboard's own `.container`,
+ *   `.block` or `.hidden` classes are untouched. :where() keeps their
+ *   specificity at one class.
+ * - Tailwind's default theme is cleared (--*: initial); everything a utility
+ *   needs is in @theme inline below, so no utility reads a variable the
+ *   dashboard also defines (globals.css has its own --text-sm, --accent…).
+ * - The tokens apply where a themed page is mounted (`.ui-home`, and the
+ *   document root while one is), not on every :root, because globals.css
+ *   already gives --accent a meaning in the dashboard.
+ * - The utilities aren't in a cascade layer, so they beat globals.css's
+ *   bare element rules (h1, button…) by specificity, as they would with
+ *   preflight in place. The page's own base styles are in home.css.
+ */
+
+:where(.ui-home) {
+  @tailwind utilities source(none);
+}
+@source "./page.tsx";
+@source "./_home";
+@source "../components/ui";
+
+/* Dark mode is a `.dark` class on <html> (set before paint; see _home/boot.ts). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --*: initial;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-star: var(--star);
+  --color-star-off: var(--star-off);
+  --color-tint-1: var(--tint-1);
+  --color-tint-2: var(--tint-2);
+  --color-tint-3: var(--tint-3);
+  --color-tint-4: var(--tint-4);
+  --color-tint-5: var(--tint-5);
+  --color-transparent: transparent;
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --radius-sm: calc(var(--radius) * 0.4);
+  --radius-md: calc(var(--radius) * 0.6);
+  --radius-lg: calc(var(--radius) * 0.8);
+  --radius-xl: var(--radius);
+  --radius-2xl: calc(var(--radius) * 1.4);
+
+  --spacing: 0.25rem;
+
+  --breakpoint-sm: 40rem;
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 64rem;
+  --breakpoint-xl: 80rem;
+  --container-prose: 40rem;
+
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.4;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.5;
+  --text-base: 1.0625rem;
+  --text-base--line-height: 1.55;
+  --text-lg: 1.25rem;
+  --text-lg--line-height: 1.45;
+  --text-xl: 1.5rem;
+  --text-xl--line-height: 1.3;
+  --text-2xl: 1.875rem;
+  --text-2xl--line-height: 1.15;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+
+  --tracking-display: -0.04em;
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+
+  --leading-display: 0.98;
+  --leading-snug: 1.25;
+
+  --shadow-tile: 0 1px 2px color-mix(in oklab, var(--foreground) 6%, transparent),
+    0 18px 40px -18px color-mix(in oklab, var(--foreground) 28%, transparent);
+  --shadow-lift: 0 2px 4px color-mix(in oklab, var(--foreground) 6%, transparent),
+    0 28px 56px -22px color-mix(in oklab, var(--foreground) 34%, transparent);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --default-transition-duration: 200ms;
+  --default-transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --animate-accordion-down: accordion-down 260ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-accordion-up: accordion-up 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-sheet-in: sheet-in 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-sheet-out: sheet-out 200ms cubic-bezier(0.65, 0, 0.35, 1);
+  --animate-fade-in: fade-in 240ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-fade-out: fade-out 180ms ease-in;
+}
+
+@keyframes accordion-down {
+  from { height: 0; opacity: 0; }
+  to { height: var(--radix-accordion-content-height); opacity: 1; }
+}
+@keyframes accordion-up {
+  from { height: var(--radix-accordion-content-height); opacity: 1; }
+  to { height: 0; opacity: 0; }
+}
+@keyframes sheet-in {
+  from { transform: translateX(100%); }
+}
+@keyframes sheet-out {
+  to { transform: translateX(100%); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+}
+@keyframes fade-out {
+  to { opacity: 0; }
+}
+
+/* ---------------------------------------------------------------- tokens */
+
+/* Neutrals, light. The brand tokens (--primary, --primary-foreground, --ring) come from the theme blocks below. */
+:root:has(.ui-home),
+.ui-home {
+  --radius: 22px;
+  --background: #f7f5ff;
+  --foreground: #1b1530;
+  --card: #ffffff;
+  --card-foreground: #1b1530;
+  --popover: #ffffff;
+  --popover-foreground: #1b1530;
+  --secondary: #eeeaff;
+  --secondary-foreground: #1b1530;
+  --muted: #eeeaff;
+  --muted-foreground: #595270;
+  --accent: #e9e3ff;
+  --accent-foreground: #1b1530;
+  --border: #e2dcf7;
+  --input: #d6cff0;
+  --star: #1b1530;
+  --star-off: rgb(27 21 48 / 0.2);
+  --tint-1: #e9e3ff;
+  --tint-2: #d9f5e6;
+  --tint-3: #ffe3d3;
+  --tint-4: #fff2c2;
+  --tint-5: #dcebff;
+  color-scheme: light;
+}
+
+/* Neutrals, dark: the tints' deep counterparts. */
+:root.dark:has(.ui-home),
+.dark .ui-home {
+  --background: #121019;
+  --foreground: #f1eefc;
+  --card: #1a1724;
+  --card-foreground: #f1eefc;
+  --popover: #1a1724;
+  --popover-foreground: #f1eefc;
+  --secondary: #221e30;
+  --secondary-foreground: #f1eefc;
+  --muted: #221e30;
+  --muted-foreground: #aaa3c2;
+  --accent: #2a2245;
+  --accent-foreground: #f1eefc;
+  --border: #2e2940;
+  --input: #3a3450;
+  --star: #ffd166;
+  --star-off: rgb(255 255 255 / 0.2);
+  --tint-1: #2a2245;
+  --tint-2: #173329;
+  --tint-3: #3a2419;
+  --tint-4: #35300f;
+  --tint-5: #17283f;
+  color-scheme: dark;
+}
+
+/*
+ * Brand themes. One block each, light first, dark nested. The name goes in
+ * src/lib/themes.ts too. Body text on --primary must keep 4.5:1 contrast
+ * with --primary-foreground, and --primary on --background likewise.
+ */
+[data-theme="violet"] {
+  --primary: #5b3df5;
+  --primary-foreground: #ffffff;
+  --ring: #5b3df5;
+  &:is(.dark, .dark *) {
+    --primary: #8f78ff;
+    --primary-foreground: #121019;
+    --ring: #a796ff;
+  }
+}
+
+[data-theme="tomato"] {
+  --primary: #c8331a;
+  --primary-foreground: #ffffff;
+  --ring: #c8331a;
+  &:is(.dark, .dark *) {
+    --primary: #ff6a4d;
+    --primary-foreground: #121019;
+    --ring: #ff8a73;
+  }
+}
+
+[data-theme="teal"] {
+  --primary: #0b7a6c;
+  --primary-foreground: #ffffff;
+  --ring: #0b7a6c;
+  &:is(.dark, .dark *) {
+    --primary: #2fd1bd;
+    --primary-foreground: #121019;
+    --ring: #2fd1bd;
+  }
+}
+
+[data-theme="ink"] {
+  --primary: #1b1530;
+  --primary-foreground: #ffffff;
+  --ring: #5b3df5;
+  &:is(.dark, .dark *) {
+    --primary: #f1eefc;
+    --primary-foreground: #121019;
+    --ring: #a796ff;
+  }
+}
+
+/* The page behind a themed surface: overscroll, scrollbars and selection. */
+:root:has(.ui-home) {
+  background: var(--background);
+  scrollbar-color: color-mix(in oklab, var(--foreground) 28%, transparent) var(--background);
+}
+:root:has(.ui-home) body {
+  background: var(--background);
+  color: var(--foreground);
+}
