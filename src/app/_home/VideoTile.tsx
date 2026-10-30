@@ -180,7 +180,7 @@ export function VideoTile({
 
       <SampleTag className="absolute top-4 right-4 z-10 bg-white/90 text-[#1b1530]" />
 
-      <figcaption className="pointer-events-none absolute inset-x-2.5 bottom-2.5 z-10 flex items-center justify-between gap-2 rounded-lg bg-white/95 px-3.5 py-2.5 text-sm text-[#1b1530]">
+      <figcaption className="pointer-events-none absolute inset-x-2.5 bottom-2.5 z-10 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 rounded-lg bg-white/95 px-3.5 py-2.5 text-sm text-[#1b1530]">
         <span>
           <strong className="font-bold">{video.name}</strong> · {video.role}
         </span>

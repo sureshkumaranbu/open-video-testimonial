@@ -72,7 +72,8 @@ export const LAYOUTS = [
 ] as const;
 export type StudioLayout = (typeof LAYOUTS)[number]["id"];
 
-export const SNIPPET = `<script src="https://plaudit.yoursite.com/widget.js" data-widget="your-widget-id" async></script>`;
+/** The saved-widget embed, as README.md shows it. */
+export const SNIPPET = `<script src="https://your-plaudit.example/widget.js" data-widget="w_abc123def456" async></script>`;
 
 export const SETUP = [
   `git clone ${REPO}.git plaudit`,

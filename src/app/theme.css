@@ -110,6 +110,9 @@
   --shadow-lift: 0 2px 4px color-mix(in oklab, var(--foreground) 6%, transparent),
     0 28px 56px -22px color-mix(in oklab, var(--foreground) 34%, transparent);
 
+  --blur-sm: 8px;
+  --blur-xl: 24px;
+
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --default-transition-duration: 200ms;

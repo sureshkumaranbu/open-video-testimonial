@@ -180,7 +180,13 @@ export function Studio() {
             </div>
           </div>
           <div className="mt-3.5 flex items-center gap-2.5 rounded-full bg-foreground py-1.5 pr-1.5 pl-5 text-background">
-            <code className="min-w-0 flex-1 overflow-x-auto font-mono text-[0.8125rem] whitespace-nowrap [scrollbar-width:none]" data-testid="snippet">
+            <code
+              tabIndex={0}
+              role="region"
+              aria-label="Embed snippet"
+              className="min-w-0 flex-1 overflow-x-auto rounded-sm py-2 font-mono text-[0.8125rem] whitespace-nowrap [scrollbar-width:none] focus-visible:outline-offset-1"
+              data-testid="snippet"
+            >
               {SNIPPET}
             </code>
             <CopyButton text={SNIPPET} label="Copy" testId="copy-snippet" />

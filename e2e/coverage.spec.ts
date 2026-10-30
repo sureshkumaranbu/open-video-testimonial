@@ -208,7 +208,7 @@ test.describe("home page", () => {
     const { bad } = trackSamples(page);
     await page.goto("/");
     const cards = page.getByTestId("text-tile");
-    await expect(cards).toHaveCount(6);
+    await expect(cards).toHaveCount(5);
     for (const card of await cards.all()) {
       await expect(card.getByText("Sample", { exact: true })).toBeVisible();
       await expect(card.getByRole("img", { name: /^Rated [1-5] out of 5$/ })).toBeVisible();
@@ -313,7 +313,7 @@ test.describe("home page", () => {
     await copy.click();
     await expect(copy).toHaveText("Copied");
     await expect(copy).toHaveAttribute("data-state", "copied");
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('data-widget="your-widget-id"');
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('data-widget="w_abc123def456"');
     await expect(copy).toHaveText("Copy", { timeout: 4000 });
   });
 

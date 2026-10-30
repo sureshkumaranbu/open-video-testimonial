@@ -133,24 +133,24 @@ export function HowItWorks() {
           Three steps from the first link to testimonials on your site, with nothing for your customers to install.
         </p>
       </div>
-      <ol className="mt-12 grid gap-5 md:grid-cols-3" data-testid="how-it-works">
+      <ol className="mt-12 grid gap-10 lg:grid-cols-3 lg:gap-5" data-testid="how-it-works">
         {STEPS.map((s, i) => {
           const Vignette = VIGNETTES[s.key];
           return (
-            <li key={s.key} data-step={s.key} className="flex flex-col">
+            <li key={s.key} data-step={s.key} className="flex flex-col md:max-lg:grid md:max-lg:grid-cols-2 md:max-lg:items-center md:max-lg:gap-x-8">
               <div
                 data-reveal
                 data-testid={`vignette-${s.key}`}
                 aria-hidden
-                className={`vignette h-72 rounded-xl p-5 ${VIGNETTE_BG[s.key]}`}
+                className={`vignette h-72 rounded-xl p-5 md:max-lg:row-span-2 ${VIGNETTE_BG[s.key]}`}
               >
                 <Vignette />
               </div>
-              <h3 className="mt-6 flex items-center gap-3 font-display text-2xl font-bold tracking-tight">
+              <h3 className="mt-6 flex items-center md:max-lg:mt-0 md:max-lg:self-end gap-3 font-display text-2xl font-bold tracking-tight">
                 <span className="grid size-8 shrink-0 place-items-center rounded-full bg-foreground text-sm text-background">{i + 1}</span>
                 {s.title}
               </h3>
-              <p className="mt-3 max-w-[48ch] text-muted-foreground">{s.body}</p>
+              <p className="mt-3 max-w-[48ch] text-muted-foreground md:max-lg:self-start">{s.body}</p>
             </li>
           );
         })}

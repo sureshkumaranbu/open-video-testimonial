@@ -38,7 +38,7 @@ export function SelfHost() {
               <span className="text-sm font-semibold">Quick start</span>
               <CopyButton text={SETUP.join("\n")} label="Copy commands" testId="copy-setup" />
             </div>
-            <pre className="overflow-x-auto p-5 font-mono text-[0.8125rem] leading-[1.9]">
+            <pre tabIndex={0} role="region" aria-label="Quick start commands" className="overflow-x-auto p-5 font-mono text-[0.8125rem] leading-[1.9] focus-visible:-outline-offset-3">
               {SETUP.map((line) => (
                 <span key={line} className="block whitespace-pre">
                   <span className="text-muted-foreground select-none" aria-hidden>
