@@ -78,7 +78,7 @@ export function SignInFrame({ children }: { children: ReactNode }) {
                 <figure
                   key={t.name}
                   style={{ ["--i" as string]: i }}
-                  className={cn("signin-tile flex flex-col gap-3 rounded-[1.25rem] p-4 shadow-tile", t.tint, t.place)}
+                  className={cn("signin-tile flex flex-col gap-3 rounded-[1.25rem] p-4 shadow-[var(--shadow-2)]", t.tint, t.place)}
                 >
                   <Stars />
                   <blockquote className="text-[0.9375rem] leading-snug font-medium text-foreground">{t.quote}</blockquote>

@@ -117,7 +117,7 @@ function EmptyHome({ isAdmin }: { isAdmin: boolean }) {
           ["bg-tint-3", "z-10 -translate-y-1"],
           ["bg-tint-2", "rotate-6 translate-y-2"],
         ].map(([tint, place], i) => (
-          <div key={i} className={`-mx-3 flex h-24 w-24 flex-col justify-between rounded-2xl p-3 text-left shadow-tile ${tint} ${place}`}>
+          <div key={i} className={`-mx-3 flex h-24 w-24 flex-col justify-between rounded-2xl p-3 text-left shadow-[var(--shadow-2)] ${tint} ${place}`}>
             <span className="flex gap-0.5">
               {[0, 1, 2, 3, 4].map((n) => (
                 <span key={n} className="size-2 rounded-full bg-foreground/70" />
@@ -188,7 +188,7 @@ export default async function AdminHome() {
             {busiest && (
               <Link
                 href={`/admin/projects/${busiest.id}`}
-                className="group inline-flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-bold text-primary-foreground transition-[translate,scale,box-shadow] duration-200 ease-out hover:shadow-lift motion-safe:hover:-translate-y-0.5 motion-safe:active:scale-[0.97]"
+                className="group inline-flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-bold text-primary-foreground transition-[translate,scale,box-shadow] duration-200 ease-out hover:shadow-[var(--shadow-2)] motion-safe:hover:-translate-y-0.5 motion-safe:active:scale-[0.97]"
               >
                 Start reviewing
                 <ArrowRightIcon aria-hidden className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-0.5" />

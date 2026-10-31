@@ -96,7 +96,7 @@ function Tip({ label, show, portal, children }: { label: string; show: boolean; 
         <Tooltip.Content
           side="right"
           sideOffset={10}
-          className="z-50 rounded-lg bg-foreground px-2.5 py-1.5 text-xs font-semibold text-background shadow-lift data-[state=closed]:animate-pop-out data-[state=delayed-open]:animate-pop-in"
+          className="z-50 rounded-lg bg-foreground px-2.5 py-1.5 text-xs font-semibold text-background shadow-[var(--shadow-3)] data-[state=closed]:animate-pop-out data-[state=delayed-open]:animate-pop-in"
         >
           {label}
         </Tooltip.Content>
@@ -168,7 +168,7 @@ function ProjectSwitcher({
           data-testid="project-switcher"
           className={cn(
             "group flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-2xl border border-border bg-background px-2 text-left transition-[border-color,background-color,box-shadow] duration-150 ease-out lg:min-h-12",
-            "hover:border-input hover:bg-card data-[state=open]:border-input data-[state=open]:bg-card data-[state=open]:shadow-tile",
+            "hover:border-input hover:bg-card data-[state=open]:border-input data-[state=open]:bg-card data-[state=open]:shadow-[var(--shadow-2)]",
             "collapsed:justify-center collapsed:border-transparent collapsed:bg-transparent collapsed:px-0",
           )}
         >
@@ -197,7 +197,7 @@ function ProjectSwitcher({
           collisionPadding={12}
           data-testid="project-menu"
           className={cn(
-            "z-50 w-[min(18rem,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-border bg-popover p-1.5 text-popover-foreground shadow-lift",
+            "z-50 w-[min(18rem,calc(100vw-2rem))] overflow-y-auto rounded-2xl border border-border bg-popover p-1.5 text-popover-foreground shadow-[var(--shadow-3)]",
             "max-h-[min(26rem,var(--radix-dropdown-menu-content-available-height))]",
             "data-[state=closed]:animate-pop-out data-[state=open]:animate-pop-in",
           )}
@@ -404,7 +404,7 @@ export function Shell(props: ShellProps) {
                   <MenuIcon aria-hidden className="size-5" />
                 </button>
               </SheetTrigger>
-              <SheetContent side="left" container={portal} data-testid="app-menu" className="gap-5 bg-card p-4 pt-5">
+              <SheetContent side="left" container={portal} data-testid="app-menu" className="gap-5 bg-card p-4 pt-5 shadow-[var(--shadow-3)]">
                 <div className="flex min-h-11 items-center pr-12 pl-1">
                   <SheetTitle>
                     <span className="sr-only">Menu</span>
