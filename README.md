@@ -539,7 +539,7 @@ To test a running instance instead, for example `docker compose up`, set `E2E_BA
 - [`docs/AUTH.md`](docs/AUTH.md): sign-in with Google, Apple, single sign-on (OIDC) or an email link, and your team.
 - [`docs/EMAIL.md`](docs/EMAIL.md): setting up email.
 - [`docs/API.md`](docs/API.md): REST API and webhooks.
-- [`docs/help/`](docs/help/README.md): the dashboard guides (getting started, forms, the inbox, widgets, walls and SEO, notifications); [`docs/EMBED.md`](docs/EMBED.md): embedding a form on your site; [`docs/IMPORT.md`](docs/IMPORT.md): importers.
+- [`docs/help/`](docs/help/README.md): the dashboard guides (getting started, forms, the inbox, widgets, walls and SEO, notifications); [`docs/EMBED.md`](docs/EMBED.md): embedding a form on your site; [`docs/IMPORT.md`](docs/IMPORT.md): importers; [`docs/THEMING.md`](docs/THEMING.md): the home page's brand themes (`PLAUDIT_THEME`), light and dark.
 - [`docs/SPEC.md`](docs/SPEC.md): product spec, what's shipped, and the roadmap.
 - [`docs/research/feature-opportunities.md`](docs/research/feature-opportunities.md): the research behind the current features.
 - [`docs/research/senja-teardown.md`](docs/research/senja-teardown.md): clean-room notes on how an existing commercial tool behaves.
