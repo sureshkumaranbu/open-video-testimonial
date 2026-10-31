@@ -74,9 +74,10 @@
 }
 
 .bs-badge[data-state="public"] {
-  background: color-mix(in srgb, #16a34a 14%, var(--surface));
-  color: #166534;
-  border-color: color-mix(in srgb, #16a34a 35%, transparent);
+  /* The status tokens, so it reads in dark mode too. */
+  background: var(--ok-soft);
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 35%, transparent);
 }
 
 .bs-editor {

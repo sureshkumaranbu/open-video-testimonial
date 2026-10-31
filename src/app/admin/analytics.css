@@ -86,11 +86,11 @@
   color: var(--danger);
 }
 
-[data-theme="dark"] .an-delta[data-dir="down"] {
+:is([data-theme="dark"], .dark .admin-root) .an-delta[data-dir="down"] {
   color: #ff8b82;
 }
 
-[data-theme="dark"] .an-delta[data-dir="up"] {
+:is([data-theme="dark"], .dark .admin-root) .an-delta[data-dir="up"] {
   color: #5fd39b;
 }
 

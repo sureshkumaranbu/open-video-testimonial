@@ -247,14 +247,14 @@ test("AN-01 the dashboard: tiles with the previous period, a chart, sortable tab
   await expect(dash.getByTestId("tile-widget-views")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
 
-  // Dark theme: the chart line and the numbers stay readable on the dark surface.
+  // Dark theme (the dashboard's .dark class): the chart line and the numbers stay readable on the dark surface.
   const colours = await page.evaluate(() => {
-    document.documentElement.dataset.theme = "dark";
+    document.documentElement.classList.add("dark");
     const tile = document.querySelector<HTMLElement>("[data-testid=tile-widget-views]")!;
     const line = document.querySelector<SVGElement>("[data-testid=dashboard-chart] .an-line")!;
     return { bg: getComputedStyle(tile).backgroundColor, text: getComputedStyle(tile).color, line: getComputedStyle(line).stroke };
   });
-  expect(colours.bg).toBe("rgb(23, 27, 43)");
+  expect(colours.bg).toBe("rgb(26, 23, 36)");
   expect(colours.text).not.toBe(colours.bg);
   expect(colours.line).toBe("rgb(138, 168, 255)");
 });

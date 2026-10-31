@@ -39,6 +39,11 @@ describe("widget palette parity with globals.css", () => {
     }
   });
 
+  it("DISP-03 previews of public pages inside the dashboard keep exactly the public tokens", () => {
+    // The form builder's FormRunner and the wall editor's WallView sit inside .admin-root, whose palette follows the theme.
+    expect(tokens(globals, ":where(.admin-root) :is([data-theme], [data-wall-theme])")).toEqual(light);
+  });
+
   it("DISP-03 dark theme matches the app's dark tokens", () => {
     for (const w of ["card", "text", "muted", "border", "star-off"]) {
       expect(darkW[w], w).toMatch(/^#[0-9a-f]{6}$/);

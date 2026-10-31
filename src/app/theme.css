@@ -2,32 +2,46 @@
  * Plaudit's theme: Tailwind CSS v4 and the shadcn/ui tokens. How to pick,
  * add or change a theme: docs/THEMING.md.
  *
- * Loaded on every page, so it must never change the dashboard:
+ * Loaded on every page, so it must never change a page that isn't themed:
  * - No preflight. Tailwind's utilities are generated only from the files
- *   listed with @source, and every one is scoped to themed pages
- *   (`:where(.ui-home) .flex`), so the dashboard's own `.container`,
- *   `.block` or `.hidden` classes are untouched. :where() keeps their
- *   specificity at one class.
+ *   listed with @source, and every one is scoped to a themed subtree:
+ *   `.ui-home` (the home page) or `.ui-app` (the dashboard's shell, home and
+ *   sign-in pages), as in `:where(.ui-home, .ui-app) .flex`. The dashboard's
+ *   own `.container`, `.block` or `.hidden` classes are untouched, because
+ *   no older dashboard markup ever sits inside a `.ui-app`. :where() keeps
+ *   their specificity at one class.
  * - Tailwind's default theme is cleared (--*: initial); everything a utility
  *   needs is in @theme inline below, so no utility reads a variable the
  *   dashboard also defines (globals.css has its own --text-sm, --accent…).
- * - The tokens apply where a themed page is mounted (`.ui-home`, and the
- *   document root while one is), not on every :root, because globals.css
- *   already gives --accent a meaning in the dashboard.
+ * - The tokens apply where a themed page is mounted (`.ui-home`, the
+ *   dashboard's `.admin-root`, and the document root while one is), not on
+ *   every :root, so public pages keep globals.css's palette. In the
+ *   dashboard, --accent and --star keep globals.css's meanings (the brand,
+ *   and amber rating stars); shadcn's --accent (a hover tint) is set only
+ *   inside `.ui-home` and `.ui-app`. globals.css maps the dashboard's own
+ *   tokens (--paper, --ink, --line…) onto these.
  * - The utilities aren't in a cascade layer, so they beat globals.css's
  *   bare element rules (h1, button…) by specificity, as they would with
  *   preflight in place. The page's own base styles are in home.css.
  */
 
-:where(.ui-home) {
+:where(.ui-home, .ui-app) {
   @tailwind utilities source(none);
 }
 @source "./page.tsx";
 @source "./_home";
 @source "../components/ui";
+/* The dashboard's redesigned parts only (src/app/admin/_shell is the app shell). */
+@source "./admin/_shell";
+@source "./admin/_dash";
+@source "./admin/page.tsx";
+@source "./admin/login";
+@source "./admin/welcome/WelcomeCard.tsx";
 
-/* Dark mode is a `.dark` class on <html> (set before paint; see _home/boot.ts). */
+/* Dark mode is a `.dark` class on <html> (set before paint; see _home/boot.ts and admin/_shell/boot.ts). */
 @custom-variant dark (&:where(.dark, .dark *));
+/* The dashboard's desktop sidebar while it's collapsed to icons (admin/_shell/boot.ts sets the attribute before paint). */
+@custom-variant collapsed (&:where([data-sidebar="collapsed"] .app-rail, [data-sidebar="collapsed"] .app-rail *));
 
 @theme {
   --*: initial;
@@ -122,6 +136,10 @@
   --animate-accordion-up: accordion-up 180ms cubic-bezier(0.16, 1, 0.3, 1);
   --animate-sheet-in: sheet-in 320ms cubic-bezier(0.16, 1, 0.3, 1);
   --animate-sheet-out: sheet-out 200ms cubic-bezier(0.65, 0, 0.35, 1);
+  --animate-sheet-in-left: sheet-in-left 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-sheet-out-left: sheet-out-left 180ms cubic-bezier(0.65, 0, 0.35, 1);
+  --animate-pop-in: pop-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-pop-out: fade-out 120ms ease-in;
   --animate-fade-in: fade-in 240ms cubic-bezier(0.16, 1, 0.3, 1);
   --animate-fade-out: fade-out 180ms ease-in;
 }
@@ -140,6 +158,15 @@
 @keyframes sheet-out {
   to { transform: translateX(100%); }
 }
+@keyframes sheet-in-left {
+  from { transform: translateX(-100%); }
+}
+@keyframes sheet-out-left {
+  to { transform: translateX(-100%); }
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+}
 @keyframes fade-in {
   from { opacity: 0; }
 }
@@ -151,7 +178,9 @@
 
 /* Neutrals, light. The brand tokens (--primary, --primary-foreground, --ring) come from the theme blocks below. */
 :root:has(.ui-home),
-.ui-home {
+.ui-home,
+:root:has(.admin-root),
+.admin-root {
   --radius: 22px;
   --background: #f7f5ff;
   --foreground: #1b1530;
@@ -163,12 +192,8 @@
   --secondary-foreground: #1b1530;
   --muted: #eeeaff;
   --muted-foreground: #595270;
-  --accent: #e9e3ff;
-  --accent-foreground: #1b1530;
   --border: #e2dcf7;
   --input: #d6cff0;
-  --star: #1b1530;
-  --star-off: rgb(27 21 48 / 0.2);
   --tint-1: #e9e3ff;
   --tint-2: #d9f5e6;
   --tint-3: #ffe3d3;
@@ -177,9 +202,30 @@
   color-scheme: light;
 }
 
+/* The dashboard is a working surface: a little less round than the home page's tiles. */
+:root:has(.admin-root),
+.admin-root {
+  --radius: 20px;
+}
+
+/* shadcn's --accent (a hover tint) and the home page's ink stars, only where the utilities run. */
+:root:has(.ui-home),
+.ui-home,
+.ui-app {
+  --accent: #e9e3ff;
+  --accent-foreground: #1b1530;
+}
+:root:has(.ui-home),
+.ui-home {
+  --star: #1b1530;
+  --star-off: rgb(27 21 48 / 0.2);
+}
+
 /* Neutrals, dark: the tints' deep counterparts. */
 :root.dark:has(.ui-home),
-.dark .ui-home {
+.dark .ui-home,
+:root.dark:has(.admin-root),
+.dark .admin-root {
   --background: #121019;
   --foreground: #f1eefc;
   --card: #1a1724;
@@ -190,18 +236,25 @@
   --secondary-foreground: #f1eefc;
   --muted: #221e30;
   --muted-foreground: #aaa3c2;
-  --accent: #2a2245;
-  --accent-foreground: #f1eefc;
   --border: #2e2940;
   --input: #3a3450;
-  --star: #ffd166;
-  --star-off: rgb(255 255 255 / 0.2);
   --tint-1: #2a2245;
   --tint-2: #173329;
   --tint-3: #3a2419;
   --tint-4: #35300f;
   --tint-5: #17283f;
   color-scheme: dark;
+}
+:root.dark:has(.ui-home),
+.dark .ui-home,
+.dark .ui-app {
+  --accent: #2a2245;
+  --accent-foreground: #f1eefc;
+}
+:root.dark:has(.ui-home),
+.dark .ui-home {
+  --star: #ffd166;
+  --star-off: rgb(255 255 255 / 0.2);
 }
 
 /*

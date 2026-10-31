@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, type KeyboardEvent, type ReactNode } from "react";
+import { useId, useLayoutEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { isRowKey, nextIndex } from "./keys";
 import "@/app/admin/admin-kit.css";
 
@@ -29,6 +29,23 @@ export function Tabs({ label, tabs, value, onChange, children, testId }: TabsPro
   const panelId = `${base}-panel`;
   // A stale value still leaves one tab reachable by Tab.
   const selected = tabs.some((t) => t.id === value && !t.disabled) ? value : tabs.find((t) => !t.disabled)?.id;
+
+  // One underline that slides to the selected tab (admin-kit.css draws it from these two values).
+  useLayoutEffect(() => {
+    const row = list.current;
+    if (!row) return;
+    const place = () => {
+      const tab = row.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+      if (!tab) return row.removeAttribute("data-indicator");
+      row.style.setProperty("--ak-ind-x", `${tab.offsetLeft}px`);
+      row.style.setProperty("--ak-ind-w", `${tab.offsetWidth}px`);
+      row.setAttribute("data-indicator", "");
+    };
+    place();
+    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(place);
+    ro?.observe(row);
+    return () => ro?.disconnect();
+  }, [selected, tabs]);
 
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     if (e.altKey || e.ctrlKey || e.metaKey || !isRowKey(e.key) || e.key === "ArrowUp" || e.key === "ArrowDown") return;

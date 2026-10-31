@@ -1,15 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 export function ConfirmLink({ token, label }: { token: string; label: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   return (
     <>
-      <button
+      <Button
         type="button"
-        className="lg block"
+        className="w-full"
         disabled={busy}
         onClick={async () => {
           setBusy(true);
@@ -28,7 +29,7 @@ export function ConfirmLink({ token, label }: { token: string; label: string }) 
         }}
       >
         {busy ? "Signing in…" : label}
-      </button>
+      </Button>
       {error && (
         <p className="error" role="alert">
           {error}

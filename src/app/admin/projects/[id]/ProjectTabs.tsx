@@ -4,7 +4,8 @@ import { type Feature, featureOn } from "@/lib/features";
 // New sections are appended, so the first three still fit a phone screen
 // (the nav scrolls sideways for the rest), and each waits for its feature flag.
 // Project settings has no flag of its own; it goes live with forms. Each page
-// calls requireFeature() with the same flag.
+// calls requireFeature() with the same flag. The app shell's sidebar lists the
+// same sections (projectSections), so the two never disagree.
 const TABS = [
   { id: "testimonials", label: "Testimonials", path: "" },
   { id: "requests", label: "Requests", path: "/requests" },
@@ -26,11 +27,16 @@ const TABS = [
 
 export type ProjectTab = (typeof TABS)[number]["id"];
 
+/** The sections whose feature is on, in order: for the sidebar (src/app/admin/AppBar.tsx). */
+export function projectSections(): { id: ProjectTab; label: string; path: string }[] {
+  return TABS.filter((t) => !("feature" in t) || featureOn(t.feature)).map(({ id, label, path }) => ({ id, label, path }));
+}
+
 /** Section navigation shared by a project's admin pages. */
 export function ProjectTabs({ projectId, active }: { projectId: string; active: ProjectTab }) {
   return (
     <nav className="project-tabs" aria-label="Project sections">
-      {TABS.filter((t) => !("feature" in t) || featureOn(t.feature)).map((t) => (
+      {projectSections().map((t) => (
         <Link
           key={t.id}
           href={`/admin/projects/${projectId}${t.path}`}
