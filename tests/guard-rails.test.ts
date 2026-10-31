@@ -13,6 +13,7 @@ import {
   type Manifest,
 } from "../scripts/check-ownership.mjs";
 import { coverage, requirementsFor, testTitles } from "../scripts/req-coverage.mjs";
+import { PROJECT_SEGMENTS } from "@/lib/access";
 
 /** The process scripts from WP1.0: who may change what, and which requirements have tests. */
 
@@ -247,6 +248,22 @@ describe("TEAM-01 role guards", () => {
     for (const route of ["PUT projects/[id]/stripe", "DELETE projects/[id]/stripe", "DELETE projects/[id]/purchases"]) {
       expect(levels.get(route), route).toBe("admin");
     }
+  });
+});
+
+describe("TEAM-01 project checks for objects named in the path", () => {
+  it("TEAM-01 every /api/admin/<object>/[id] route open to editors or viewers finds the object's project (B-01)", () => {
+    const files = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "src/app/api/admin"], { cwd: ROOT, encoding: "utf8" }).split("\n").filter((f) => f.endsWith("/route.ts"));
+    const unchecked = new Set<string>();
+    for (const file of files) {
+      const m = /^src\/app\/api\/admin\/([^/[]+)\/\[[^\]]+\]\//.exec(file);
+      if (!m) continue;
+      const src = fs.readFileSync(path.join(ROOT, file), "utf8");
+      const open = [...src.matchAll(/requireRole\(req, "(viewer|editor)"\)/g)].length > 0;
+      // jobs/[id] checks the job's own project (L19); analytics/[type]/[id] has its own lookup.
+      if (open && !["jobs", "analytics"].includes(m[1]) && !PROJECT_SEGMENTS.includes(m[1])) unchecked.add(m[1]);
+    }
+    expect([...unchecked]).toEqual([]);
   });
 });
 

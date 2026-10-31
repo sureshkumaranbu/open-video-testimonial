@@ -5,11 +5,14 @@ import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { GET as jobRoute } from "@/app/api/admin/jobs/[id]/route";
 import { GET as media } from "@/app/api/media/[...key]/route";
+import { DELETE as deleteAssetRoute } from "@/app/api/admin/share-assets/[assetId]/route";
+import { DELETE as deleteTemplateRoute, PATCH as patchTemplateRoute } from "@/app/api/admin/share-templates/[templateId]/route";
 import { POST as teamInvite } from "@/app/api/admin/team/route";
 import { getDb, schema } from "@/db";
 import { createApiKey } from "@/lib/api-keys";
 import { createSessionToken, sessionCookieName } from "@/lib/auth";
 import { enqueue } from "@/lib/jobs";
+import { addAsset, createShareTemplate, getAsset, getShareTemplate } from "@/lib/share/store";
 import { saveFile } from "@/lib/storage";
 import { createProject, createTestimonial, mediaProjectIds, mediaProjectsQuery, updateTestimonial } from "@/lib/testimonials";
 import { ADMIN_EMAIL, adminHeaders, params, PNG_BYTES, useTempDataDir, WEBM_BYTES } from "./helpers";
@@ -167,5 +170,22 @@ describe("L19 job progress follows project access", () => {
     expect((await poll(loose, cookieOf("ed@example.com"))).status).toBe(404);
     expect((await poll(loose, cookieOf("ann@example.com"))).status).toBe(200);
     expect((await poll(loose, {})).status).toBe(401);
+  });
+});
+
+describe("TEAM-01 image studio objects follow project access", () => {
+  it("TEAM-01 an editor limited to one project can't rename or delete another project's saved templates or uploads (B-01)", async () => {
+    await invite("ed@example.com", "editor", [a.id]);
+    const theirs = createShareTemplate(b.id, "Theirs", {});
+    const mine = createShareTemplate(a.id, "Mine", {});
+    const asset = await addAsset(b.id, "logo", new File([PNG_BYTES], "logo.png", { type: "image/png" }));
+    const ed = { ...cookieOf("ed@example.com"), "content-type": "application/json" };
+    const patch = (id: string) => patchTemplateRoute(new Request(`http://localhost/api/admin/share-templates/${id}`, { method: "PATCH", headers: ed, body: JSON.stringify({ name: "Hijacked" }) }), params({ templateId: id }));
+    expect((await patch(theirs.id)).status).toBe(403);
+    expect((await deleteTemplateRoute(new Request(`http://localhost/api/admin/share-templates/${theirs.id}`, { method: "DELETE", headers: ed }), params({ templateId: theirs.id }))).status).toBe(403);
+    expect((await deleteAssetRoute(new Request(`http://localhost/api/admin/share-assets/${asset.id}`, { method: "DELETE", headers: ed }), params({ assetId: asset.id }))).status).toBe(403);
+    expect(getShareTemplate(theirs.id)?.name).toBe("Theirs");
+    expect(getAsset(asset.id)).not.toBeNull();
+    expect((await patch(mine.id)).status).toBe(200);
   });
 });

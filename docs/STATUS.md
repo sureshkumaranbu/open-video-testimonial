@@ -33,6 +33,7 @@ Everything else is built and tested here. These need your accounts, your devices
 | Open PRs | None |
 | Tests | 1,183 unit tests pass on `main` (10 skipped, including the MinIO tests, which run in CI). Requirement coverage: 112 of 112. Migrations 0000–0022 are pinned as released. The M16–M18 and leftovers e2e pass in Chromium locally with the data, API, settings and onboarding specs; the full Chromium and WebKit suites, and the suite against the Docker image, run in CI |
 | Local demo | `plaudit-v1-demo` in `Development/.claude/launch.json`, http://127.0.0.1:3300 |
+| Bug sweep | [BUG-SWEEP.md](BUG-SWEEP.md): every workflow run against a built server on 2026-10-30, with the bugs found, their fixes and the ones that need a decision |
 
 ## Phase 1: "Parity core" (P0). Done.
 

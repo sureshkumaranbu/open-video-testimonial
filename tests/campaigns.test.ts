@@ -340,6 +340,16 @@ describe("tracking", () => {
     expect((await clickRoute(new Request("http://localhost/r/x"), params({ token: `${r.id}.forged` }))).status).toBe(404);
   });
 
+  it("REQ-04 a broken link answers with a readable page like the other email links, not bare text (B-02)", async () => {
+    const res = await clickRoute(new Request("http://localhost/r/x"), params({ token: "not-a-token" }));
+    expect(res.status).toBe(404);
+    expect(res.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    const html = await res.text();
+    expect(html).toContain('<meta name="viewport" content="width=device-width, initial-scale=1">');
+    expect(html).toContain("<h1>Link not found</h1>");
+    expect(html).toContain("This link isn&#39;t valid. Check that you copied all of it.");
+  });
+
   it("REQ-04 opening the form with the token counts as started; submitting marks it responded", async () => {
     const { r } = await sentRecipient();
     const project = getProjectById(projectId)!;

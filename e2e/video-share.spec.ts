@@ -148,6 +148,8 @@ test("WALL-04 SHARE-03 a testimonial's own page: quote, person, CTA, share links
   const card = page.getByTestId("testimonial-page");
   await expect(card).toContainText("Plaudit made collecting stories easy.");
   await expect(card).toContainText("Pia Page");
+  // B-03: a quote without a headline still gives the page its one heading.
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(`Pia Page on Page ${RUN}`);
   await expect(page.getByTestId("tp-cta")).toHaveAttribute("href", `/wall/${p.slug}`);
   expect(await page.content()).not.toContain("pia@example.com");
   const x = await page.getByTestId("share-x").getAttribute("href");

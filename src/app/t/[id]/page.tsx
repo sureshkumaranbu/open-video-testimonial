@@ -98,15 +98,17 @@ export default async function TestimonialPage(props: Props) {
             </video>
           )}
           {item.rating ? <Stars rating={item.rating} label={`Rated ${item.rating} out of 5`} /> : null}
-          {item.extra.headline && <h1 className="tp-headline">{item.extra.headline}</h1>}
-          {item.text ? (
+          {item.extra.headline ? (
+            <h1 className="tp-headline">{item.extra.headline}</h1>
+          ) : (
+            <h1 className="visually-hidden">{`${item.name} on ${project.name}`}</h1>
+          )}
+          {item.text && (
             <blockquote className="tp-quote">
               <p>
                 <Highlighted text={item.text} marks={item.extra.highlights} />
               </p>
             </blockquote>
-          ) : (
-            !item.extra.headline && <h1 className="visually-hidden">{`${item.name} on ${project.name}`}</h1>
           )}
           {v?.transcript && (
             <details className="tp-transcript">
