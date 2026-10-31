@@ -2016,12 +2016,24 @@ textarea.mono {
   flex-direction: column;
   gap: var(--space-3);
 }
+/* A timeline: a hairline rail with a dot per event (a withdrawal's dot is red, and its text says so). */
 .consent-events li {
-  border-left: 3px solid var(--line-strong);
-  padding-left: var(--space-3);
+  position: relative;
+  border-left: 1px solid var(--line-strong);
+  padding-left: var(--space-4);
 }
-.consent-events li[data-type="withdrawn"] {
-  border-color: var(--danger);
+.consent-events li::before {
+  content: "";
+  position: absolute;
+  top: 0.45em;
+  left: -4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--line-strong);
+}
+.consent-events li[data-type="withdrawn"]::before {
+  background: var(--danger);
 }
 .consent-events blockquote {
   margin: var(--space-1) 0 0;
