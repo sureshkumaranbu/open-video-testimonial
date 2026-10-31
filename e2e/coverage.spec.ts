@@ -494,7 +494,8 @@ test.describe("home page", () => {
       // Open a FAQ answer so its text is checked too.
       await page.getByTestId("faq").getByRole("button").first().click();
       const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
-      expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
+      // Each node with axe's own reason (for contrast: the colours it measured), so a failure says why.
+      expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => `${n.target.join(" ")} (${n.any[0]?.message ?? n.failureSummary ?? ""})`).join("; ")}`)).toEqual([]);
     });
   }
 
