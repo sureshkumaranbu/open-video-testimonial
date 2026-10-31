@@ -164,9 +164,11 @@
   }
 }
 
-.project-tile:hover {
-  box-shadow: var(--shadow-2);
-  border-color: color-mix(in srgb, var(--project, var(--primary)) 40%, var(--border));
+@media (hover: hover) {
+  .project-tile:hover {
+    box-shadow: var(--shadow-2);
+    border-color: color-mix(in srgb, var(--project, var(--primary)) 40%, var(--border));
+  }
 }
 
 .project-tile:has(.project-tile-link:focus-visible) {

@@ -166,7 +166,6 @@ function ProjectSwitcher({
         <button
           type="button"
           data-testid="project-switcher"
-          aria-label={current ? `Switch project (now ${current.name})` : "Choose a project"}
           className={cn(
             "group flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-2xl border border-border bg-background px-2 text-left transition-[border-color,background-color,box-shadow] duration-150 ease-out lg:min-h-12",
             "hover:border-input hover:bg-card data-[state=open]:border-input data-[state=open]:bg-card data-[state=open]:shadow-tile",
@@ -181,6 +180,7 @@ function ProjectSwitcher({
             </span>
           )}
           <span className="min-w-0 flex-1 collapsed:sr-only">
+            {current && <span className="sr-only">Switch project: </span>}
             <span className="block truncate text-sm font-semibold text-foreground">{current ? current.name : "Choose a project"}</span>
             <span className="block truncate text-xs text-muted-foreground">
               {current ? `/${current.slug}` : `${projects.length} ${projects.length === 1 ? "project" : "projects"}`}
@@ -260,7 +260,7 @@ function SidebarBody({
     <>
       {variant === "rail" && (
         <div className="flex h-15 shrink-0 items-center px-5 collapsed:justify-center collapsed:px-0">
-          <Link href="/admin" aria-label="Plaudit, all projects" className="inline-flex min-h-11 items-center rounded-md px-1">
+          <Link href="/admin" aria-label="Plaudit dashboard" className="inline-flex min-h-11 items-center rounded-md px-1">
             <span className="collapsed:hidden">
               <Wordmark />
             </span>

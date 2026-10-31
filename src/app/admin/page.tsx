@@ -60,15 +60,14 @@ function ProjectCard({ p, widgets }: { p: HomeProject; widgets: boolean }) {
         >
           {p.name.trim().charAt(0).toUpperCase()}
         </span>
-        <div className="min-w-0 flex-1">
-          <h3 className="truncate text-base leading-snug font-semibold tracking-tight text-foreground">
-            {/* The title's link covers the whole card; the quick links sit above it. */}
-            <Link href={`/admin/projects/${p.id}`} className="project-tile-link after:absolute after:inset-0 after:rounded-2xl after:content-['']">
-              {p.name}
-            </Link>
-          </h3>
+        {/* The link (name and address) covers the whole card; the quick links sit above it. */}
+        <Link
+          href={`/admin/projects/${p.id}`}
+          className="project-tile-link block min-w-0 flex-1 after:absolute after:inset-0 after:rounded-2xl after:content-['']"
+        >
+          <h3 className="truncate text-base leading-snug font-semibold tracking-tight text-foreground">{p.name}</h3>
           <p className="truncate font-mono text-xs text-muted-foreground">/{p.slug}</p>
-        </div>
+        </Link>
         {pending > 0 && (
           <span className="inline-flex h-6 shrink-0 items-center rounded-full bg-[var(--warn-soft)] px-2.5 text-xs font-bold text-[var(--warn)] tabular-nums">
             {pending} new
@@ -191,7 +190,7 @@ export default async function AdminHome() {
                 href={`/admin/projects/${busiest.id}`}
                 className="group inline-flex h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-bold text-primary-foreground transition-[translate,scale,box-shadow] duration-200 ease-out hover:shadow-lift motion-safe:hover:-translate-y-0.5 motion-safe:active:scale-[0.97]"
               >
-                Review {busiest.name}
+                Start reviewing
                 <ArrowRightIcon aria-hidden className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-0.5" />
               </Link>
             )}
