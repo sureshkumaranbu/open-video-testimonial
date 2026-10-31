@@ -21,6 +21,7 @@ import {
   formDesignSchema,
   formLabelsSchema,
   formPagesSchema,
+  withPageIds,
   formSettingsSchema,
   parseFormRow,
   type AutoApproveRule,
@@ -72,7 +73,8 @@ const configSchema = z.object({ pages: formPagesSchema, design: formDesignSchema
 function checkConfig(parts: ConfigParts): ConfigParts {
   const parsed = configSchema.safeParse(parts);
   if (!parsed.success) throw new FormError(400, firstIssue(parsed.error));
-  return parsed.data;
+  // B-06: every page is saved with its stable key.
+  return { ...parsed.data, pages: withPageIds(parsed.data.pages) };
 }
 
 const configColumns = (c: ConfigParts) => ({

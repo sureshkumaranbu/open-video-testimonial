@@ -1,4 +1,5 @@
 import { getBoosterBySlug, linkTarget, parseLinks, recordClick } from "@/lib/boosters";
+import { featureOn } from "@/lib/features";
 import { findProjectBySlugOrAlias } from "@/lib/projects";
 import { clientKey, rateLimit } from "@/lib/rate-limit";
 
@@ -21,7 +22,7 @@ const plain = (status: number, text: string) => new Response(text, { status, hea
  */
 export async function GET(req: Request, ctx: Ctx) {
   const { project: projectSlug, booster: boosterSlug, link: linkId } = await ctx.params;
-  const found = findProjectBySlugOrAlias(projectSlug);
+  const found = featureOn("booster") ? findProjectBySlugOrAlias(projectSlug) : null;
   const hit = found ? getBoosterBySlug(found.project.id, boosterSlug) : null;
   if (!found || !hit || !hit.booster.published) return plain(404, "Not found");
   const link = parseLinks(hit.booster.links).find((l) => l.id === linkId);

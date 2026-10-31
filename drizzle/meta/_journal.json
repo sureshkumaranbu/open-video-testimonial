@@ -162,6 +162,13 @@
       "when": 1793240852699,
       "tag": "0022_server_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1793380915726,
+      "tag": "0023_session_sign_out",
+      "breakpoints": true
     }
   ]
 }

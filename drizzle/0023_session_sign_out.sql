@@ -1,0 +1,1 @@
+ALTER TABLE `members` ADD `signed_out_at` integer;

@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { env } from "./env";
-import { roleFor } from "./members";
+import { roleFor, signedOutAt } from "./members";
 
 /**
  * Dashboard sessions. People sign in with the owner's password
@@ -44,9 +44,10 @@ export function checkCredentials(email: string, password: string) {
 /** A new session, with a fresh random id every time someone signs in. */
 export function createSessionToken(email: string, method: SignInMethod = "password", now = Date.now()) {
   const sid = crypto.randomBytes(12).toString("base64url");
-  const payload = Buffer.from(
-    JSON.stringify({ sub: email.trim().toLowerCase(), exp: now + SESSION_TTL_MS, sid, amr: method }),
-  ).toString("base64url");
+  const sub = email.trim().toLowerCase();
+  // B-05: issued after the person's last sign-out, even within the same millisecond.
+  const iat = Math.max(now, signedOutAt(sub) + 1);
+  const payload = Buffer.from(JSON.stringify({ sub, iat, exp: iat + SESSION_TTL_MS, sid, amr: method })).toString("base64url");
   return `${payload}.${sign(payload)}`;
 }
 
@@ -58,9 +59,11 @@ export function verifySessionToken(token: string | undefined | null, now = Date.
     const data = JSON.parse(Buffer.from(payload, "base64url").toString()) as {
       sub: string;
       exp: number;
+      iat?: number;
     };
     if (typeof data.exp !== "number" || data.exp < now) return null;
-    return { email: data.sub };
+    // Sessions from before B-05 carry no issue time: it's their expiry less the lifetime.
+    return { email: data.sub, issuedAt: typeof data.iat === "number" ? data.iat : data.exp - SESSION_TTL_MS };
   } catch {
     return null;
   }
@@ -91,10 +94,10 @@ export function readCookie(req: Request, name: string) {
   return undefined;
 }
 
-/** A valid session whose address may still sign in, with its role. */
+/** A valid session whose address may still sign in, with its role, issued after the person last signed out (B-05). */
 export function sessionFromToken(token: string | undefined | null) {
   const session = verifySessionToken(token);
-  if (!session) return null;
+  if (!session || session.issuedAt <= signedOutAt(session.email)) return null;
   const role = roleFor(session.email);
   return role ? { email: session.email, role } : null;
 }

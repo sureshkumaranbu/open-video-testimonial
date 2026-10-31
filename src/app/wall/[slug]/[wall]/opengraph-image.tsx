@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { featureOn } from "@/lib/features";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { findProjectBySlugOrAlias } from "@/lib/projects";
@@ -50,7 +51,7 @@ function Star({ on, color }: { on: boolean; color: string }) {
 
 export default async function Image({ params }: { params: Promise<{ slug: string; wall: string }> }) {
   const { slug, wall: wallSlug } = await params;
-  const found = findProjectBySlugOrAlias(slug);
+  const found = featureOn("walls") ? findProjectBySlugOrAlias(slug) : null;
   const hit = found && getWallBySlug(found.project.id, wallSlug);
   if (!found || !hit || !hit.wall.published) return new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
   const { project } = found;

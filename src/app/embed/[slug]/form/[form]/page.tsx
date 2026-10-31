@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { featureOn } from "@/lib/features";
 import { notFound, permanentRedirect } from "next/navigation";
 import { FormRunner } from "@/components/collect/FormRunner";
 import { getFormBySlug } from "@/lib/forms";
@@ -23,7 +24,7 @@ export const metadata: Metadata = { title: "Share your experience", robots: { in
 export default async function EmbedFormPage({ params, searchParams }: Props) {
   const { slug, form: formSlug } = await params;
   const query = await searchParams;
-  const found = findProjectBySlugOrAlias(slug);
+  const found = featureOn("forms") ? findProjectBySlugOrAlias(slug) : null;
   const form = found ? getFormBySlug(found.project.id, formSlug) : null;
   if (!found || !form) notFound();
   if (!found.canonical || form.redirectedFrom) {

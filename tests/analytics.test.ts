@@ -392,6 +392,61 @@ describe("forms, walls and snippets", () => {
     expect(r.funnel!.pages.at(-1)!.label).toMatch(/low ratings/);
   });
 
+  it("FORM-15 every page has a stable key that survives adding, moving and removing pages (B-06)", () => {
+    const form = createForm(projectId, { name: "Keys", slug: "keys" });
+    const before = parseFormRow(form).pages;
+    const ids = before.map((p) => p.id);
+    expect(ids.every((id) => typeof id === "string" && id.length > 0)).toBe(true);
+    expect(new Set(ids).size).toBe(ids.length);
+    // Add a question near the top (sent without a key, as the builder does), then move and remove pages.
+    const added = [before[0], { type: "question" as const, key: "extra", title: "Anything else?", required: false }, ...before.slice(1)];
+    const withExtra = parseFormRow(updateForm(form.id, { pages: added as never })!).pages;
+    expect(withExtra.filter((p) => p.id && ids.includes(p.id)).map((p) => p.id)).toEqual(ids);
+    const extraId = withExtra[1].id!;
+    expect(ids).not.toContain(extraId);
+    const moved = [...withExtra.slice(2, 4), withExtra[0], withExtra[1], ...withExtra.slice(4)];
+    const afterMove = parseFormRow(updateForm(form.id, { pages: moved })!).pages;
+    expect(afterMove.map((p) => p.id)).toEqual(moved.map((p) => p.id));
+    const removed = afterMove.filter((p) => p.id !== afterMove[0].id || p.type === "question");
+    const afterRemove = parseFormRow(updateForm(form.id, { pages: removed })!).pages;
+    expect(afterRemove.map((p) => p.id)).toEqual(removed.map((p) => p.id));
+    // A page sent back without its key (an API client) keeps the same one.
+    const stripped = afterRemove.map(({ id: _id, ...p }) => p);
+    expect(parseFormRow(updateForm(form.id, { pages: stripped as never })!).pages.map((p) => p.id)).toEqual(afterRemove.map((p) => p.id));
+  });
+
+  it("FORM-15 the drop-off chart counts by page key, so adding a page keeps every page's visitors on it (B-06)", async () => {
+    const form = createForm(projectId, { name: "Edited", slug: "edited" });
+    const pages = parseFormRow(form).pages;
+    const rating = pages.find((p) => p.type === "rating")!;
+    const primary = pages.find((p) => p.type === "question" && p.primary)!;
+    for (const ip of ["198.51.100.1", "198.51.100.2"]) await collect({ t: "form", id: form.id, k: "step", p: rating.id }, { ip });
+    await collect({ t: "form", id: form.id, k: "step", p: primary.id }, { ip: "198.51.100.1" });
+    // The owner adds an NPS question right after the rating.
+    const nps = { type: "nps" as const, key: "nps", title: "How likely are you to recommend us?" };
+    updateForm(form.id, { pages: [pages[0], nps, ...pages.slice(1)] as never });
+    const r = objectReport("form", form.id, projectId, parseRange(null, null));
+    const visitors = (re: RegExp) => r.funnel!.pages.find((p) => re.test(p.label))!.visitors;
+    expect(visitors(/Rating/)).toBe(2);
+    expect(visitors(/NPS question/)).toBe(0);
+    expect(visitors(new RegExp(primary.type === "question" ? primary.title.slice(0, 12) : "x"))).toBe(1);
+    expect(r.funnel!.byPositionUntil).toBeNull();
+  });
+
+  it("FORM-15 counts from before page keys stay by position, with a note saying so (B-06)", async () => {
+    const form = createForm(projectId, { name: "Old", slug: "old" });
+    const pages = parseFormRow(form).pages;
+    const at = new Date(Date.now() - 3 * 86_400_000);
+    seedEvents([
+      { type: "form", id: form.id, metric: "step", dim: "0", visitor: "a", at },
+      { type: "form", id: form.id, metric: "step", dim: "0", visitor: "b", at },
+    ]);
+    await collect({ t: "form", id: form.id, k: "step", p: pages[0].id }, { ip: "198.51.100.3" });
+    const r = objectReport("form", form.id, projectId, parseRange(null, null));
+    expect(r.funnel!.pages[0].visitors).toBe(3);
+    expect(r.funnel!.byPositionUntil).toBe(utcDay(at));
+  });
+
   it("FORM-15 the classic form counts its completions on the server (its views are counted as the page renders)", async () => {
     const res = await legacySubmit(submitRequest("acme", submissionForm({ name: "Ada", consent: "on", text: "Great." })), params({ slug: "acme" }));
     expect(res.status).toBe(201);

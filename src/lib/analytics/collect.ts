@@ -237,11 +237,14 @@ const empty = (status: number) => new Response(null, { status, headers: BEACON_H
 export const widgetBeacon = z.object({ k: z.enum(["view", "play", "more", "source", "cta", "rm", "src", "b", "bd"]), u: z.string().max(4096).optional() });
 const WIDGET_KIND: Record<z.infer<typeof widgetBeacon>["k"], AnalyticsMetric> = { view: "view", play: "play", more: "more", source: "source", cta: "cta", rm: "more", src: "source", b: "cta", bd: "cta" };
 
-/** Walls, step-by-step forms and testimonial pages: `{t, id, k}`, plus the form page's index `s` for "step". */
+/**
+ * Walls, step-by-step forms and testimonial pages: `{t, id, k}`, plus for a form's "step" the page's
+ * stable key `p` (B-06), or its index `s` as runners from before page keys send it.
+ */
 export const pageBeacon = z.discriminatedUnion("t", [
   z.object({ t: z.literal("wall"), id: z.string().max(64), k: z.enum(["view", "cta", "link"]) }),
   z.object({ t: z.literal("testimonial"), id: z.string().max(64), k: z.enum(["view", "cta", "share"]) }),
-  z.object({ t: z.literal("form"), id: z.string().max(64), k: z.enum(["view", "start", "step"]), s: z.number().int().min(0).max(99).optional() }),
+  z.object({ t: z.literal("form"), id: z.string().max(64), k: z.enum(["view", "start", "step"]), s: z.number().int().min(0).max(99).optional(), p: z.string().regex(/^[a-z][a-z0-9_:-]{0,60}$/).optional() }),
 ]);
 
 /** The body as text, or null once it passes `max` bytes (it stops reading there, even without a Content-Length). */
@@ -313,7 +316,8 @@ export async function pageBeaconResponse(req: Request): Promise<Response> {
   if (!body) return empty(204);
   const projectId = objectProject(body.t, body.id);
   if (!projectId) return empty(204);
-  const dim = body.t === "form" && body.k === "step" ? String(body.s ?? 0) : "";
+  // A page key starts with a letter, so it never mixes with the older position counts ("0", "1"…).
+  const dim = body.t === "form" && body.k === "step" ? (body.p ?? String(body.s ?? 0)) : "";
   recordEvent({ projectId, type: body.t, id: body.id, metric: body.k, dim, ip: clientIpFrom(req.headers), ua: ua(req) });
   return empty(204);
 }

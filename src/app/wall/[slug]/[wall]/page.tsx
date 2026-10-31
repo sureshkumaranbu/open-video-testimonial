@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { featureOn } from "@/lib/features";
 import { notFound, permanentRedirect } from "next/navigation";
 import { WallView } from "@/components/WallView";
 import { env } from "@/lib/env";
@@ -14,6 +15,8 @@ type Props = {
 
 /** A published wall, following old project and wall links. Drafts are null (so 404). */
 function resolve(slug: string, wallSlug: string) {
+  // B-04: with the walls flag off, named walls are a 404 like /t/.
+  if (!featureOn("walls")) return null;
   const found = findProjectBySlugOrAlias(slug);
   if (!found) return null;
   const hit = getWallBySlug(found.project.id, wallSlug);
