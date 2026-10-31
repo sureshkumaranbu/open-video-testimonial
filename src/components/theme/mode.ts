@@ -4,9 +4,11 @@ import { useSyncExternalStore } from "react";
 import { MODE_KEY, MODES, type Mode } from "@/lib/themes";
 
 /**
- * The visitor's light/dark/system choice. boot.ts applies it before first
- * paint; this keeps it in sync afterwards (the toggle, other tabs, and the
- * system setting while "system" is chosen).
+ * The visitor's light/dark/system choice, shared by the home page and the
+ * dashboard. Their boot scripts (src/app/_home/boot.ts and
+ * src/app/admin/_shell/boot.ts) apply it before first paint; this keeps it in
+ * sync afterwards (the toggle, other tabs, and the system setting while
+ * "system" is chosen).
  */
 
 const listeners = new Set<() => void>();

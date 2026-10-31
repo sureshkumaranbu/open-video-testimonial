@@ -8,7 +8,7 @@ import { MODES, type Mode } from "@/lib/themes";
 import { cn } from "@/lib/utils";
 import { GitHubMark, Wordmark } from "./bits";
 import { DASHBOARD, NAV, REPO } from "./content";
-import { setMode, useMode } from "./mode";
+import { setMode, useMode } from "@/components/theme/mode";
 
 /** One button: light ↔ dark. The three-way choice (with "system") is in the menu and the footer. */
 export function ModeToggle({ className }: { className?: string }) {

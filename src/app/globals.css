@@ -93,6 +93,98 @@
   color-scheme: light;
 }
 
+/* Previews of public pages inside the dashboard (the form builder's FormRunner,
+ * the wall editor's WallView) keep the public palette above, whatever the
+ * dashboard's theme. Same values as :root (tests/theme-parity.test.ts checks). */
+:where(.admin-root) :is([data-theme], [data-wall-theme]) {
+  /* Colour */
+  --paper: #f6f7f9;
+  --paper-2: #edeff3;
+  --surface: #ffffff;
+  --surface-2: #f9fafb;
+  --ink: #161b2e;
+  --ink-2: #545c70;
+  --ink-3: #868d9e;
+  --line: #e3e6ec;
+  --line-strong: #cdd2db;
+  --rec: #e2463f;
+  --rec-soft: #fdeceb;
+  --star: #f2a93b;
+  --star-off: #dfe2e8;
+  --ok: #1f8a5b;
+  --ok-soft: #e4f3eb;
+  --warn: #9a5b00;
+  --warn-soft: #fff1d6;
+  --danger: #c0352d;
+  --danger-soft: #fbe9e7;
+  --focus: #3d63dd;
+  --accent: #161b2e;
+  --on-accent: #ffffff;
+  --stage: #0d1020;
+  /* Phase 1: informational notes, highlighted phrases (INBOX-08), and the shade behind drawers and dialogs. */
+  --info: #2f5bd3;
+  --info-soft: #e8eefc;
+  --highlight: #fff0a8;
+  --highlight-ink: #4a3b00;
+  --scrim: rgb(13 16 32 / 0.48);
+
+  /* Type */
+  --font-ui: var(--font-schibsted), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-voice: var(--font-newsreader), "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --text-xs: 0.8125rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: clamp(2rem, 1.4rem + 2.4vw, 2.75rem);
+  --text-display: clamp(2.5rem, 1.5rem + 4.6vw, 4.5rem);
+
+  /* Space (4pt) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+
+  /* Shape and depth */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 26px;
+  --radius-pill: 999px;
+  --shadow-1: 0 1px 0 rgb(22 27 46 / 0.04), 0 1px 3px rgb(22 27 46 / 0.06);
+  --shadow-2: 0 1px 0 rgb(22 27 46 / 0.04), 0 8px 24px -6px rgb(22 27 46 / 0.12);
+  --shadow-3: 0 2px 0 rgb(22 27 46 / 0.03), 0 24px 60px -18px rgb(22 27 46 / 0.28);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 420ms;
+
+  /* Layers and panels (admin kit: drawer, modal, toast) */
+  --z-sticky: 10;
+  --z-drawer: 40;
+  --z-modal: 50;
+  --z-toast: 60;
+  --drawer-width: min(560px, 100vw);
+  --modal-width: min(520px, calc(100vw - 2 * var(--space-4)));
+  /* Smallest comfortable touch target (WCAG 2.2 asks for 24px; 44px is the house rule). */
+  --tap-size: 44px;
+
+  color-scheme: light;
+  font-family: var(--font-ui);
+}
+
 [data-theme="dark"] {
   --paper: #0f1220;
   --paper-2: #151929;
@@ -122,6 +214,86 @@
 
 /* Re-resolve the text colour wherever a theme is applied below the root. */
 [data-theme] {
+  color: var(--ink);
+}
+
+/* ---------- The dashboard on the theme (docs/THEMING.md) ----------
+ * Every dashboard page sits in `.admin-root` (src/app/admin/layout.tsx). There
+ * the tokens above derive from theme.css's: the Wall of love palette, the
+ * brand from PLAUDIT_THEME (<html data-brand>), and light or dark from the
+ * `.dark` class on <html> (the visitor's choice, applied before paint by
+ * src/app/admin/_shell/boot.ts). Public pages never have `.admin-root`, so
+ * they keep the values above. Status colours stay semantic; --ok and --ink-3
+ * are a shade deeper here (and the status colours lighter in dark mode) so
+ * text in them keeps 4.5:1 on these grounds. --accent is the brand in the
+ * dashboard; a project's own colour still overrides it where a page sets it
+ * (accentStyle), as on the public pages. */
+:root:has(.admin-root),
+.admin-root {
+  --paper: var(--background);
+  --paper-2: var(--muted);
+  --surface: var(--card);
+  --surface-2: var(--background);
+  --ink: var(--foreground);
+  --ink-2: var(--muted-foreground);
+  --ink-3: #686180;
+  --line: var(--border);
+  --line-strong: var(--input);
+  --focus: var(--ring);
+  --accent: var(--primary);
+  --on-accent: var(--primary-foreground);
+  --stage: #16122a;
+  --ok: #1a7a50;
+  --on-ok: #ffffff;
+  --on-danger: #ffffff;
+  --scrim: rgb(18 16 25 / 0.46);
+  --text-3xl: 1.875rem;
+  --radius-sm: calc(var(--radius) * 0.4);
+  --radius-md: calc(var(--radius) * 0.6);
+  --radius-lg: calc(var(--radius) * 0.8);
+  --radius-xl: var(--radius);
+  --shadow-1: 0 1px 2px color-mix(in srgb, var(--foreground) 5%, transparent);
+  --shadow-2: 0 1px 2px color-mix(in srgb, var(--foreground) 5%, transparent),
+    0 12px 28px -14px color-mix(in srgb, var(--foreground) 24%, transparent);
+  --shadow-3: 0 2px 4px color-mix(in srgb, var(--foreground) 6%, transparent),
+    0 28px 56px -22px color-mix(in srgb, var(--foreground) 34%, transparent);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  /* A little overshoot, for things that snap into place (the toggle's thumb). */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-base: 200ms;
+  --dur-slow: 360ms;
+}
+
+:root.dark:has(.admin-root),
+.dark .admin-root {
+  --ink-3: #948dac;
+  --stage: #0b0912;
+  --star-off: #3a3450;
+  --rec-soft: #3a1a1c;
+  --ok: #4cc38a;
+  --ok-soft: #12291f;
+  --on-ok: #121019;
+  --warn: #f0b252;
+  --warn-soft: #2e2412;
+  --danger: #ff7a70;
+  --danger-soft: #34191a;
+  --on-danger: #121019;
+  --info: #8aa8ff;
+  --info-soft: #18213d;
+  --highlight: #4d4216;
+  --highlight-ink: #fff3c4;
+  --scrim: rgb(0 0 0 / 0.62);
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-2: 0 1px 2px rgb(0 0 0 / 0.3), 0 12px 28px -12px rgb(0 0 0 / 0.55);
+  --shadow-3: 0 2px 4px rgb(0 0 0 / 0.3), 0 28px 56px -20px rgb(0 0 0 / 0.7);
+}
+
+/* The wrapper adds no box; the font is set on it so everything inside inherits it. */
+.admin-root {
+  display: contents;
+  --font-ui: var(--font-bricolage), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-ui);
+  font-optical-sizing: auto;
   color: var(--ink);
 }
 
@@ -187,7 +359,7 @@ video {
   max-width: 100%;
 }
 
-:focus-visible {
+:focus-visible:where(:not(.admin-root *)) {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
   border-radius: 4px;
@@ -1544,87 +1716,11 @@ pre {
 
 /* ---------- Admin ---------- */
 
-.app-bar {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: color-mix(in srgb, var(--paper) 82%, transparent);
-  backdrop-filter: saturate(1.4) blur(12px);
-  border-bottom: 1px solid var(--line);
-}
-
-.app-bar .container {
-  padding-top: var(--space-3);
-  padding-bottom: var(--space-3);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
-.crumbs {
-  flex: 1 1 auto;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--ink-3);
-  font-size: var(--text-sm);
-  min-width: 0;
-  overflow: hidden;
-}
-
-.crumb {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  white-space: nowrap;
-}
-
-/* Long names shorten with an ellipsis instead of running into the actions. */
-.crumb > :last-child {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.crumb-here {
-  color: var(--ink);
-  font-weight: 600;
-}
-
-.crumbs .brand {
-  flex: none;
-}
-
-.app-bar-actions {
-  flex: none;
-  display: flex;
-  gap: var(--space-2);
-}
-
+/* Short labels that give way to their icon on phones (the pager's Previous and Next). */
 @media (max-width: 560px) {
-  /* Phones: just the current page, and icon-only actions. */
-  .crumb:not(.current) {
-    display: none;
-  }
   .hide-narrow {
     display: none;
   }
-  .app-bar-actions .small {
-    width: 40px;
-    padding: 0;
-    justify-content: center;
-  }
-}
-
-.crumbs a {
-  text-decoration: none;
-  color: var(--ink-2);
-}
-
-.crumbs a:hover {
-  color: var(--ink);
 }
 
 .page-head {
@@ -1847,72 +1943,6 @@ pre {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* ---------- Sign in ---------- */
-
-.signin {
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-}
-
-.signin-art {
-  background: radial-gradient(120% 90% at 20% 0%, #2a3150 0%, var(--stage) 65%);
-  color: #f2f4fa;
-  padding: var(--space-12);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.signin-art .brand {
-  color: #ffffff;
-}
-
-.signin-art blockquote {
-  margin: 0;
-  font-family: var(--font-voice);
-  font-size: clamp(1.5rem, 1rem + 1.6vw, 2.25rem);
-  line-height: 1.25;
-  max-width: 20ch;
-}
-
-.signin-main {
-  display: grid;
-  place-items: center;
-  padding: var(--space-8) var(--space-5);
-}
-
-.signin-form {
-  width: 100%;
-  max-width: 380px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-}
-
-/* "or …" between sign-in methods. */
-.divider {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin: 0;
-}
-.divider::before,
-.divider::after {
-  content: "";
-  flex: 1;
-  border-top: 1px solid var(--line);
-}
-
-@media (max-width: 860px) {
-  .signin {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .signin-art {
-    display: none;
-  }
 }
 
 /* ---------- Motion preferences ---------- */
@@ -2151,4 +2181,294 @@ ul.notes {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: var(--space-3);
+}
+
+/* ---------- Dashboard primitives (the Wall of love style) ----------
+ * The shared building blocks above, restyled for the dashboard only: inside
+ * `.admin-root`, and never inside a preview of a public page (the scope stops
+ * at [data-theme] and [data-wall-theme]), so the previews still match what
+ * customers see, nor in the redesigned parts (`.ui-app`, styled by their own
+ * utilities). Class names don't change; only how they look and move.
+ * Motion is short (150–250 ms) and explains state; with reduced motion the
+ * rule under "Motion preferences" turns every transition off. */
+@scope (.admin-root) to (:is([data-theme], [data-wall-theme], .ui-app)) {
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--primary) 24%, transparent);
+  }
+
+  h1 {
+    font-size: var(--text-3xl);
+    letter-spacing: -0.03em;
+    font-weight: 700;
+  }
+
+  h2,
+  h3 {
+    letter-spacing: -0.015em;
+  }
+
+  a {
+    text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+    transition: text-decoration-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+  }
+
+  a:hover {
+    text-decoration-color: currentColor;
+  }
+
+  /* Buttons: a small lift on hover and a press that scales down, for the solid
+     kinds; the quiet ones (ghost, tabs, chips, segments) only press. */
+  button,
+  .button {
+    font-weight: 600;
+    transition:
+      background-color var(--dur-base) var(--ease-out),
+      border-color var(--dur-base) var(--ease-out),
+      color var(--dur-base) var(--ease-out),
+      box-shadow var(--dur-base) var(--ease-out),
+      translate var(--dur-base) var(--ease-out),
+      scale var(--dur-fast) var(--ease-out);
+  }
+
+  :is(button, .button):not(.ghost, .danger, [role="tab"], [role="radio"], .ak-chip, .ak-icon-button, .segmented button, .star-input button, .ak-pager-numbers button, :disabled):hover {
+    translate: 0 -1px;
+    box-shadow: var(--shadow-2);
+  }
+
+  button:active:not(:disabled),
+  .button:active {
+    transform: none;
+    translate: 0 0;
+    scale: 0.97;
+  }
+
+  button:hover:not(:disabled),
+  .button:hover {
+    --btn-bg: color-mix(in srgb, var(--ink) 88%, var(--paper));
+  }
+
+  button.accent,
+  .button.accent {
+    --btn-bg: var(--primary);
+    --btn-fg: var(--primary-foreground);
+  }
+
+  button.accent:hover:not(:disabled),
+  .button.accent:hover {
+    --btn-bg: color-mix(in srgb, var(--primary) 90%, var(--foreground));
+  }
+
+  button.secondary,
+  .button.secondary {
+    --btn-bg: var(--surface);
+    --btn-fg: var(--ink);
+    --btn-border: var(--line-strong);
+  }
+
+  button.secondary:hover:not(:disabled),
+  .button.secondary:hover {
+    --btn-bg: var(--surface);
+    --btn-border: color-mix(in srgb, var(--primary) 45%, var(--line-strong));
+  }
+
+  button.ghost:hover:not(:disabled),
+  .button.ghost:hover {
+    --btn-bg: var(--paper-2);
+    --btn-fg: var(--ink);
+  }
+
+  button.approve {
+    --btn-fg: var(--on-ok);
+  }
+
+  button.approve:hover:not(:disabled) {
+    --btn-bg: color-mix(in srgb, var(--ok) 88%, var(--foreground));
+  }
+
+  /* Fields: the brand's ring on focus, a hint of it on hover. */
+  input[type="text"],
+  input[type="email"],
+  input[type="number"],
+  input[type="url"],
+  input[type="password"],
+  input[type="search"],
+  input[type="date"],
+  input[type="datetime-local"],
+  input[type="time"],
+  textarea,
+  select {
+    border-color: var(--line-strong);
+    background-color: var(--surface);
+    border-radius: var(--radius-md);
+  }
+
+  :is(input[type="text"], input[type="email"], input[type="number"], input[type="url"], input[type="password"], textarea, select):hover:not(:disabled, :focus) {
+    border-color: color-mix(in srgb, var(--primary) 35%, var(--line-strong));
+  }
+
+  :is(input[type="text"], input[type="email"], input[type="number"], input[type="url"], input[type="password"], textarea, select):focus {
+    outline: none;
+    border-color: var(--ring);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--ring) 20%, transparent);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--ink-3);
+  }
+
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="range"],
+  progress {
+    accent-color: var(--primary);
+  }
+
+  .check input {
+    accent-color: var(--primary);
+  }
+
+  /* Cards and panels: a quiet edge and soft depth. */
+  .card,
+  .panel {
+    border-color: var(--line);
+    box-shadow: var(--shadow-1);
+  }
+
+  .panel-head {
+    border-bottom-color: var(--line);
+  }
+
+  .panel-head h2,
+  .panel-head h3 {
+    font-size: var(--text-base);
+    letter-spacing: -0.01em;
+  }
+
+  /* Badges: tighter, with a smaller dot. */
+  .badge {
+    padding: 2px 9px;
+    font-weight: 600;
+    letter-spacing: 0.005em;
+  }
+
+  .badge::before {
+    width: 5px;
+    height: 5px;
+  }
+
+  /* Segmented controls: the chosen segment sits on a raised surface. */
+  .segmented {
+    background: var(--paper-2);
+    border-color: transparent;
+  }
+
+  .segmented button[aria-pressed="true"],
+  .segmented button[aria-pressed="true"]:hover:not(:disabled) {
+    box-shadow: var(--shadow-2);
+  }
+
+  /* The project's section tabs (shown on phones; the sidebar has them on wider screens). */
+  .project-tabs {
+    background: none;
+  }
+
+  .project-tabs a {
+    transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-base) var(--ease-out);
+  }
+
+  .project-tabs a:hover {
+    color: var(--ink);
+  }
+
+  .project-tabs a[aria-current="page"] {
+    border-color: var(--primary);
+  }
+
+  /* Tables: tabular numbers, and the row under the pointer lights up. */
+  .data-table,
+  .ib-table,
+  .cp-table,
+  .bs-table,
+  .an-table {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .data-table th {
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  :is(.data-table, .ib-table, .cp-table, .bs-table, .an-table) tbody tr {
+    transition: background-color var(--dur-fast) var(--ease-out);
+  }
+
+  :is(.data-table, .ib-table, .cp-table, .bs-table, .an-table) tbody tr:hover {
+    background-color: color-mix(in srgb, var(--primary) 5%, transparent);
+  }
+
+  /* Page heading: a confident title, the summary right under it. */
+  .page-head {
+    align-items: flex-end;
+    gap: var(--space-4) var(--space-6);
+  }
+
+  .page-head h1 {
+    font-size: var(--text-3xl);
+    letter-spacing: -0.03em;
+  }
+
+  .page-head p {
+    color: var(--ink-2);
+  }
+
+  /* Empty states teach: a tinted mark and room to breathe, not a dashed void. */
+  .empty {
+    border-style: dashed;
+    border-color: var(--line-strong);
+    background: color-mix(in srgb, var(--surface) 60%, transparent);
+  }
+
+  .empty .icon {
+    color: var(--primary);
+  }
+
+  .notice {
+    border-color: var(--line);
+    background: var(--surface);
+  }
+
+  .error {
+    border-radius: var(--radius-md);
+  }
+
+  pre {
+    border-radius: var(--radius-md);
+  }
+
+  .stat {
+    border-color: var(--line);
+    box-shadow: var(--shadow-1);
+  }
+}
+
+/* Per-area dark tweaks follow the dashboard's own dark mode as well as data-theme. */
+.dark .admin-root {
+  scrollbar-color: color-mix(in srgb, var(--foreground) 26%, transparent) var(--background);
+}
+:root:has(.admin-root) {
+  scrollbar-color: color-mix(in srgb, var(--foreground) 24%, transparent) var(--background);
+}
+
+/* Reduced motion: no lift and no press in the dashboard; colour changes still show the state. */
+@media (prefers-reduced-motion: reduce) {
+  .admin-root :is(button, .button, a):is(:hover, :active) {
+    translate: none !important;
+    scale: none !important;
+  }
 }

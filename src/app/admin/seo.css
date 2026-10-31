@@ -84,7 +84,7 @@
   color: #1a4fd1;
 }
 
-[data-theme="dark"] .seo-result-title {
+:is([data-theme="dark"], .dark .admin-root) .seo-result-title {
   color: #8fb0ff;
 }
 

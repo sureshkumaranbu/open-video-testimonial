@@ -1,6 +1,8 @@
 /* Admin UI kit (src/components/admin, plan §3.4). Every class starts with
  * `ak-`; colours, type, space, layers and motion all come from the tokens in
- * globals.css, so the dark theme and project accents follow for free.
+ * globals.css (which the dashboard derives from theme.css), so the brand,
+ * the dark theme and project accents follow for free. The brand's --primary
+ * marks what's on or chosen: toggles, the selected tab, the current page.
  * Contrast: body text uses --ink or --ink-2 (both pass 4.5:1 on --surface and
  * --paper); --ink-3 is kept for icons and borders, where 3:1 is enough. */
 
@@ -40,6 +42,7 @@
   /* Clips the header and footer to the rounded corners; the body scrolls itself. */
   overflow: hidden;
   background: var(--surface);
+  border: 1px solid var(--line);
   box-shadow: var(--shadow-3);
 }
 
@@ -145,29 +148,31 @@
   }
 }
 
+/* Dialogs rise in from a touch below, drawers glide in from their edge, and
+   the shade fades in behind; all on a decelerating curve. */
 @media (prefers-reduced-motion: no-preference) {
   .ak-modal[open] {
-    animation: ak-pop var(--dur-base) var(--ease-out);
+    animation: ak-pop 240ms var(--ease-out);
   }
   .ak-drawer[open] {
-    animation: ak-slide var(--dur-slow) var(--ease-out);
+    animation: ak-slide 360ms var(--ease-out);
   }
   .ak-overlay[open]::backdrop {
-    animation: ak-fade var(--dur-base) var(--ease-out);
+    animation: ak-fade 240ms var(--ease-out);
   }
 }
 
 @keyframes ak-pop {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.98);
+    transform: translateY(12px) scale(0.97);
   }
 }
 
 @keyframes ak-slide {
   from {
-    opacity: 0.4;
-    transform: translateX(32px);
+    opacity: 0.6;
+    transform: translateX(min(64px, 12vw));
   }
 }
 
@@ -196,7 +201,7 @@ button.ak-icon-button .icon {
 button.ak-danger,
 .button.ak-danger {
   --btn-bg: var(--danger);
-  --btn-fg: #ffffff;
+  --btn-fg: var(--on-danger, #ffffff);
 }
 
 button.ak-danger:hover:not(:disabled),
@@ -318,8 +323,8 @@ button.ak-danger:hover:not(:disabled),
 
 /* The current page is filled, and bold, whatever the hover state. */
 .ak-pager-numbers button.ghost[aria-current="page"]:not(:disabled) {
-  --btn-bg: var(--ink);
-  --btn-fg: var(--paper);
+  --btn-bg: var(--primary, var(--ink));
+  --btn-fg: var(--primary-foreground, var(--paper));
   font-weight: 700;
 }
 
@@ -449,8 +454,8 @@ button.ak-danger:hover:not(:disabled),
 }
 
 .ak-font-choice[data-checked] {
-  border-color: var(--ink);
-  box-shadow: inset 0 0 0 1px var(--ink);
+  border-color: var(--primary, var(--ink));
+  box-shadow: inset 0 0 0 1px var(--primary, var(--ink));
 }
 
 /* A tick as well as the heavier border, so the choice isn't shown by colour alone. */
@@ -461,8 +466,8 @@ button.ak-danger:hover:not(:disabled),
   right: var(--space-2);
   width: 10px;
   height: 6px;
-  border-left: 2px solid var(--ink);
-  border-bottom: 2px solid var(--ink);
+  border-left: 2px solid var(--primary, var(--ink));
+  border-bottom: 2px solid var(--primary, var(--ink));
   transform: rotate(-45deg);
 }
 
@@ -553,14 +558,16 @@ button.ak-danger:hover:not(:disabled),
   background: var(--surface);
 }
 
+/* A soft brand-tinted mark: the empty state belongs to the product, not to an error. */
 .ak-empty-icon {
   display: grid;
   place-items: center;
   width: 56px;
   height: 56px;
-  border-radius: 50%;
-  background: var(--paper-2);
-  color: var(--ink-2);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--primary, var(--ink)) 12%, var(--surface));
+  color: var(--primary, var(--ink-2));
+  rotate: -4deg;
 }
 
 .ak-empty-icon .icon {
@@ -570,6 +577,7 @@ button.ak-danger:hover:not(:disabled),
 
 .ak-empty-title {
   font-size: var(--text-lg);
+  letter-spacing: -0.015em;
 }
 
 .ak-empty-body {
@@ -624,11 +632,35 @@ button.ak-danger:hover:not(:disabled),
 /* ---------- Tabs ---------- */
 
 .ak-tablist {
+  position: relative;
   display: flex;
   gap: var(--space-1);
   border-bottom: 1px solid var(--line);
   overflow-x: auto;
   scrollbar-width: none;
+}
+
+/* Tabs.tsx measures the selected tab and moves one bar under it, so the
+   underline slides from tab to tab. Until it has measured (or without
+   script) each selected tab draws its own underline. */
+.ak-tablist[data-indicator]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: var(--ak-ind-w, 0);
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--primary, var(--ink));
+  translate: var(--ak-ind-x, 0) 0;
+  transition:
+    translate 280ms var(--ease-out),
+    width 280ms var(--ease-out);
+  pointer-events: none;
+}
+
+.ak-tablist[data-indicator] [role="tab"][aria-selected="true"] {
+  border-bottom-color: transparent;
 }
 
 .ak-tablist [role="tab"] {
@@ -655,7 +687,7 @@ button.ak-danger:hover:not(:disabled),
 /* Selected: darker text and a 2px underline (a shape, not just a colour). */
 .ak-tablist [role="tab"][aria-selected="true"] {
   --btn-fg: var(--ink);
-  border-bottom-color: var(--ink);
+  border-bottom-color: var(--primary, var(--ink));
 }
 
 /* Inset, because the row's overflow would clip an outline drawn outside. */
@@ -714,6 +746,10 @@ button.ak-chip[aria-pressed="true"]:hover:not(:disabled) {
   --btn-bg: color-mix(in srgb, var(--ink) 86%, var(--paper));
   --btn-fg: var(--paper);
   --btn-border: var(--ink);
+}
+
+button.ak-chip:active:not(:disabled) {
+  scale: 0.96;
 }
 
 button.ak-chip .count {
@@ -825,7 +861,8 @@ button.ak-chip[data-removable] .icon {
   background: var(--surface);
   transition:
     background-color var(--dur-base) var(--ease-out),
-    border-color var(--dur-base) var(--ease-out);
+    border-color var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out);
 }
 
 .ak-toggle-thumb {
@@ -836,19 +873,34 @@ button.ak-chip[data-removable] .icon {
   height: 18px;
   border-radius: 50%;
   background: var(--ink-3);
+  /* The thumb springs across: a short overshoot, then it settles. */
   transition:
-    transform var(--dur-base) var(--ease-out),
+    transform 320ms var(--ease-spring, var(--ease-out)),
+    width var(--dur-fast) var(--ease-out),
     background-color var(--dur-base) var(--ease-out);
 }
 
+.ak-toggle-label:hover .ak-toggle-track {
+  border-color: var(--ink-2);
+}
+
+/* Pressing stretches the thumb a little, like a finger on a real switch. */
+.ak-toggle-label:active input:not(:disabled) + .ak-toggle-track .ak-toggle-thumb {
+  width: 22px;
+}
+
 .ak-toggle-label input:checked + .ak-toggle-track {
-  background: var(--ink);
-  border-color: var(--ink);
+  background: var(--primary, var(--ink));
+  border-color: var(--primary, var(--ink));
 }
 
 .ak-toggle-label input:checked + .ak-toggle-track .ak-toggle-thumb {
   transform: translateX(18px);
-  background: var(--surface);
+  background: var(--primary-foreground, var(--surface));
+}
+
+.ak-toggle-label:active input:checked:not(:disabled) + .ak-toggle-track .ak-toggle-thumb {
+  transform: translateX(14px);
 }
 
 .ak-toggle-label input:focus-visible + .ak-toggle-track {
@@ -942,7 +994,7 @@ button.ak-chip[data-removable] .icon {
 .ak-search input[type="search"]:focus {
   outline: none;
   border-color: var(--focus);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--focus) 18%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--focus) 20%, transparent);
 }
 
 .ak-search-box .ak-icon-button {
@@ -970,14 +1022,14 @@ button.ak-chip[data-removable] .icon {
   padding: var(--space-2) var(--space-1) var(--space-2) var(--space-4);
   background: var(--ink);
   color: var(--paper);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-3);
   pointer-events: auto;
 }
 
 .ak-toast[data-tone="error"] {
   background: var(--danger);
-  color: #ffffff;
+  color: var(--on-danger, #ffffff);
 }
 
 .ak-toast-text {
@@ -998,7 +1050,14 @@ button.ak-chip[data-removable] .icon {
 
 @media (prefers-reduced-motion: no-preference) {
   .ak-toast {
-    animation: ak-rise var(--dur-base) var(--ease-out);
+    animation: ak-toast-in 320ms var(--ease-out);
+  }
+}
+
+@keyframes ak-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
   }
 }
 
@@ -1043,13 +1102,13 @@ button.ak-chip[data-removable] .icon {
 }
 
 .ak-progress progress::-webkit-progress-value {
-  background: var(--ink);
+  background: var(--primary, var(--ink));
   border-radius: var(--radius-pill);
   transition: inline-size var(--dur-slow) var(--ease-out);
 }
 
 .ak-progress progress::-moz-progress-bar {
-  background: var(--ink);
+  background: var(--primary, var(--ink));
   border-radius: var(--radius-pill);
 }
 

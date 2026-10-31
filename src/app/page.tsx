@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque } from "next/font/google";
 import { env } from "@/lib/env";
 import { previewTheme } from "@/lib/themes";
 import { bootScript } from "./_home/boot";
@@ -11,15 +10,8 @@ import { InView } from "./_home/InView";
 import { Platforms } from "./_home/Platforms";
 import { Compare, Faq, FinalCta, Footer, SelfHost } from "./_home/Sections";
 import { Studio } from "./_home/Studio";
+import { display } from "./fonts";
 import "./home.css";
-
-// Self-hosted at build time by next/font: visitors never contact Google. Only this page loads it.
-const display = Bricolage_Grotesque({
-  subsets: ["latin"],
-  variable: "--font-bricolage",
-  display: "swap",
-  axes: ["opsz"],
-});
 
 export const metadata: Metadata = {
   title: { absolute: "Plaudit: video and text testimonials, self-hosted" },
