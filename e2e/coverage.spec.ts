@@ -447,9 +447,11 @@ test.describe("home page", () => {
     expect(await page.getByTestId("hero-tile").evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgb(200, 51, 26)");
     await page.goto("/?theme=../../etc");
     await expect(page.getByTestId("home")).toHaveAttribute("data-brand", configured ?? /^(violet|tomato|teal|ink)$/);
-    // The dashboard keeps its own look.
+    // The dashboard follows the configured brand too (phase 2): its own --accent is the brand's --primary.
     await page.goto("/admin/login");
-    expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--accent").trim())).toBe("#161b2e");
+    const css = (name: string) => page.evaluate((n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim(), name);
+    expect(await css("--accent")).toBe(await css("--primary"));
+    if (configured) expect(await css("--accent")).toBe("#0b7a6c");
   });
 
   test("theming: the dark toggle applies before paint and persists; system is the default", async ({ page }) => {
@@ -558,17 +560,25 @@ test.describe("auth", () => {
 test.describe("admin at 375px", () => {
   test.use({ viewport: { width: 375, height: 812 } });
 
-  /** Nothing overflows sideways, and the app bar's trail never runs into its actions. */
+  /**
+   * Nothing overflows sideways, the app bar's trail never runs into its
+   * actions, and Settings and Sign out are reachable: on a phone they're in
+   * the menu sheet the top bar's button opens.
+   */
   async function fitsThePhone(page: Page) {
     const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, inner: window.innerWidth }));
     expect(widths.scroll).toBeLessThanOrEqual(widths.inner);
     const crumbs = (await page.locator(".app-bar .crumbs").boundingBox())!;
     const actions = (await page.locator(".app-bar-actions").boundingBox())!;
     expect(crumbs.x + crumbs.width).toBeLessThanOrEqual(actions.x);
+    await page.getByTestId("menu-button").click();
+    const menu = page.getByTestId("app-menu");
     for (const name of ["Settings", "Sign out"]) {
-      const box = (await page.getByRole(name === "Settings" ? "link" : "button", { name, exact: true }).first().boundingBox())!;
+      const box = (await menu.getByRole(name === "Settings" ? "link" : "button", { name, exact: true }).first().boundingBox())!;
       expect(box.x + box.width, name).toBeLessThanOrEqual(375);
     }
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
   }
 
   test("every admin page fits, and every control can be reached", async ({ page, baseURL }) => {
@@ -609,7 +619,8 @@ test.describe("admin at 375px", () => {
     await expect(page).toHaveURL(/\/requests$/);
     await fitsThePhone(page);
 
-    await page.getByRole("link", { name: "Settings", exact: true }).click();
+    await page.getByTestId("menu-button").click();
+    await page.getByTestId("app-menu").getByRole("link", { name: "Settings", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible();
     await fitsThePhone(page);
   });
